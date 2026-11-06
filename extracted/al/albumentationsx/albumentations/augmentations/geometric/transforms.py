@@ -7,11 +7,11 @@ transformations like grid shuffling and thin plate splines.
 
 import random
 from typing import Annotated, Any, ClassVar, Literal, Self, TypeVar, cast
-from warnings import warn
 
 import cv2
 import numpy as np
 from albucore import is_grayscale_image, is_rgb_image, warp_affine
+from numpy.typing import NDArray
 from pydantic import (
     Field,
     ValidationInfo,
@@ -42,7 +42,6 @@ from albumentations.core.type_definitions import (
     CV2_INTER_LINEAR,
     CV2_INTER_NEAREST,
     BorderModeType,
-    ImageType,
     InterpolationType,
     StackedMasks4D,
 )
@@ -197,12 +196,12 @@ class Perspective(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         max_height: int,
         max_width: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         result = fgeometric.perspective(
             img,
             matrix,
@@ -213,16 +212,16 @@ class Perspective(DualTransform):
             self.keep_size,
             self.interpolation,
         )
-        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation, source=img)
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         max_height: int,
         max_width: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         result = fgeometric.perspective_images(
             images,
             matrix,
@@ -233,16 +232,16 @@ class Perspective(DualTransform):
             self.keep_size,
             self.interpolation,
         )
-        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation, source=images)
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         max_height: int,
         max_width: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fgeometric.perspective(
             mask,
             matrix,
@@ -604,11 +603,11 @@ class Affine(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         output_shape: tuple[int, int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         height, width = output_shape
 
         result = warp_affine(
@@ -619,15 +618,15 @@ class Affine(DualTransform):
             border_mode=self.border_mode,
             border_value=self.fill,
         )
-        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation, source=img)
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         output_shape: tuple[int, int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         height, width = output_shape
         result = np.empty((len(images), height, width, images.shape[3]), dtype=images.dtype)
         for i, image in enumerate(images):
@@ -639,15 +638,19 @@ class Affine(DualTransform):
                 border_mode=self.border_mode,
                 border_value=self.fill,
             )
-        return fgeometric.clip_if_interpolation_can_overshoot(cast("ImageType", result), self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(
+            cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result),
+            self.interpolation,
+            source=images,
+        )
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         matrix: np.ndarray,
         output_shape: tuple[int, int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         height, width = output_shape
         return warp_affine(
             mask,
@@ -1003,11 +1006,6 @@ class ShiftScaleRotate(Affine):
             rotate_method=rotate_method,
             p=p,
         )
-        warn(
-            "ShiftScaleRotate is a special case of Affine transform. Please use Affine transform instead.",
-            UserWarning,
-            stacklevel=2,
-        )
         self.shift_range_x = shift_range_x
         self.shift_range_y = shift_range_y
 
@@ -1182,21 +1180,21 @@ class GridElasticDeform(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         generated_mesh: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not is_rgb_image(img) and not is_grayscale_image(img):
             raise ValueError("GridElasticDeform transform is only supported for RGB and grayscale images.")
         result = fgeometric.distort_image(img, generated_mesh, self.interpolation)
-        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation, source=img)
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         generated_mesh: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fgeometric.distort_image(mask, generated_mesh, self.mask_interpolation)
 
     def apply_to_bboxes(
@@ -1339,11 +1337,11 @@ class RandomGridShuffle(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         tiles: np.ndarray,
         mapping: list[int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fgeometric.swap_tiles_on_image(img, tiles, mapping)
 
     def apply_to_bboxes(
@@ -1501,10 +1499,10 @@ class Morphological(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         kernel: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fgeometric.morphology(img, kernel, self.operation)
 
     def apply_to_bboxes(

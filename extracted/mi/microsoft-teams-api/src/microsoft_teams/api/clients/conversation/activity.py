@@ -5,9 +5,9 @@ Licensed under the MIT License.
 
 import logging
 from typing import Callable, List, Optional, cast
+from urllib.parse import quote
 
-import httpx
-from microsoft_teams.common.experimental import experimental
+import httpx2
 from microsoft_teams.common.http import Client
 from opentelemetry.trace import Span
 
@@ -17,7 +17,7 @@ from ...diagnostics._constants import (
     API_OUTBOUND_OPERATIONS,
 )
 from ...diagnostics._outbound import ApiOutboundResponseHook, ApiOutboundTelemetryMetadata
-from ...models import AgenticIdentity, TeamsChannelAccount
+from ...models import AgenticIdentity, PlanInfoEntity, TeamsChannelAccount
 from ..api_client_settings import ApiClientSettings
 from ..base_client import BaseClient
 
@@ -94,6 +94,12 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
+
+        # Note: Non-complete plan activities return 202 with an empty body
+        if any(
+            isinstance(entity, PlanInfoEntity) and entity.plan_type != "complete" for entity in activity.entities or []
+        ):
+            return SentActivity(id=_PLACEHOLDER_ACTIVITY_ID, activity_params=activity)
 
         # Note: Typing activities (non-streaming) always produce empty responses.
         # Note: For streaming activities, the first response includes the stream id.
@@ -181,7 +187,117 @@ class ConversationActivityClient(BaseClient):
                 on_response=_set_response_activity_id,
             ),
         )
+
+        # Note: Non-complete plan activities return 202 with an empty body
+        if any(
+            isinstance(entity, PlanInfoEntity) and entity.plan_type != "complete" for entity in activity.entities or []
+        ):
+            return SentActivity(id=_PLACEHOLDER_ACTIVITY_ID, activity_params=activity)
+
         id = response.json()["id"]
+        return SentActivity(id=id, activity_params=activity)
+
+    async def create_reply_chain(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """
+        Create an activity inside a reply chain (thread).
+
+        This API is in preview and may change in the future.
+        Diagnostic: ExperimentalTeamsThreading
+
+        Args:
+            conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
+                **not** `conversation.id`.
+            activity_id: The id of the message at the root of the reply chain.
+                Use `channel_data.reply_chain.id`.
+            activity: The activity to create
+
+        Returns:
+            The created activity
+        """
+        return await self._create_reply_chain(
+            conversation_id, activity_id, activity, False, service_url, agentic_identity
+        )
+
+    async def create_targeted_reply_chain(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        *,
+        service_url: str | None = None,
+        agentic_identity: AgenticIdentity | None = None,
+    ) -> SentActivity:
+        """
+        Create an activity inside a reply chain (thread) that is visible only to the specified recipient.
+
+        Takes the same arguments as :meth:`create_reply_chain`.
+
+        This API is in preview and may change in the future.
+        Diagnostic: ExperimentalTeamsThreading
+
+        Args:
+            conversation_id: The id of the chat or channel: `channel_data.chat.id` or `channel_data.channel.id`,
+                **not** `conversation.id`.
+            activity_id: The id of the message at the root of the reply chain.
+                Use `channel_data.reply_chain.id`.
+            activity: The activity to create
+
+        Returns:
+            The created activity
+        """
+        return await self._create_reply_chain(
+            conversation_id, activity_id, activity, True, service_url, agentic_identity
+        )
+
+    async def _create_reply_chain(
+        self,
+        conversation_id: str,
+        activity_id: str,
+        activity: ActivityParams,
+        targeted: bool,
+        service_url: str | None,
+        agentic_identity: AgenticIdentity | None,
+    ) -> SentActivity:
+        if not conversation_id or not conversation_id.strip():
+            raise ValueError("conversation_id must be a non-empty string")
+        if not activity_id or not activity_id.strip():
+            raise ValueError("activity_id must be a non-empty string")
+        # A dot segment is not percent-encoded.
+        # An HTTP client collapses it, and the request leaves the replyChains route.
+        if conversation_id in (".", ".."):
+            raise ValueError("conversation_id must not be a dot segment")
+        if activity_id in (".", ".."):
+            raise ValueError("activity_id must not be a dot segment")
+
+        scoped_client = self._scoped_client(service_url, agentic_identity)
+        if scoped_client is not self:
+            return await scoped_client._create_reply_chain(conversation_id, activity_id, activity, targeted, None, None)
+
+        query = "?isTargetedActivity=true" if targeted else ""
+        response = await self.http.post(
+            f"{self._get_service_url(service_url)}/v3/conversations/{quote(conversation_id, safe='')}"
+            f"/replyChains/{quote(activity_id, safe='')}{query}",
+            json=activity.model_dump(by_alias=True, exclude_none=True),
+            _metadata=self._create_activity_telemetry_metadata(
+                API_OUTBOUND_OPERATIONS.create_targeted_reply_chain
+                if targeted
+                else API_OUTBOUND_OPERATIONS.create_reply_chain,
+                conversation_id,
+                service_url=service_url,
+                activity=activity,
+                on_response=_set_response_activity_id,
+            ),
+        )
+        # Typing activities (non-streaming) answer with an empty body.
+        id = response.json().get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
     async def delete(
@@ -241,7 +357,6 @@ class ConversationActivityClient(BaseClient):
         )
         return [TeamsChannelAccount.model_validate(member) for member in response.json()]
 
-    @experimental("ExperimentalTeamsTargeted")
     async def create_targeted(
         self,
         conversation_id: str,
@@ -254,10 +369,6 @@ class ConversationActivityClient(BaseClient):
         Create a new targeted activity in a conversation.
 
         Targeted activities are only visible to the specified recipient.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -286,7 +397,6 @@ class ConversationActivityClient(BaseClient):
         id = response_body.get("id", _PLACEHOLDER_ACTIVITY_ID)
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("ExperimentalTeamsTargeted")
     async def update_targeted(
         self,
         conversation_id: str,
@@ -298,10 +408,6 @@ class ConversationActivityClient(BaseClient):
     ) -> SentActivity:
         """
         Update an existing targeted activity in a conversation.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -331,7 +437,6 @@ class ConversationActivityClient(BaseClient):
         id = response.json()["id"]
         return SentActivity(id=id, activity_params=activity)
 
-    @experimental("ExperimentalTeamsTargeted")
     async def delete_targeted(
         self,
         conversation_id: str,
@@ -342,10 +447,6 @@ class ConversationActivityClient(BaseClient):
     ) -> None:
         """
         Delete a targeted activity from a conversation.
-
-        .. warning:: Preview
-            This API is in preview and may change in the future.
-            Diagnostic: ExperimentalTeamsTargeted
 
         Args:
             conversation_id: The ID of the conversation
@@ -393,7 +494,7 @@ class ConversationActivityClient(BaseClient):
         )
 
 
-def _set_response_activity_id(span: Span, response: httpx.Response) -> None:
+def _set_response_activity_id(span: Span, response: httpx2.Response) -> None:
     try:
         response_body = response.json()
     except ValueError as exception:

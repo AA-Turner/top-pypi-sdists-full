@@ -8,9 +8,12 @@ from anyscale.events._private.events_sdk import PrivateEventsSDK
 from anyscale.events.commands import (
     _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE,
+    _LIST_PAGE_ARG_DOCSTRINGS,
+    _LIST_PAGE_EXAMPLE,
     list as list,  # noqa: A004
+    list_page as list_page,
 )
-from anyscale.events.models import Event, EventsFilter
+from anyscale.events.models import Event, EventsFilter, EventsPage
 
 
 class EventsSDK:
@@ -30,3 +33,13 @@ class EventsSDK:
     def list(self, events_filter: EventsFilter) -> List[Event]:  # noqa: F811
         """List events of a job, service, workspace or cluster. Newest first by default."""
         return self._private_sdk.list(events_filter)
+
+    @sdk_docs(
+        doc_py_example=_LIST_PAGE_EXAMPLE,
+        arg_docstrings=_LIST_PAGE_ARG_DOCSTRINGS,
+    )
+    def list_page(  # noqa: F811
+        self, events_filter: EventsFilter, *, page_token: Optional[str] = None
+    ) -> EventsPage:
+        """List one page of events of a job, service, workspace or cluster, and a next token."""
+        return self._private_sdk.list_page(events_filter, page_token=page_token)

@@ -92,32 +92,32 @@ class InstancesClient:
             q += f"&version={quote(version, safe='')}&version_scope=exact"
         else:
             q += "&version_scope=unversioned"
-        q += "&page=1&page_size=200"
-        try:
-            data = self._t.get(f"/apis/v1/datasets/splits?{q}")
-        except TransportError as e:
-            # dataset 不存在（92001）→ 首次 push，放行
-            if e.biz_code == 92001:
+        # A published split on a later page must also fence overwrite. Keep a
+        # finite request budget and fail closed on malformed/unbounded listings.
+        for page in range(1, 1001):
+            try:
+                data = self._t.get(
+                    f"/apis/v1/datasets/splits?{q}&page={page}&page_size=200")
+            except TransportError as e:
+                if e.biz_code == 92001:
+                    return
+                raise
+            items = data.get("data") if isinstance(data, dict) else data
+            if not isinstance(items, list) or any(not isinstance(s, dict) for s in items):
+                raise SchemaError("invalid split listing while checking overwrite")
+            locked = [s.get("name", s.get("split", "?"))
+                      for s in items if s.get("status") == "published"]
+            if locked:
+                locked_str = ", ".join(f"'{n}'" for n in locked)
+                raise SchemaError(
+                    f"dataset '{dataset}' (version={version}) has locked splits: "
+                    f"{locked_str}. overwrite=True is refused because published "
+                    f"splits cannot be overwritten. Use "
+                    f"splits.update(status='draft') to unlock first, or push to "
+                    f"a different dataset/version.")
+            if len(items) < 200:
                 return
-            raise
-        # 解析分页响应
-        items = []
-        if isinstance(data, dict):
-            items = data.get("data", [])
-        elif isinstance(data, list):
-            items = data
-        # 找出所有 published 的 split
-        locked = [s.get("name", s.get("split", "?"))
-                  for s in items
-                  if isinstance(s, dict) and s.get("status") == "published"]
-        if locked:
-            locked_str = ", ".join(f"'{n}'" for n in locked)
-            raise SchemaError(
-                f"dataset '{dataset}' (version={version}) has locked splits: "
-                f"{locked_str}. overwrite=True is refused because published "
-                f"splits cannot be overwritten. Use "
-                f"splits.update(status='draft') to unlock first, or push to "
-                f"a different dataset/version.")
+        raise SchemaError("split overwrite check exceeded its page budget")
 
     def _after_upload(self, register: bool, dataset: str,
                       version: str, instance_id: str,
@@ -571,10 +571,19 @@ class InstancesClient:
     def delete(self, dataset: str, version: str, instance_id: str, *,
                split: str | None = None,
                environment: str | None = None,
-               metadata_model: str | None = None) -> None:
+               metadata_model: str | None = None,
+               delete_files: bool = False) -> None:
         """删除单个实例的元数据记录（``DELETE /datasets/instances/detail``）。
 
-        仅删除 MongoDB 记录，不删除 OSS 对象。后续 ingest 扫描可能重建该记录。
+        默认仅删除 MongoDB 记录，后续 ingest 可能重建记录。
+
+        ``delete_files=True`` 显式删除 canonical split-first 布局下该实例的
+        JSON、assets 和 report 子树，然后删除数据库记录。不会删除 ACR 镜像或
+        OSS 历史版本。仅走私网，要求服务端签发 ListObjects/DeleteObject 权限；
+        SDK 不授予或推断 Admin/Writer 权限，实际权限以服务端和 OSS 为准。
+        OSS 失败时保留数据库记录；数据库失败时文件可能已删，原参数可重试。
+        此操作不具备跨 OSS/数据库事务性，调用方必须先停止同实例的上传/ingest。
+        非 canonical storage_path 不支持文件删除，不能用 manifest 扩大删除范围。
         """
         from urllib.parse import quote
         if not (dataset or "").strip():
@@ -598,8 +607,94 @@ class InstancesClient:
             requested_model = getattr(self._p, "metadata_model", None)
         params.append(("metadata_model",
                        business_metadata_model(requested_model)))
+        if not isinstance(delete_files, bool):
+            raise SchemaError("delete_files must be a bool")
+        if delete_files:
+            self._delete_instance_files(
+                dataset.strip(), (version or "").strip(), instance_id.strip(),
+                split=split, environment=env,
+                metadata_model=requested_model)
         qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params)
-        self._t.delete(f"/apis/v1/datasets/instances/detail?{qs}")
+        failure = None
+        try:
+            self._t.delete(f"/apis/v1/datasets/instances/detail?{qs}")
+        except Exception as exc:
+            if not delete_files:
+                raise
+            status = getattr(exc, "status", None)
+            code = getattr(exc, "biz_code", None)
+            failure = TransportError(
+                "OSS files were removed but instance metadata deletion failed; "
+                "retry the same deletion after resolving server authorization or availability",
+                status=status if isinstance(status, int) else None,
+                biz_code=code if isinstance(code, int) else None)
+        if failure is not None:
+            raise failure from None
+
+    def _delete_instance_files(self, dataset: str, version: str, instance_id: str, *,
+                               split: str | None, environment: str,
+                               metadata_model: str | None) -> None:
+        """Validate the complete locator before either storage or metadata mutation."""
+        lay = self._layout(metadata_model)
+        P.DatasetName.parse(dataset)
+        validate_instance_id(instance_id)
+        # Reject aliases/traversal instead of letting Layout strip slashes.
+        for name, value in (("version", version), ("split", split)):
+            if name == "version" and not value:
+                continue
+            if not isinstance(value, str) or value != value.strip():
+                raise SchemaError(f"{name} must be a canonical path segment")
+            validate_instance_id(value)
+        P.DatasetName.parse(lay.prefix)
+        bound_env = (getattr(self._p, "dataset_environment", "") or "").strip()
+        if not bound_env or environment != bound_env:
+            raise SchemaError(
+                "file deletion requires environment to match the storage profile")
+        bucket = getattr(self._p, "oss_bucket", "")
+        if not bucket or getattr(self._content, "bucket_name", None) != bucket:
+            raise SchemaError("file deletion requires a matching OSS content store")
+        operation = getattr(self._content, "delete_instance", None)
+        if not callable(operation):
+            raise SchemaError("content store does not support instance file deletion")
+        # Read the registered record without OSS discovery. A custom storage_path
+        # must never turn a canonical-layout delete into deletion of other bytes.
+        meta = self.get(dataset, version, instance_id, split,
+                        environment=environment, metadata_model=lay.model,
+                        fallback_to_oss=False)
+        if meta is None or (
+                meta.dataset, meta.dataset_version, meta.instance_id, meta.split
+        ) != (dataset, version, instance_id, split):
+            raise SchemaError("file deletion requires the matching registered instance")
+        main = lay.metadata_key(dataset, instance_id, version=version, split=split)
+        assets = lay.assets_dir(dataset, instance_id, version=version, split=split)
+        report = lay.report_key(dataset, instance_id, version=version, split=split)
+        main_uri = f"oss://{bucket}/{main}"
+        allowed = (f"oss://{bucket}/{assets}",
+                   f"oss://{bucket}/{report.rsplit('/', 1)[0]}/")
+        if not any(entry.file_path == main_uri for entry in meta.manifest):
+            raise SchemaError("file deletion requires a canonical metadata JSON manifest")
+        for entry in meta.manifest:
+            uri = entry.file_path
+            if not isinstance(uri, str) or not (
+                    uri == main_uri or any(
+                        uri == prefix.rstrip("/") or uri.startswith(prefix)
+                        for prefix in allowed)):
+                raise SchemaError(
+                    "file deletion only supports canonical instance manifests")
+        failure = None
+        try:
+            operation(dataset, version, instance_id, split=split, layout=lay)
+        except Exception as exc:
+            # Do not propagate OSS exceptions containing signed URLs/credentials.
+            status = getattr(exc, "status", None)
+            failure = TransportError(
+                "instance file deletion failed; metadata was not deleted; "
+                "check server-issued ListObjects/DeleteObject permission and "
+                "private connectivity; files may be partially removed; "
+                "stop concurrent writers before retrying",
+                status=status if isinstance(status, int) else None)
+        if failure is not None:
+            raise failure from None
 
     def update(self, dataset: str, version: str, instance_id: str, *,
                split: str | None = None, dataset_split_id: str | None = None,
@@ -1732,7 +1827,7 @@ class InstancesClient:
         concurrency:
             Maximum number of parallel downloads (default 8).
         continue_on_error:
-            ``False`` (default) — first failure raises ``ItemError`` (all-or-nothing).
+            ``False`` (default) — first failure raises ``ItemError``; completed downloads are retained.
             ``True`` — failures are captured as ``ItemError`` placeholders in the
             returned list; successful entries contain the downloaded :class:`Path`.
         verify:

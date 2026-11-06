@@ -2,6 +2,8 @@
 
 from typing import Annotated, Any, Literal, Self, cast
 
+from numpy.typing import NDArray
+
 from albumentations.core.invocation import SamplingContext
 from albumentations.core.transform_params import SampledParams, TargetParams, TargetSet, requirements_for_views
 
@@ -14,7 +16,6 @@ from ._transforms_shared import (
     BboxProcessor,
     DualTransform,
     FullInterpolationType,
-    ImageType,
     KeypointsProcessor,
     StackedMasks4D,
     Targets,
@@ -700,7 +701,7 @@ class Mosaic(DualTransform):
 
         `keep_mask` is positional over `combined_bboxes`. `surviving_instance_ids` is the
         `_INSTANCE_ID` set extracted from `combined_bboxes[keep_mask]` when instance binding
-        is active, otherwise `None` (legacy in-bounds-only filtering kicks in).
+        is active. Without binding, bbox survival uses the existing in-bounds-only policy.
         """
         bbox_processor = cast("BboxProcessor", self.get_processor("bboxes"))
         if bbox_processor is None:
@@ -786,12 +787,12 @@ class Mosaic(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         processed_cells: dict[tuple[int, int, int, int], dict[str, Any]],
         target_shape: tuple[int, int],
         additional_image: str | None,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fmixing.assemble_mosaic_from_processed_cells(
             processed_cells=processed_cells,
             target_shape=target_shape,
@@ -803,12 +804,12 @@ class Mosaic(DualTransform):
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         processed_cells: dict[tuple[int, int, int, int], dict[str, Any]],
         target_mask_shape: tuple[int, int],
         additional_mask: str | None,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fmixing.assemble_mosaic_from_processed_cells(
             processed_cells=processed_cells,
             target_shape=target_mask_shape,
@@ -834,8 +835,7 @@ class Mosaic(DualTransform):
             fill=self.fill_mask,
         )
         # Mirror the bbox survival decision onto masks so `len(masks) == len(bboxes)` going
-        # into the next transform. Only kicks in under instance binding; without binding the
-        # legacy "one mask per per-cell input mask" semantics are preserved.
+        # into the next transform. Without instance binding, each cell keeps its input mask rows.
         if mosaic_survival is not None and mosaic_survival.get("surviving_instance_ids") is not None:
             keep_mask = mosaic_survival["keep_mask"]
             if assembled.shape[0] == keep_mask.shape[0]:

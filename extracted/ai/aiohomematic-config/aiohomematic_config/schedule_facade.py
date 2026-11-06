@@ -15,7 +15,6 @@ import inspect
 from typing import Any
 
 from aiohomematic.const import ScheduleProfile, WeekdayStr
-from aiohomematic.interfaces import ClimateWeekProfileDataPointProtocol
 from aiohomematic.interfaces.model import DeviceProtocol
 from aiohomematic.model.schedule_models import ClimateSchedulePeriod, ClimateWeekdaySchedule
 
@@ -88,8 +87,7 @@ async def get_climate_schedule(
     profile: str | None = None,
 ) -> ClimateScheduleData:
     """Return climate schedule data for a device."""
-    wp_dp = device.week_profile_data_point
-    if not isinstance(wp_dp, ClimateWeekProfileDataPointProtocol):
+    if (wp_dp := device.climate_week_profile_data_point) is None:
         msg = f"Device {device.name} does not support climate schedules"
         raise TypeError(msg)
 
@@ -119,8 +117,7 @@ async def set_climate_schedule_weekday(
     simple_weekday_list: list[dict[str, Any]],
 ) -> None:
     """Set climate schedule weekday data."""
-    wp_dp = device.week_profile_data_point
-    if not isinstance(wp_dp, ClimateWeekProfileDataPointProtocol):
+    if (wp_dp := device.climate_week_profile_data_point) is None:
         msg = f"Device {device.name} does not support climate schedules"
         raise TypeError(msg)
 
@@ -141,8 +138,7 @@ def set_climate_active_profile(
     profile: str,
 ) -> None:
     """Set the active climate schedule profile."""
-    wp_dp = device.week_profile_data_point
-    if not isinstance(wp_dp, ClimateWeekProfileDataPointProtocol):
+    if (wp_dp := device.climate_week_profile_data_point) is None:
         msg = f"Device {device.name} does not support climate schedules"
         raise TypeError(msg)
 

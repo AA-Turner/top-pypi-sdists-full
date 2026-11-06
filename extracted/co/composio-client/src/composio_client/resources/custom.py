@@ -59,7 +59,7 @@ class CustomResource(SyncAPIResource):
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -81,7 +81,7 @@ class CustomResource(SyncAPIResource):
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -103,7 +103,7 @@ class CustomResource(SyncAPIResource):
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -122,7 +122,7 @@ class CustomResource(SyncAPIResource):
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -132,7 +132,7 @@ class CustomResource(SyncAPIResource):
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)
@@ -390,7 +390,7 @@ class AsyncCustomResource(AsyncAPIResource):
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -412,7 +412,7 @@ class AsyncCustomResource(AsyncAPIResource):
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -434,7 +434,7 @@ class AsyncCustomResource(AsyncAPIResource):
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -453,7 +453,7 @@ class AsyncCustomResource(AsyncAPIResource):
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -463,7 +463,7 @@ class AsyncCustomResource(AsyncAPIResource):
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)
@@ -717,7 +717,7 @@ class CustomResourceWithRawResponse:
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -739,7 +739,7 @@ class CustomResourceWithRawResponse:
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -761,7 +761,7 @@ class CustomResourceWithRawResponse:
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -780,7 +780,7 @@ class CustomResourceWithRawResponse:
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -790,7 +790,7 @@ class CustomResourceWithRawResponse:
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)
@@ -1044,7 +1044,7 @@ class AsyncCustomResourceWithRawResponse:
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1066,7 +1066,7 @@ class AsyncCustomResourceWithRawResponse:
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1088,7 +1088,7 @@ class AsyncCustomResourceWithRawResponse:
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1107,7 +1107,7 @@ class AsyncCustomResourceWithRawResponse:
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -1117,7 +1117,7 @@ class AsyncCustomResourceWithRawResponse:
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)
@@ -1371,7 +1371,7 @@ class CustomResourceWithStreamingResponse:
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1393,7 +1393,7 @@ class CustomResourceWithStreamingResponse:
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1415,7 +1415,7 @@ class CustomResourceWithStreamingResponse:
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1434,7 +1434,7 @@ class CustomResourceWithStreamingResponse:
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -1444,7 +1444,7 @@ class CustomResourceWithStreamingResponse:
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)
@@ -1713,7 +1713,7 @@ class AsyncCustomResourceWithStreamingResponse:
         body: BodyParam | None = None,
         *,
         name: str,
-        app_url: str,
+        mcp_url: str,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1735,7 +1735,7 @@ class AsyncCustomResourceWithStreamingResponse:
         body: BodyParam,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1757,7 +1757,7 @@ class AsyncCustomResourceWithStreamingResponse:
         body: BodyParam | None = None,
         *,
         name: str | Omit = omit,
-        app_url: str | Omit = omit,
+        mcp_url: str | Omit = omit,
         logo_file: custom_create_toolkit_params.LogoFile | Omit = omit,
         auth_schemes: Iterable[
             custom_create_toolkit_params.AuthSchemeVariant0
@@ -1776,7 +1776,7 @@ class AsyncCustomResourceWithStreamingResponse:
         body_fields = compact(
             {
                 "name": name,
-                "app_url": app_url,
+                "mcp_url": mcp_url,
                 "logo_file": logo_file,
                 "auth_schemes": auth_schemes,
                 "user_id": user_id,
@@ -1786,7 +1786,7 @@ class AsyncCustomResourceWithStreamingResponse:
         require_fields(
             body,
             body_fields,
-            ("name", "app_url", "auth_schemes", "user_id"),
+            ("name", "mcp_url", "auth_schemes", "user_id"),
             "body",
         )
         body_data = merge_body(body, body_fields)

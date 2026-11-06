@@ -50,6 +50,98 @@ pub(crate) mod goals {
             const { RefCell::new(None) };
         /// The deepest the trail grew inside a [`counted`] call.
         static DEEPEST: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        /// How many pairs the set representation was asked on this thread.
+        static READ_BY_THE_SETS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+        /// How many constructors stand on the path to the frame running.
+        static CROSSED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        /// The goals the path holds open, each with [`CROSSED`] as it was opened.
+        static OPENED: RefCell<Vec<(Schema, Schema, usize)>> = const { RefCell::new(Vec::new()) };
+    }
+
+    /// A constructor on the path for as long as this is held: what is asked below
+    /// it is about a value strictly inside the one above it.
+    pub(crate) struct Crossing;
+
+    /// Enter a rule whose goals are of a position, a key, a value or an attribute.
+    pub(crate) fn crossing() -> Crossing {
+        CROSSED.with(|crossed| crossed.set(crossed.get() + 1));
+        Crossing
+    }
+
+    /// The crossing `schema` is, where a reading of it asks of its positions.
+    pub(crate) fn crossing_of(schema: &Schema) -> Option<Crossing> {
+        matches!(
+            schema,
+            Schema::Seq { .. } | Schema::KeyedMap { .. } | Schema::AttrRecord { .. }
+        )
+        .then(crossing)
+    }
+
+    impl Drop for Crossing {
+        fn drop(&mut self) {
+            CROSSED.with(|crossed| crossed.set(crossed.get() - 1));
+        }
+    }
+
+    /// A goal opened on the path: the trail's, or `(s, nothing)` for the emptiness
+    /// of `s` [LN26, §5.1], which the lists beside it hold.
+    pub(crate) fn opened(sub: &Schema, sup: &Schema) {
+        let at = CROSSED.with(std::cell::Cell::get);
+        OPENED.with_borrow_mut(|open| open.push((sub.clone(), sup.clone(), at)));
+    }
+
+    /// The goal opened last, closed.
+    pub(crate) fn closed() {
+        OPENED.with_borrow_mut(|open| {
+            open.pop();
+        });
+    }
+
+    /// A goal open on the path for as long as this is held.
+    pub(crate) struct HeldOpen;
+
+    /// Open a goal until what this gives back is dropped.
+    pub(crate) fn held_open(sub: &Schema, sup: &Schema) -> HeldOpen {
+        opened(sub, sup);
+        HeldOpen
+    }
+
+    impl Drop for HeldOpen {
+        fn drop(&mut self) {
+            closed();
+        }
+    }
+
+    /// A goal met again, which reads as its assumption [AC93, §1.5]. That stands
+    /// only where a constructor lies between the two: a hypothesis read at a smaller
+    /// value is an induction on the value, and one read at the same value proves
+    /// anything. Contractive definitions are what is held to give it, and this is
+    /// where every query under test is held to it. A goal the path did not open is
+    /// one a test wrote on the list.
+    pub(crate) fn met_again(sub: &Schema, sup: &Schema) {
+        let now = CROSSED.with(std::cell::Cell::get);
+        let at = OPENED.with_borrow(|open| {
+            open.iter()
+                .rev()
+                .find(|(a, b, _)| a == sub && b == sup)
+                .map(|(_, _, at)| *at)
+        });
+        assert!(
+            at.is_none_or(|at| at < now),
+            "{sub:?} below {sup:?} is met again under no constructor"
+        );
+    }
+
+    /// Count a pair put to the set representation
+    /// ([`Schema::descriptor_contained_in`]).
+    pub(crate) fn read_by_the_sets() {
+        READ_BY_THE_SETS.with(|read| read.set(read.get() + 1));
+    }
+
+    /// How many pairs the set representation was asked on this thread so far:
+    /// read before and after a reading, what moved is how many it lowered.
+    pub(crate) fn pairs_read_by_the_sets() -> u64 {
+        READ_BY_THE_SETS.with(std::cell::Cell::get)
     }
 
     /// What one counted query asked.
@@ -89,8 +181,9 @@ pub(crate) mod goals {
         (answer, table.into_keys().collect())
     }
 
-    /// Run `query` with the table installed, and hand the table back.
-    fn tabled<T>(query: impl FnOnce() -> T) -> (T, FxHashMap<(Schema, Schema), u32>) {
+    /// Run `query` with the table installed, and hand the table back: every
+    /// goal it asked, with how often.
+    pub(crate) fn tabled<T>(query: impl FnOnce() -> T) -> (T, FxHashMap<(Schema, Schema), u32>) {
         ASKED.with(|asked| {
             let mut slot = asked.borrow_mut();
             assert!(slot.is_none(), "a count is already running on this thread");
@@ -481,14 +574,19 @@ fn distinct_against_subterm_pairs(sub: &Schema, sup: &Schema, defs: &[Schema]) -
 /// drawn from.
 ///
 /// A rule asks a pair of the children of the pair it was asked, or unfolds a
-/// reference into the definition `subterms` holds, except in three places. The
+/// reference into the definition `subterms` holds, except in four places. The
 /// product rule meets a component with the complement of a branch's
 /// component, one conjunct per narrowing, so what it asks is a meet of
 /// subterms and of their complements. The union rule asks the subject against
 /// the branches it can meet, which is a union of some members of a union among
-/// the subterms. And a complement or a meet folds to a bound, the top or the
-/// bottom. Each of the three is a subset or a sign of the subterms, so the
-/// closure is finite because they are.
+/// the subterms, at any depth ([`members_at_every_depth`]): the rules read a
+/// nested union as its members, so `X ∪ (Y ∪ ¬c)` is respelled `X ∪ Y`, which
+/// names members of two subterms, and a rule may keep one whole. A pair every
+/// decider declined against a complement is asked as the meet of the subject
+/// and the inner set below the bottom, and as the inner set below the
+/// subject's complement. And a complement or a meet folds to a bound, the top
+/// or the bottom. Each of the four is a subset or a sign of the subterms, so
+/// the closure is finite because they are.
 fn in_closure(term: &Schema, subterms: &[Schema]) -> bool {
     let signed = |t: &Schema| {
         subterms.contains(t) || matches!(t, Schema::Complement(inner) if subterms.contains(inner))
@@ -498,11 +596,30 @@ fn in_closure(term: &Schema, subterms: &[Schema]) -> bool {
         Schema::Nothing | Schema::Anything(_) => true,
         Schema::Intersection(members) => members.iter().all(signed),
         Schema::Union(members) => subterms.iter().any(|union| match union {
-            Schema::Union(theirs) => members.iter().all(|m| theirs.contains(m)),
+            Schema::Union(theirs) => {
+                let read = members_at_every_depth(theirs);
+                members.iter().all(|m| read.contains(&m))
+            }
             _ => false,
         }),
         _ => false,
     }
+}
+
+/// A union's members at every depth: each nested union itself, which a rule
+/// asking a union of some members keeps whole, and the members the rules read
+/// through it ([`flat_members`](super::flat_members)). A finite tree holds
+/// finitely many.
+fn members_at_every_depth(members: &[Schema]) -> Vec<&Schema> {
+    let mut found = Vec::new();
+    let mut pending: Vec<&Schema> = members.iter().collect();
+    while let Some(member) = pending.pop() {
+        found.push(member);
+        if let Schema::Union(inner) = member {
+            pending.extend(inner.iter());
+        }
+    }
+    found
 }
 
 /// The goals a query asks that fall outside the closure of its subterms, and
@@ -677,19 +794,19 @@ fn the_goals_a_query_asks_are_pairs_of_the_subterms() {
 }
 
 // THEORY: the-trail-holds-terms
-/// The longest trail any recursive shape in hand builds is three pairs.
+/// The longest trail any recursive shape in hand builds is two pairs.
 ///
 /// The deviation's cost is a scan over the trail at every recursive goal, and
 /// the sentence that bounds the cost is a number the recorder reads: every
 /// recursive pair the counter's shapes carry, and the pairs the fixpoint laws
 /// are written over, are asked with the trail's depth recorded, and the
-/// deepest is the figure the page states. The relation matrix alone reaches
-/// two; a list over a reference against a union holding that reference
-/// unfolds the reference on both sides and once more under the list, which is
-/// three. A shape whose trail grows past it fails here by name, which is what
+/// deepest is the figure the page states. Two definitions naming each other
+/// through a list and its complement unfold both references, which is two,
+/// and a list over one of them against a union holding it reaches two as
+/// well. A shape whose trail grows past it fails here by name, which is what
 /// turns the sentence into a claim the tree holds.
 #[test]
-fn the_longest_trail_any_recursive_shape_builds_is_three_pairs() {
+fn the_longest_trail_any_recursive_shape_builds_is_two_pairs() {
     let tree = tree_defs();
     let list_tree = vec![Schema::union([
         Schema::Int,
@@ -747,13 +864,13 @@ fn the_longest_trail_any_recursive_shape_builds_is_three_pairs() {
             "the counter saw no goal for {sub:?} <= {sup:?}"
         );
         assert!(
-            counts.deepest <= 3,
+            counts.deepest <= 2,
             "{sub:?} <= {sup:?} grew the trail to {} pairs",
             counts.deepest
         );
         deepest = deepest.max(counts.deepest);
     }
-    assert_eq!(deepest, 3, "no shape reached the length the page states");
+    assert_eq!(deepest, 2, "no shape reached the length the page states");
 }
 
 // THEORY: the-assumption-set-is-popped
@@ -796,6 +913,121 @@ fn a_goal_reached_by_two_paths_is_derived_twice_until_the_budget_declines() {
             .all(|(answer, _)| *answer == Relation::Holds)
     );
     assert_eq!(spent[17], (Relation::Unknown, DECISION_BUDGET));
+}
+
+/// A union subject stops asking members once one declines with the budget
+/// spent. A goal asked on a spent budget answers by the terms' membership or
+/// declines, and is never refuted, so the members after that decline change
+/// nothing, and asked anyway each scans the supertype's branches. With steps
+/// left a decline is not the end: a member after it may refute the union.
+#[test]
+fn a_union_stops_at_a_decline_its_budget_cannot_follow() {
+    let members = Schema::union([
+        Schema::Int,
+        Schema::Str,
+        Schema::Bytes,
+        Schema::Float,
+        Schema::NoneType,
+    ]);
+    let lists = Schema::union([list_of(Schema::Int), list_of(Schema::Str)]);
+    let (verdict, counts) =
+        goals::counted(|| members.subtype_relation(&lists, &PlainClasses, &[], &Budget::new(1)));
+    assert_eq!(verdict, Relation::Unknown);
+    // The pair, which spends the one step, and its first member, which finds
+    // none left: the four members after it are not asked.
+    assert_eq!(counts.asked, 2);
+
+    let pattern = |words: &str| refined(Schema::Str, Constraint::Regex(words.into()));
+    let steps = || Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        pattern("a").subtype_relation(&pattern("b"), &PlainClasses, &[], &steps()),
+        Relation::Unknown,
+        "the rules decline one pattern below another"
+    );
+    // Written raw, so the member the rules decline is asked first.
+    let declined_first = Schema::Union(vec![pattern("a"), Schema::Int].into());
+    assert_eq!(
+        declined_first.subtype_relation(&pattern("b"), &PlainClasses, &[], &steps()),
+        Relation::Fails
+    );
+}
+
+// THEORY: regularity-bounds-the-goals
+/// A supertype union is respelled through the union nested in it, inside the
+/// closure.
+///
+/// The pair: `{"n?": Any}` below `(¬Any ∪ {}) ∪ R`, `R` a chain of `n`. One
+/// unfolding of `R` holds the subject whole, so no reading of one unfolding
+/// names a value outside it and the pair reaches the respelling, which takes
+/// the complement out of the supertype's members read through the
+/// nested union and asks the subject below `{} ∪ R`, which names a member of
+/// each of two union subterms: a union of some members of the supertype read
+/// flat, and so a goal the closure holds. It is a goal built rather than
+/// found, which keeps the row from passing on a pair that never reached the
+/// respelling.
+#[test]
+fn a_supertype_union_is_respelled_through_its_nested_union_inside_the_closure() {
+    let empty = Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: Vec::new().into(),
+    };
+    let sub = Schema::KeyedMap {
+        fields: vec![crate::ir::Field {
+            name: "n".into(),
+            schema: Schema::ANYTHING,
+            required: false,
+        }]
+        .into(),
+        defaults: Vec::new().into(),
+    };
+    let sup = Schema::Union(
+        vec![
+            Schema::Union(vec![Schema::Complement(Arc::new(Schema::ANYTHING)), empty].into()),
+            Schema::Ref(DefIx::new(0)),
+        ]
+        .into(),
+    );
+    let defs = vec![Schema::Union(
+        vec![
+            Schema::NoneType,
+            Schema::KeyedMap {
+                fields: vec![crate::ir::Field {
+                    name: "n".into(),
+                    schema: Schema::Ref(DefIx::new(0)),
+                    required: false,
+                }]
+                .into(),
+                defaults: Vec::new().into(),
+            },
+        ]
+        .into(),
+    )];
+    let (outside, built) = outside_the_closure(&sub, &sup, &defs);
+    assert!(outside.is_empty(), "asked outside the closure: {outside:?}");
+    assert!(built >= 1, "the respelling built no goal");
+    // A nested union kept whole beside a member of the union holding it, as
+    // the union rule asks it in the constructors' order: `None` below
+    // `(¬c ∪ (bool)) ∪ R` asks `None` below `(bool) ∪ ¬c`.
+    let grouped = Schema::Union(
+        vec![
+            Schema::Union(
+                vec![
+                    Schema::Complement(Arc::new(Schema::Literal(crate::ir::ConstIx::new(0)))),
+                    Schema::Union(vec![Schema::Bool].into()),
+                ]
+                .into(),
+            ),
+            Schema::Ref(DefIx::new(0)),
+        ]
+        .into(),
+    );
+    let bools = vec![
+        Schema::Union(vec![Schema::Bool, list_of(Schema::Ref(DefIx::new(0)))].into()),
+        Schema::Union(vec![Schema::ANYTHING, list_of(Schema::Ref(DefIx::new(0)))].into()),
+    ];
+    let (outside, built) = outside_the_closure(&Schema::NoneType, &grouped, &bools);
+    assert!(outside.is_empty(), "asked outside the closure: {outside:?}");
+    assert!(built >= 1, "the union rule built no goal");
 }
 
 /// The same bound, asked of drawn pairs over drawn definitions.
@@ -841,4 +1073,58 @@ mod drawn {
             );
         }
     }
+}
+
+// THEORY: recursive-subtyping
+/// A goal met again under no constructor is refused by the recorder, on each of
+/// the three lists a goal is held open on. Each table is one the build refuses, a
+/// reference standing unguarded in its own definition, since no contractive one
+/// reaches this: the rows say the recorder is wired to the hit.
+#[should_panic(expected = "under no constructor")]
+#[test]
+fn a_goal_met_again_on_the_trail_stands_under_a_constructor() {
+    let this = Schema::Ref(DefIx::new(0));
+    let defs = [Schema::union([this.clone(), Schema::Int])];
+    let budget = Budget::new(DECISION_BUDGET);
+    let _ = this.subtype_relation(&Schema::Str, &super::NoLeafRelations, &defs, &budget);
+}
+
+// THEORY: recursive-subtyping
+/// See [`a_goal_met_again_on_the_trail_stands_under_a_constructor`].
+#[should_panic(expected = "under no constructor")]
+#[test]
+fn a_reference_met_again_stands_under_a_constructor() {
+    let this = Schema::Ref(DefIx::new(0));
+    let defs = [Schema::union([this.clone(), Schema::Int])];
+    let budget = Budget::new(DECISION_BUDGET);
+    let _ = this.verdict_rec(&mut super::Cx::new(&super::NoLeafRelations, &defs, &budget));
+}
+
+// THEORY: recursive-subtyping
+/// See [`a_goal_met_again_on_the_trail_stands_under_a_constructor`].
+#[should_panic(expected = "under no constructor")]
+#[test]
+fn a_meet_met_again_stands_under_a_constructor() {
+    let budget = Budget::new(DECISION_BUDGET);
+    let goal = vec![Schema::Int, Schema::Str];
+    let _open = super::emptiness::OpenMeet::open(&budget, goal.clone());
+    let _again = super::emptiness::OpenMeet::open(&budget, goal);
+}
+
+// THEORY: recursive-subtyping
+/// A recursive pair meets its goal again under the constructor its definition
+/// guards it with, and the recorder passes it: `μt. list[t]` below itself spelled
+/// apart holds, and the emptiness of a list of itself is read through the tail.
+#[test]
+fn a_goal_met_again_under_a_constructor_passes() {
+    let at = |index| Schema::Ref(DefIx::new(index));
+    let defs = [
+        Schema::list(SeqShape::homogeneous(at(0))),
+        Schema::list(SeqShape::homogeneous(at(1))),
+    ];
+    let budget = Budget::new(DECISION_BUDGET);
+    assert_eq!(
+        at(0).subtype_relation(&at(1), &super::NoLeafRelations, &defs, &budget),
+        Relation::Holds
+    );
 }

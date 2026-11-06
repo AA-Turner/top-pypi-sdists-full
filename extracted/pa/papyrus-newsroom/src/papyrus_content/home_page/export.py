@@ -11,17 +11,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
+from ..public_text import PRIVATE_SHAPES, WithheldReference, contains_private_shape, public_url, scrub  # noqa: F401 - re-exported: the scrub rule moved to public_text.py
+from ..reference_public_fields import chosen_preview, preview_metadata
 from ..ideas.digest import RELEVANCE_PREDICATE, relations_of, relevance_of
 from ..knowledge_snapshot.parallel import map_with_clients
 from ..reference_medium import MEDIUM_VIDEO, medium_of
 from ..reference_thumbnails import EDITOR_IMAGE, public_image as thumbnail_image
-from ..reference_feed_keys import UNDECIDED_PROBABILITY, accept_probability as decision_probability
+from ..reference_feed_keys import accept_probability as decision_probability
+from ..reference_titles import first_usable_title, needs_title, readable_name
 from .ordering import RANK_FIELD, rank_records, valid_stars
 
 if TYPE_CHECKING:
@@ -85,6 +89,12 @@ EXCLUDED_REFERENCE_FIELDS = {
     "captureState": PLUMBING,
     "mediumFeedKey": PLUMBING,
     "contentNeededKey": PLUMBING,
+    "publicFeedKey": PLUMBING + " (the public-blocks index partition, PPY-7f1e54)",
+    "publicOrderKey": PLUMBING + " (the public-blocks index sort key, PPY-7f1e54)",
+    "cardImage": "card copy: the picture address a card shows, stored on the row so a block needs no attachment read; published as image, never under this name",
+    "cardSummary": "card copy: the preview description, scrubbed and not clipped; published (clipped) as summary, never under this name",
+    "cardSiteName": "card copy: the preview site name, scrubbed; published as siteName, never under this name",
+    "cardPageTitle": "card copy: the title the page declared for link previews, scrubbed; a card that still has only an address for a title shows it (displayed_title), never under this name",
     "captureReason": PLUMBING,
     "evidenceLevel": "editorial classification: not shown to readers yet (the decision model will write it, PPY-f8ff49)",
     "playlistUrl": "plumbing: the playlist a video address also names, kept for following it later (PPY-566e82)",
@@ -94,40 +104,46 @@ EXCLUDED_REFERENCE_FIELDS = {
     "updatedAt": PLUMBING,
 }
 
-EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]*[A-Za-z][A-Za-z0-9-]*\.)+[A-Za-z]{2,}")
-UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-SITE_SUBJECT = re.compile(r"ss(?:1|dev)_[A-Za-z0-9_-]{8,}")
-PRIVATE_SHAPES = (EMAIL, UUID, SITE_SUBJECT)
 SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
-
-
-class WithheldReference(ValueError):
-    """A Reference whose address cannot be made public without identity in it."""
 
 
 def public_key(lineage_id: str) -> str:
     return hashlib.sha256(lineage_id.encode()).hexdigest()[:KEY_LENGTH]
 
 
-def accept_probability(decision: Mapping[str, Any] | None) -> float:
-    """P(the editor accepts) from a ``relevance_of`` decision, as ``lib/reference-feed-ranking.ts`` ``acceptProbability`` computes it."""
+def accept_probability(decision: Mapping[str, Any] | None) -> float | None:
+    """P(the editor accepts) from a ``relevance_of`` decision, as ``lib/reference-feed-ranking.ts`` ``acceptProbability`` computes it; None with no decision.
+
+    No decision is not 0.5: a number here would read as a prediction. The Newsroom's own feed still sorts an unpredicted Reference as 0.5, which is an editor's
+    queue and shows no confidence; nothing public does.
+    """
     if not decision:
-        return UNDECIDED_PROBABILITY
+        return None
     return decision_probability(decision.get("label"), decision.get("positiveLabel"), decision.get("confidence"))
 
 
-def contains_private_shape(text: str) -> bool:
-    return any(pattern.search(text) for pattern in PRIVATE_SHAPES)
+def stored_prediction(row: Mapping[str, Any]) -> float | None:
+    """The Cyclotron's original P(accept) written onto the row (``predictedAcceptProbability``), or None when the row has none.
 
-
-def scrub(text: Any) -> str | None:
-    if text is None:
+    This is the one definition of "a real prediction" on the row, and the home-page trigger (``amplify/plugins/home-page/function/handler.py``, ``can_show``,
+    which cannot import this package) mirrors it; a test feeds both the same rows. Only a finite number counts. ``predictionDecidedAt`` always
+    travels with it (they are written together, once) and is not the test. ``predictionSortKey`` is NOT evidence: every Reference gets one at creation,
+    ``0.500000#...`` for an unpredicted row, because the index needs a sort key, so it says nothing about whether a prediction exists.
+    """
+    value = row.get("predictedAcceptProbability")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         return None
-    cleaned = str(text)
-    for pattern in PRIVATE_SHAPES:
-        cleaned = pattern.sub("", cleaned)
-    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
-    return cleaned or None
+    return min(1.0, max(0.0, float(value)))
+
+
+def has_prediction(row: Mapping[str, Any]) -> bool:
+    return stored_prediction(row) is not None
+
+
+def live_probability(row: Mapping[str, Any], decision: Mapping[str, Any] | None) -> float | None:
+    """The P(accept) a card shows and the order reads: the current decision's, else the row's stored prediction, else None (never a stand-in number)."""
+    live = accept_probability(decision)
+    return live if live is not None else stored_prediction(row)
 
 
 def clip_summary(text: Any, characters: int) -> str | None:
@@ -142,20 +158,6 @@ def clip_summary(text: Any, characters: int) -> str | None:
         return window[: ends[-1]].strip()
     boundary = window.rfind(" ")
     return (window[:boundary] if boundary > 0 else window).rstrip(" ,;:") + "…"
-
-
-def public_url(address: Any) -> str | None:
-    """The address as it is public: a query or fragment that carries identity is dropped, and a path that does is withheld."""
-    if not address:
-        return None
-    text = str(address).strip()
-    if not contains_private_shape(text):
-        return text
-    parts = urlsplit(text)
-    bare = parts._replace(query="", fragment="").geturl()
-    if contains_private_shape(bare):
-        raise WithheldReference("address carries identity")
-    return bare
 
 
 def host_of(address: str | None) -> str | None:
@@ -186,16 +188,6 @@ def decimal(value: Any) -> float | None:
         return None
 
 
-def preview_metadata(preview: Mapping[str, Any] | None) -> Mapping[str, Any]:
-    metadata = (preview or {}).get("metadata")
-    if isinstance(metadata, str):
-        try:
-            metadata = json.loads(metadata)
-        except ValueError:
-            metadata = {}
-    return metadata if isinstance(metadata, Mapping) else {}
-
-
 def preview_details(preview: Mapping[str, Any] | None, summary_characters: int) -> dict[str, str | None]:
     if not preview:
         return {"image": None, "summary": None, "siteName": None}
@@ -212,6 +204,22 @@ def preview_details(preview: Mapping[str, Any] | None, summary_characters: int) 
     }
 
 
+def displayed_title(row: Mapping[str, Any], address: str | None, preview: Mapping[str, Any] | None) -> str:
+    """The title a card shows. A Reference titled with its own address shows the title its page declared for link previews when the preview holds one,
+    else a readable name made from the site and the address's own words (reference_titles.readable_name); never the raw address. Display only: the
+    stored title is left to the repair (``papyrus references repair-titles``) and to capture."""
+    title = None if needs_title(row) else scrub(row.get("title"))
+    if title:
+        return title
+    metadata = preview_metadata(preview)
+    found = first_usable_title(scrub(metadata.get("title")))
+    if found:
+        return found
+    if address:
+        return readable_name(address, scrub(metadata.get("siteName")))
+    return host_of(address) or "Untitled"
+
+
 def public_reference(
     row: Mapping[str, Any],
     decision: Mapping[str, Any] | None,
@@ -226,7 +234,7 @@ def public_reference(
     full: dict[str, Any] = {
         "key": public_key(str(row["lineageId"])),
         "status": STATUS_ACCEPTED if accepted else STATUS_RECOMMENDED,
-        "title": scrub(row.get("title")) or host_of(address) or "Untitled",
+        "title": displayed_title(row, address, preview),
         "authors": authors_of(row.get("authors")),
         "url": address,
         "host": host_of(address),
@@ -247,7 +255,7 @@ def public_reference(
         "stars": valid_stars(row.get("starRating")) if accepted else None,
         # Once an editor has accepted a Reference the Cyclotron's confidence no longer matters, so it is not published (the rank, which
         # orders the page, is computed from the row, below). A Reference accepted by a Cyclotron or a rule keeps it, and so does a pending one.
-        "confidence": None if accepted and row.get("curationActorKind") == "human" else decimal(accept_probability(decision)),
+        "confidence": None if accepted and row.get("curationActorKind") == "human" else decimal(live_probability(row, decision)),
         "predictedAcceptProbability": decimal(row.get("predictedAcceptProbability")),
         "predictionDecidedAt": row.get("predictionDecidedAt"),
         "inboundCitationCount": row.get("inboundCitationCount"),
@@ -278,10 +286,7 @@ def decision_of(client: Any, row: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 def preview_of(client: Any, row: Mapping[str, Any]) -> Mapping[str, Any] | None:
-    attachments = [item for item in client.list_reference_attachments_by_lineage(str(row["lineageId"])) if item and item.get("role") == PREVIEW_ROLE]
-    imaged = [item for item in attachments if item.get("sourceUri")]
-    chosen = imaged or attachments
-    return max(chosen, key=lambda item: str(item.get("importedAt") or "")) if chosen else None
+    return chosen_preview(client.list_reference_attachments_by_lineage(str(row["lineageId"])))   # the rule the card copies on the row share
 
 
 def section_labels_of(client: Any) -> dict[str, str]:
@@ -334,7 +339,7 @@ def entry_of(
     standing = Standing(
         id=str(row["id"]),
         stars=valid_stars(row.get("starRating")),
-        confidence=decimal(accept_probability(decision)),
+        confidence=decimal(live_probability(row, decision)),
         arrived=row.get("feedArrivalAt") or row.get("createdAt"),
         section=row.get("curationSectionId") or None,
     )
@@ -359,7 +364,12 @@ def is_listed(row: Mapping[str, Any], corpus_id: str) -> bool:
 
 
 def is_chosen(row: Mapping[str, Any], decision: Mapping[str, Any] | None, settings: HomePageSettings) -> bool:
-    return row.get("curationStatus") == STATUS_ACCEPTED or accept_probability(decision) >= settings.references.recommended_threshold
+    """An accepted Reference is public. A pending one is public only when it has a real prediction (``stored_prediction``) and its live P(accept) reaches the
+    threshold; a prediction of exactly the threshold (0.5 by default) is a prediction and passes. No prediction is never a number, so it never passes."""
+    if row.get("curationStatus") == STATUS_ACCEPTED:
+        return True
+    probability = live_probability(row, decision) if has_prediction(row) else None
+    return probability is not None and probability >= settings.references.recommended_threshold
 
 
 def entry_for_row(client: Any, row: Mapping[str, Any], corpus_id: str, settings: HomePageSettings, labels: Mapping[str, str]) -> PublicEntry | None:
@@ -369,6 +379,8 @@ def entry_for_row(client: Any, row: Mapping[str, Any], corpus_id: str, settings:
     """
     if not is_listed(row, corpus_id):
         return None
+    if row.get("curationStatus") != STATUS_ACCEPTED and not has_prediction(row):
+        return None   # nothing is predicted yet: it is on no page, and its relations are not read
     decision = decision_of(client, row)
     if not is_chosen(row, decision, settings):
         return None
@@ -386,9 +398,9 @@ def collect_entries(
     client_factory: Callable[[], Any] | None = None,
     workers: int = 1,
 ) -> list[PublicEntry]:
-    """Every public entry of a corpus, newest accepted first and then the recommended ones newest first, read from the whole corpus (a full read)."""
+    """Every public entry of a corpus, newest accepted first and then the recommended ones (pending, with a real prediction) newest first, read from the whole corpus (a full read)."""
     accepted = current_references(client, "referencesByCurationStatusKey", f"{corpus_id}#{STATUS_ACCEPTED}")
-    pending = [row for row in current_references(client, "referencesByFeedStateAndPrediction", f"{corpus_id}#unrated") if row.get("curationStatus") not in (STATUS_ACCEPTED, *NOT_PUBLIC_STATUSES)]
+    pending = [row for row in current_references(client, "referencesByFeedStateAndPrediction", f"{corpus_id}#unrated") if row.get("curationStatus") not in (STATUS_ACCEPTED, *NOT_PUBLIC_STATUSES) and has_prediction(row)]
     decisions = map_with_clients([*accepted, *pending], lambda worker, row: decision_of(worker, row), client=client, client_factory=client_factory, workers=workers)
     decided = list(zip([*accepted, *pending], decisions))
     chosen = [(row, decision) for row, decision in decided if is_chosen(row, decision, settings)]

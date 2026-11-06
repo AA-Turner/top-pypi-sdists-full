@@ -1,0 +1,66 @@
+name: Docs walk (candidate)
+
+# The PRE-RELEASE dry run of the docs walk (doppler#2857): every install path
+# the docs name, walked from a bare container per stage against artifacts built
+# from THIS tree, with the pinned version text substituted. release.yml runs
+# the published face after the tag; this is what makes its first failure not be
+# a shipped release. It runs where the answer can change it:
+#   - a PR that touches pyproject.toml (a release PR bumps the version there),
+#   - a PR that touches the walk itself or any page or script it reads,
+#   - by hand.
+# It is not in ci-passed: see doppler#2881 for making it a required gate.
+on:
+  pull_request:
+    paths:
+      - pyproject.toml
+      - tests/install/docs-walk*.sh
+      - tests/install/consumer-walk.sh
+      - .github/workflows/docs-walk.yml
+      # Every file the walk READS (`tests/install/docs-walk.sh pages`): the pages
+      # it extracts from and the scripts they include. test_docs_walk_plan.py
+      # holds this list to that output.
+      - docs/example-projects/consumer.md
+      - docs/examples/c.md
+      - docs/gallery/delay-doppler.md
+      - docs/install/c.md
+      - docs/install/docker.md
+      - docs/install/source.md
+      - docs/quickstart-c.md
+      - docs/quickstart.md
+      - example-projects/consumer/README.md
+      - tests/install/build-apt-deps.sh
+      - tests/install/fence.sh
+      - tests/install/stream-consumer/build-three-ways.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-walk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  walk:
+    name: Docs walk, candidate (${{ matrix.arch.tag }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Walk the docs against artifacts built from this tree
+        run: make docs-walk WALK_MODE=candidate
+
+      - name: Keep the transcript
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-walk-candidate-${{ matrix.arch.tag }}
+          path: docs-walk-candidate.log
+          if-no-files-found: ignore

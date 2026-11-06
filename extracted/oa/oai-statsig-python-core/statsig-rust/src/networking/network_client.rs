@@ -211,7 +211,7 @@ impl NetworkClient {
             is_shutdown: Arc::new(AtomicBool::new(false)),
             shutdown_notify: Notify::new(),
             transport,
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, options),
             disable_network,
             proxy_config,
             ca_cert_pem,
@@ -405,7 +405,10 @@ impl NetworkClient {
                     return Err(NetworkError::DisableNetworkOn(request_args.url.clone()));
                 }
 
-                if let Some(key) = request_args.diagnostics_key {
+                let diagnostics_key = request_args
+                    .diagnostics_key
+                    .filter(|_| !self.ops_stats.remote_telemetry_disabled());
+                if let Some(key) = diagnostics_key {
                     self.ops_stats.add_marker(
                         Marker::new(key, ActionType::Start, Some(StepType::NetworkRequest))
                             .with_attempt(attempt)
@@ -415,8 +418,7 @@ impl NetworkClient {
                 }
                 // Retries, initialization deadlines and adapter shutdown can drop the
                 // transport future before the detailed response marker is available.
-                let pending_id_list = request_args
-                    .diagnostics_key
+                let pending_id_list = diagnostics_key
                     .filter(|key| matches!(key, KeyType::GetIDList | KeyType::GetIDListSources));
                 let pending_marker = scopeguard::guard(pending_id_list, |pending| {
                     if let Some(key) = pending {
@@ -471,10 +473,6 @@ impl NetworkClient {
                     content_type
                 );
 
-                let sdk_region_str = response
-                    .data
-                    .as_ref()
-                    .and_then(|data| data.get_header_ref("x-statsig-region"));
                 // Keep existing unlimited request semantics unchanged. Limited blob
                 // requests need body-read failures to enter retry handling instead
                 // of accepting an empty successful response.
@@ -493,7 +491,11 @@ impl NetworkClient {
                     );
                 }
 
-                if let Some(key) = request_args.diagnostics_key {
+                if let Some(key) = diagnostics_key {
+                    let sdk_region_str = response
+                        .data
+                        .as_ref()
+                        .and_then(|data| data.get_header_ref("x-statsig-region"));
                     let mut end_marker =
                         Marker::new(key, ActionType::End, Some(StepType::NetworkRequest))
                             .with_attempt(attempt)
@@ -577,13 +579,14 @@ impl NetworkClient {
 
         log_w!(TAG, "{}", error);
         if !self.silent_on_network_failure {
-            let dedupe_key = format!("{:?}", args.diagnostics_key);
+            let dedupe_key = (!self.ops_stats.remote_telemetry_disabled())
+                .then(|| format!("{:?}", args.diagnostics_key));
             self.ops_stats.log_error(ErrorBoundaryEvent {
                 tag: TAG.to_string(),
                 exception: exception.to_string(),
                 bypass_dedupe: false,
                 info: sanitize_secret_key(&serde_json::to_string(error).unwrap_or_default()),
-                dedupe_key: Some(dedupe_key),
+                dedupe_key,
                 extra: Some(get_network_error_extra_tags(error, args)),
             });
         }

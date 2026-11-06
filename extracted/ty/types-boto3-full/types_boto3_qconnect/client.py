@@ -177,6 +177,10 @@ from .type_defs import (
     PutFeedbackResponseTypeDef,
     QueryAssistantRequestTypeDef,
     QueryAssistantResponseTypeDef,
+    RegisterAssistantReplicaKeyRequestTypeDef,
+    RegisterAssistantReplicaKeyResponseTypeDef,
+    RegisterKnowledgeBaseReplicaKeyRequestTypeDef,
+    RegisterKnowledgeBaseReplicaKeyResponseTypeDef,
     RemoveAssistantAIAgentRequestTypeDef,
     RemoveKnowledgeBaseTemplateUriRequestTypeDef,
     RenderMessageTemplateRequestTypeDef,
@@ -974,6 +978,26 @@ class QConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/query_assistant.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#query_assistant)
+        """
+
+    def register_assistant_replica_key(
+        self, **kwargs: Unpack[RegisterAssistantReplicaKeyRequestTypeDef]
+    ) -> RegisterAssistantReplicaKeyResponseTypeDef:
+        """
+        Registers a replica Region KMS key for an Amazon Q in Connect assistant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/register_assistant_replica_key.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#register_assistant_replica_key)
+        """
+
+    def register_knowledge_base_replica_key(
+        self, **kwargs: Unpack[RegisterKnowledgeBaseReplicaKeyRequestTypeDef]
+    ) -> RegisterKnowledgeBaseReplicaKeyResponseTypeDef:
+        """
+        Registers a replica Region KMS key for an Amazon Q in Connect knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/register_knowledge_base_replica_key.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_qconnect/client/#register_knowledge_base_replica_key)
         """
 
     def remove_assistant_ai_agent(

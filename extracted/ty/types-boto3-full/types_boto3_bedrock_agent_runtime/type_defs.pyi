@@ -1297,6 +1297,7 @@ class GetDocumentContentRequestTypeDef(TypedDict):
     dataSourceId: str
     documentId: str
     knowledgeBaseId: str
+    mediaId: NotRequired[str]
     outputFormat: NotRequired[DocumentOutputFormatType]
     userContext: NotRequired[UserContextTypeDef]
 

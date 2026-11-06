@@ -33,7 +33,7 @@ class PreprocessCfg:
 
     @property
     def input_size(self):
-        return (self.num_channels,) + to_2tuple(self.size)
+        return (self.num_channels,) + tuple(to_2tuple(self.size))
 
 _PREPROCESS_KEYS = set(asdict(PreprocessCfg()).keys())
 
@@ -66,11 +66,60 @@ class AugmentationCfg:
     color_jitter: Optional[Union[float, Tuple[float, float, float], Tuple[float, float, float, float]]] = None
     re_prob: Optional[float] = None
     re_count: Optional[int] = None
+    naflex: bool = False
     use_timm: bool = False
 
     # params for simclr_jitter_gray
     color_jitter_prob: float = None
     gray_scale_prob: float = None
+
+
+class NaFlexTransformFactory:
+    is_naflex_transform_factory = True
+
+    def __init__(self, **transform_kwargs) -> None:
+        self.transform_kwargs = transform_kwargs
+
+    def __call__(self, max_seq_len, patch_size):
+        from timm.data import create_transform  # timm can still be optional
+        return create_transform(
+            naflex=True,
+            max_seq_len=max_seq_len,
+            patch_size=patch_size,
+            **self.transform_kwargs,
+        )
+
+
+class NaFlexEvalTransformFactory:
+    is_naflex_eval_transform_factory = True
+    supports_patch_flatten_control = True
+
+    def __init__(self, **transform_kwargs) -> None:
+        self.transform_kwargs = transform_kwargs
+
+    def __call__(self, max_seq_len, patch_size, flatten_patches=True):
+        from timm.data import create_transform  # timm can still be optional
+        from timm.data.naflex_transforms import Patchify
+
+        # timm's create_transform only exposes whether to patchify, not whether patch spatial dimensions should
+        # be retained. Compose Patchify ourselves so non-base eval patches can carry (Ph, Pw) to the interpolator.
+        transform = create_transform(
+            is_training=False,
+            naflex=True,
+            patchify=False,
+            max_seq_len=max_seq_len,
+            patch_size=patch_size,
+            **self.transform_kwargs,
+        )
+        return Compose([transform, Patchify(patch_size=patch_size, flatten_patches=flatten_patches)])
+
+
+def is_naflex_aug_cfg(aug_cfg: Optional[Union[Dict[str, Any], AugmentationCfg]]) -> bool:
+    if isinstance(aug_cfg, dict):
+        return bool(aug_cfg.get("naflex", False))
+    if isinstance(aug_cfg, AugmentationCfg):
+        return bool(aug_cfg.naflex)
+    return False
 
 
 def _setup_size(size, error_msg):
@@ -88,6 +137,8 @@ def _setup_size(size, error_msg):
 
 class ResizeKeepRatio:
     """ Resize and Keep Ratio
+
+    Nonempty images retain at least one pixel along each edge.
 
     Copy & paste from `timm`
     """
@@ -139,7 +190,7 @@ class ResizeKeepRatio:
         if random_aspect_prob > 0 and random.random() < random_aspect_prob:
             aspect_factor = random.uniform(random_aspect_range[0], random_aspect_range[1])
             ratio_factor = (ratio_factor[0] / aspect_factor, ratio_factor[1] * aspect_factor)
-        size = [round(x * f / ratio) for x, f in zip(source_size, ratio_factor)]
+        size = [max(1, round(x * f / ratio)) for x, f in zip(source_size, ratio_factor)]
         return size
 
     def __call__(self, img):
@@ -357,11 +408,12 @@ def image_transform(
     if is_train:
         aug_cfg_dict = {k: v for k, v in asdict(aug_cfg).items() if v is not None}
         use_timm = aug_cfg_dict.pop('use_timm', False)
+        use_naflex = aug_cfg_dict.pop('naflex', False)
         if use_timm:
             from timm.data import create_transform  # timm can still be optional
             if isinstance(image_size, (tuple, list)):
                 assert len(image_size) >= 2
-                input_size = (3,) + image_size[-2:]
+                input_size = (3,) + tuple(image_size[-2:])
             else:
                 input_size = (3, image_size, image_size)
 
@@ -370,7 +422,7 @@ def image_transform(
             aug_cfg_dict.pop('color_jitter_prob', None)
             aug_cfg_dict.pop('gray_scale_prob', None)
 
-            train_transform = create_transform(
+            timm_transform_kwargs = dict(
                 input_size=input_size,
                 is_training=True,
                 hflip=0.,
@@ -380,7 +432,13 @@ def image_transform(
                 interpolation=interpolation,
                 **aug_cfg_dict,
             )
+            if use_naflex:
+                train_transform = NaFlexTransformFactory(**timm_transform_kwargs)
+            else:
+                train_transform = create_transform(**timm_transform_kwargs)
         else:
+            if use_naflex:
+                raise ValueError("NaFlex training transforms require `use_timm=True` in `aug_cfg`.")
             train_transform = [
                 RandomResizedCrop(
                     image_size,
@@ -404,7 +462,9 @@ def image_transform(
             ])
             train_transform = Compose(train_transform)
             if aug_cfg_dict:
-                warnings.warn(f'Unused augmentation cfg items, specify `use_timm` to use ({list(aug_cfg_dict.keys())}).')
+                warnings.warn(
+                    f'Unused augmentation cfg items, specify `use_timm` to use ({list(aug_cfg_dict.keys())}).'
+                )
         return train_transform
     else:
         if resize_mode == 'longest':
@@ -429,7 +489,7 @@ def image_transform(
                 ]
             else:
                 # resize shortest edge to matching target dim for non-square target
-                transforms = [ResizeKeepRatio(image_size)]
+                transforms = [ResizeKeepRatio(image_size, interpolation=interpolation_mode)]
             transforms += [CenterCrop(image_size)]
 
         transforms.extend([
@@ -454,4 +514,13 @@ def image_transform_v2(
         resize_mode=cfg.resize_mode,
         fill_color=cfg.fill_color,
         aug_cfg=aug_cfg,
+    )
+
+
+def naflex_eval_transform_v2(cfg: PreprocessCfg):
+    return NaFlexEvalTransformFactory(
+        input_size=cfg.input_size,
+        mean=cfg.mean,
+        std=cfg.std,
+        interpolation=cfg.interpolation,
     )

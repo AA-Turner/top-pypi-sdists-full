@@ -330,12 +330,50 @@ def test_a_task_in_check_on_an_open_pr_is_put_to_its_checker_to_hand_back():
     [challenge] = _claim("", lifecycle="check", state="OPEN")
     merged = _claim("", lifecycle="check", state="MERGED")
 
-    assert challenge[2] == "status-claim" and challenge[5] == "Work.alpha"
+    assert challenge[2] == "check-claim" and challenge[5] == "Work.alpha"
     assert "lemonaid task assign t1 --to Work.beta" in challenge[6]
-    assert ("challenge", "status-claim") not in _kinds(merged)
+    assert ("challenge", "check-claim") not in _kinds(merged)
 
 
 def test_a_running_ci_wait_does_not_hide_a_contradicted_status():
     [challenge] = _claim("merge", state="OPEN", draft="true", checks="pending", head="abc")
 
     assert challenge[:3] == ("challenge", "t1", "status-claim")
+
+
+_OWN = {"state": "OPEN", "draft": "false", "checks": "success", "authored": "true"}
+
+
+@pytest.mark.parametrize(
+    ("status", "pr", "said"),
+    [
+        ("merge", {**_OWN, "assigned": "sam", "approved": ""}, "Set `review` until they approve"),
+        ("merge", {**_OWN, "assigned": "sam kim", "approved": "kim"}, "Set `review`"),
+        ("review", {**_OWN, "assigned": "", "approved": "sam", "objecting": ""}, "set `merge`"),
+        ("review", {**_OWN, "assigned": "sam", "approved": "sam", "objecting": ""}, "set `merge`"),
+    ],
+)
+def test_a_status_the_assignees_on_your_own_pr_contradict_is_challenged(status, pr, said):
+    [challenge] = _claim(status, **pr)
+
+    assert challenge[2] == "status-claim" and said in challenge[6] and "sam" in challenge[6]
+
+
+@pytest.mark.parametrize(
+    ("status", "pr"),
+    [
+        ("merge", {**_OWN, "assigned": "", "approved": ""}),
+        ("merge", {**_OWN, "assigned": "sam", "approved": "sam"}),
+        ("merge", {**_OWN, "assigned": "sam"}),
+        ("merge", {**_OWN, "authored": "false", "assigned": "sam", "approved": ""}),
+        ("review", {**_OWN, "assigned": "", "approved": "", "objecting": ""}),
+        ("review", {**_OWN, "assigned": "sam", "approved": "", "objecting": ""}),
+        ("review", {**_OWN, "assigned": "kim", "approved": "sam", "objecting": ""}),
+        ("review", {**_OWN, "authored": "false", "assigned": "", "approved": "sam"}),
+        ("review", {**_OWN, "approved": "sam", "objecting": ""}),
+        ("review", {**_OWN, "assigned": "", "approved": "sam", "objecting": "kim"}),
+        ("review", {**_OWN, "assigned": "", "approved": "sam"}),
+    ],
+)
+def test_assignees_agree_or_are_unknown_or_on_a_teammates_pr(status, pr):
+    assert ("challenge", "status-claim") not in _kinds(_claim(status, **pr))

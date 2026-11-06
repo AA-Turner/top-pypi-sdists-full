@@ -22,6 +22,7 @@
 use std::ffi::CString;
 
 use pyo3::types::{PyDict, PyList};
+use rusty_fork::rusty_fork_test;
 
 use super::*;
 use crate::validator::Validator;
@@ -111,6 +112,34 @@ fn a_literal_is_asked_of_a_pattern_the_probe_compiles_itself() {
     });
 }
 
+/// Each constant of a table is asked of one pattern the probe compiles once:
+/// the query keeps it for every constant after the first, and drops it with
+/// the oracle.
+#[test]
+fn a_table_asked_of_one_pattern_compiles_it_once_a_query() {
+    Python::attach(|py| {
+        let texts = ["a0", "a1", "b2"]
+            .into_iter()
+            .map(|text| text.into_pyobject(py).unwrap().into_any().unbind())
+            .collect();
+        asking(py, texts, |oracle| {
+            let words = Schema::Refine {
+                base: Schema::Str.into(),
+                constraints: vec![valgebra_core::Constraint::Regex("a0|a1".to_owned())].into(),
+            };
+            let admitted = [0, 1, 2]
+                .map(|slot| oracle.leaf_subtype(&Schema::Literal(ConstIx::new(slot)), &words));
+            assert_eq!(admitted, [Some(true), Some(true), Some(false)]);
+            assert_eq!(crate::check::unindexed_held(), 1);
+        });
+        assert_eq!(
+            crate::check::unindexed_held(),
+            0,
+            "the query's patterns go with its oracle"
+        );
+    });
+}
+
 #[test]
 fn a_literal_reports_the_kind_its_value_has() {
     // `literal_kind` places a constant in the partition. A `bool` is its own
@@ -167,6 +196,110 @@ fn an_operand_reports_the_kind_its_value_has() {
             assert_eq!(oracle.operand(OperandIx::new(3)), None, "past the word");
             assert_eq!(kind(4), None, "a fraction has no builtin kind");
             assert_eq!(kind(99), None, "an index the pool does not hold");
+        });
+    });
+}
+
+/// An interval the query asked is read once and kept: the same operands and
+/// strictness answer from what was kept, another strictness is its own
+/// interval, and a decline is not kept, so it is read again.
+#[test]
+fn an_interval_asked_twice_is_read_once() {
+    Python::attach(|py| {
+        let values = ["2.1", "2.9", "__import__('decimal').Decimal('1e4300')"]
+            .into_iter()
+            .map(|source| built(py, source).unbind())
+            .collect();
+        asking(py, values, |oracle| {
+            let between = |lo, lo_strict, hi, hi_strict| {
+                oracle.no_int_between(OperandIx::new(lo), lo_strict, OperandIx::new(hi), hi_strict)
+            };
+            assert_eq!(between(0, true, 1, true), Some(true));
+            assert_eq!(between(0, true, 1, true), Some(true));
+            assert_eq!(oracle.intervals.borrow().len(), 1, "one interval kept");
+            assert_eq!(between(0, false, 1, false), Some(true));
+            assert_eq!(oracle.intervals.borrow().len(), 2, "its own interval");
+            assert_eq!(between(2, false, 2, false), None);
+            assert_eq!(oracle.intervals.borrow().len(), 2, "a decline is not kept");
+        });
+    });
+}
+
+#[test]
+fn a_decimal_bound_past_the_rounded_digits_is_not_rounded() {
+    // Rounding a `Decimal` to an `int` takes time quadratic in its digits, so
+    // the integer-interval rule rounds none whose leading digit sits at
+    // `ROUNDED_DIGITS` or past it: one place below, the bound is rounded and
+    // the interval it closes holds its integer; at it, the rule declines,
+    // whichever end of the interval the bound closes. A
+    // `Fraction` rounds in linear time and is rounded at any size.
+    Python::attach(|py| {
+        let values = [
+            "__import__('decimal').Decimal('2.1')",
+            "__import__('decimal').Decimal('2.9')",
+            "__import__('decimal').Decimal('1e4299')",
+            "__import__('decimal').Decimal('1e4300')",
+            "__import__('fractions').Fraction(10**5000, 3)",
+        ]
+        .into_iter()
+        .map(|source| built(py, source).unbind())
+        .collect();
+        asking(py, values, |oracle| {
+            let between = |lo, lo_strict, hi, hi_strict| {
+                oracle.no_int_between(OperandIx::new(lo), lo_strict, OperandIx::new(hi), hi_strict)
+            };
+            assert_eq!(
+                between(0, true, 1, true),
+                Some(true),
+                "no integer in (2.1, 2.9)"
+            );
+            assert_eq!(between(2, false, 2, false), Some(false), "10**4299 is one");
+            assert_eq!(between(3, false, 3, false), None, "10**4300 is not rounded");
+            assert_eq!(between(0, true, 3, false), None, "nor as the upper bound");
+            assert_eq!(between(3, true, 1, false), None, "nor as the lower one");
+            assert_eq!(
+                between(4, false, 4, false),
+                Some(true),
+                "a fraction is rounded"
+            );
+        });
+    });
+}
+
+#[test]
+fn a_fraction_or_a_decimal_operand_is_read_at_its_floor_and_its_ceiling() {
+    // Python compares an `int` with either exactly, so the two integers around
+    // one are what a bound over the integers reads. Only the two classes the
+    // standard library binds, with a finite value inside the integers an `i64`
+    // holds: a subclass, an infinity, a NaN and a value past the range are not
+    // read.
+    Python::attach(|py| {
+        let values = [
+            "__import__('fractions').Fraction(-3, 2)",
+            "__import__('decimal').Decimal('2.0')",
+            "__import__('decimal').Decimal('0.25')",
+            "__import__('decimal').Decimal('Infinity')",
+            "__import__('decimal').Decimal('NaN')",
+            "__import__('decimal').Decimal('1e30')",
+            "type('Mine', (__import__('fractions').Fraction,), {})(1, 2)",
+        ]
+        .into_iter()
+        .map(|source| built(py, source).unbind())
+        .collect();
+        asking(py, values, |oracle| {
+            let read = |slot| oracle.operand(OperandIx::new(slot));
+            assert_eq!(
+                read(0),
+                Some(Operand::Rational {
+                    floor: -2,
+                    ceil: -1
+                })
+            );
+            assert_eq!(read(1), Some(Operand::Rational { floor: 2, ceil: 2 }));
+            assert_eq!(read(2), Some(Operand::Rational { floor: 0, ceil: 1 }));
+            for slot in 3..7 {
+                assert_eq!(read(slot), None, "the operand at {slot} is not read");
+            }
         });
     });
 }
@@ -228,6 +361,175 @@ fn two_sets_of_constants_are_disjoint_when_no_member_is_shared() {
 }
 
 #[test]
+fn two_sets_of_constants_are_paired_where_they_share_a_value() {
+    // `literals_paired` names the pairs of positions whose constants share a
+    // value, by `(type, value)` as a literal reads its constant: `1` pairs with
+    // another `1` and with neither `True` nor `1.0`, a word with an equal word,
+    // and the one `nan` in both sets with nothing, being no literal's value. A
+    // constant whose equality is its own declines the whole question.
+    Python::attach(|py| {
+        let values: Vec<Py<PyAny>> = built(
+            py,
+            "[1, True, 1.0, 'a', float('nan'), int('1'), 2, 'a' * 1,\
+              type('Own', (), {'__eq__': lambda self, other: True,\
+                               '__hash__': lambda self: 0})()]",
+        )
+        .try_iter()
+        .unwrap()
+        .map(|value| value.unwrap().unbind())
+        .collect();
+        asking(py, values, |oracle| {
+            let ix = |slots: &[usize]| -> Vec<ConstIx> {
+                slots.iter().map(|slot| ConstIx::new(*slot)).collect()
+            };
+            let paired = |a: &[usize], b: &[usize]| oracle.literals_paired(&ix(a), &ix(b));
+            assert_eq!(
+                paired(&[0, 3, 4], &[1, 2, 5, 7, 4, 6]),
+                Some(vec![(0, 2), (1, 3)])
+            );
+            assert_eq!(paired(&[0], &[]), Some(vec![]), "nothing to pair with");
+            assert_eq!(paired(&[0], &[8]), None, "an equality of its own");
+            assert_eq!(paired(&[8], &[0]), None);
+        });
+    });
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+#[test]
+fn a_constant_unequal_to_itself_is_shared_by_no_two_sets() {
+    // `Literal[nan]` denotes no value, since `nan == nan` is false, so the
+    // one `nan` object in two tables is no value they share -- although a set
+    // finds it there, by identity, before it asks `==`. The pair form answers
+    // the same of the constant against itself.
+    Python::attach(|py| {
+        let values = vec![
+            f64::NAN.into_pyobject(py).unwrap().into_any().unbind(),
+            1.0f64.into_pyobject(py).unwrap().into_any().unbind(),
+        ];
+        asking(py, values, |oracle| {
+            let ix = |slots: &[usize]| -> Vec<ConstIx> {
+                slots.iter().map(|slot| ConstIx::new(*slot)).collect()
+            };
+            let sets = |a: &[usize], b: &[usize]| oracle.literal_sets_disjoint(&ix(a), &ix(b));
+            assert_eq!(sets(&[0], &[0]), Some(true), "nan is no value");
+            assert_eq!(sets(&[0, 1], &[0]), Some(true), "nor beside 1.0");
+            assert_eq!(sets(&[0, 1], &[0, 1]), Some(false), "1.0 is shared");
+            assert_eq!(
+                oracle.literals_disjoint(ConstIx::new(0), ConstIx::new(0)),
+                Some(true),
+                "the pair form reads it so"
+            );
+        });
+    });
+}
+
+#[test]
+fn each_text_is_walked_as_a_str_of_the_schema() {
+    // `strings_admitted` puts texts the core holds to the walk a validator of
+    // the schema runs, one answer a text in the order given: a literal admits
+    // its own text alone, and `str` every text.
+    Python::attach(|py| {
+        let values = vec!["ab".into_pyobject(py).unwrap().into_any().unbind()];
+        asking(py, values, |oracle| {
+            let literal = Schema::Literal(ConstIx::new(0));
+            assert_eq!(
+                oracle.strings_admitted(&literal, &["ab", "a", ""]),
+                Some(vec![true, false, false])
+            );
+            assert_eq!(
+                oracle.strings_admitted(&Schema::Str, &["ab", "a"]),
+                Some(vec![true, true])
+            );
+            assert_eq!(
+                oracle.strings_admitted(&Schema::Int, &["1"]),
+                Some(vec![false])
+            );
+        });
+    });
+}
+
+#[test]
+fn a_bound_is_ordered_only_as_the_walk_reads_it() {
+    // `compare` and `no_int_between` read two operands by `==`, the order and
+    // rounding; the walk reads a builtin subclass's operand through the
+    // builtin's storage, or through the reflected method a subclass overrides.
+    // A subclass keeping the builtin's methods is read alike and answered; one
+    // with its own equality or order is declined, and so is a class of no
+    // builtin that is not one of the standard library's value types.
+    Python::attach(|py| {
+        let source = "types.SimpleNamespace(\
+             values=[type('Kept', (int,), {})(1), 8,\
+                     type('Mod7', (int,), {'__eq__': lambda s, o: (int(s) - int(o)) % 7 == 0,\
+                                           '__hash__': lambda s: int(s) % 7})(1),\
+                     type('RevInt', (int,), {'__lt__': lambda s, o: int.__gt__(s, o),\
+                                             '__gt__': lambda s, o: int.__lt__(s, o)})(5),\
+                     3,\
+                     type('Own', (), {'__eq__': lambda s, o: True, '__hash__': lambda s: 0,\
+                                      '__lt__': lambda s, o: True,\
+                                      '__gt__': lambda s, o: True})(),\
+                     __import__('fractions').Fraction(5, 2)],\
+         )";
+        let values: Vec<Py<PyAny>> = built(py, source)
+            .getattr("values")
+            .unwrap()
+            .try_iter()
+            .unwrap()
+            .map(|value| value.unwrap().unbind())
+            .collect();
+        asking(py, values, |oracle| {
+            let cmp = |a, b| oracle.compare(OperandIx::new(a), OperandIx::new(b));
+            assert_eq!(
+                cmp(0, 1),
+                Some(core::cmp::Ordering::Less),
+                "kept, against 8"
+            );
+            assert_eq!(cmp(2, 1), None, "Mod7(1) == 8 to its own ==, 1 to the walk");
+            assert_eq!(cmp(1, 2), None);
+            assert_eq!(cmp(3, 4), None, "RevInt's order is its own");
+            assert_eq!(cmp(5, 1), None, "a class of its own orders as unknown");
+            assert_eq!(
+                cmp(6, 1),
+                Some(core::cmp::Ordering::Less),
+                "a Fraction, the standard library's"
+            );
+            let between =
+                |lo, hi| oracle.no_int_between(OperandIx::new(lo), true, OperandIx::new(hi), true);
+            assert_eq!(between(0, 4), Some(false), "2 lies between Kept(1) and 3");
+            assert_eq!(
+                between(4, 3),
+                None,
+                "RevInt rounds as an int and orders backwards"
+            );
+            assert_eq!(between(2, 4), None);
+        });
+    });
+}
+
+#[test]
+fn a_list_or_a_tuple_bound_is_ordered_with_no_other() {
+    // A sequence orders by its items, and a value's item may equal one bound's
+    // and order against nothing, so `compare` declines a list or a tuple
+    // operand; two sets order by inclusion, which raises for no value.
+    Python::attach(|py| {
+        let source = "types.SimpleNamespace(values=[[2], [1], (2,), (1,), {1, 2}, {1}])";
+        let values: Vec<Py<PyAny>> = built(py, source)
+            .getattr("values")
+            .unwrap()
+            .try_iter()
+            .unwrap()
+            .map(|value| value.unwrap().unbind())
+            .collect();
+        asking(py, values, |oracle| {
+            let cmp = |a, b| oracle.compare(OperandIx::new(a), OperandIx::new(b));
+            assert_eq!(cmp(0, 1), None, "two lists");
+            assert_eq!(cmp(2, 3), None, "two tuples");
+            assert_eq!(cmp(1, 0), None);
+            assert_eq!(cmp(4, 5), Some(core::cmp::Ordering::Greater), "two sets");
+        });
+    });
+}
+
+#[test]
 fn two_bounds_are_ordered_where_python_orders_them() {
     // `compare` orders two refinement operands. Python orders numbers with
     // numbers and text with text and raises across the two, and a bound whose
@@ -278,6 +580,63 @@ fn a_class_admits_the_kind_its_layout_lays_down() {
             // The decline: a plain class lays down no layout, and a subclass of
             // it may still derive from a builtin.
             assert_eq!(admits(2, Kind::Str), None, "a plain class is not read");
+        });
+    });
+}
+
+#[test]
+fn a_layout_and_a_slot_are_read_from_what_python_laid_down() {
+    // Python lays a class's slots down when it makes the class, and lays its
+    // instances out along `__base__`. `__slots__` assigned afterwards lays
+    // nothing down; a slot whose descriptor an assignment replaced reads the
+    // class's value, as one written in the body does; and a metaclass's `mro()`
+    // leaving `int` out of the order leaves every instance an `int`.
+    Python::attach(|py| {
+        let program = r"class Late:
+    pass
+Late.__slots__ = ('x',)
+class Slotted:
+    __slots__ = ('y',)
+class LeaveInt(type):
+    def mro(cls):
+        return [cls, object]
+class Cint(int, metaclass=LeaveInt):
+    pass
+class Replaced:
+    __slots__ = ('x',)
+Replaced.x = 's'
+class Written:
+    __slots__ = ()
+    x = 's'
+";
+        let module = PyModule::from_code(
+            py,
+            &CString::new(program).expect("no interior nul"),
+            c"layouts.py",
+            c"layouts",
+        )
+        .expect("the module compiles");
+        let classes: Vec<Py<PyAny>> = ["Late", "Slotted", "Cint", "Replaced", "Written"]
+            .iter()
+            .map(|name| module.getattr(*name).expect("the class").unbind())
+            .collect();
+        asking(py, classes, |oracle| {
+            let admits = |slot, kind| oracle.class_admits_kind(ClassIx::new(slot), kind);
+            assert_eq!(
+                admits(0, Kind::Str),
+                None,
+                "a late __slots__ lays nothing down"
+            );
+            assert_eq!(admits(1, Kind::Str), Some(false), "a slot laid down");
+            assert_eq!(admits(2, Kind::Int), Some(true), "laid out on int");
+            assert_eq!(admits(2, Kind::Str), Some(false));
+            let reach = |slot: usize| oracle.attribute_reach(ClassIx::new(slot), "x");
+            assert_eq!(
+                reach(3),
+                reach(4),
+                "a replaced slot is the value replacing it"
+            );
+            assert_ne!(reach(3), Some(Reach::Anything));
         });
     });
 }
@@ -470,12 +829,239 @@ fn an_enumeration_lists_its_members_up_to_the_bound() {
 }
 
 #[test]
+fn an_enumeration_making_an_instance_past_its_members_lists_none() {
+    // The union reading stands on the class making no instance but its
+    // members: a `_missing_` of its own makes `E(5)`, a metaclass's own
+    // `__iter__` hides a member from the list, and a subclass -- made past the
+    // class statement, which refuses one -- makes instances of its own, so each
+    // is an instance check.
+    Python::attach(|py| {
+        let program = r"import enum
+class Missing(enum.Enum):
+    A = 1
+    @classmethod
+    def _missing_(cls, value):
+        pseudo = object.__new__(cls)
+        pseudo._name_, pseudo._value_ = f'V{value}', value
+        return pseudo
+class Hide(enum.EnumMeta):
+    def __iter__(cls):
+        return (m for m in super().__iter__() if m.name != 'HIDDEN')
+class Hidden(enum.Enum, metaclass=Hide):
+    A = 1
+    HIDDEN = 2
+class Valued(enum.Enum):
+    A = 1
+    def describe(self):
+        return self.name
+class Derived(enum.Enum):
+    A = 1
+Below = type.__new__(type(Derived), 'Below', (Derived,), {})
+";
+        let module = PyModule::from_code(
+            py,
+            &CString::new(program).expect("no interior nul"),
+            c"enum_hooks.py",
+            c"enum_hooks",
+        )
+        .expect("the module compiles");
+        asking(py, Vec::new(), |oracle| {
+            let listed = |name: &str| {
+                oracle
+                    .enum_members(&module.getattr(name).expect("the class"))
+                    .map(|got| got.len())
+            };
+            assert_eq!(listed("Missing"), None, "a _missing_ of its own");
+            assert_eq!(listed("Hidden"), None, "a metaclass's own __iter__");
+            assert_eq!(listed("Valued"), Some(1), "a method beside its members");
+            assert_eq!(listed("Derived"), None, "a subclass of its own");
+        });
+    });
+}
+
+#[test]
+fn a_class_with_one_instance_and_no_subclass_is_below_its_literal() {
+    // `type(...)` and `type(NotImplemented)` refuse a subclass and have one
+    // object each, so `leaf_subtype` of either class walks that object: below
+    // a table holding it, outside one that does not.
+    Python::attach(|py| {
+        let values = vec![
+            py.Ellipsis(),
+            py.NotImplemented(),
+            built(py, "type(...)").unbind(),
+            built(py, "type(NotImplemented)").unbind(),
+        ];
+        asking(py, values, |oracle| {
+            let class = |slot| Schema::Instance(ClassIx::new(slot));
+            let literal = |slot| Schema::Literal(ConstIx::new(slot));
+            assert_eq!(oracle.leaf_subtype(&class(2), &literal(0)), Some(true));
+            assert_eq!(oracle.leaf_subtype(&class(2), &literal(1)), Some(false));
+            assert_eq!(oracle.leaf_subtype(&class(3), &literal(1)), Some(true));
+            assert_eq!(oracle.leaf_subtype(&class(3), &literal(0)), Some(false));
+        });
+    });
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+#[test]
+fn none_is_below_a_schema_where_its_value_is() {
+    // `leaf_subtype` of `None`'s kind walks its one value: below a table
+    // holding `None`, outside one that does not. `bool`'s values are pooled
+    // literals the parts reading asks, and any other kind holds values past
+    // counting, so neither is asked here.
+    Python::attach(|py| {
+        let member = built(py, "enum.Enum('One', {'A': 1}).A").unbind();
+        let truth = true
+            .into_pyobject(py)
+            .unwrap()
+            .to_owned()
+            .into_any()
+            .unbind();
+        asking(py, vec![member, py.None(), truth], |oracle| {
+            let table = |slots: &[usize]| {
+                Schema::union(
+                    slots
+                        .iter()
+                        .map(|&slot| Schema::Literal(ConstIx::new(slot))),
+                )
+            };
+            let below = |kind: &Schema, slots: &[usize]| oracle.leaf_subtype(kind, &table(slots));
+            assert_eq!(
+                below(&Schema::NoneType, &[0]),
+                Some(false),
+                "None is no member"
+            );
+            assert_eq!(below(&Schema::NoneType, &[0, 1]), Some(true));
+            assert_eq!(below(&Schema::Bool, &[0, 1, 2]), None);
+            assert_eq!(below(&Schema::Int, &[0, 1, 2]), None);
+        });
+    });
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+#[test]
+fn the_interpreters_sentinel_compares_by_identity() {
+    // `sentinel` (3.15) defines an `__eq__` that answers as identity does, so
+    // two of them are two values and one is the value of its literal. A class
+    // statement naming itself after it is not the interpreter's type, and
+    // neither is a static type of another name.
+    Python::attach(|py| {
+        let impostor = built(
+            py,
+            "type('sentinel', (), {'__module__': 'builtins', '__eq__': lambda a, b: True, \
+             '__hash__': lambda a: 0})",
+        );
+        let impostor = impostor.cast::<PyType>().expect("a class");
+        assert!(
+            !is_the_sentinel_type(impostor).unwrap(),
+            "a class statement"
+        );
+        assert!(!compares_by_identity(impostor).unwrap());
+        assert!(
+            is_heap_type(impostor).unwrap(),
+            "a class statement makes a heap type"
+        );
+        // A class made where no `__name__` is bound has no `__module__`, and
+        // is read as one of its own equality rather than raising.
+        let nameless = built(py, "type('Always', (), {'__eq__': lambda a, b: True})");
+        let nameless = nameless.cast::<PyType>().expect("a class");
+        assert!(nameless.getattr("__module__").is_err(), "no module");
+        assert!(!compares_by_identity(nameless).unwrap());
+        let integer = py.get_type::<PyInt>();
+        assert!(!is_heap_type(&integer).unwrap(), "a builtin is static");
+        assert!(
+            !is_the_sentinel_type(&integer).unwrap(),
+            "another static type"
+        );
+        let Ok(sentinel) = py.import("builtins").unwrap().getattr("sentinel") else {
+            return;
+        };
+        assert!(compares_by_identity(sentinel.cast::<PyType>().unwrap()).unwrap());
+        let made = |name: &str| sentinel.call1((name,)).unwrap().unbind();
+        asking(py, vec![made("S"), made("S")], |oracle| {
+            let pair = |a, b| oracle.literals_disjoint(ConstIx::new(a), ConstIx::new(b));
+            assert_eq!(pair(0, 1), Some(true), "two sentinels of one name");
+            assert_eq!(pair(0, 0), Some(false), "one is its literal's value");
+        });
+    });
+}
+
+/// Whether a class compares by identity is read once a query and kept. A class
+/// of no `__eq__` of its own answers its two distinct constants apart each time
+/// it is asked, one whose `__eq__` is its own declines each time, and the two
+/// readings are the two the query holds.
+#[test]
+fn a_class_is_read_for_its_equality_once_a_query() {
+    Python::attach(|py| {
+        let plain = built(py, "type('Plain', (), {})");
+        let always = built(
+            py,
+            "type('Always', (), {'__eq__': lambda a, b: True, '__hash__': object.__hash__})",
+        );
+        let made = |class: &Bound<'_, PyAny>| class.call0().expect("an instance").unbind();
+        let pool = vec![made(&plain), made(&plain), made(&always), made(&always)];
+        asking(py, pool, |oracle| {
+            let pair = |a, b| oracle.literals_disjoint(ConstIx::new(a), ConstIx::new(b));
+            for _ in 0..2 {
+                assert_eq!(pair(0, 1), Some(true), "two objects of an identity class");
+                assert_eq!(pair(2, 3), None, "an equality of the class's own");
+            }
+            assert_eq!(oracle.identity.borrow().len(), 2, "one reading a class");
+        });
+    });
+}
+
+/// A kind's constants are counted apart in one pass under the equality the
+/// pair question trusts: three integers are three, two equal integers held as
+/// two objects are one, two objects of a class comparing by identity are two,
+/// and a class with an `__eq__` of its own is not counted at all.
+#[test]
+fn a_kinds_constants_are_counted_apart_in_one_pass() {
+    Python::attach(|py| {
+        let plain = built(py, "type('Plain', (), {})");
+        let always = built(
+            py,
+            "type('Always', (), {'__eq__': lambda a, b: True, '__hash__': object.__hash__})",
+        );
+        let made = |class: &Bound<'_, PyAny>| class.call0().expect("an instance").unbind();
+        let pool = vec![
+            built(py, "1").unbind(),
+            built(py, "2").unbind(),
+            built(py, "3").unbind(),
+            built(py, "10 ** 30").unbind(),
+            built(py, "10 ** 30").unbind(),
+            made(&plain),
+            made(&plain),
+            made(&always),
+        ];
+        asking(py, pool, |oracle| {
+            let counted = |slots: &[usize]| {
+                let constants: Vec<ConstIx> =
+                    slots.iter().map(|slot| ConstIx::new(*slot)).collect();
+                oracle.literals_counted_apart(&constants)
+            };
+            assert_eq!(counted(&[0, 1, 2]), Some(3));
+            assert_eq!(counted(&[3, 4]), Some(1), "one value held twice");
+            assert_eq!(
+                counted(&[5, 6]),
+                Some(2),
+                "two objects compared by identity"
+            );
+            assert_eq!(counted(&[5, 7]), None, "an equality of the class's own");
+        });
+    });
+}
+
+#[test]
 fn a_fatal_signal_a_probe_raises_is_the_querys_answer() {
     // A probe runs user code, and one interrupted there has answered nothing:
     // the core reads it as a decline, like any probe that raised, and `answer`
     // hands the signal back in place of whatever was decided without it. An
     // ordinary exception is a decline and nothing more, so the verdict stands.
-    // The literal probe runs the walk, whose own slot is the one kept there.
+    // Two steps are divided by the operand's own `%`, which runs here; two
+    // bounds are compared only where each operand is one the walk reads alike,
+    // so a class of the test's own is not asked there. The literal probe runs
+    // the walk, whose own slot is the one kept there.
     Python::attach(|py| {
         let module = PyModule::from_code(
             py,
@@ -484,7 +1070,7 @@ fn a_fatal_signal_a_probe_raises_is_the_querys_answer() {
               \x20       self.raised = raised\n\
               \x20   def compared(self, other):\n\
               \x20       raise self.raised\n\
-              \x20   __eq__ = __lt__ = __gt__ = compared\n\
+              \x20   __eq__ = __lt__ = __gt__ = __mod__ = __rmod__ = compared\n\
               \x20   __hash__ = object.__hash__\n\
               def interrupted(value):\n\
               \x20   raise KeyboardInterrupt\n",
@@ -506,7 +1092,7 @@ fn a_fatal_signal_a_probe_raises_is_the_querys_answer() {
 
         let held = pooled(vec![order("KeyboardInterrupt()"), one.clone_ref(py)]);
         let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
-        assert_eq!(oracle.compare(first, second), None, "a decline to the core");
+        assert_eq!(oracle.divides(second, first), None, "a decline to the core");
         let raised = oracle
             .answer("decided")
             .expect_err("the signal is the answer");
@@ -514,7 +1100,7 @@ fn a_fatal_signal_a_probe_raises_is_the_querys_answer() {
 
         let held = pooled(vec![order("ValueError()"), one.clone_ref(py)]);
         let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
-        assert_eq!(oracle.compare(first, second), None);
+        assert_eq!(oracle.divides(second, first), None);
         assert_eq!(
             oracle.answer("decided").expect("a decline alone"),
             "decided"
@@ -534,16 +1120,68 @@ fn a_fatal_signal_a_probe_raises_is_the_querys_answer() {
             )]
             .into(),
         };
-        // The walk folds the interrupted predicate to a non-member, which is a
-        // refutation to the core; the kept signal is what stops it standing.
+        // The interrupted predicate ends the walk, which answers nothing, and
+        // the kept signal is the query's to raise.
         assert_eq!(
             oracle.leaf_subtype(&Schema::Literal(ConstIx::new(0)), &refined),
-            Some(false)
+            None
         );
         let raised = oracle
-            .answer("not_subset")
-            .expect_err("the signal, not the refutation");
+            .answer("undecided")
+            .expect_err("the signal, not the decline");
         assert!(raised.is_instance_of::<pyo3::exceptions::PyKeyboardInterrupt>(py));
+    });
+}
+
+// THEORY: the-decision-has-three-answers
+/// A constant the walk stopped on -- a predicate that raised -- is neither in
+/// the set nor out of it: the walk refuses it from the set and from its
+/// complement alike, so a bare refusal read as a value outside would refute
+/// a literal below `T | ~T`, which holds every value. A part that decides
+/// still decides beside a stop: a meet another member refuses is refused, and
+/// a union another branch admits is admitted.
+#[test]
+fn a_constant_the_walk_stopped_on_proves_and_refutes_nothing() {
+    Python::attach(|py| {
+        let five = 5i64.into_pyobject(py).unwrap().into_any().unbind();
+        let raising = built(py, "lambda value: 1 // 0").unbind();
+        asking(py, vec![five, raising], |oracle| {
+            let literal = Schema::Literal(ConstIx::new(0));
+            let stops = Schema::Refine {
+                base: std::sync::Arc::new(Schema::Int),
+                constraints: vec![valgebra_core::Constraint::Predicate(
+                    valgebra_core::PredIx::new(1),
+                )]
+                .into(),
+            };
+            let either = Schema::Union(vec![stops.clone(), stops.clone().complement()].into());
+            assert_eq!(oracle.leaf_subtype(&literal, &stops), None);
+            assert_eq!(
+                oracle.leaf_subtype(&literal, &stops.clone().complement()),
+                None
+            );
+            assert_eq!(oracle.leaf_subtype(&literal, &either), None, "T | ~T");
+            let beside_str = Schema::Intersection(vec![stops.clone(), Schema::Str].into());
+            assert_eq!(oracle.leaf_subtype(&literal, &beside_str), Some(false));
+            let or_int = Schema::Union(vec![stops.clone(), Schema::Int].into());
+            assert_eq!(oracle.leaf_subtype(&literal, &or_int), Some(true));
+            let texts = Schema::Refine {
+                base: std::sync::Arc::new(Schema::Str),
+                constraints: vec![valgebra_core::Constraint::Predicate(
+                    valgebra_core::PredIx::new(1),
+                )]
+                .into(),
+            };
+            assert_eq!(oracle.strings_admitted(&texts, &["a"]), None);
+            assert_eq!(
+                oracle.strings_admitted(&Schema::Str, &["a"]),
+                Some(vec![true])
+            );
+            assert!(
+                oracle.fatal.borrow().is_none(),
+                "a raised predicate is no signal"
+            );
+        });
     });
 }
 
@@ -641,6 +1279,59 @@ fn a_constant_is_alone_where_equality_joins_nothing_to_it() {
                 assert!(!alone(slot), "{what}");
             }
             assert!(!alone(16), "a slot the pool does not hold");
+        });
+    });
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+#[test]
+fn equal_values_read_alike_where_the_atoms_read_their_equality() {
+    // `equal_values_read_alike`: do the values `==` joins to the constant
+    // answer a pattern, a length, a bound and a step alike. Those read a
+    // builtin's storage, so a builtin subclass with an `__eq__` of its own
+    // joins values they tell apart; the standard library's types and identity
+    // read alike.
+    Python::attach(|py| {
+        let source = "types.SimpleNamespace(\
+             values=[1, 'a', 1.5, enum.IntEnum('Number', 'A').A,\
+                     type('Plain', (str,), {})('a'), __import__('decimal').Decimal('1.00'),\
+                     __import__('fractions').Fraction(1, 2), complex(1, 2),\
+                     enum.Enum('Color', 'A').A, object(),\
+                     type('CI', (str,), {'__eq__': lambda self, other: str.lower(self) == str.lower(other),\
+                                        '__hash__': lambda self: hash(str.lower(self))})('a'),\
+                     type('ByX', (), {'__eq__': lambda self, other: True,\
+                                      '__hash__': lambda self: 0})(),\
+                     type('Stated', (), {'__module__': 'fractions',\
+                                         '__eq__': lambda self, other: True,\
+                                         '__hash__': lambda self: 0})()],\
+         )";
+        let values: Vec<Py<PyAny>> = built(py, source)
+            .getattr("values")
+            .unwrap()
+            .try_iter()
+            .unwrap()
+            .map(|value| value.unwrap().unbind())
+            .collect();
+        asking(py, values, |oracle| {
+            let alike = |slot| oracle.equal_values_read_alike(ConstIx::new(slot));
+            for (slot, what) in [
+                (0, "an int"),
+                (1, "a str"),
+                (2, "a float"),
+                (3, "an IntEnum's member, whose == is int's"),
+                (4, "a str subclass keeping str's =="),
+                (5, "a Decimal"),
+                (6, "a Fraction"),
+                (7, "a complex number"),
+                (8, "an Enum's member, which compares by identity"),
+                (9, "an object of a type comparing by identity"),
+            ] {
+                assert!(alike(slot), "{what}");
+            }
+            assert!(!alike(10), "a str subclass whose == is its own");
+            assert!(!alike(11), "a user class whose == is its own");
+            assert!(!alike(12), "a class stating a standard-library module");
+            assert!(!alike(13), "a slot the pool does not hold");
         });
     });
 }
@@ -830,6 +1521,54 @@ fn two_classes_whose_slots_add_a_slot_lay_down_layouts_that_conflict() {
             for kind in Kind::ALL {
                 assert_eq!(oracle.class_admits_kind(ClassIx::new(0), kind), Some(false));
                 assert_eq!(oracle.class_admits_kind(ClassIx::new(4), kind), None);
+            }
+        });
+    });
+}
+
+#[test]
+#[cfg(not(PyPy))]
+fn a_type_defined_in_c_lays_down_the_layout_its_size_says() {
+    // A static type lays down a layout of its own where its instance is larger
+    // than its base's. `complex` holds two floats over `object`, so it conflicts
+    // with `int` and holds values of no kind. `Exception` holds what
+    // `BaseException` lays down and nothing more, so `ValueError` and
+    // `TypeError` carry one layout and a class deriving from both builds, and
+    // `OSError` adds fields over it, which extends it. A heap class is read by
+    // its slots, and `object`, which derives from nothing, lays down nothing.
+    Python::attach(|py| {
+        let classes: Vec<_> = [
+            "complex",
+            "int",
+            "ValueError",
+            "TypeError",
+            "OSError",
+            "type('Plain', (), {})",
+            "type('Slotted', (), {'__slots__': ('x',)})",
+            "object",
+        ]
+        .into_iter()
+        .map(|source| built(py, source).unbind())
+        .collect();
+        asking(py, classes, |oracle| {
+            let class = |slot| oracle.class(ClassIx::new(slot)).expect("the class is read");
+            let (complex, integer, value, kind) = (class(0), class(1), class(2), class(3));
+            let (os, plain, slotted, object) = (class(4), class(5), class(6), class(7));
+            assert!(
+                complex.disjoint_from(&integer),
+                "complex lays down a layout"
+            );
+            assert!(complex.disjoint_from(&value) && complex.disjoint_from(&slotted));
+            assert!(
+                !value.disjoint_from(&kind),
+                "ValueError and TypeError carry BaseException's layout"
+            );
+            assert!(!os.disjoint_from(&value), "OSError's layout extends it");
+            assert!(os.disjoint_from(&integer));
+            assert!(!plain.lays_down_a_layout() && !object.lays_down_a_layout());
+            assert!(slotted.disjoint_from(&integer));
+            for kind in Kind::ALL {
+                assert_eq!(oracle.class_admits_kind(ClassIx::new(0), kind), Some(false));
             }
         });
     });
@@ -1030,10 +1769,18 @@ fn a_record_a_class_cannot_carry_is_not_refuted_against_a_kind() {
     });
 }
 
-/// A class is read through code of its own -- its namespace and the `__eq__`
-/// on it through its metaclass, its `__slots__` by iterating them -- and a
-/// signal any of them raises is the relation's to raise: the oracle declines
-/// the question, and the query's answer is the signal.
+/// A class is read through code of its own -- the `__slots__` it names, by
+/// iterating them, and a descriptor's type, whose `__set__` a data-descriptor
+/// test looks up -- and a signal either raises is the relation's to raise: the
+/// oracle declines the question, and the query's answer is the signal.
+///
+/// A metaclass answering `__dict__` or `__eq__` is no such code: Python reads a
+/// class's namespace and dispatches `==` through what the class laid down, and
+/// asks no `__getattribute__` for either (the language reference, "Special
+/// method lookup"). Neither hook runs, so neither class is read through it --
+/// the namespace is the one the class statement filled, and two instances of a
+/// class whose metaclass hides its `__eq__` behind `object`'s compare by
+/// identity, as `==` on them does.
 #[test]
 fn a_signal_reading_a_class_is_the_answer() {
     Python::attach(|py| {
@@ -1041,9 +1788,7 @@ fn a_signal_reading_a_class_is_the_answer() {
             py,
             c"class Loud(dict):\n\
               \x20   def __contains__(self, key):\n\
-              \x20       if key == '__slots__':\n\
-              \x20           raise KeyboardInterrupt\n\
-              \x20       return dict.__contains__(self, key)\n\
+              \x20       raise KeyboardInterrupt\n\
               class Namespace(type):\n\
               \x20   def __getattribute__(cls, name):\n\
               \x20       if name == '__dict__':\n\
@@ -1060,14 +1805,26 @@ fn a_signal_reading_a_class_is_the_answer() {
               \x20       return iter(['x'])\n\
               class Slotted:\n\
               \x20   __slots__ = Names()\n\
+              class Stopping:\n\
+              \x20   def __get__(self, obj, cls):\n\
+              \x20       raise KeyboardInterrupt\n\
+              class Descriptor:\n\
+              \x20   __set__ = Stopping()\n\
+              class Holder:\n\
+              \x20   x = Descriptor()\n\
               class Equality(type):\n\
               \x20   def __getattribute__(cls, name):\n\
               \x20       if name == '__eq__':\n\
               \x20           raise KeyboardInterrupt\n\
               \x20       return type.__getattribute__(cls, name)\n\
               class Opaque(metaclass=Equality):\n\
+              \x20   def __eq__(self, other):\n\
+              \x20       return True\n\
+              \x20   __hash__ = object.__hash__\n\
+              class Hidden(metaclass=Equality):\n\
               \x20   pass\n\
-              first, second = Opaque(), Opaque()\n",
+              first, second = Opaque(), Opaque()\n\
+              one, two = Hidden(), Hidden()\n",
             c"class_reads.py",
             c"class_reads",
         )
@@ -1077,22 +1834,135 @@ fn a_signal_reading_a_class_is_the_answer() {
             let raised = oracle.answer(()).expect_err("the signal is the answer");
             assert!(raised.is_instance_of::<pyo3::exceptions::PyKeyboardInterrupt>(py));
         };
-        for class in ["Unread", "Slotted"] {
-            let held = pooled(vec![slot(class)]);
-            let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
-            assert_eq!(
-                oracle.direct_instance_of_kind(ClassIx::new(0), Kind::Int),
-                None,
-                "{class}"
-            );
-            interrupted(oracle);
-        }
-        let held = pooled(vec![slot("first"), slot("second")]);
+        let quiet = |oracle: PoolRelations<'_, '_>| {
+            oracle.answer(()).expect("no hook ran");
+        };
+        let held = pooled(vec![slot("Slotted")]);
         let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
         assert_eq!(
-            oracle.literals_disjoint(ConstIx::new(0), ConstIx::new(1)),
+            oracle.direct_instance_of_kind(ClassIx::new(0), Kind::Int),
             None
         );
         interrupted(oracle);
+        let held = pooled(vec![slot("Holder")]);
+        let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
+        assert_eq!(oracle.attribute_reach(ClassIx::new(0), "x"), None);
+        interrupted(oracle);
+        let held = pooled(vec![slot("Unread")]);
+        let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
+        assert_eq!(
+            oracle.direct_instance_of_kind(ClassIx::new(0), Kind::Int),
+            Some(false),
+            "Unread is read through the namespace its class statement filled"
+        );
+        quiet(oracle);
+        // Opaque's own `__eq__` answers `True`, which the metaclass hides;
+        // Hidden's is `object`'s, which it hides too.
+        let held = pooled(vec![
+            slot("first"),
+            slot("second"),
+            slot("one"),
+            slot("two"),
+        ]);
+        let oracle = PoolRelations::new(py, &held.literals, &held.definitions);
+        assert_eq!(
+            oracle.literals_disjoint(ConstIx::new(0), ConstIx::new(1)),
+            None,
+            "an equality of its own"
+        );
+        assert_eq!(
+            oracle.literals_disjoint(ConstIx::new(2), ConstIx::new(3)),
+            Some(true),
+            "identity, as `==` on them is"
+        );
+        quiet(oracle);
     });
+}
+
+/// A module built under `name` whose import the import system recorded at
+/// `origin`, `None` for no origin.
+fn module_from<'py>(py: Python<'py>, name: &str, origin: Option<&str>) -> Bound<'py, PyAny> {
+    let module = pyo3::types::PyModule::new(py, name).expect("a module object");
+    let options = PyDict::new(py);
+    options.set_item("origin", origin).expect("a dict holds it");
+    let spec = py
+        .import("importlib.machinery")
+        .and_then(|machinery| machinery.getattr("ModuleSpec"))
+        .and_then(|spec| spec.call((name, py.None()), Some(&options)))
+        .expect("a module spec");
+    module
+        .setattr("__spec__", spec)
+        .expect("a module takes a spec");
+    module.into_any()
+}
+
+// THEORY: a-constant-is-the-values-equal-to-it
+/// The standard library's module is the one the interpreter ships: loaded
+/// from the directory `sysconfig` names for it, or frozen or built in. One
+/// loaded from elsewhere under its name is the program's own, one with no
+/// origin is placed nowhere, and a module replaced under a name is read again
+/// rather than answered from the one before it.
+#[test]
+fn the_standard_library_is_the_module_the_interpreter_ships() {
+    Python::attach(|py| {
+        let ships = |module: &Bound<'_, PyAny>| {
+            ships_with_the_interpreter("fractions", module).expect("a module is placed")
+        };
+        let shipped = py
+            .import("fractions")
+            .expect("fractions imports")
+            .into_any();
+        assert!(ships(&shipped), "the module the interpreter loaded");
+        let elsewhere = module_from(py, "fractions", Some("/nowhere/fractions.py"));
+        assert!(!ships(&elsewhere), "a program's own, under the name");
+        assert!(ships(&shipped), "the shipped module, read again");
+        let stdlib: String = py
+            .import("sysconfig")
+            .and_then(|sysconfig| sysconfig.call_method1("get_path", ("stdlib",)))
+            .and_then(|path| path.extract())
+            .expect("the standard library's directory");
+        let inside = format!("{stdlib}/fractions.py");
+        assert!(ships(&module_from(py, "fractions", Some(&inside))));
+        assert!(ships(&module_from(py, "fractions", Some("frozen"))));
+        assert!(ships(&module_from(py, "fractions", Some("built-in"))));
+        assert!(!ships(&module_from(py, "fractions", None)), "no origin");
+        let unplaced = pyo3::types::PyModule::new(py, "fractions").expect("a module object");
+        assert!(!ships(unplaced.as_any()), "no spec");
+    });
+}
+
+rusty_fork_test! {
+    /// A class a module of the program's own binds under a standard-library
+    /// name is neither an exact rational nor a value type, and the shipped
+    /// class is neither while the name binds the other module: the class is
+    /// asked by identity with what the interpreter's module binds. Run in a
+    /// process of its own, since `sys.modules` is swapped.
+    #[test]
+    fn a_class_a_shadowing_module_binds_is_no_value_type() {
+        Python::attach(|py| {
+            let modules = py
+                .import("sys")
+                .and_then(|sys| sys.getattr("modules"))
+                .expect("sys.modules");
+            let shipped = py.import("fractions").expect("fractions imports");
+            let fraction = shipped.getattr("Fraction").expect("Fraction");
+            let fraction = fraction.cast::<PyType>().expect("a class");
+            let shadow = module_from(py, "fractions", Some("/nowhere/fractions.py"));
+            py.run(
+                c"class Fraction:\n    pass\n",
+                Some(&shadow.getattr("__dict__").unwrap().cast_into::<PyDict>().unwrap()),
+                None,
+            )
+            .expect("the shadow's class");
+            let own = shadow.getattr("Fraction").unwrap();
+            let own = own.cast::<PyType>().unwrap();
+            modules.set_item("fractions", &shadow).unwrap();
+            assert!(!is_exact_rational(own).unwrap());
+            assert!(!is_a_value_type(own).unwrap());
+            assert!(!is_exact_rational(fraction).unwrap(), "the name binds the shadow");
+            modules.set_item("fractions", &shipped).unwrap();
+            assert!(is_exact_rational(fraction).unwrap());
+            assert!(is_a_value_type(fraction).unwrap());
+        });
+    }
 }

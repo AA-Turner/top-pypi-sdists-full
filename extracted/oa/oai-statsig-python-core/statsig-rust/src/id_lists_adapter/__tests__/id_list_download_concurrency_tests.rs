@@ -138,6 +138,18 @@ fn setup(
     Arc<StatsigHttpIdListsAdapter>,
     Arc<SpecStore>,
 ) {
+    setup_with_options(names, StatsigOptions::default(), None)
+}
+
+fn setup_with_options(
+    names: &[&str],
+    options: StatsigOptions,
+    before_build: Option<Arc<dyn Fn() + Send + Sync>>,
+) -> (
+    Arc<Provider>,
+    Arc<StatsigHttpIdListsAdapter>,
+    Arc<SpecStore>,
+) {
     let provider = Arc::new(Provider::default());
     for name in names {
         provider
@@ -149,20 +161,22 @@ fn setup(
     let sdk_key = format!("secret-id-lists-{}", uuid::Uuid::new_v4());
     let options = StatsigOptions {
         id_lists_url: Some(MANIFEST_URL.into()),
-        ..StatsigOptions::default()
+        ..options
     };
-    let mut adapter = StatsigHttpIdListsAdapter::new(&sdk_key, &options);
-    let dynamic: Arc<dyn NetworkProvider> = provider.clone();
-    adapter
-        .network
-        .set_network_provider_for_test(Arc::downgrade(&dynamic));
-    let store = Arc::new(SpecStore::new(
+    let mut store = SpecStore::new(
         &sdk_key,
         "id-lists-test".into(),
         StatsigRuntime::get_runtime(),
         Arc::new(SdkEventEmitter::default()),
         Some(&options),
-    ));
+    );
+    store.before_id_list_build = before_build;
+    let store = Arc::new(store);
+    let mut adapter = StatsigHttpIdListsAdapter::new(&sdk_key, &options);
+    let dynamic: Arc<dyn NetworkProvider> = provider.clone();
+    adapter
+        .network
+        .set_network_provider_for_test(Arc::downgrade(&dynamic));
     adapter.set_listener(store.clone());
     (provider, Arc::new(adapter), store)
 }
@@ -398,4 +412,154 @@ async fn id_list_concurrency_cancellation_drops_active_and_queued_downloads() {
     tokio::task::yield_now().await;
     assert_eq!(provider.file_requests().len(), 5);
     assert!(Arc::ptr_eq(&before.id_lists, &store.load_data().id_lists));
+}
+
+#[tokio::test]
+async fn eager_init_publishes_only_to_the_listener_passed_to_start() {
+    let (_provider, adapter, original) = setup(&["a", "b"]);
+    let runtime = StatsigRuntime::get_runtime();
+    let mut replacement = SpecStore::new(
+        "secret-replacement",
+        "replacement".into(),
+        runtime.clone(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&StatsigOptions {
+            id_list_init_build_concurrency: Some(2),
+            ..Default::default()
+        }),
+    );
+    let startup_thread = std::thread::current().id();
+    replacement.before_id_list_build = Some(Arc::new(move || {
+        assert_ne!(std::thread::current().id(), startup_thread);
+    }));
+    let replacement = Arc::new(replacement);
+
+    adapter.start(&runtime, replacement.clone()).await.unwrap();
+    assert!(original.load_data().id_lists.is_empty());
+    let snapshot = replacement.load_data();
+    for name in ["a", "b"] {
+        assert!(snapshot.id_lists[name].ids.contains("a"));
+    }
+}
+
+#[test]
+fn eager_init_builds_use_the_configured_workers_and_publish_together() {
+    use std::sync::mpsc;
+    use std::thread;
+
+    for (limit, trigger, elias_fano, expected) in [
+        (None, RefreshTrigger::PrivateInitialize, true, 1),
+        (Some(1), RefreshTrigger::PrivateInitialize, true, 1),
+        (Some(0), RefreshTrigger::PrivateInitialize, true, 1),
+        (Some(33), RefreshTrigger::PrivateInitialize, true, 1),
+        (Some(2), RefreshTrigger::PrivateInitialize, true, 2),
+        (Some(32), RefreshTrigger::PrivateInitialize, true, 4),
+        (Some(4), RefreshTrigger::Background, true, 1),
+        (Some(4), RefreshTrigger::SharedInitialize, true, 1),
+        (Some(2), RefreshTrigger::PrivateInitialize, false, 2),
+    ] {
+        let (entered, builds) = mpsc::channel();
+        let before_build = Arc::new(move || {
+            let (release, wait) = mpsc::channel();
+            entered.send((thread::current().id(), release)).unwrap();
+            wait.recv_timeout(Duration::from_secs(5))
+                .expect("test did not release build");
+        });
+        let names = ["a", "b", "c", "d"];
+        let (_provider, adapter, store) = setup_with_options(
+            &names,
+            StatsigOptions {
+                id_list_init_build_concurrency: limit,
+                enable_id_list_elias_fano: Some(elias_fano),
+                ..Default::default()
+            },
+            Some(before_build),
+        );
+        let (finished, completion) = mpsc::channel();
+        // A timeout must be able to fail this test even if publication deadlocks.
+        let init = thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .max_blocking_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+            let result = runtime.block_on(adapter.refresh(trigger));
+            runtime.shutdown_background();
+            let _ = finished.send(result);
+        });
+        let mut threads = std::collections::HashSet::new();
+        let mut paused = Vec::new();
+        for i in 0..names.len() {
+            let (id, release) = builds
+                .recv_timeout(Duration::from_secs(3))
+                .expect("an index build should make progress with one Tokio blocking worker");
+            threads.insert(id);
+            paused.push(release);
+            if i + 1 >= expected {
+                assert!(
+                    store.load_data().id_lists.is_empty(),
+                    "a partially built catalog became visible"
+                );
+                paused.pop().unwrap().send(()).unwrap();
+            }
+        }
+        for release in paused {
+            release.send(()).unwrap();
+        }
+        completion
+            .recv_timeout(Duration::from_secs(3))
+            .expect("eager publication stalled")
+            .unwrap();
+        init.join().unwrap();
+        assert_eq!(threads.len(), expected, "limit {limit:?}");
+        let snapshot = store.load_data();
+        assert!(
+            names
+                .iter()
+                .all(|name| snapshot.id_lists[*name].ids.contains("a"))
+        );
+    }
+}
+
+#[tokio::test]
+async fn eager_hash_build_yields_to_the_runtime_and_fences_force_shutdown() {
+    let (entered, started) = tokio::sync::oneshot::channel();
+    let (release, wait) = std::sync::mpsc::channel::<()>();
+    let gate = Mutex::new(Some((entered, wait)));
+    let (_provider, adapter, store) = setup_with_options(
+        &["members"],
+        StatsigOptions::builder()
+            .id_list_init_build_concurrency(Some(4))
+            .build(),
+        Some(Arc::new(move || {
+            let (entered, wait) = gate.lock().take().unwrap();
+            entered.send(()).unwrap();
+            wait.recv_timeout(Duration::from_secs(3))
+                .expect("hash build blocked the Tokio thread that releases it");
+        })),
+    );
+    let loading = tokio::spawn({
+        let adapter = adapter.clone();
+        async move { adapter.refresh(RefreshTrigger::PrivateInitialize).await }
+    });
+    tokio::time::timeout(Duration::from_secs(3), started)
+        .await
+        .unwrap()
+        .unwrap();
+    // This runs on the sole async thread while the hash build is still paused.
+    let mut stopping = tokio::task::spawn_blocking({
+        let adapter = adapter.clone();
+        move || adapter.force_shutdown()
+    });
+    until(|| adapter.network.shutdown_flag().load(Ordering::SeqCst)).await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(20), &mut stopping)
+            .await
+            .is_err(),
+        "force_shutdown returned during an entered hash publication"
+    );
+    release.send(()).unwrap();
+    stopping.await.unwrap();
+    assert!(store.load_data().id_lists["members"].ids.contains("a"));
+    loading.await.unwrap().unwrap();
 }

@@ -124,9 +124,9 @@ def default_loaders(
     appname: str,
     config_files: Iterable[str | Path] = (),
     *,
-    config_file_section: None | str | _Auto = AUTO,
-    config_files_var: None | str | _Auto = AUTO,
-    env_prefix: None | str | _Auto = AUTO,
+    config_file_section: str | _Auto | None = AUTO,
+    config_files_var: str | _Auto | None = AUTO,
+    env_prefix: str | _Auto | None = AUTO,
     env_nested_delimiter: str = "_",
 ) -> list[Loader]:
     """
@@ -208,9 +208,9 @@ def load(
     appname: str,
     config_files: Iterable[str | Path] = (),
     *,
-    config_file_section: None | str | _Auto = AUTO,
-    config_files_var: None | str | _Auto = AUTO,
-    env_prefix: None | str | _Auto = AUTO,
+    config_file_section: str | _Auto | None = AUTO,
+    config_files_var: str | _Auto | None = AUTO,
+    env_prefix: str | _Auto | None = AUTO,
     env_nested_delimiter: str = "_",
     base_dir: Path = Path(),
 ) -> ST:

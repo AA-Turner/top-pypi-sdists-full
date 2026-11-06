@@ -350,6 +350,22 @@ class StatsigOptions:
     @disable_all_logging.setter
     def disable_all_logging(self, value: typing.Optional[builtins.bool]) -> None: ...
     @property
+    def disable_remote_telemetry(self) -> typing.Optional[builtins.bool]:
+        r"""
+        Skip Statsig-side diagnostics and SDK exception uploads for this SDK instance.
+        True opts in; False or None preserves existing reporting. ObservabilityClient,
+        local output logs, exposures, and custom events remain enabled. Read when the
+        SDK is constructed; create a new SDK instance to change this setting.
+        """
+    @disable_remote_telemetry.setter
+    def disable_remote_telemetry(self, value: typing.Optional[builtins.bool]) -> None:
+        r"""
+        Skip Statsig-side diagnostics and SDK exception uploads for this SDK instance.
+        True opts in; False or None preserves existing reporting. ObservabilityClient,
+        local output logs, exposures, and custom events remain enabled. Read when the
+        SDK is constructed; create a new SDK instance to change this setting.
+        """
+    @property
     def disable_network(self) -> typing.Optional[builtins.bool]: ...
     @disable_network.setter
     def disable_network(self, value: typing.Optional[builtins.bool]) -> None: ...
@@ -393,6 +409,24 @@ class StatsigOptions:
         r"""
         Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
         """
+    @property
+    def id_list_init_build_concurrency(self) -> typing.Optional[int]:
+        r"""
+        Maximum simultaneous index builds during eager private ID-list initialization.
+        Use an integer from 1 to 32. Unset or out-of-range values use 1 (serial).
+        Create a new SDK instance to change this setting.
+        """
+    @id_list_init_build_concurrency.setter
+    def id_list_init_build_concurrency(self, value: typing.Optional[int]) -> None:
+        r"""
+        Maximum simultaneous index builds during eager private ID-list initialization.
+        Use an integer from 1 to 32. Unset or out-of-range values use 1 (serial).
+        Create a new SDK instance to change this setting.
+        """
+    @property
+    def enable_id_list_access_metrics(self) -> typing.Optional[builtins.bool]: ...
+    @enable_id_list_access_metrics.setter
+    def enable_id_list_access_metrics(self, value: typing.Optional[builtins.bool]) -> None: ...
     @property
     def enable_dcs_deltas(self) -> typing.Optional[builtins.bool]: ...
     @enable_dcs_deltas.setter
@@ -537,7 +571,7 @@ class StatsigOptions:
     def evaluation_cache(self) -> typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache]: ...
     @evaluation_cache.setter
     def evaluation_cache(self, value: typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache]) -> None: ...
-    def __new__(cls, specs_url: typing.Optional[builtins.str] = None, specs_sync_interval_ms: typing.Optional[builtins.int] = None, init_timeout_ms: typing.Optional[builtins.int] = None, log_event_url: typing.Optional[builtins.str] = None, disable_all_logging: typing.Optional[builtins.bool] = None, disable_network: typing.Optional[builtins.bool] = None, log_event_connection_reuse: typing.Optional[builtins.bool] = None, event_logging_flush_interval_ms: typing.Optional[builtins.int] = None, event_logging_max_queue_size: typing.Optional[builtins.int] = None, event_logging_max_pending_batch_queue_size: typing.Optional[builtins.int] = None, enable_id_lists: typing.Optional[builtins.bool] = None, enable_dcs_deltas: typing.Optional[builtins.bool] = None, wait_for_user_agent_init: typing.Optional[builtins.bool] = None, wait_for_country_lookup_init: typing.Optional[builtins.bool] = None, disable_country_lookup: typing.Optional[builtins.bool] = None, id_lists_url: typing.Optional[builtins.str] = None, download_id_list_file_api: typing.Optional[builtins.str] = None, id_lists_sync_interval_ms: typing.Optional[builtins.int] = None, fallback_to_statsig_api: typing.Optional[builtins.bool] = None, environment: typing.Optional[builtins.str] = None, service_name: typing.Optional[builtins.str] = None, sdk_instance_id: typing.Optional[builtins.str] = None, sdk_runtime_thread_count: typing.Optional[builtins.int] = None, runtime_thread_start_callback: typing.Optional[typing.Callable[[], None]] = None, output_log_level: typing.Optional[builtins.str] = None, global_custom_fields: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool, typing.List[typing.Optional[typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool]]]]]] = None, observability_client: typing.Optional[ObservabilityClientBase] = None, data_store: typing.Optional[DataStoreBase] = None, data_store_key_schema_version: typing.Optional[builtins.str] = None, persistent_storage: typing.Optional[PersistentStorageBaseClass] = None, config_compression_mode: typing.Optional[builtins.str] = None, proxy_config: typing.Optional[ProxyConfig] = None, output_logger_provider: typing.Optional[OutputLoggerProviderBase] = None, spec_adapter_configs: typing.Optional[list] = None, use_third_party_ua_parser: typing.Optional[builtins.bool] = None, disable_disk_access: typing.Optional[builtins.bool] = None, experimental_flags: typing.Optional[builtins.set[builtins.str]] = None, event_logging_adapter: typing.Optional[EventLoggingAdapterBase] = None, evaluation_cache: typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache] = None, prefer_http2: typing.Optional[builtins.bool] = None, state_read_primary_attempts: typing.Optional[builtins.int] = None, shared_id_lists_dir: typing.Optional[builtins.str] = None, enable_id_list_elias_fano: typing.Optional[builtins.bool] = None) -> StatsigOptions: ...
+    def __new__(cls, specs_url: typing.Optional[builtins.str] = None, specs_sync_interval_ms: typing.Optional[builtins.int] = None, init_timeout_ms: typing.Optional[builtins.int] = None, log_event_url: typing.Optional[builtins.str] = None, disable_all_logging: typing.Optional[builtins.bool] = None, disable_network: typing.Optional[builtins.bool] = None, log_event_connection_reuse: typing.Optional[builtins.bool] = None, event_logging_flush_interval_ms: typing.Optional[builtins.int] = None, event_logging_max_queue_size: typing.Optional[builtins.int] = None, event_logging_max_pending_batch_queue_size: typing.Optional[builtins.int] = None, enable_id_lists: typing.Optional[builtins.bool] = None, enable_dcs_deltas: typing.Optional[builtins.bool] = None, wait_for_user_agent_init: typing.Optional[builtins.bool] = None, wait_for_country_lookup_init: typing.Optional[builtins.bool] = None, disable_country_lookup: typing.Optional[builtins.bool] = None, id_lists_url: typing.Optional[builtins.str] = None, download_id_list_file_api: typing.Optional[builtins.str] = None, id_lists_sync_interval_ms: typing.Optional[builtins.int] = None, fallback_to_statsig_api: typing.Optional[builtins.bool] = None, environment: typing.Optional[builtins.str] = None, service_name: typing.Optional[builtins.str] = None, sdk_instance_id: typing.Optional[builtins.str] = None, sdk_runtime_thread_count: typing.Optional[builtins.int] = None, runtime_thread_start_callback: typing.Optional[typing.Callable[[], None]] = None, output_log_level: typing.Optional[builtins.str] = None, global_custom_fields: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool, typing.List[typing.Optional[typing.Union[builtins.str, builtins.int, builtins.float, builtins.bool]]]]]] = None, observability_client: typing.Optional[ObservabilityClientBase] = None, data_store: typing.Optional[DataStoreBase] = None, data_store_key_schema_version: typing.Optional[builtins.str] = None, persistent_storage: typing.Optional[PersistentStorageBaseClass] = None, config_compression_mode: typing.Optional[builtins.str] = None, proxy_config: typing.Optional[ProxyConfig] = None, output_logger_provider: typing.Optional[OutputLoggerProviderBase] = None, spec_adapter_configs: typing.Optional[list] = None, use_third_party_ua_parser: typing.Optional[builtins.bool] = None, disable_disk_access: typing.Optional[builtins.bool] = None, experimental_flags: typing.Optional[builtins.set[builtins.str]] = None, event_logging_adapter: typing.Optional[EventLoggingAdapterBase] = None, evaluation_cache: typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache] = None, prefer_http2: typing.Optional[builtins.bool] = None, state_read_primary_attempts: typing.Optional[builtins.int] = None, shared_id_lists_dir: typing.Optional[builtins.str] = None, enable_id_list_elias_fano: typing.Optional[builtins.bool] = None, disable_remote_telemetry: typing.Optional[builtins.bool] = None, id_list_init_build_concurrency: typing.Optional[int] = None, enable_id_list_access_metrics: typing.Optional[builtins.bool] = None) -> StatsigOptions: ...
 
 @typing.final
 class StatsigRandomUserID:

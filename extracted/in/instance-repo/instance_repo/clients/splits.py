@@ -72,12 +72,18 @@ class SplitsClient:
         """
         if not (dataset or "").strip():
             raise SchemaError("dataset is required for splits.list")
+        # Match the server's page bounds for local projection/OSS fallbacks too.
+        page = max(1, int(page))
+        page_size = int(page_size)
+        page_size = min(200, page_size) if page_size > 0 else 50
         scope = (version_scope or "").strip()
         if scope and scope not in VERSION_SCOPE_VALUES:
             raise SchemaError(
                 f"invalid version_scope {scope!r}; must be one of "
                 f"{', '.join(VERSION_SCOPE_VALUES)}")
-        if not scope and not (version or "").strip():
+        if (version or "").strip():
+            scope = "exact"
+        elif not scope:
             scope = "all"  # 见模块 docstring：SDK 默认跨全部版本
         if (status or "").strip():
             s = status.strip()
@@ -88,7 +94,7 @@ class SplitsClient:
         q = f"dataset_name={quote(dataset, safe='')}"
         if (version or "").strip():
             q += f"&version={quote(version, safe='')}"
-        if scope:
+        if scope and not (version or "").strip():
             q += f"&version_scope={quote(scope, safe='')}"
         if (status or "").strip():
             q += f"&status={quote(status.strip(), safe='')}"
@@ -111,15 +117,22 @@ class SplitsClient:
         rows = data.get("splits", data) if isinstance(data, dict) else data
         rows = rows if isinstance(rows, list) else []
         items = [DatasetSplit.from_dict(r) for r in rows if isinstance(r, dict)]
-        # ── 3. 空结果 → Legacy 回退（version_first 内嵌投影）──
-        if not items and not (status or "").strip():
-            items = self._legacy_list(dataset, version, self._env(environment))
-        # ── 3b. 仍为空 → OSS 回退 ──
-        if not items and fallback_to_oss and self._content is not None \
+        # An empty requested page does not mean the split collection is empty.
+        # Falling back on page N of a nonempty collection would duplicate legacy
+        # rows and replace the server's authoritative total with unrelated data.
+        total = pagination.get("total") if isinstance(pagination, dict) else None
+        collection_empty = not isinstance(total, (int, float)) or total == 0
+        if not items and collection_empty and not (status or "").strip() \
+                and scope != "unversioned":
+            legacy_items = self._legacy_list(dataset, version, self._env(environment))
+            if legacy_items:
+                from ..store.oss_discovery import _in_memory_paged
+                return _in_memory_paged(legacy_items, page, page_size)
+        if not items and collection_empty and fallback_to_oss and self._content is not None \
                 and self._discovery_env_match(environment):
             return self._discover_splits(
                 dataset, version, scope, status, page, page_size)
-        return PagedResult.from_response(items, pagination, int(page), int(page_size))
+        return PagedResult.from_response(items, pagination, page, page_size)
 
     def get(self, dataset: str, split: str, *, version: str | None = None,
             environment: str | None = None,
@@ -282,7 +295,7 @@ class SplitsClient:
             metadata_model=self._discovery_mm())
         _warn_if_truncated(info, dataset, 500)
         splits: list[DatasetSplit] = []
-        scope = (version_scope or "all").strip().lower()
+        scope = "exact" if version else (version_scope or "all").strip().lower()
         # split_first 无版本布局：dataset 根下直接是 split 目录
         if not version and scope in ("all", "unversioned"):
             for us in info.unversioned_splits:
@@ -361,15 +374,18 @@ class SplitsClient:
     # ── 写 ──
 
     def _post_create(self, dataset: str, split: str, version: str,
-                     environment: str) -> None:
-        """创建 split；POST 非幂等，响应是 DatasetVersion 兼容体，故不解析。"""
+                     environment: str, run_type: str) -> bool:
+        """创建 split，并返回服务端是否支持仅对新记录写入初始 run_type。"""
         q = f"dataset_name={quote(dataset, safe='')}"
         if version:
             q += f"&version={quote(version, safe='')}"
         if environment:
             q += f"&environment={quote(environment, safe='')}"
-        self._t.post(f"{self._BASE}?{q}", {"splits": [split]},
-                     idempotent=False)
+        body = {"splits": [split]}
+        if run_type:
+            body["run_type"] = run_type
+        data = self._t.post(f"{self._BASE}?{q}", body, idempotent=False)
+        return isinstance(data, dict) and data.get("run_type_on_create_supported") is True
 
     def create(self, dataset: str, split: str, *,
                version: str | None = None, run_type: str | None = None,
@@ -379,8 +395,9 @@ class SplitsClient:
 
         ``version`` 可选；空值表示 unversioned split。``storage_path`` 仅为 1.2.1
         源码兼容保留，独立端点不接受它，因此非空值会在网络调用前拒绝。
-        POST 响应是 DatasetVersion 兼容体，不能当 DatasetSplit 解析；可选 run_type
-        PATCH 完成后始终 GET 详情，并对创建后的短暂不可见做三次有界重试。
+        POST 响应是 DatasetVersion 兼容体，不能当 DatasetSplit 解析。新服务端在插入
+        新记录时写入可选 run_type；旧服务端保留创建后 PATCH 的兼容路径。完成后始终
+        GET 详情，并对创建后的短暂不可见做三次有界重试。
         """
         dataset_name = (dataset or "").strip()
         split_name = (split or "").strip()
@@ -401,7 +418,8 @@ class SplitsClient:
         env = self._env(environment)
 
         try:
-            self._post_create(dataset_name, split_name, version_name, env)
+            run_type_on_create = self._post_create(
+                dataset_name, split_name, version_name, env, rt)
         except Exception as exc:
             raise TransportError(
                 f"split create POST failed before creation was confirmed: {exc}",
@@ -410,7 +428,7 @@ class SplitsClient:
 
         coordinates = _create_coordinates(
             dataset_name, version_name, split_name, env)
-        if rt:
+        if rt and not run_type_on_create:
             try:
                 self._update_with_environment(
                     dataset_name, split_name, version=version_name,

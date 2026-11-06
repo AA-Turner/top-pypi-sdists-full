@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "albumentationsx"
 
-version = "2.5.1"
+version = "2.6.0"
 
 description = "Fast, flexible, and advanced augmentation library for deep learning, computer vision, and medical imaging. Albumentations offers a wide range of transformations for both 2D (images, masks, bboxes, keypoints) and 3D (volume data, volumetric masks, keypoints) data, with optimized performance and seamless integration into ML workflows. Available under AGPL-3.0-only or a commercial license with agreed coverage for your team, products, and deployments."
 readme = "README.md"
@@ -110,8 +110,9 @@ classifiers = [
 ]
 
 dependencies = [
-  "albucore==0.2.21",
-  "numkong>=7.8.0",
+  "albucore==0.3.5",
+  "numkong>=7.8.7",
+  "stringzilla>=5.3.2",
   "numpy>=2.2.6",
   "pydantic>=2.12.4",
   "pyyaml>=6.0.3",
@@ -151,6 +152,7 @@ ci-test = [
   "requests>=2.34.2",
   "scikit-image>=0.25.2",
   "scikit-learn>=1.7.2",
+  "threadpoolctl>=3.6.0",
 ]
 ci-quality = [
   "defusedxml>=0.7.1",
@@ -163,6 +165,7 @@ ci-quality = [
   "ruff>=0.16.2",
 ]
 ci-types = [
+  "huggingface-hub>=1.27.0",
   "mypy>=2.3.0",
   "opencv-python-headless>=5.0.0.93",
   "pre-commit>=4.6.2",
@@ -182,6 +185,7 @@ ci-package = [
 ci-benchmark = [
   "asv",
   "opencv-python-headless>=5.0.0.93",
+  "threadpoolctl>=3.6.0",
 ]
 ci-release = [
   { include-group = "ci-benchmark" },
@@ -201,7 +205,6 @@ dev = [
   { include-group = "ci-package" },
   { include-group = "ci-benchmark" },
   { include-group = "ci-release" },
-  "huggingface-hub>=1.27.0",
 ]
 
 [project.urls]
@@ -373,7 +376,6 @@ lint.per-file-ignores."tests/*" = [
 [tool.mypy]
 plugins = [ "pydantic.mypy" ]
 
-python_version = "3.11"
 ignore_missing_imports = true
 follow_imports = "silent"
 warn_redundant_casts = true
@@ -384,6 +386,10 @@ no_implicit_reexport = true
 disable_error_code = [ "valid-type" ]
 
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["albucore", "albucore.*", "torch", "torch.*", "numpy", "numpy.*", "cv2", "cv2.*", "numkong", "numkong.*"]
+ignore_missing_imports = false
 
 # Strict checking for the instance-binding boundary modules so the StackedMasks4D NewType brand
 # (and other structural contracts in Compose's transform loop / mixing transforms) keep being
@@ -405,14 +411,7 @@ strict_equality = true
 warn_unused_ignores = true
 
 [tool.pyrefly]
-python-version = "3.11"
 project-includes = ["albumentations"]
-ignore-missing-imports = [
-  "huggingface_hub",
-  "huggingface_hub.utils",
-  "torch",
-  "torch.utils.data",
-]
 project-excludes = [
   "**/__pycache__",
   ".venv",

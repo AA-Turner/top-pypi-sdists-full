@@ -10,8 +10,14 @@ import httpx2
 from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, not_given
+from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._utils import maybe_transform
 from trajectory.types.beta.checkpoint_exports.checkpoint_export import CheckpointExport
+from trajectory.types.beta.checkpoint_exports.checkpoint_exports_create_params import (
+  CheckpointExportsCreateParams,
+)
+from trajectory.types.checkpoint_export_file import CheckpointExportFile
+from trajectory.types.list_checkpoint_exports_response import ListCheckpointExportsResponse
 
 
 class CheckpointExports(APIResource):
@@ -23,12 +29,14 @@ class CheckpointExports(APIResource):
     self,
     checkpoint_id: str,
     *,
+    body: CheckpointExportsCreateParams | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CheckpointExport:
-    """Start or reuse the LoRA adapter download for a committed checkpoint.
+    """Queue or reuse a download for a committed checkpoint, then poll it until it's ready.
+    Defaults to the LoRA adapter.
 
     Args:
       extra_headers: Send extra headers
@@ -49,6 +57,11 @@ class CheckpointExports(APIResource):
         checkpoint_id=checkpoint_id,
       ),
       cast_to=CheckpointExport,
+      body=(
+        None
+        if isinstance(body, Omit)
+        else maybe_transform(body, CheckpointExportsCreateParams | None)
+      ),
       options=make_request_options(
         extra_headers={"Trajectory-Beta": "checkpoint-exports-2026-10-29", **(extra_headers or {})},
         extra_query=extra_query,
@@ -65,7 +78,7 @@ class CheckpointExports(APIResource):
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> SyncPage[CheckpointExport]:
+  ) -> ListCheckpointExportsResponse:
     """List Checkpoint Exports
 
     Args:
@@ -86,7 +99,7 @@ class CheckpointExports(APIResource):
         "/api/v1/checkpoints/{checkpoint_id}/exports",
         checkpoint_id=checkpoint_id,
       ),
-      cast_to=SyncPage[CheckpointExport],
+      cast_to=ListCheckpointExportsResponse,
       options=make_request_options(
         extra_headers={"Trajectory-Beta": "checkpoint-exports-2026-10-29", **(extra_headers or {})},
         extra_query=extra_query,
@@ -104,7 +117,7 @@ class CheckpointExports(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> CheckpointExport:
-    """Read export status; a ready export includes a fresh signed download link.
+    """Read export status; a ready lora_adapter export includes a fresh signed download link.
 
     Args:
       extra_headers: Send extra headers
@@ -131,6 +144,42 @@ class CheckpointExports(APIResource):
       ),
     )
 
+  def list_files(
+    self,
+    export_id: str,
+    *,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> SyncPage[CheckpointExportFile]:
+    """List a ready merged_model export's files, each with a fresh signed download link.
+
+    Args:
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(export_id, str) and not export_id:
+      raise ValueError(f"Expected a non-empty value for `export_id` but received {export_id!r}")
+    return self._get(
+      path_template(
+        "/api/v1/checkpoints/exports/{export_id}/files",
+        export_id=export_id,
+      ),
+      cast_to=SyncPage[CheckpointExportFile],
+      options=make_request_options(
+        extra_headers={"Trajectory-Beta": "checkpoint-exports-2026-10-29", **(extra_headers or {})},
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
 
 class CheckpointExportsWithRawResponse:
   def __init__(self, resource: CheckpointExports) -> None:
@@ -138,3 +187,4 @@ class CheckpointExportsWithRawResponse:
     self.create = to_raw_response_wrapper(resource.create)
     self.list = to_raw_response_wrapper(resource.list)
     self.retrieve = to_raw_response_wrapper(resource.retrieve)
+    self.list_files = to_raw_response_wrapper(resource.list_files)

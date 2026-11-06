@@ -6,33 +6,43 @@ Licensed under the MIT License.
 import asyncio
 from typing import Awaitable, Callable, Literal, Optional, Protocol, Union
 
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import MessageActivityInput, SentActivity, TextFormat, TypingActivityInput
+from typing_extensions import deprecated
 
 StreamerEvent = Literal["chunk", "close"]
 
 
+@deprecated("StreamCancelledError is deprecated. Teams no longer supports stopping a stream. ")
 class StreamCancelledError(asyncio.CancelledError):
-    """Raised when a stream operation is attempted after the stream has been cancelled."""
+    """Deprecated exception; no longer raised for streaming operations."""
 
     pass
 
 
 class TerminalStreamError(Exception):
-    """
-    Base class for terminal streaming errors (HTTP 403)
-    that should not be retried.
-    """
+    """Base class for terminal stream errors that should not be retried."""
 
 
 class StreamTimedOutError(TerminalStreamError):
-    """
-    Raised when the bot failed to complete streaming within the two-minute limit.
+    """The stream hit its timeout.
+
+    This also covers the Plan-completion case: the buffered final payload still contains a
+    ``PlanInfoEntity``, so the normal streamed message PUT fallback is invalid. Callers
+    must switch to the Plan completion flow instead of retrying the same stream close.
     """
 
 
 class StreamNotAllowedError(TerminalStreamError):
-    """
-    Raised when streaming is not allowed for this user or bot.
+    """Raised when streaming is not allowed for this user or bot."""
+
+
+class PlanConflictStreamError(HTTPStatusError):
+    """Teams rejected the Plan lifecycle with a 409 ``PlanConflict``.
+
+    This is a service conflict, not a stream timeout. The caller should not retry the same
+    stream-close path; it should treat the Plan state as conflicted and resolve the Plan
+    lifecycle explicitly.
     """
 
 
@@ -40,11 +50,9 @@ class StreamerProtocol(Protocol):
     """Component that can send streamed chunks of an activity."""
 
     @property
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
-        """
-        Whether the stream has been canceled.
-        For example when the user pressed the Stop button or the 2-minute timeout has exceeded.
-        """
+        """Deprecated read-only flag; SDK streams always return False."""
         ...
 
     @property

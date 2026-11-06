@@ -306,8 +306,9 @@ def _env_changes() -> tuple[str, ...]:
 
 
 def _attention_pin(kernel: str, bits: int) -> str:
-    """A request's attention override: its pin, else level 16 at 16 bits (C4)."""
-    return kernel or (attention.EXACT if bits == 16 else "")
+    """A request's attention override: its pin, else level 16 at 16 bits (C4). A pin on a kernel
+    no longer here is none (`invoke` warns)."""
+    return ("" if attention.retired(kernel) else kernel) or (attention.EXACT if bits == 16 else "")
 
 
 def _sealed_entries() -> tuple[str, ...]:
@@ -1759,9 +1760,8 @@ class Executor:
                             "code": "device_out_of_memory"
                             if fault(exc) is Fault.OOM
                             else "accelerator_unavailable",
-                            "detail": "the sealed devices "
-                            f"{_SEALED.get('CUDA_VISIBLE_DEVICES')!r} "
-                            f"could not be initialized: {exc}"[:900],
+                            "detail": f"GPU {_SEALED.get('CUDA_VISIBLE_DEVICES')} could not be "
+                            f"started: {exc}. Update its driver, or run it --on new"[:900],
                         }
                     if refused is not None:
                         self.poisoned = f"start refused: {refused['code']}"
@@ -2431,11 +2431,12 @@ class Executor:
 
         stage("runtime_imports")
         _restore_seal()
-        if self.device_kind == "cuda" and self.world == 1:
+        if self.device_kind == "cuda":
             # Every encoded GEMM's kernels open from here, on threads of their own, before the
             # first construction and beside its weight fill: one first asked mid-request served
             # its whole stage on a fallback while it landed (Klein's on-demand upsampler; H3's
-            # nvfp4 layers through step 1 on an RTX 5090, cr-241). Each first ask waits for it.
+            # nvfp4 layers through step 1 on an RTX 5090, cr-241; on two 5060 Tis, cr-261). Each
+            # first ask waits for it; a group's GPUs state theirs in their load's reply.
             leaves.prime(torch, torch.cuda.current_device())
         if self.world > 1 and self.rank == 0:
             # THE FOLLOWERS RESOLVE BESIDE RANK 0, not after it: the load goes to every rank
@@ -2516,8 +2517,8 @@ class Executor:
                 return {
                     "ok": False,
                     "code": "modeled_accelerator_unavailable",
-                    "detail": "a model needs a GPU, and this machine has none it can use (an "
-                    "NVIDIA GPU, or an Apple Silicon Mac's own): run it --on new",
+                    "detail": "this GPU's architecture could not be read, so cozy can't choose its "
+                    "kernels: update its driver, or run it --on new",
                 }
             hardware_variant = f"sm{device_facts.sm}"
         reference = Variant(
@@ -2836,6 +2837,7 @@ class Executor:
             ).hexdigest()
         )
         if self.group is not None:
+            kernel_ready.settle()
             # THE FOLLOWERS BUILT THE SAME PLAN, or the group is not a group.
             try:
                 replies = self.group.collect("load")
@@ -3663,6 +3665,9 @@ class Executor:
                 attention_sol.observing(ranks=sol_rank_counts, kernels=sol_kernels) as sol_counts,
                 attention_ulysses.observing() as served_impls,
             ):
+                if removed := attention.retired(command.attention_kernel):
+                    said = f"attention kernel {removed} is gone: the normal choice runs"
+                    WARNINGS.append((said, {"code": "attention_kernel_removed"}))
                 served_attention = self._attention_selection(served_attention)
                 if prepared.phases:
                     self._plan_request(command.request_id, prepared.phases)
@@ -5206,6 +5211,7 @@ def answer(executor: Executor, frame: Frame) -> Frame | None:
         return None
     reply = executor.handle(command)
     if name == "load" and executor.rank:  # what it opened loading: the group may serve it at once
+        kernel_ready.settle()
         reply["kernels"] = kernel_ready.pending()
     return reply
 
@@ -5266,8 +5272,7 @@ def main(argv: list[str] | None = None) -> int:
     # Python-level egress from package code; it is not a kernel bound and
     # `sandbox.refuse_network` says exactly which adversary that leaves.
     sandbox.refuse_network(
-        "the executor is handed verified files in its attempt spool and never an address "
-        "(cr-012). Package code that dials is a bug, and this is where the bug stops",
+        "a package can't use the network while it runs: take what it needs as an input file",
         allow_unix_seam=True,
     )
     channel = (

@@ -5,9 +5,10 @@ use super::reconnecting_connection::{ReconnectReason, ReconnectingConnection};
 use super::{ConnectionRequest, NodeAddress, NodeDiscoveryMode, TlsMode};
 use crate::client::types::ReadFrom as ClientReadFrom;
 use futures::{StreamExt, future, stream};
-use logger_core::log_debug;
-use logger_core::log_info;
-use logger_core::log_warn;
+use glide_logger::log_debug;
+use glide_logger::log_info;
+use glide_logger::log_warn;
+use glide_telemetry::Telemetry;
 use redis::aio::ConnectionLike;
 use redis::cluster_routing::{self, ResponsePolicy, Routable, RoutingInfo, is_readonly_cmd};
 use redis::{AddressResolver, PushInfo, RedisError, RedisResult, RetryStrategy, Value};
@@ -15,9 +16,49 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use telemetrylib::Telemetry;
 use tokio::sync::mpsc;
 use tokio::task;
+
+/// Build a [`crate::tls_reload::CertReloadManager`] when path-based mTLS is
+/// configured, starting its background reload task if reload is enabled. Returns
+/// `Ok(None)` when no cert paths are configured. The manager performs the initial
+/// parse + validation, so a bad initial cert/key surfaces here as an error.
+/// `root_cert` is the already-combined-and-validated root material (see
+/// [`super::combine_root_certs`]).
+async fn build_cert_material_manager(
+    connection_request: &ConnectionRequest,
+    root_cert: Option<Vec<u8>>,
+) -> Result<Option<Arc<crate::tls_reload::CertReloadManager>>, String> {
+    let (Some(cert_path), Some(key_path)) = (
+        connection_request.client_cert_path.as_ref(),
+        connection_request.client_key_path.as_ref(),
+    ) else {
+        return Ok(None);
+    };
+
+    let interval_seconds = connection_request
+        .cert_reload
+        .as_ref()
+        .filter(|cfg| cfg.enabled)
+        .map(|cfg| cfg.interval_seconds);
+
+    let mut manager = crate::tls_reload::CertReloadManager::new(
+        cert_path.into(),
+        key_path.into(),
+        root_cert,
+        interval_seconds.flatten(),
+    )
+    .await
+    .map_err(|err| err.to_string())?;
+
+    // Only spin up the background re-read task when reload is explicitly enabled;
+    // otherwise the path-based config behaves like static (load-once) mTLS.
+    if interval_seconds.is_some() {
+        manager.start_reload_task();
+    }
+
+    Ok(Some(Arc::new(manager)))
+}
 
 #[derive(Debug)]
 enum ReadFrom {
@@ -50,10 +91,24 @@ struct DropWrapper {
     read_from: ReadFrom,
     /// When true, write commands are blocked and INFO REPLICATION is skipped during connection.
     read_only: bool,
+    /// Owns the background mTLS certificate reload task, when path-based reload is
+    /// configured. Held here so the task lives for the client's lifetime and is
+    /// shut down when the client is dropped.
+    _cert_material_manager: Option<Arc<crate::tls_reload::CertReloadManager>>,
+    /// The TLS certificate material this client connected with, so scoped
+    /// connections can inherit it (see [`super::InheritedCertMaterial`]).
+    cert_material: super::InheritedCertMaterial,
 }
 
 impl Drop for DropWrapper {
     fn drop(&mut self) {
+        // The client was dropped: reduce the number of clients. This lives on the
+        // shared `DropWrapper`, which drops once, when the last `StandaloneClient`
+        // clone goes. `StandaloneClient` is cloned out of the client wrapper on
+        // every command, so a decrement on `StandaloneClient` itself fired once per
+        // command, took the global telemetry write lock each time, and drove
+        // `total_clients` to zero after the first command.
+        Telemetry::decr_total_clients(1);
         for node in self.nodes.iter() {
             node.mark_as_dropped();
         }
@@ -63,13 +118,6 @@ impl Drop for DropWrapper {
 #[derive(Clone, Debug)]
 pub struct StandaloneClient {
     inner: Arc<DropWrapper>,
-}
-
-impl Drop for StandaloneClient {
-    fn drop(&mut self) {
-        // Client was dropped, reduce the number of clients
-        Telemetry::decr_total_clients(1);
-    }
 }
 
 pub enum StandaloneClientConnectionError {
@@ -127,9 +175,39 @@ impl StandaloneClient {
         iam_token_manager: Option<&Arc<crate::iam::IAMTokenManager>>,
         pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
     ) -> Result<Self, StandaloneClientConnectionError> {
+        Self::create_client_with_rdma(
+            connection_request,
+            push_sender,
+            iam_token_manager,
+            pubsub_synchronizer,
+            None,
+        )
+        .await
+    }
+
+    /// As [`Self::create_client`], with every node connection able to open an RDMA
+    /// session over `rdma_fabric`. `None` behaves exactly like `create_client`.
+    pub(crate) async fn create_client_with_rdma(
+        connection_request: ConnectionRequest,
+        push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
+        iam_token_manager: Option<&Arc<crate::iam::IAMTokenManager>>,
+        pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
+        rdma_fabric: Option<crate::rdma::Fabric>,
+    ) -> Result<Self, StandaloneClientConnectionError> {
         if connection_request.addresses.is_empty() {
             return Err(StandaloneClientConnectionError::NoAddressesProvided);
         }
+
+        super::validate_unix_socket_addresses(&connection_request).map_err(|message| {
+            StandaloneClientConnectionError::FailedConnection(vec![(
+                None,
+                RedisError::from((
+                    redis::ErrorKind::InvalidClientConfig,
+                    "Invalid Unix domain socket address",
+                    message,
+                )),
+            )])
+        })?;
 
         // Validate read_only mode is not combined with AZAffinity strategies
         if connection_request.read_only
@@ -165,12 +243,13 @@ impl StandaloneClient {
         let valkey_connection_info =
             get_valkey_connection_info(&connection_request, iam_token_manager).await;
         let retry_strategy = match connection_request.connection_retry_strategy {
-            Some(strategy) => RetryStrategy::new(
+            Some(strategy) => RetryStrategy::try_new(
                 strategy.exponent_base,
                 strategy.factor,
                 strategy.number_of_retries,
                 strategy.jitter_percent,
-            ),
+            )
+            .map_err(|err| StandaloneClientConnectionError::FailedConnection(vec![(None, err)]))?,
             None => RetryStrategy::default(),
         };
 
@@ -190,17 +269,42 @@ impl StandaloneClient {
         let has_root_certs = !connection_request.root_certs.is_empty();
         let has_client_cert = !connection_request.client_cert.is_empty();
         let has_client_key = !connection_request.client_key.is_empty();
-        if has_client_cert != has_client_key {
-            return Err(StandaloneClientConnectionError::FailedConnection(vec![(
-                None,
-                RedisError::from((
-                    redis::ErrorKind::InvalidClientConfig,
-                    "client_cert and client_key must both be provided or both be empty",
-                )),
-            )]));
-        }
+        let has_cert_path = connection_request.client_cert_path.is_some();
+        let has_key_path = connection_request.client_key_path.is_some();
+        super::validate_client_cert_config(
+            has_client_cert,
+            has_client_key,
+            has_cert_path,
+            has_key_path,
+        )
+        .map_err(|err| StandaloneClientConnectionError::FailedConnection(vec![(None, err)]))?;
 
-        let tls_params = if has_root_certs || has_client_cert || has_client_key {
+        // Combine + validate the root certs first (fail fast on an empty entry) so the
+        // cert-reload manager, built next, never sees unvalidated root material.
+        let root_cert_bytes = super::combine_root_certs(&connection_request.root_certs)
+            .map_err(|err| StandaloneClientConnectionError::FailedConnection(vec![(None, err)]))?;
+
+        // Build the certificate reload manager when path-based mTLS is configured.
+        // It performs the initial parse + validation and, if reload is enabled,
+        // drives the background re-read task. The resulting handle is shared with
+        // every node's reconnection loop.
+        let cert_material_manager =
+            build_cert_material_manager(&connection_request, root_cert_bytes.clone())
+                .await
+                .map_err(|err| {
+                    StandaloneClientConnectionError::FailedConnection(vec![(
+                        None,
+                        RedisError::from((
+                            redis::ErrorKind::InvalidClientConfig,
+                            "TLS certificate reload configuration error",
+                            err,
+                        )),
+                    )])
+                })?;
+        let cert_material_handle = cert_material_manager.as_ref().map(|m| m.get_handle());
+
+        let tls_params = if let Some(manager) = &cert_material_manager {
+            // Path-based mTLS: seed the initial params from the (validated) manager.
             if tls_mode.unwrap_or(TlsMode::NoTls) == TlsMode::NoTls {
                 return Err(StandaloneClientConnectionError::FailedConnection(vec![(
                     None,
@@ -210,16 +314,17 @@ impl StandaloneClient {
                     )),
                 )]));
             }
-
-            let root_cert = if has_root_certs {
-                let mut combined_certs = Vec::new();
-                for cert in &connection_request.root_certs {
-                    combined_certs.extend_from_slice(cert);
-                }
-                Some(combined_certs)
-            } else {
-                None
-            };
+            Some(manager.get_params().await)
+        } else if has_root_certs || has_client_cert || has_client_key {
+            if tls_mode.unwrap_or(TlsMode::NoTls) == TlsMode::NoTls {
+                return Err(StandaloneClientConnectionError::FailedConnection(vec![(
+                    None,
+                    RedisError::from((
+                        redis::ErrorKind::InvalidClientConfig,
+                        "TLS certificates provided but TLS is disabled",
+                    )),
+                )]));
+            }
 
             let client_tls = if has_client_cert && has_client_key {
                 Some(redis::ClientTlsConfig {
@@ -232,7 +337,7 @@ impl StandaloneClient {
 
             let tls_certificates = redis::TlsCertificates {
                 client_tls,
-                root_cert,
+                root_cert: root_cert_bytes,
             };
             Some(
                 redis::retrieve_tls_certificates(tls_certificates).map_err(|err| {
@@ -241,6 +346,13 @@ impl StandaloneClient {
             )
         } else {
             None
+        };
+
+        // Snapshot both halves before the locals are handed to the nodes; scoped
+        // connections inherit them from the parent `Client`.
+        let cert_material = super::InheritedCertMaterial {
+            tls_params: tls_params.clone(),
+            reload_handle: cert_material_handle.clone(),
         };
 
         let read_only = connection_request.read_only;
@@ -256,7 +368,10 @@ impl StandaloneClient {
         let discovery_tls_params = tls_params.clone();
         let discovery_pubsub_sync = pubsub_synchronizer.clone();
         let discovery_iam_handle = iam_token_handle.clone();
+        let discovery_cert_handle = cert_material_handle.clone();
         let discovery_resolver = connection_request.address_resolver.clone();
+        let discovery_rdma_fabric = rdma_fabric.clone();
+        let first_pass_rdma_fabric = discovery_rdma_fabric.clone();
 
         let mut stream = stream::iter(addresses)
             .map(move |address| {
@@ -273,6 +388,8 @@ impl StandaloneClient {
                     read_only || node_discovery_mode == NodeDiscoveryMode::Static;
                 let resolver = connection_request.address_resolver.clone();
                 let iam_handle = iam_token_handle.clone();
+                let cert_handle = cert_material_handle.clone();
+                let rdma_fabric = first_pass_rdma_fabric.clone();
                 async move {
                     get_connection_and_replication_info(
                         &address,
@@ -288,9 +405,11 @@ impl StandaloneClient {
                         skip_replication,
                         resolver.as_ref(),
                         iam_handle,
+                        cert_handle,
+                        rdma_fabric.clone(),
                     )
                     .await
-                    .map_err(|err| (format!("{}:{}", address.host, address.port), err))
+                    .map_err(|err| (address.endpoint(), err))
                 }
             })
             .buffer_unordered(node_count);
@@ -350,7 +469,7 @@ impl StandaloneClient {
             let existing: Vec<String> = connection_request
                 .addresses
                 .iter()
-                .map(|a| format!("{}:{}", a.host, a.port))
+                .map(NodeAddress::endpoint)
                 .collect();
 
             // Phase 1: Parse initial INFO REPLICATION responses.
@@ -393,7 +512,9 @@ impl StandaloneClient {
                     let params = discovery_tls_params.clone();
                     let sync = discovery_pubsub_sync.clone();
                     let iam_handle = discovery_iam_handle.clone();
+                    let cert_handle = discovery_cert_handle.clone();
                     let resolver = discovery_resolver.clone();
+                    let rdma_fabric = discovery_rdma_fabric.clone();
                     async move {
                         let result = get_connection_and_replication_info(
                             &address,
@@ -409,6 +530,8 @@ impl StandaloneClient {
                             false,
                             resolver.as_ref(),
                             iam_handle,
+                            cert_handle,
+                            rdma_fabric.clone(),
                         )
                         .await;
                         (address, result)
@@ -464,6 +587,8 @@ impl StandaloneClient {
                         let params = discovery_tls_params.clone();
                         let sync = discovery_pubsub_sync.clone();
                         let iam_handle = discovery_iam_handle.clone();
+                        let cert_handle = discovery_cert_handle.clone();
+                        let rdma_fabric = discovery_rdma_fabric.clone();
                         let resolver = discovery_resolver.clone();
                         async move {
                             let result = get_connection_and_replication_info(
@@ -480,6 +605,8 @@ impl StandaloneClient {
                                 false,
                                 resolver.as_ref(),
                                 iam_handle,
+                                cert_handle,
+                                rdma_fabric.clone(),
                             )
                             .await;
                             (address, result)
@@ -579,8 +706,16 @@ impl StandaloneClient {
                 nodes,
                 read_from,
                 read_only,
+                _cert_material_manager: cert_material_manager,
+                cert_material,
             }),
         })
+    }
+
+    /// The TLS certificate material this client connected with. Read when a
+    /// scoped connection inherits the parent's mTLS identity and trust roots.
+    pub(super) fn cert_material(&self) -> &super::InheritedCertMaterial {
+        &self.inner.cert_material
     }
 
     fn get_primary_connection(&self) -> &ReconnectingConnection {
@@ -1099,6 +1234,7 @@ impl StandaloneClient {
 
 // Passes through the large Err from ReconnectingConnection::new. Boxing it would change
 // the error type at every call site.
+// TODO: Box the Err payload and drop this allow - https://github.com/valkey-io/valkey-glide/issues/6819
 #[allow(clippy::result_large_err)]
 #[allow(clippy::too_many_arguments)]
 async fn get_connection_and_replication_info(
@@ -1115,6 +1251,8 @@ async fn get_connection_and_replication_info(
     skip_replication_check: bool,
     address_resolver: Option<&Arc<dyn AddressResolver>>,
     iam_token_handle: Option<super::IAMTokenHandle>,
+    cert_material_handle: Option<crate::tls_reload::CertReloadHandle>,
+    rdma_fabric: Option<crate::rdma::Fabric>,
 ) -> Result<(ReconnectingConnection, Option<Value>), Box<(ReconnectingConnection, RedisError)>> {
     let reconnecting_connection = ReconnectingConnection::new(
         address,
@@ -1129,6 +1267,8 @@ async fn get_connection_and_replication_info(
         pubsub_synchronizer.clone(),
         address_resolver,
         iam_token_handle,
+        cert_material_handle,
+        rdma_fabric,
     )
     .await?;
 
@@ -1204,7 +1344,11 @@ fn parse_replica_addresses(replication_info: &str) -> Vec<NodeAddress> {
             }
         }
         if let (Some(h), Some(p)) = (host, port) {
-            replicas.push(NodeAddress { host: h, port: p });
+            replicas.push(NodeAddress {
+                host: h,
+                port: p,
+                unix_socket_path: None,
+            });
         }
     }
     replicas
@@ -1223,7 +1367,11 @@ fn parse_primary_address(replication_info: &str) -> Option<NodeAddress> {
         }
     }
     match (host, port) {
-        (Some(h), Some(p)) => Some(NodeAddress { host: h, port: p }),
+        (Some(h), Some(p)) => Some(NodeAddress {
+            host: h,
+            port: p,
+            unix_socket_path: None,
+        }),
         _ => None,
     }
 }
@@ -1233,13 +1381,10 @@ fn is_primary_role(replication_info: &str) -> bool {
     replication_info.lines().any(|l| l.trim() == "role:master")
 }
 
-/// Check if an address is already in a list (by host:port string comparison).
+/// Check if an address is already in a list (by endpoint string comparison).
 fn address_is_known(addr: &NodeAddress, existing: &[String], discovered: &[NodeAddress]) -> bool {
-    let key = format!("{}:{}", addr.host, addr.port);
-    existing.contains(&key)
-        || discovered
-            .iter()
-            .any(|a| format!("{}:{}", a.host, a.port) == key)
+    let key = addr.endpoint();
+    existing.contains(&key) || discovered.iter().any(|a| a.endpoint() == key)
 }
 
 #[cfg(test)]

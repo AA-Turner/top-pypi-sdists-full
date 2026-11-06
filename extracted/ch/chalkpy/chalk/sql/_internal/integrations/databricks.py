@@ -389,14 +389,18 @@ class DatabricksSourceImpl(BaseSQLSource):
     def local_engine_url(self) -> URL:
         from sqlalchemy.engine.url import URL
 
+        query = {"http_path": self.http_path or ""}
+        if self.db is not None:
+            # The Databricks dialect reads catalog from the query, not URL.database.
+            query["catalog"] = self.db
+
         return URL.create(
             drivername="databricks+chalk",
             username="token",
             password=self.access_token,
             host=self.host,
             port=self.port,
-            database=self.db,
-            query={"http_path": self.http_path or ""},
+            query=query,
         )
 
     def _recreate_integration_variables(self) -> dict[str, str]:

@@ -13,7 +13,7 @@ class Status(StrEnum):
     # ANSWERED = "answered"
     # INTERACTION = "interaction"
 
-    def supersedes(self, current: Optional["Status"], *, confirmed_by_meta: bool = True) -> bool:
+    def supersedes(self, current: Optional["Status"], *, confirmed_by_provider: bool = True) -> bool:
         """¿Este estado puede reemplazar a `current`? Sólo si AVANZA en el ciclo de vida.
 
         Meta manda `sent`, `delivered` y `read` casi juntos —muchas veces en el mismo
@@ -21,28 +21,33 @@ class Status(StrEnum):
         procesaba dejaba con una sola tilde un mensaje entregado: un `sent` que llegaba
         tarde pisaba al `delivered`.
 
-        `confirmed_by_meta=False` es un mensaje que Meta nunca identificó: el envío dio
-        timeout o 5xx, lo guardamos `failed` con nuestro propio id, y Meta igual pudo
-        aceptarlo (sus estados llegan después, reconciliados por `biz_opaque_callback_data`).
-        Esa falla es una suposición nuestra, así que cualquier estado de Meta la corrige.
+        `confirmed_by_provider=False` es un mensaje que el proveedor nunca identificó: el envío dio
+        timeout o 5xx, lo guardamos `failed` con nuestro propio id, y el proveedor igual pudo
+        aceptarlo (sus estados llegan después, en WhatsApp reconciliados por `biz_opaque_callback_data`).
+        Esa falla es una suposición nuestra, así que cualquier estado del proveedor la corrige.
+
+        Quién confirmó el id lo decide el canal, no este dominio: el llamador pasa el valor que
+        calcula el canal del mensaje (WhatsApp: `is_meta_message_id`).
         """
         rank = _DELIVERY_RANK.get(self)
         if rank is None:
             return False
         if current is None:
             return True
-        if current == Status.FAILED and not confirmed_by_meta:
+        if current == Status.FAILED and not confirmed_by_provider:
             return rank > _UNCONFIRMED_FAILURE_RANK
         return rank > _DELIVERY_RANK.get(current, -1)
 
-    def superseded_statuses(self, *, confirmed_by_meta: bool = True) -> list["Status"]:
+    def superseded_statuses(self, *, confirmed_by_provider: bool = True) -> list["Status"]:
         """Los estados que éste puede reemplazar: el filtro de la escritura condicional."""
-        return [status for status in _DELIVERY_RANK if self.supersedes(status, confirmed_by_meta=confirmed_by_meta)]
+        return [status for status in _DELIVERY_RANK if self.supersedes(status, confirmed_by_provider=confirmed_by_provider)]
 
 
 def is_meta_message_id(message_id: str) -> bool:
-    """Los ids que asigna Meta empiezan con `wamid.`. Un mensaje saliente con otro id es uno
-    que guardamos con el nuestro porque el envío falló antes de que Meta respondiera."""
+    """La regla de WhatsApp: los ids que asigna Meta empiezan con `wamid.`. Un mensaje saliente
+    con otro id es uno que guardamos con el nuestro porque el envío falló antes de que Meta
+    respondiera. Ya no la usa el dominio común: la llama el canal de WhatsApp y pasa el
+    resultado como `confirmed_by_provider`."""
     return str(message_id).startswith("wamid.")
 
 

@@ -79,13 +79,19 @@ RELEVANT_MASTER_PARAMSETS_BY_DEVICE: Final[Mapping[ModelName, tuple[frozenset[Ch
     "HmIP-RGBW": (frozenset({0}), frozenset({Parameter.DEVICE_OPERATION_MODE})),
     "HmIP-STH": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
     "HmIP-WGT": (frozenset({8, 14}), CLIMATE_MASTER_PARAMETERS),
+    "HmIP-WT": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
     "HmIP-WTH": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
     "HmIP-eTRV": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
     "HmIPW-DRBL4": (frozenset({1, 5, 9, 13}), frozenset({Parameter.CHANNEL_OPERATION_MODE})),
     "HmIPW-DRI16": (frozenset(range(1, 17)), frozenset({Parameter.CHANNEL_OPERATION_MODE})),
     "HmIPW-DRI32": (frozenset(range(1, 33)), frozenset({Parameter.CHANNEL_OPERATION_MODE})),
     "HmIPW-FIO6": (frozenset(range(1, 7)), frozenset({Parameter.CHANNEL_OPERATION_MODE})),
+    "HmIPW-SCTHD": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
     "HmIPW-STH": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
+    "HmIPW-WGT": (frozenset({4}), CLIMATE_MASTER_PARAMETERS),
+    "HmIPW-WTH": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
+    "KW-STATH": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
+    "KW-UKETRV": (frozenset({1}), CLIMATE_MASTER_PARAMETERS),
 }
 
 # =============================================================================

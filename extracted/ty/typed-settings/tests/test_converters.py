@@ -8,8 +8,8 @@ import json
 import re
 import typing
 from collections.abc import Callable, Sequence
-from datetime import date, datetime, timedelta, timezone
-from enum import Enum
+from datetime import UTC, date, datetime, timedelta, timezone
+from enum import Enum, IntEnum, StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
@@ -21,15 +21,8 @@ import pytest
 from hypothesis import assume, given, strategies
 
 from typed_settings import converters
-from typed_settings._compat import PY_311
 from typed_settings.cls_attrs import option, secret, settings
 from typed_settings.types import Secret, SecretStr
-
-
-if PY_311:
-    from enum import IntEnum, StrEnum
-else:
-    IntEnum = StrEnum = None  # type: ignore
 
 
 def custom_converter(v: str | Path) -> Path:
@@ -58,19 +51,18 @@ class LeEnum(Enum):
     eggs = "Le eggs"
 
 
-if PY_311:
+class LeIntEnum(IntEnum):
+    """An int enum for testing."""
 
-    class LeIntEnum(IntEnum):
-        """An int enum for testing."""
+    spam = 1
+    eggs = 2
 
-        spam = 1
-        eggs = 2
 
-    class LeStrEnum(StrEnum):
-        """A str enum for testing."""
+class LeStrEnum(StrEnum):
+    """A str enum for testing."""
 
-        spam = "Le spam"
-        eggs = "Le eggs"
+    spam = "Le spam"
+    eggs = "Le eggs"
 
 
 @dataclasses.dataclass
@@ -223,12 +215,12 @@ SUPPORTED_DATETIME: Example3T = [
     (
         "datetime(tz-Z)",
         "2020-05-04T13:37:00Z",
-        datetime(2020, 5, 4, 13, 37, tzinfo=timezone.utc),
+        datetime(2020, 5, 4, 13, 37, tzinfo=UTC),
     ),
     (
         "datetime(tz-offset-utc)",
         "2020-05-04T13:37:00+00:00",
-        datetime(2020, 5, 4, 13, 37, tzinfo=timezone.utc),
+        datetime(2020, 5, 4, 13, 37, tzinfo=UTC),
     ),
     (
         "datetime(tz-offset-2h)",
@@ -242,7 +234,7 @@ SUPPORTED_TYPES_DATA += [(n, v, e, datetime) for n, v, e in SUPPORTED_DATETIME]
 # date - can be parsed from ISO format
 SUPPORTED_DATE: Example3T = [
     ("date(str)", "2020-05-04", date(2020, 5, 4)),
-    ("date(str-no-dashes)", "20200504" if PY_311 else "2020-05-04", date(2020, 5, 4)),
+    ("date(str-no-dashes)", "20200504", date(2020, 5, 4)),
     ("date(inst)", date(2020, 5, 4), date(2020, 5, 4)),
 ]
 SUPPORTED_TYPES_DATA += [(n, v, e, date) for n, v, e in SUPPORTED_DATE]
@@ -308,16 +300,11 @@ SUPPORTED_TYPES_DATA += [(n, v, e, timedelta) for n, v, e in SUPPORTED_TIMEDELTA
 SUPPORTED_ENUM: Example3T = [
     ("enum(str)", "eggs", LeEnum.eggs),
     ("enum(inst)", LeEnum.eggs, LeEnum.eggs),
+    ("intenum(str)", 2, LeIntEnum.eggs),
+    ("intenum(inst)", LeIntEnum.eggs, LeIntEnum.eggs),
+    ("strenum(str)", "Le eggs", LeStrEnum.eggs),
+    ("strenum(inst)", LeStrEnum.eggs, LeStrEnum.eggs),
 ]
-if PY_311:
-    SUPPORTED_ENUM.extend(
-        [
-            ("intenum(str)", 2, LeIntEnum.eggs),
-            ("intenum(inst)", LeIntEnum.eggs, LeIntEnum.eggs),
-            ("strenum(str)", "Le eggs", LeStrEnum.eggs),
-            ("strenum(inst)", LeStrEnum.eggs, LeStrEnum.eggs),
-        ]
-    )
 SUPPORTED_TYPES_DATA += [(n, v, e, type(e)) for n, v, e in SUPPORTED_ENUM]
 
 # Literal - only valid strings are accepted
@@ -380,7 +367,7 @@ SUPPORTED_LIST: Example4T = [
     (
         "list[datetime]",
         ["2023-05-04T13:37:42+00:00"],
-        [datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)],
+        [datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)],
         list[datetime],
     ),
 ]
@@ -394,7 +381,7 @@ SUPPORTED_TUPLE: Example4T = [
     (
         "tuple[datetime]",
         ["2023-05-04T13:37:42+00:00"],
-        (datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc),),
+        (datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC),),
         tuple[datetime],
     ),
 ]
@@ -407,7 +394,7 @@ SUPPORTED_DICT: Example4T = [
     (
         "dict[str, datetime]",
         {"a": "2023-05-04T13:37:42+00:00"},
-        {"a": datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)},
+        {"a": datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)},
         dict[str, datetime],
     ),
 ]
@@ -523,12 +510,12 @@ SUPPORTED_ATTRSCLASSES: Example4T = [
             a=3.14,
             b=1,
             c=LeEnum.eggs,
-            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc),
+            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC),
             e=[
                 ChildAttrs(0, Path.cwd().joinpath("a")),
                 ChildAttrs(1, Path.cwd().joinpath("b")),
             ],
-            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)},
+            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)},
             child=ChildAttrs(3, Path.cwd().joinpath("c")),
         ),
         ParentAttrs,
@@ -555,12 +542,12 @@ SUPPORTED_DATACLASSES: Example4T = [
             a=3.14,
             b=1,
             c=LeEnum.eggs,
-            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc),
+            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC),
             e=[
                 ChildDc(0, Path.cwd().joinpath("a")),
                 ChildDc(1, Path.cwd().joinpath("b")),
             ],
-            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)},
+            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)},
             child=ChildDc(3, Path.cwd().joinpath("c")),
         ),
         ParentDc,
@@ -598,12 +585,12 @@ SUPPORTED_PYDANTIC: Example4T = [
             a=3.14,
             b=1,
             c=LeEnum.eggs,
-            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc),
+            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC),
             e=[
                 ChildPydantic(x=0, y=Path("a")),
                 ChildPydantic(x=1, y=Path("b")),
             ],
-            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)},
+            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)},
             g=pydantic.SecretStr("secret-string"),
             child=ChildPydantic(x=3, y=Path("c")),
         ),
@@ -623,12 +610,12 @@ SUPPORTED_PYDANTIC: Example4T = [
             a=3.14,
             b=3.14,
             c=LeEnum.eggs,
-            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc),
+            d=datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC),
             e=[
                 ChildPydantic(x=0, y=Path("a")),
                 ChildPydantic(x=1, y=Path("b")),
             ],
-            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=timezone.utc)},
+            f={datetime(2023, 5, 4, 13, 37, 42, tzinfo=UTC)},
             g=pydantic.SecretStr("secret-default"),
             child=ChildPydantic(x=3, y=Path("c")),
         ),

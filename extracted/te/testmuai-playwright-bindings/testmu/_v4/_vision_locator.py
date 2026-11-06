@@ -136,6 +136,12 @@ class VisionLocator:
             description=self._description, verb_name="type", **kwargs,
         )
 
+    async def press_sequentially(self, text, **kwargs):
+        return await _run_verb(
+            self._page, None, _VERB_SPECS["press_sequentially"], text,
+            description=self._description, verb_name="press_sequentially", **kwargs,
+        )
+
     async def press(self, key, **kwargs):
         # Selector-bearing path (V3 press-key element-targeting).
         # Discriminator is ``is not None``, NOT truthiness — [] is a valid

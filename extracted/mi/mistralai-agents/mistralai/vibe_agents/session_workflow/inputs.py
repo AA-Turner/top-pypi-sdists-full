@@ -36,10 +36,10 @@ class SessionWorkflowSubscription(BaseModel):
 
 
 class SessionAgentCustomization(BaseModel):
-    """Per-session overrides of an Agent's settings: the ``agent=`` of ``Agent.start_session``.
+    """Per-session overrides of an agent's settings: the ``agent=`` of ``Agent.start_session``.
 
-    ``additional_instructions`` append to the Agent's instructions; ``model`` and ``reasoning_effort``
-    override its completion defaults. A field left out keeps the Agent's value; ``None`` for ``model`` or
+    ``additional_instructions`` append to the agent's instructions; ``model`` and ``reasoning_effort``
+    override its completion defaults. A field left out keeps the agent's value; ``None`` for ``model`` or
     ``reasoning_effort`` and unknown keys raise a validation error. ``agent=`` also takes the same keys as a
     dict.
     """
@@ -49,8 +49,12 @@ class SessionAgentCustomization(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     additional_instructions: str = Field(default="", max_length=SESSION_ADDITIONAL_INSTRUCTIONS_MAX_LENGTH)
+    """Text added after the agent's instructions, separated by a blank line. At most 8,000 characters.
+    The default, ``""``, adds nothing."""
     model: str | None = Field(default=None, min_length=1, exclude_if=lambda value: value is None)
+    """A model name for this session. Leave it out to keep the agent's model; ``None`` raises."""
     reasoning_effort: ReasoningEffort | None = Field(default=None, exclude_if=lambda value: value is None)
+    """How much the model reasons in this session. Leave it out to keep the agent's setting; ``None`` raises."""
 
     @model_validator(mode="after")
     def reject_null_overrides(self) -> "SessionAgentCustomization":
@@ -69,21 +73,24 @@ class SessionAgentCustomization(BaseModel):
 
 
 class SubagentPolicy(BaseModel):
-    """Subagent limits for one Session Tree, chosen when its root Session starts.
+    """Limits on the subagents of one session tree: the root session and every subagent below it.
 
-    The control plane stores the root's policy and copies it to every child, so a child's
-    request cannot raise the limit. A Session with no policy cannot create subagents.
-    Prompts are not part of it: they belong to the Agent definition on the worker.
+    Pass it as ``Agent(subagent_policy=...)``. The root agent's policy applies to every subagent
+    below it, and a subagent cannot raise it. An agent that has subagents and no policy gets the
+    defaults below.
     """
 
     model_config = ConfigDict(frozen=True)
 
-    # How many child Turns may run at once across the whole Session Tree.
     concurrent_child_turn_limit: int = Field(default=DEFAULT_CONCURRENT_CHILD_TURN_LIMIT, ge=1)
-    # The deepest level below the root Session (depth 0) a child may sit at; it cannot spawn.
+    """How many subagent turns can run at once across the whole tree."""
     max_depth: int = Field(default=DEFAULT_MAX_SUBAGENT_DEPTH, ge=1)
-    # Whether an agent message from a parent may start a Turn in an idle direct child.
+    """How many levels of subagents the tree can have below the root agent. A subagent on the last
+    level cannot start subagents: with ``1``, subagents cannot start their own."""
     idle_message_starts: Literal["direct_children", "none"] = "direct_children"
+    """Whether a message from a parent starts a turn in its idle subagent. ``"direct_children"``,
+    the default, starts one. With ``"none"``, the subagent reads the message only when its next
+    turn starts."""
 
 
 class WorkflowUserMessage(BaseModel):

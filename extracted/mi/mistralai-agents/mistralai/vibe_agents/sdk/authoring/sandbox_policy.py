@@ -68,7 +68,9 @@ class Network(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     mode: NetworkMode = "none"
+    """``"none"`` for no outbound connection, ``"all"`` for every one, ``"allow"`` for the listed hosts only."""
     hosts: tuple[str, ...] = ()
+    """The ``host`` or ``host:port`` entries an ``"allow"`` network reaches over HTTPS; empty otherwise."""
 
     @classmethod
     def none(cls) -> Self:
@@ -84,14 +86,22 @@ class Network(BaseModel):
 
     @classmethod
     def allow(cls, *, hosts: Sequence[str]) -> Self:
-        """Only HTTPS connections to the listed ``host`` or ``host:port`` entries. Wildcards are not accepted."""
+        """Only HTTPS connections to the listed ``host`` or ``host:port`` entries. Wildcards are not accepted.
+
+        Args:
+            hosts: The ``host`` or ``host:port`` entries, at least one.
+        """
 
         if isinstance(hosts, str):
             raise TypeError(f"Network.allow takes a sequence of hosts, not a string: write hosts=({hosts!r},)")
         return cls(mode="allow", hosts=tuple(hosts))
 
     def reaches(self, host: str) -> bool:
-        """Whether this network opens connections to ``host``, a ``host[:port]`` entry."""
+        """Whether this network opens connections to ``host``, a ``host[:port]`` entry.
+
+        Args:
+            host: The ``host`` or ``host:port`` entry to check.
+        """
 
         return self.mode == "all" or (self.mode == "allow" and _normalize_host(host) in self.hosts)
 
@@ -112,20 +122,28 @@ class Network(BaseModel):
 class HeaderBinding(BaseModel):
     """Add a secret to the HTTPS requests that a sandbox sends to one host.
 
-    ``secret_name`` picks a secret that ``Agent(secrets=...)`` declares. The sandbox never sees the
-    value: the layer that enforces the sandbox network adds ``prefix + value + suffix`` as the
-    ``header`` of each matching request.
+    ``secret_name`` picks a secret that ``Agent(secrets=...)`` declares. An ``experimental.CustomSandbox`` that lists
+    ``HeaderBinding`` in ``supported_header_bindings`` takes it, and adds ``prefix + value + suffix`` as
+    the ``header`` of each matching request. For a ``MistralSandbox``, a workspace admin stores such
+    rules in Sandbox Proxy: pass ``WorkspaceHeaderBindings``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["header_binding"] = "header_binding"
+    """Always ``"header_binding"``."""
     host: str
+    """The ``host`` or ``host:port`` whose requests get the header."""
     header: str
+    """The name of the header, such as ``"Authorization"``."""
     secret_name: str
+    """The name of a secret that ``Agent(secrets=...)`` declares."""
     path_prefix: str = "/"
+    """Only requests whose path starts with it get the header."""
     prefix: str = ""
+    """The text before the secret's value, such as ``"Bearer "``."""
     suffix: str = ""
+    """The text after the secret's value."""
 
     @field_validator("host")
     @classmethod
@@ -193,9 +211,14 @@ class GitHubBinding(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["github"] = "github"
+    """Always ``"github"``."""
     repos: tuple[str, ...] | Literal["all"]
+    """The ``owner/repository`` names the sandbox can reach, or ``"all"`` for every repository the user
+    can reach."""
     ttl_seconds: int = Field(default=3600, gt=SANDBOX_PROXY_RENEWAL_MARGIN_SECONDS)
+    """How long one token lives; it is renewed before it expires."""
     host: str = "github.com"
+    """The GitHub host: ``"github.com"``."""
 
     @field_validator("repos", mode="before")
     @classmethod
@@ -222,15 +245,19 @@ class MistralApiBinding(BaseModel):
     that proxy, such as the ``agents`` CLI, act as the session user without seeing a real
     credential. The credential is renewed before ``ttl_seconds`` elapse.
 
-    ``run_as`` names that identity, with the values a connector takes: ``"auto"`` is the session
-    user, or the owner of ``MISTRAL_API_KEY`` in-process. It is the only value Sandbox Proxy serves.
+    ``run_as`` names that identity. ``"auto"``, the only value, is the session's user, or, in a
+    local run, the user of ``MISTRAL_API_KEY``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["mistral_api"] = "mistral_api"
+    """Always ``"mistral_api"``."""
     run_as: Literal["auto"] = "auto"
+    """``"auto"``, the only value: the session's user, or, in a local run, the user of
+    ``MISTRAL_API_KEY``."""
     ttl_seconds: int = Field(default=3600, gt=SANDBOX_PROXY_RENEWAL_MARGIN_SECONDS)
+    """How long one credential lives; it is renewed before it expires."""
 
     @field_validator("run_as", mode="before")
     @classmethod
@@ -253,6 +280,7 @@ class WorkspaceHeaderBindings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["workspace_header_bindings"] = "workspace_header_bindings"
+    """Always ``"workspace_header_bindings"``."""
 
 
 type SandboxHeaderBinding = Annotated[

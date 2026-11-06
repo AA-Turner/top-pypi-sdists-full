@@ -3,6 +3,7 @@ from math import pi
 import numpy.testing as nt
 import unittest
 from unittest.mock import patch
+import warnings
 
 from spatialmath import *
 from spatialmath.base import *
@@ -380,6 +381,42 @@ class TestUnitQuaternion(unittest.TestCase):
         R = rotz(-pi)
         qcompare(UnitQuaternion(R), np.r_[cos(pi / 2), sin(pi / 2) * np.r_[0, 0, 1]])
 
+    def test_conj(self):
+        # plain Quaternion: conj negates the vector part only
+        q = Quaternion([1, 2, 3, 4])
+        qcompare(q.conj(), [1, -2, -3, -4])
+        self.assertIsInstance(q.conj(), Quaternion)
+
+        # UnitQuaternion, positive scalar part: matches plain conjugate
+        u = UnitQuaternion(rotx(0.3))
+        self.assertGreater(u.A[0], 0)
+        qcompare(u.conj(), qconj(u.A))
+        self.assertIsInstance(u.conj(), UnitQuaternion)
+
+        # UnitQuaternion, negative scalar part (reachable via norm=False,
+        # e.g. a >180 deg rotation before its own construction-time
+        # canonicalization -- constructed directly here to isolate conj()):
+        # conj() must NOT re-canonicalize the result's sign to be
+        # positive, unlike normal UnitQuaternion construction. If it did,
+        # this would silently return -conj(u) instead of the true
+        # conjugate, breaking the identity u * conj(u) == 1 that
+        # downstream algebra (e.g. DualQuaternion) depends on.
+        u = UnitQuaternion(np.array([[-0.5, 0.5, 0.5, 0.5]]), norm=False)
+        self.assertLess(u.A[0], 0)
+        qcompare(u.conj(), [-0.5, -0.5, -0.5, -0.5])
+        self.assertIsInstance(u.conj(), UnitQuaternion)
+
+        # the algebraic identity that must hold regardless of sign
+        qcompare(u * u.conj(), [1, 0, 0, 0])
+
+        # multi-valued UnitQuaternion, mixed signs
+        us = UnitQuaternion(
+            np.array([[-0.5, 0.5, 0.5, 0.5], [0.5, -0.5, -0.5, -0.5]]), norm=False
+        )
+        conjs = us.conj()
+        qcompare(conjs.data[0], [-0.5, -0.5, -0.5, -0.5])
+        qcompare(conjs.data[1], [0.5, 0.5, 0.5, 0.5])
+
     def test_convert(self):
         # test conversion from rotn matrix to u.quaternion and back
         R = rotx(0)
@@ -747,6 +784,31 @@ class TestUnitQuaternion(unittest.TestCase):
                 self.assertEqual(len(interpolate()), 5)
             self.assertEqual(dot.call_count, 1)
 
+    def test_interp1_shortest_deprecated(self):
+        # shortest never had an effect on interp1: every UnitQuaternion has
+        # a non-negative scalar part by construction (qunit()), and interp1
+        # always interpolates from the identity quaternion, whose dot
+        # product with any unit quaternion is just that quaternion's own
+        # (always non-negative) scalar part. So the "long way round" branch
+        # shortest exists to avoid is unreachable. Pin that True/False give
+        # identical results, that it warns, and that leaving it at its
+        # default doesn't.
+        q = UnitQuaternion.Rx(4.5)  # would be "the long way" if reachable
+
+        for s in (0, 0.25, 0.5, 0.75, 1):
+            qcompare(q.interp1(s, shortest=False), q.interp1(s, shortest=True))
+
+        for a, b in zip(q.interp1(11, shortest=False), q.interp1(11, shortest=True)):
+            qcompare(a, b)
+
+        with self.assertWarns(DeprecationWarning):
+            q.interp1(0.5, shortest=True)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            q.interp1(0.5)  # default shortest=False must not warn
+            q.interp1(0.5, shortest=False)
+
     def test_increment(self):
         q = UnitQuaternion()
 
@@ -892,6 +954,9 @@ class TestQuaternion(unittest.TestCase):
         # tc.verifyError( @() Quaternion(2), 'SMTB:Quaternion:badarg')
         # tc.verifyError( @() Quaternion([1, 2, 3]), 'SMTB:Quaternion:badarg')
 
+        # an array that is not a 4-vector must not give an empty Quaternion
+        self.assertNotEqual(len(Quaternion(np.random.rand(3, 4))), 0)
+
     def test_string(self):
         u = Quaternion()
 
@@ -942,6 +1007,60 @@ class TestQuaternion(unittest.TestCase):
         qq = qlog.exp()
         self.assertIsInstance(qq, UnitQuaternion)
         nt.assert_array_almost_equal(qq.vec, np.r_[1, 0, 0, 0])
+
+    def test_log_small_rotation(self):
+        axis = np.array([1.0, -2.0, 3.0]) / math.sqrt(14)
+        for angle in (1e-12, -1e-9, 1e-7, 1e-4, 0.3):
+            for scale in (1.0, 3.0, 1e-6):
+                with self.subTest(angle=angle, scale=scale):
+                    values = scale * np.r_[cos(angle / 2), sin(angle / 2) * axis]
+                    q = UnitQuaternion(values) if scale == 1 else Quaternion(values)
+                    original = q.vec.copy()
+                    qlog = q.log()
+                    nt.assert_allclose(qlog.v, angle / 2 * axis, rtol=1e-13, atol=0)
+                    self.assertAlmostEqual(qlog.s, math.log(scale))
+                    nt.assert_allclose(qlog.exp().vec, q.vec, rtol=1e-13, atol=0)
+                    nt.assert_array_equal(q.vec, original)
+
+    def test_log_small_rotation_sequence(self):
+        angles = np.array([1e-12, -1e-9, 1e-7, 0.3])
+        axes = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        values = np.column_stack(
+            (np.cos(angles / 2), np.sin(angles[:, None] / 2) * axes)
+        )
+        expected = angles[:, None] / 2 * axes
+        for scales in (
+            np.ones(4),
+            np.array([2.0, 3.0, 4.0, 5.0]),
+            1e-6 * np.ones(4),
+        ):
+            with self.subTest(scales=scales):
+                scaled = scales[:, None] * values
+                q = (
+                    UnitQuaternion(scaled)
+                    if np.all(scales == 1)
+                    else Quaternion(list(scaled))
+                )
+                original = q.vec.copy()
+                qlog = q.log()
+                self.assertEqual(len(qlog), len(q))
+                nt.assert_allclose(qlog.v, expected, rtol=1e-13, atol=0)
+                nt.assert_allclose(qlog.s, np.log(scales), atol=1e-15)
+                for i in range(len(q)):
+                    nt.assert_allclose(qlog[i].exp().vec, scaled[i], rtol=1e-13, atol=0)
+                    nt.assert_allclose(qlog[i].vec, q[i].log().vec, rtol=1e-13, atol=0)
+                nt.assert_array_equal(q.vec, original)
+
+    def test_log_near_negative_real(self):
+        # Keep the principal quaternion branch near pi, rather than folding
+        # a negative scalar part onto the small-angle branch.
+        angle = 1e-7
+        q = Quaternion([-cos(angle), sin(angle), 0, 0])
+        expected = np.r_[0, pi - angle, 0, 0]
+        nt.assert_allclose(q.log().vec, expected, rtol=0, atol=1e-15)
+        nt.assert_allclose(
+            Quaternion([q, q]).log().vec, [expected, expected], rtol=0, atol=1e-15
+        )
 
     def test_concat(self):
         u = Quaternion()

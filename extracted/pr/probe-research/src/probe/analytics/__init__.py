@@ -44,6 +44,7 @@ _HOMES = {
     "DESKTOP_SURFACE": "analytics",
     "ASKED_BY_ENV": "analytics",
     "is_person_asking": "analytics",
+    "is_agent_asking": "analytics",
     "_now_iso": "analytics",
     "TelemetryContext": "analytics",
     "null_context": "analytics",

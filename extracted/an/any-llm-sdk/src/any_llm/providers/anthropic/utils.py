@@ -35,6 +35,7 @@ from any_llm.types.completion import (
 from any_llm.types.model import Model
 from any_llm.utils.messages_compat import sampling_params_in_extra_body
 from any_llm.utils.structured_output import get_json_schema, is_structured_output_type
+from any_llm.utils.token_limit import resolve_output_token_limit
 
 DEFAULT_MAX_TOKENS = 8192
 _ANTHROPIC_CONTENT_FILTER_REFUSAL = "Response blocked by Anthropic content filtering."
@@ -227,23 +228,45 @@ def _convert_content_for_anthropic(content: list[dict[str, Any]]) -> list[dict[s
     return converted_content
 
 
-def _convert_messages_for_anthropic(messages: list[dict[str, Any]]) -> tuple[str | None, list[dict[str, Any]]]:
+def _append_system_content(
+    system: str | list[dict[str, Any]] | None, content: str | list[dict[str, Any]]
+) -> str | list[dict[str, Any]]:
+    """Add one system message's content to the system prompt built so far.
+
+    Strings are joined with a newline. Once either side is a list of text blocks, the prompt becomes a
+    list of blocks so that each block, and any field it carries such as ``cache_control``, is kept.
+    """
+    if system is None:
+        return content
+    if isinstance(system, str) and isinstance(content, str):
+        return f"{system}\n{content}"
+
+    def as_blocks(value: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if isinstance(value, str):
+            # Anthropic rejects a system text block with empty text.
+            return [{"type": "text", "text": value}] if value else []
+        return list(value)
+
+    return as_blocks(system) + as_blocks(content)
+
+
+def _convert_messages_for_anthropic(
+    messages: list[dict[str, Any]],
+) -> tuple[str | list[dict[str, Any]] | None, list[dict[str, Any]]]:
     """Convert messages to Anthropic format.
 
-    - Extract messages with `role=system`.
+    - Extract messages with `role=system` or `role=developer` into the system prompt.
     - Replace `role=tool` with `role=user`, according to examples in https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/.
     - Handle multiple tool calls in a single assistant message.
     - Merge consecutive tool results into a single user message.
     """
-    system_message = None
+    system_message: str | list[dict[str, Any]] | None = None
     filtered_messages: list[dict[str, Any]] = []
 
     for message in messages:
-        if message["role"] == "system":
-            if system_message is None:
-                system_message = message["content"]
-            else:
-                system_message += "\n" + message["content"]
+        if message["role"] in ("system", "developer"):
+            # OpenAI's developer role is the same instruction channel as system.
+            system_message = _append_system_content(system_message, message["content"])
         else:
             # Handle messages inside agent loop.
             # See https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
@@ -262,7 +285,7 @@ def _convert_messages_for_anthropic(messages: list[dict[str, Any]]) -> tuple[str
                             "type": "tool_use",
                             "id": tool_call["id"],
                             "name": tool_call["function"]["name"],
-                            "input": json.loads(tool_call["function"]["arguments"]),
+                            "input": json.loads(tool_call["function"]["arguments"] or "{}"),
                         }
                     )
                 message = {
@@ -700,6 +723,7 @@ def _convert_params(params: CompletionParams, **kwargs: Any) -> dict[str, Any]:
 
     if params.response_format:
         result_kwargs["output_config"] = _convert_response_format(params.response_format, provider_name)
+    params.max_tokens = resolve_output_token_limit(params)
     if params.max_tokens is None:
         logger.warning(f"max_tokens is required for Anthropic, setting to {DEFAULT_MAX_TOKENS}")
         params.max_tokens = DEFAULT_MAX_TOKENS
@@ -748,6 +772,7 @@ def _convert_params(params: CompletionParams, **kwargs: Any) -> dict[str, Any]:
             exclude={
                 "model_id",
                 "messages",
+                "max_completion_tokens",
                 "reasoning_effort",
                 "response_format",
                 "parallel_tool_calls",

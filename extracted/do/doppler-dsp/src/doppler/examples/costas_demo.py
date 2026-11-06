@@ -30,6 +30,7 @@ import sys
 # --8<-- [start:loop]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import Costas
 from doppler.wfm import Composer, Segment
 
@@ -108,6 +109,7 @@ def _track(rx, bn, bn_fll):
 
 
 def main(out_path="costas_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

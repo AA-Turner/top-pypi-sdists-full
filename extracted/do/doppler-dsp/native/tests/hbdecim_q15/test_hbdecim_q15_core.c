@@ -11,6 +11,8 @@
 #include "dp_state_test.h"
 #include "dp_test.h"
 #include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -188,6 +190,80 @@ main (void)
     DP_CHECK (memcmp (ref, got, 2 * nref * sizeof *ref) == 0);
     dp_hbdecim_q15_destroy (a);
     dp_hbdecim_q15_destroy (b);
+  }
+
+  /* Zero-padded equivalence (#2142). The same FIR branch zero-padded by PAD
+   * taps on each side gives the identical output, delayed by PAD output
+   * samples: a zero tap adds exactly 0 in integer arithmetic and the centre
+   * tap moves with the padding. The fold reads the first half of h
+   * mirrored, so h is symmetric. Padded, every 2..15-tap filter folds at
+   * >= 17 >= K_pad = 16, so on an AVX2 build the long filter runs the
+   * vector kernel and the short one the guarded scalar path: this pins that
+   * the two paths agree.
+   *
+   * It is NOT a test of the N_fold >= K_pad guard. Without the guard the
+   * short fold's out-of-window lanes multiply zero-padded coefficients, so
+   * the outputs still agree; the only defect is the out-of-bounds read
+   * itself, which only ASan on an -mavx2 build would catch. No CI job builds
+   * with __AVX2__ (#2747; #1928 is the related SIMD rounding audit). */
+  enum
+  {
+    PAD = 8, /* 2..15 + 2*PAD folds at >= 17 >= K_pad = 16 */
+    NS  = 64 /* complex input samples per run */
+  };
+  for (size_t taps = 2; taps <= 15; taps++)
+    {
+      float h[15], hp[15 + 2 * PAD] = { 0 };
+      for (size_t i = 0; i < taps; i++)
+        {
+          const size_t e = i < taps - 1 - i ? i : taps - 1 - i;
+          hp[PAD + i] = h[i] = 0.05f * (float)(e + 1);
+        }
+      dp_hbdecim_q15_state_t *q = dp_hbdecim_q15_create (taps, h);
+      dp_hbdecim_q15_state_t *p = dp_hbdecim_q15_create (taps + 2 * PAD, hp);
+      DP_REQUIRE (q != NULL && p != NULL);
+      int16_t in[2 * NS], oq[2 * NS], op[2 * NS];
+      for (int i = 0; i < 2 * NS; i++)
+        in[i] = (int16_t)((i * 7919) % 4001 - 2000);
+      const size_t nq = dp_hbdecim_q15_execute (q, in, NS, oq, NS);
+      const size_t np = dp_hbdecim_q15_execute (p, in, NS, op, NS);
+      DP_REQUIRE (nq == np && nq > PAD);
+      int same = 1;
+      for (size_t m = 0; m + PAD < nq; m++)
+        if (oq[2 * m] != op[2 * (m + PAD)]
+            || oq[2 * m + 1] != op[2 * (m + PAD) + 1])
+          same = 0;
+      DP_CHECK_MSG (same, "a short fold matches the zero-padded long fold");
+      dp_hbdecim_q15_destroy (q);
+      dp_hbdecim_q15_destroy (p);
+    }
+
+  /* ---------------------------------------------------------------- *
+   * #2142: a forged head or flag is refused, the object untouched          *
+   * ---------------------------------------------------------------- */
+  {
+    /* Blob: [hdr][even_head u64][odd_head u64][has_pending u32]... */
+    dp_hbdecim_q15_state_t *s = dp_hbdecim_q15_create (25, H25_stub);
+    DP_CHECK (s != NULL);
+    if (s)
+      {
+        const size_t   eh  = sizeof (dp_state_hdr_t);
+        const size_t   oh  = eh + sizeof (uint64_t);
+        const size_t   hp  = oh + sizeof (uint64_t);
+        const uint64_t cap = (uint64_t)s->cap;
+        const uint32_t two = 2;
+        DP_STATE_FORGE_TEST (dp_hbdecim_q15, s, HBDECIM_Q15_STATE_MAGIC,
+                             HBDECIM_Q15_STATE_VERSION, eh, &cap, sizeof cap);
+        DP_STATE_FORGE_TEST (dp_hbdecim_q15, s, HBDECIM_Q15_STATE_MAGIC,
+                             HBDECIM_Q15_STATE_VERSION, oh, &cap, sizeof cap);
+        DP_STATE_FORGE_TEST (dp_hbdecim_q15, s, HBDECIM_Q15_STATE_MAGIC,
+                             HBDECIM_Q15_STATE_VERSION, hp, &two, sizeof two);
+        /* ...and the last index inside the ring is a state. */
+        const uint64_t last = cap - 1;
+        DP_STATE_ACCEPT_TEST (dp_hbdecim_q15, s, eh, &last, sizeof last);
+        DP_STATE_ACCEPT_TEST (dp_hbdecim_q15, s, oh, &last, sizeof last);
+        dp_hbdecim_q15_destroy (s);
+      }
   }
 
   DP_TEST_END ("test_hbdecim_q15_core");

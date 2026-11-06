@@ -36471,6 +36471,7 @@ class QueryOrgCorrectTaskDetailResponseBodyResult(TeaModel):
         ai_mark_time: int = None,
         ai_model: str = None,
         class_name: str = None,
+        extra_fields: Dict[str, str] = None,
         grade_level: int = None,
         grade_name: str = None,
         period_code: str = None,
@@ -36488,6 +36489,7 @@ class QueryOrgCorrectTaskDetailResponseBodyResult(TeaModel):
         self.ai_mark_time = ai_mark_time
         self.ai_model = ai_model
         self.class_name = class_name
+        self.extra_fields = extra_fields
         self.grade_level = grade_level
         self.grade_name = grade_name
         self.period_code = period_code
@@ -36518,6 +36520,8 @@ class QueryOrgCorrectTaskDetailResponseBodyResult(TeaModel):
             result['aiModel'] = self.ai_model
         if self.class_name is not None:
             result['className'] = self.class_name
+        if self.extra_fields is not None:
+            result['extraFields'] = self.extra_fields
         if self.grade_level is not None:
             result['gradeLevel'] = self.grade_level
         if self.grade_name is not None:
@@ -36554,6 +36558,8 @@ class QueryOrgCorrectTaskDetailResponseBodyResult(TeaModel):
             self.ai_model = m.get('aiModel')
         if m.get('className') is not None:
             self.class_name = m.get('className')
+        if m.get('extraFields') is not None:
+            self.extra_fields = m.get('extraFields')
         if m.get('gradeLevel') is not None:
             self.grade_level = m.get('gradeLevel')
         if m.get('gradeName') is not None:
@@ -36803,11 +36809,13 @@ class QueryOrgCorrectTaskWithWrongQuestionResponseBodyResultStudentWrongQuestion
         assignment_pic_url_list: List[str] = None,
         student_id: str = None,
         student_name: str = None,
+        student_no_ocr: str = None,
         wrong_question_records: List[QueryOrgCorrectTaskWithWrongQuestionResponseBodyResultStudentWrongQuestionsWrongQuestionRecords] = None,
     ):
         self.assignment_pic_url_list = assignment_pic_url_list
         self.student_id = student_id
         self.student_name = student_name
+        self.student_no_ocr = student_no_ocr
         self.wrong_question_records = wrong_question_records
 
     def validate(self):
@@ -36828,6 +36836,8 @@ class QueryOrgCorrectTaskWithWrongQuestionResponseBodyResultStudentWrongQuestion
             result['studentId'] = self.student_id
         if self.student_name is not None:
             result['studentName'] = self.student_name
+        if self.student_no_ocr is not None:
+            result['studentNoOcr'] = self.student_no_ocr
         result['wrongQuestionRecords'] = []
         if self.wrong_question_records is not None:
             for k in self.wrong_question_records:
@@ -36842,6 +36852,8 @@ class QueryOrgCorrectTaskWithWrongQuestionResponseBodyResultStudentWrongQuestion
             self.student_id = m.get('studentId')
         if m.get('studentName') is not None:
             self.student_name = m.get('studentName')
+        if m.get('studentNoOcr') is not None:
+            self.student_no_ocr = m.get('studentNoOcr')
         self.wrong_question_records = []
         if m.get('wrongQuestionRecords') is not None:
             for k in m.get('wrongQuestionRecords'):

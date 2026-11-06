@@ -155,6 +155,14 @@ def canceled(error: str | None) -> bool:
     return str(error or "").startswith(CANCELED)
 
 
+def state_said(status: str, error: str | None) -> str:
+    """A benchmark's state in words: its platform's `status`, but canceled for a registration its owner canceled, which
+    is failed by no fault of its own. What a script reads (--json, seq.benchmarks()) stays the platform's.
+    
+"""
+    return "canceled" if status == "failed" and canceled(error) else status
+
+
 def still_building(what: str, follow: str, *, stalled_s: float | None = None) -> Unavailable:
     """The wait ended while the build went on: not abandoned, and worth waiting on again (`timeout`, retryable). Its
     window ran out - or, `stalled_s`, its build log stood still that long, which is said as such: the two read as one

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+__version__ = '1.4.9'
+
 from .JieQi import JieQi
 from .NineStar import NineStar
 from .EightChar import EightChar

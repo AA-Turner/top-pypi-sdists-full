@@ -161,7 +161,7 @@ class MetadataMixin:
     MIN_PDF_VERSION: Final[float] = 1.0
     MAX_PDF_VERSION: Final[float] = 2.0
 
-    def metadata(
+    def metadata(  # noqa: PLR0917
         self,
         author: str | None = None,
         pdf_copyright: str | None = None,
@@ -279,6 +279,67 @@ class FlattenOptionMixin:
             Self: The instance with the updated form data.
         """
         self._form_data.update(bool_to_form("flatten", flatten))  # type: ignore[attr-defined,misc]
+        return self
+
+
+class ImageQualityMixin:
+    """
+    https://gotenberg.dev/docs/routes#optimize-pdfs-route
+
+    Requires Gotenberg 8.36 or later, older versions ignore the field
+    """
+
+    def image_quality(self, quality: int) -> Self:
+        """
+        Sets the JPEG quality used when re-encoding images.
+
+        Args:
+            quality (int): The quality, from 1 (smallest file) to 100 (best quality). Gotenberg uses 80
+                when this is not set.
+
+        Raises:
+            ValueError: If quality is not between 1 and 100.
+
+        Returns:
+            Self: The instance with the updated form data.
+        """
+        if not 1 <= quality <= 100:  # noqa: PLR2004
+            msg = f"quality must be between 1 and 100, got {quality}"
+            raise ValueError(msg)
+        self._form_data.update({"imageQuality": str(quality)})  # type: ignore[attr-defined,misc]
+        return self
+
+
+class OptimizeImagesMixin(ImageQualityMixin):
+    """
+    https://gotenberg.dev/docs/routes#convert-with-chromium
+    https://gotenberg.dev/docs/routes#convert-with-libreoffice
+    https://gotenberg.dev/docs/routes#merge-pdfs-route
+    https://gotenberg.dev/docs/routes#split-pdfs-route
+
+    Requires Gotenberg 8.36 or later, older versions ignore the field
+    """
+
+    def optimize_images(self, *, quality: int | None = None) -> Self:
+        """
+        Re-encodes the images of the resulting PDF as JPEG to reduce the file size.
+
+        Only lossless images of at least 30 KiB are touched. Text, vectors, JPEG images, images with
+        transparency and CMYK images are left as they are.
+
+        Args:
+            quality (int | None): The JPEG quality, from 1 (smallest file) to 100 (best quality).
+                Gotenberg uses 80 when this is not set.
+
+        Raises:
+            ValueError: If quality is not between 1 and 100.
+
+        Returns:
+            Self: The instance with the updated form data.
+        """
+        if quality is not None:
+            self.image_quality(quality)
+        self._form_data.update({"optimizeImages": "true"})  # type: ignore[attr-defined,misc]
         return self
 
 

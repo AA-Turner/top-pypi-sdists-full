@@ -11,7 +11,9 @@
 A command the service never started (it stopped, or restarts after a `probe service stop`) is
 asked of the next service, once. A service older than this shim still runs the command (its
 host loads the files on disk) and restarts once nothing runs; only one from before `cli.run`
-is replaced here (D15).
+is replaced while it is still the one that refused (`ensure(replacing=<its hello>)`: it cannot serve
+this shim, whatever any recorded version says); every start asks for this shim's version as the
+floor (`ensure(min_version=...)`, D15).
 
 It does nothing else: no CLI import, no work of its own (the rule of service-only D1). Stdlib only;
 `foundation/service_api` is the one client it uses. The program a command asks for (`probe exec`'s)
@@ -40,7 +42,7 @@ from probe.foundation.service_api.wire import API_VERSION, ErrorCode, Method, en
 START_WAIT_S = 10.0
 #: `service.hello` and `cli.run`'s answer (the door, at once): past it the service is stuck.
 ANSWER_TIMEOUT_S = 10.0
-#: How long an older service (from before `cli.run`) gets to stop before ours starts (D15).
+#: How long a stopping service gets to let go of its socket once its process is gone.
 REPLACE_WAIT_S = 10.0
 #: How long a stopping service gets to exit before its command is asked of the next one.
 RESTART_WAIT_S = 30.0
@@ -216,8 +218,12 @@ def _hand_over(argv: list[str], version: str) -> tuple[socket.socket, Connection
             connection.close()
             reason = exc.data.get("reason") if isinstance(exc.data, dict) else None
             if exc.code == ErrorCode.UNKNOWN_METHOD and attempt == 0:
-                _replace_older_service(version)  # a service from before `cli.run` (D15)
+                # A service from before `cli.run`: replaced while it is still that one (D15).
+                _replace_older_service(version, getattr(exc, "service_hello", None))
                 continue
+            if exc.code == ErrorCode.UNKNOWN_METHOD:
+                raise ShimError("the Probe service this machine starts is older than this probe (it has no "
+                                f"`cli.run`), even after a restart.\n{_get_hints()}") from None
             if reason == RefusedReason.CALLER_GONE:  # the service is stopping: the next one runs it
                 raise RetryError(exc.message, getattr(exc, "service_pid", None)) from None
             if reason == RefusedReason.UNINSTALLING:
@@ -277,14 +283,16 @@ def _connect(version: str, *, is_finishing_uninstall: bool = False) -> Connectio
         ) from None
 
 
-def _ensure(version: str, *, is_finishing_uninstall: bool = False) -> str:
-    """`ensure`, waiting for the service to answer.
-    # SEAM (service-only L1, T37): `ensure(min_version=version)` replaces an older service.
-    """
+def _ensure(version: str, *, is_finishing_uninstall: bool = False, replacing: dict | None = None) -> str:
+    """`ensure` with this shim's version as the floor (D15), waiting for the service to answer: a
+    service older than this shim is stopped and a current one started, else `Ensured.OLDER`.
+    `replacing`: the hello of a running service that refused this shim (-32601): replaced while it
+    is still that one, whatever its version or runtime.json's says; a successor is used as it is."""
     if start.runtime_python() is None and start.uninstall_barrier() is None:
         # No install recorded (a pip install, a checkout): this interpreter is the CLI's.
         start.write_runtime(sys.executable, version)
-    return start.ensure(wait=START_WAIT_S, is_finishing_uninstall=is_finishing_uninstall)
+    return start.ensure(wait=START_WAIT_S, min_version=version, is_finishing_uninstall=is_finishing_uninstall,
+                        replacing=replacing)
 
 
 def _explain(outcome: str, exc: OSError) -> str:
@@ -309,21 +317,16 @@ def _get_hints() -> str:
     return f"  log: {log}\n  {fix}"
 
 
-def _replace_older_service(version: str) -> None:
-    """The version floor (D15), for a service from before `cli.run` only: it stops, ours starts.
-    # SEAM (service-only L1, T37): becomes `ensure(min_version=version)`.
-    """
-    try:
-        with Connection.open(2.0) as connection:
-            connection.hello(Client.CLI, version)
-            connection.call(Method.STOP)
-    except ServiceError as exc:
-        raise ShimError(f"an older Probe service runs here and will not stop now ({exc.message}); "
-                        "try again in a moment", ShimExit.UPDATING) from None
-    except OSError:
-        return
-    _wait_until_gone()
-    _ensure(version)
+def _replace_older_service(version: str, hello: dict | None) -> None:
+    """A service from before `cli.run` answered (-32601; `hello` its `service.hello` answer): it
+    cannot serve this shim, so while the service on the socket is still that one it is stopped and
+    one started whatever its version or runtime.json's says (a container upgraded in place records
+    the old version, and the floor alone would leave every command on exit 75). A successor (another
+    `probe` replaced it first, or it had gone) is used as it is. One that will not stop now (an
+    update or an action runs) is the person's to retry."""
+    if _ensure(version, replacing=hello if isinstance(hello, dict) else {}) == start.Ensured.OLDER:
+        raise ShimError("an older Probe service runs here and will not stop now; try again in a moment",
+                        ShimExit.UPDATING)
 
 
 def _wait_for_restart(service_pid: int | None) -> None:
@@ -367,6 +370,7 @@ def _call_pipelined(connection: Connection, version: str, parameters: dict) -> t
             failure = ServiceError(int(error.get("code", 0)), str(error.get("message", "")), error.get("data"))
             pid = answers.get(1, {}).get("pid")
             failure.service_pid = pid if isinstance(pid, int) else None  # whose restart to wait out
+            failure.service_hello = answers.get(1)  # who refused: only that service is replaced
             raise failure
         answers[message["id"]] = message.get("result") or {}
     return answers[1], answers[2]

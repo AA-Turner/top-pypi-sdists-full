@@ -7,6 +7,7 @@ from kombu.utils.url import maybe_sanitize_url, urlparse
 
 from celery import states
 from celery.exceptions import ImproperlyConfigured
+from celery.utils.time import add_seconds_to_datetime
 
 from .base import BaseBackend
 
@@ -21,11 +22,14 @@ if pymongo:
     except ImportError:
         from pymongo.binary import Binary
     from pymongo import uri_parser
-    from pymongo.errors import InvalidDocument
+    from pymongo.errors import DuplicateKeyError, InvalidDocument
 else:                                       # pragma: no cover
     Binary = None
 
     class InvalidDocument(Exception):
+        pass
+
+    class DuplicateKeyError(Exception):
         pass
 
 __all__ = ('MongoBackend',)
@@ -53,6 +57,9 @@ class MongoBackend(BaseBackend):
     options = None
 
     supports_autoexpire = False
+
+    # Bytes round-trip through BSON as a binary field.
+    supports_result_compression = True
 
     _connection = None
 
@@ -188,10 +195,24 @@ class MongoBackend(BaseBackend):
         # Add the _id for mongodb
         meta['_id'] = task_id
 
-        try:
-            self.collection.replace_one({'_id': task_id}, meta, upsert=True)
-        except InvalidDocument as exc:
-            raise EncodeError(exc)
+        # Keep the first SUCCESS, as BaseKeyValueStoreBackend does: a
+        # repeated run of the task must not overwrite it. Putting the
+        # status check in the filter makes the check and the write a
+        # single step, so a concurrent run cannot slip a write in
+        # between them. When the stored document is already a SUCCESS
+        # the filter does not match and the upsert raises
+        # DuplicateKeyError, which is ignored here. The same error
+        # comes up when another run inserts the document at that
+        # moment, so one retry is allowed for that case.
+        query = {'_id': task_id, 'status': {'$ne': states.SUCCESS}}
+        for _ in range(2):
+            try:
+                self.collection.replace_one(query, meta, upsert=True)
+                break
+            except DuplicateKeyError:
+                pass
+            except InvalidDocument as exc:
+                raise EncodeError(exc) from exc
 
         return result
 
@@ -200,15 +221,20 @@ class MongoBackend(BaseBackend):
         obj = self.collection.find_one({'_id': task_id})
         if obj:
             if self.app.conf.find_value_for_key('extended', 'result'):
+                # The request-derived fields are only written by
+                # ``_get_result_meta`` when a request is available, so a
+                # document stored without one (for example by
+                # ``AbortableAsyncResult.abort``) does not carry them.
+                # Default them to None instead of raising KeyError.
                 return self.meta_from_decoded({
-                    'name': obj['name'],
-                    'args': obj['args'],
+                    'name': obj.get('name'),
+                    'args': obj.get('args'),
                     'task_id': obj['_id'],
-                    'queue': obj['queue'],
-                    'kwargs': obj['kwargs'],
+                    'queue': obj.get('queue'),
+                    'kwargs': obj.get('kwargs'),
                     'status': obj['status'],
-                    'worker': obj['worker'],
-                    'retries': obj['retries'],
+                    'worker': obj.get('worker'),
+                    'retries': obj.get('retries'),
                     'children': obj['children'],
                     'date_done': obj['date_done'],
                     'traceback': obj['traceback'],
@@ -223,6 +249,13 @@ class MongoBackend(BaseBackend):
                 'children': obj['children'],
             })
         return {'status': states.PENDING, 'result': None}
+
+    def task_result_exists(self, task_id):
+        """Check if a result exists in MongoDB for the given task ID.
+
+        .. versionadded:: 5.7.0
+        """
+        return bool(self.collection.find_one({"_id": task_id}))
 
     def _save_group(self, group_id, result):
         """Save the group result."""
@@ -268,11 +301,12 @@ class MongoBackend(BaseBackend):
         if not self.expires:
             return
 
+        cutoff = add_seconds_to_datetime(self.app.now(), -self.expires_delta.total_seconds())
         self.collection.delete_many(
-            {'date_done': {'$lt': self.app.now() - self.expires_delta}},
+            {'date_done': {'$lt': cutoff}},
         )
         self.group_collection.delete_many(
-            {'date_done': {'$lt': self.app.now() - self.expires_delta}},
+            {'date_done': {'$lt': cutoff}},
         )
 
     def __reduce__(self, args=(), kwargs=None):

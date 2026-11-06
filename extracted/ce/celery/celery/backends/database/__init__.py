@@ -1,12 +1,16 @@
 """SQLAlchemy result store backend."""
 import logging
+import pickle
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
-from vine.utils import wraps
+from kombu.utils.encoding import ensure_bytes
 
 from celery import states
 from celery.backends.base import BaseBackend
 from celery.exceptions import ImproperlyConfigured
+from celery.result import result_from_tuple
+from celery.utils.imports import symbol_by_name
 from celery.utils.time import maybe_timedelta
 
 from .models import Task, TaskExtended, TaskSet
@@ -14,10 +18,12 @@ from .session import SessionManager
 
 try:
     from sqlalchemy.exc import DatabaseError, InterfaceError, InvalidRequestError
+    from sqlalchemy.orm import defer
+    from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.orm.exc import StaleDataError
 except ImportError:
     raise ImproperlyConfigured(
-        'The database result backend requires SQLAlchemy to be installed.'
+        'The database result backend requires SQLAlchemy to be installed. '
         'See https://pypi.org/project/SQLAlchemy/')
 
 logger = logging.getLogger(__name__)
@@ -43,35 +49,6 @@ def session_cleanup(session):
         session.close()
 
 
-def retry(fun):
-
-    @wraps(fun)
-    def _inner(*args, **kwargs):
-        max_retries = kwargs.pop('max_retries', 3)
-
-        for retries in range(max_retries):
-            try:
-                return fun(*args, **kwargs)
-            except RETRYABLE_DB_ERRORS as exc:
-                backend = args[0] if args else None
-                on_retryable_error = getattr(backend, 'on_backend_retryable_error', None)
-                if callable(on_retryable_error):
-                    try:
-                        on_retryable_error(exc)
-                    except Exception:
-                        logger.exception(
-                            "on_backend_retryable_error hook failed; continuing retry loop",
-                        )
-                logger.warning(
-                    'Failed operation %s.  Retrying %s more times.',
-                    fun.__name__, max_retries - retries - 1,
-                    exc_info=True)
-                if retries + 1 >= max_retries:
-                    raise
-
-    return _inner
-
-
 class DatabaseBackend(BaseBackend):
     """The database result backend."""
 
@@ -88,6 +65,16 @@ class DatabaseBackend(BaseBackend):
         super().__init__(expires_type=maybe_timedelta,
                          url=url, **kwargs)
         conf = self.app.conf
+
+        # Override retry defaults to preserve backward compatibility.
+        # Previously, DatabaseBackend used a custom @retry decorator that always
+        # retried with max_retries=3. We maintain this behavior by default.
+        # Both settings always have a value, so check if the user set them.
+        # None also means the default.
+        if not conf.value_set_for('result_backend_always_retry') or self.always_retry is None:
+            self.always_retry = True
+        if not conf.value_set_for('result_backend_max_retries') or self.max_retries is None:
+            self.max_retries = 3
 
         if self.extended_result:
             self.task_cls = TaskExtended
@@ -119,7 +106,16 @@ class DatabaseBackend(BaseBackend):
                 'Missing connection string! Do you have the'
                 ' database_url setting set to a real value?')
 
-        self.session_manager = SessionManager()
+        engine_callback = kwargs.get(
+            'engine_callback', conf.database_engine_callback)
+        if isinstance(engine_callback, str):
+            engine_callback = symbol_by_name(engine_callback)
+        if engine_callback is not None and not callable(engine_callback):
+            raise ImproperlyConfigured(
+                'database_engine_callback must be callable, got {!r}'.format(
+                    engine_callback))
+        self.session_manager = SessionManager(
+            engine_callback=engine_callback)
 
         create_tables_at_setup = conf.database_create_tables_at_setup
         if create_tables_at_setup is True:
@@ -137,7 +133,7 @@ class DatabaseBackend(BaseBackend):
 
     def _create_tables(self):
         """Create the task and taskset tables."""
-        self.ResultSession()
+        self._ensure_retryable(self.ResultSession)
 
     def ResultSession(self, session_manager=None):
         if session_manager is None:
@@ -147,34 +143,70 @@ class DatabaseBackend(BaseBackend):
             short_lived_sessions=self.short_lived_sessions,
             **self.engine_options)
 
-    @retry
+    def _query_task(self, session, task_id, for_update=False):
+        """Query task by id, falling back to deferring missing columns from database."""
+        query = session.query(self.task_cls)
+        if for_update:
+            # Lock the row, and read it again even if the session has it.
+            query = query.with_for_update().populate_existing()
+        try:
+            tasks = list(query.filter(self.task_cls.task_id == task_id))
+            return tasks and tasks[0]
+        except DatabaseError as exc:
+            exc_str = str(exc).lower()
+            defers = []
+            if 'children' in exc_str and hasattr(self.task_cls, 'children'):
+                defers.append(defer(self.task_cls.children))
+            if 'stamps' in exc_str and hasattr(self.task_cls, 'stamps'):
+                defers.append(defer(self.task_cls.stamps))
+            if defers:
+                tasks = list(query.options(*defers).filter(
+                    self.task_cls.task_id == task_id
+                ))
+                return tasks and tasks[0]
+            raise
+
     def _store_result(self, task_id, result, state, traceback=None,
                       request=None, **kwargs):
         """Store return value and state of an executed task."""
         session = self.ResultSession()
         with session_cleanup(session):
-            task = list(session.query(self.task_cls).filter(self.task_cls.task_id == task_id))
-            task = task and task[0]
+            task = self._query_task(session, task_id)
+            if task:
+                # Lock the row and read it again, so a run that stores SUCCESS
+                # at the same time can't be written over. Only an existing row
+                # is locked: on MySQL, locking a missing row takes a gap lock,
+                # which deadlocks concurrent inserts.
+                task = self._query_task(session, task_id, for_update=True)
             if not task:
                 task = self.task_cls(task_id)
                 task.task_id = task_id
                 session.add(task)
                 session.flush()
+            elif task.status == states.SUCCESS:
+                # Like BaseKeyValueStoreBackend, ignore any write after a
+                # SUCCESS is saved, so a repeated run of the task doesn't
+                # replace its result.
+                return
 
             self._update_result(task, result, state, traceback=traceback, request=request)
+            # Write the state even if it looks unchanged. Without row locks, as
+            # on SQLite, another run may have saved a SUCCESS after we read the
+            # row, and that SUCCESS must not stay next to the result written here.
+            flag_modified(task, 'status')
             session.commit()
 
     def _update_result(self, task, result, state, traceback=None,
                        request=None):
 
-        meta = self._get_result_meta(result=result, state=state,
+        meta = self._get_result_meta(result=ensure_bytes(self.encode(result)), state=state,
                                      traceback=traceback, request=request,
                                      format_date=False, encode=True)
 
-        # Exclude the primary key id and task_id columns
-        # as we should not set it None
+        # Exclude the primary key id, task_id, children, and stamps columns
+        # as we should not set it None or handle them separately
         columns = [column.name for column in self.task_cls.__table__.columns
-                   if column.name not in {'id', 'task_id'}]
+                   if column.name not in {'id', 'task_id', 'children', 'stamps'}]
 
         # Iterate through the columns name of the table
         # to set the value from meta.
@@ -183,36 +215,113 @@ class DatabaseBackend(BaseBackend):
             value = meta.get(column)
             setattr(task, column, value)
 
-    @retry
+        if hasattr(task, 'children') and 'children' in self.task_cls.__table__.columns:
+            children = meta.get('children')
+            if children:
+                setattr(task, 'children', ensure_bytes(self.encode(children)))
+            else:
+                setattr(task, 'children', None)
+
+        if hasattr(task, 'stamps') and 'stamps' in self.task_cls.__table__.columns:
+            stamped_headers = meta.get('stamped_headers')
+            if stamped_headers:
+                stamps_data = {
+                    h: meta.get(h) for h in stamped_headers if h in meta
+                }
+                stamps_info = {
+                    'stamped_headers': stamped_headers,
+                    'stamps': stamps_data,
+                }
+                setattr(task, 'stamps', ensure_bytes(self.encode(stamps_info)))
+            elif getattr(task, 'stamps', None) is None:
+                setattr(task, 'stamps', None)
+
     def _get_task_meta_for(self, task_id):
         """Get task meta-data for a task by id."""
         session = self.ResultSession()
         with session_cleanup(session):
-            task = list(session.query(self.task_cls).filter(self.task_cls.task_id == task_id))
-            task = task and task[0]
+            task = self._query_task(session, task_id)
             if not task:
                 task = self.task_cls(task_id)
                 task.status = states.PENDING
                 task.result = None
             data = task.to_dict()
+            data['result'] = self._decode_stored_result(data['result'])
             if data.get('args', None) is not None:
                 data['args'] = self.decode(data['args'])
             if data.get('kwargs', None) is not None:
                 data['kwargs'] = self.decode(data['kwargs'])
+            if data.get('children', None) is not None:
+                data['children'] = self.decode(data['children'])
+            raw_stamps = data.pop('stamps', None)
+            if raw_stamps is not None:
+                try:
+                    stamps_info = self.decode(raw_stamps)
+                    if isinstance(stamps_info, dict):
+                        if 'stamped_headers' in stamps_info:
+                            data['stamped_headers'] = stamps_info['stamped_headers']
+                        if 'stamps' in stamps_info and isinstance(stamps_info['stamps'], dict):
+                            data.update(stamps_info['stamps'])
+                except Exception:
+                    pass
             return self.meta_from_decoded(data)
 
-    @retry
+    def _decode_stored_result(self, payload):
+        """Decode a value stored in the ``result`` column.
+
+        Rows written before the fix for celery/celery#3025 always stored a
+        raw pickle blob regardless of the configured ``result_serializer``,
+        so a row that can't be decoded with the current serializer, but
+        looks like a pickle payload (starts with the pickle protocol 2+
+        marker that every pickle Celery/kombu produces starts with), is
+        assumed to be one of those and is unpickled directly instead.
+        Anything else re-raises the original decode error instead of
+        blindly unpickling arbitrary bytes.
+        """
+        if payload is None:
+            return payload
+        payload = ensure_bytes(payload)
+        try:
+            return self.decode(payload)
+        except Exception:
+            # Legacy rows written before celery/celery#3025 were stored via
+            # SQLAlchemy's PickleType, which uses a binary pickle protocol.
+            if payload[:1] != b'\x80':
+                raise
+            logger.warning(
+                'Task result payload could not be decoded using the '
+                'configured result_serializer; falling back to pickle '
+                'for backward compatibility with pre-fix data.',
+                exc_info=True,
+            )
+            return pickle.loads(payload)
+
+    def task_result_exists(self, task_id):
+        """Check if a result exists in the database for the given task ID.
+
+        .. versionadded:: 5.7.0
+        """
+        return self._ensure_retryable(
+            self._task_result_exists, task_id=task_id)
+
+    def _task_result_exists(self, task_id):
+        session = self.ResultSession()
+        with session_cleanup(session):
+            return session.query(self.task_cls).filter(
+                self.task_cls.task_id == task_id
+            ).first() is not None
+
     def _save_group(self, group_id, result):
         """Store the result of an executed group."""
         session = self.ResultSession()
         with session_cleanup(session):
-            group = self.taskset_cls(group_id, result)
+            value = ensure_bytes(self.encode(self.prepare_value(result)))
+            group = self.taskset_cls(group_id, value)
             session.add(group)
             session.flush()
             session.commit()
             return result
 
-    @retry
     def _restore_group(self, group_id):
         """Get meta-data for group by id."""
         session = self.ResultSession()
@@ -220,9 +329,13 @@ class DatabaseBackend(BaseBackend):
             group = session.query(self.taskset_cls).filter(
                 self.taskset_cls.taskset_id == group_id).first()
             if group:
-                return group.to_dict()
+                data = group.to_dict()
+                value = self._decode_stored_result(data['result'])
+                data['result'] = (
+                    value if value is None else result_from_tuple(value, self.app)
+                )
+                return data
 
-    @retry
     def _delete_group(self, group_id):
         """Delete meta-data for group by id."""
         session = self.ResultSession()
@@ -232,7 +345,6 @@ class DatabaseBackend(BaseBackend):
             session.flush()
             session.commit()
 
-    @retry
     def _forget(self, task_id):
         """Forget about result."""
         session = self.ResultSession()
@@ -242,9 +354,12 @@ class DatabaseBackend(BaseBackend):
 
     def cleanup(self):
         """Delete expired meta-data."""
+        self._ensure_retryable(self._cleanup)
+
+    def _cleanup(self):
         session = self.ResultSession()
         expires = self.expires
-        now = self.app.now()
+        now = datetime.now(timezone.utc)
         with session_cleanup(session):
             session.query(self.task_cls).filter(
                 self.task_cls.date_done < (now - expires)).delete()

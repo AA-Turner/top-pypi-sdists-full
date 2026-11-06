@@ -12,6 +12,8 @@ from typing import Any, Literal
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
+from .idempotency import same_arguments_key
+
 
 def _decode_base64(value: str) -> bytes:
     """Decode a base64 tool argument, accepting a data: URL."""
@@ -8045,10 +8047,7 @@ def register_generated_tools(mcp, _get_client):
             - So an ad set with any number of ads copies: Meta refuses a single deep copy of 3 or more objects.
             - `statusOption` applies to the ad set and every ad.
             - If an ad copy fails, the partial ad set copy is deleted and the request fails with Meta's error.
-            - Sync discovery is triggered automatically (`syncAfter: false` to skip).
-
-            TikTok: the ad group is read and recreated under the campaign with its targeting, bidding,
-            budget and schedule (start reset to now); `deepCopy: true` recreates its ads too (default ...
+            - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them. ...
 
             Platforms: meta, tiktok
 
@@ -8116,7 +8115,7 @@ def register_generated_tools(mcp, _get_client):
 
             - `adSetId` retargets the copy into another ad set; omitted = the source's own ad set.
             - Accepts the Zernio ad id or the platform ad id.
-            - Sync discovery is triggered automatically (`syncAfter: false` to skip).
+            - A sync discovery starts automatically and runs after the response (`syncAfter: false` to skip). The copy is readable through Zernio once it finishes, usually within a few minutes. Until then, calls that take a copied id return 404, so retry them.
 
             ### Creative settings
 
@@ -8124,10 +8123,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Fallback rebuild
 
-            When Meta refuses the native copy with its capability error (code 3), which happens for some creatives built by other tools, the ad is rebuilt instead:
-
-            1. A new creative from the source's returned spec.
-            2. A new ad in the target ad set, carrying the source name, status option, rename options and tracking specs.
+            When Meta refuses the native copy with its capability error (code 3), which happens for some creatives built by other tools, the ad is rebuilt instead: ...
 
             Platforms: meta
 
@@ -9985,7 +9981,7 @@ def register_generated_tools(mcp, _get_client):
         - New campaign: held paused with its ad set and ad on. One PUT /v1/ads/campaigns/{campaignId}/status with `active` brings it live.
         - Into an existing campaign (TikTok `existingCampaignId`): the new ad set is held paused.
         - Attached to an existing ad set (`adSetId`): the new ad itself is paused.
-        - LinkedIn: the held campaign group is PAUSED, its campaign and creative ACTIVE.
+        - LinkedIn: every object the boost creates is held. A new campaign group is PAUSED, and its campaign and creative stay DRAFT. Resume each held object top-down to go live.
         - X: has no per-ad switch, so its lowest level is the line item.
 
         `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level. `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED.
@@ -10757,6 +10753,8 @@ def register_generated_tools(mcp, _get_client):
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit, microsoft
 
+            Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
+
             Args:
                 account_id: (required)
                 ad_account_id: (required)
@@ -10858,8 +10856,8 @@ def register_generated_tools(mcp, _get_client):
 
         Before the dry run, Meta validateOnly runs the account status and payment checks of GET /v1/ads/accounts/health: an ad account that is not ready answers its blocker `code` (`ad_account_unusable`, `ad_account_payment_required`) with `details.hint` and `details.fix`, and Meta is not called.
 
-        - Supported: a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId.
-        - Return 400: dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId, RESERVED buying.
+        - Supported: a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, placementAssets with an existing video id in every slot and no thumbnails, or existingCreativeId.
+        - Return 400: dynamicCreative, translations, carouselCards, placement videos by URL or with thumbnails, new video uploads, creatives[], adSetId, RESERVED buying.
         - Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped.
         - When Meta cannot dry-run the nested tree, the campaign and creative are validated alone and the adSet and ad nodes return unverified with the reason. This covers code 2, and two errors Meta returns but then creates normally (below).
         - Code 1 (unknown error) on an OFFSITE_CONVERSIONS ad set nested in a new campaign (some website-conversion ad sets).
@@ -10897,7 +10895,7 @@ def register_generated_tools(mcp, _get_client):
 
         **Platform notes:**
 
-        - LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE. A new campaign in an existing group stays DRAFT. A held creative (with `adSetId`) is created DRAFT, as LinkedIn refuses PAUSED until its review is APPROVED.
+        - LinkedIn: every object the call creates is held. A new campaign group is PAUSED. A new campaign or creative stays DRAFT, as LinkedIn refuses PAUSED on a creative until its review is APPROVED. Resume each held object top-down to go live.
         - X: no per-ad switch, so its lowest level is the line item.
         - Google Performance Max and Demand Gen: accept PAUSED only (the campaign is created paused).
                 campaign_status: Every platform. Sets the switch of the new campaign alone (LinkedIn: the campaign group) and overrides `status` for it. Omitted, it follows `status`. Ignored when the request creates no campaign (`existingCampaignId` or `adSetId`).
@@ -11188,7 +11186,7 @@ def register_generated_tools(mcp, _get_client):
         - Omitted: nothing is sent and Meta's default (`true`) applies.
                 default_locale: Meta only. Language the top-level copy is written in (e.g. `en`, `pt_BR`), used by the `translations` default rule. Defaults to `en`. Meta rejects a language asset feed whose default rule carries no locales of its own. Must NOT also appear as an entry in `translations`.
                 translations: Meta only. Multi-language ads (Dynamic Language Optimization, the "Languages" toggle in Ads Manager): ONE ad with per-locale copy and, optionally, per-locale media. Social proof (likes/comments/shares) stays on a SINGLE post instead of splitting across one ad per language. The ad's top-level copy is the DEFAULT for every locale you do NOT list, and counts as one of the language variants. **Text does NOT inherit** (the opposite of what you might expect). Every entry needs its own `headline`, `body` AND `description`, all DISTINCT from each other and from the top-level copy. `description` is therefore effectively required on the ad whenever `translations` is present, though optional otherwise. Why: Meta deduplicates identical strings in the asset feed, so two locales sharing a string collapse into one asset. The create then fails with a misleading "Too few ... texts provided in asset creation" (subcode 1885817) naming a field that is present. We validate first and return a 400 naming the locale and field. Do NOT list `defaultLocale` inside `translations`: Meta rejects the duplicate with "The language asset feed includes an unsupported targeting field" (subcode 1885985). **Media DOES inherit** and is uploaded once when shared. `linkUrl` inherits too: each locale may name its own landing page, and unlisted locales fall back to the top-level `linkUrl`. Meta enforces Dynamic Creative image dimensions on language feeds, so an `imageUrl` that works on a normal ad may fail with "The following images have invalid dimensions for Dynamic Creative" (subcode 1885558). Video is not affected. Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards`, `existingCreativeId` and `creatives[]`: Meta allows one `asset_feed_spec` shape per creative. Each item is an object with keys: locale (string, required) - Language code, resolved to Meta's numeric locale id. Bare codes target the '(All)' umbrella (`es` = every Spanish variant); region-qualified codes target the ...; headline (string, required) - Headline for this language. REQUIRED, and must differ from every other locale and from the ad's top-level headline.; body (string, required) - Primary text for this language. REQUIRED, and must differ from every other locale and from the ad's top-level body.; description (string, required) - Link description for this language. REQUIRED, and must differ from every other locale and from the ad's top-level description.; linkUrl (string) - Destination URL for this language. Inherits the ad's top-level `linkUrl` when omitted, and requires it to be present (400 otherwise): the top-level URL is the ...; imageUrl (string) - Image for this language. Inherits the ad's `imageUrl` when omitted. The feed is all-image OR all-video.; videoUrl (string) - Video for this language. Inherits the ad's `video.url` when omitted. The feed is all-image OR all-video.; thumbnailUrl (string) - Poster frame for this language's video.
-                placement_assets: Meta only. Pins a SPECIFIC asset (image OR video) to each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed). The same thing Ads Manager produces with "different creative per placement", mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Cannot be combined with `creatives[]` or top-level `bodies`/`headlines`/`descriptions` arrays. Works on the legacy single shape AND the attach shape: `adSetId` + placementAssets adds one placement-customized ad to an existing ad set. To build N per-placement ads sharing one ad set, create the first normally and attach the rest. **Text.** Each rule can override `headline`, `body` and `description` with one string per field. Omitted fields and unmatched placements use the top-level copy; `linkUrl` and `callToAction` remain shared. Zernio emits labelled text with `optimization_type: PLACEMENT`. Multiple text options rotating within a placement are not supported by this input. **Placements.** Each rule's `placements` accepts the same fields as the top-level `placements` object; Meta enforces co-selection rules and returns an actionable error. Meta controls text rendering by placement and format. Validation accepts these fields but does not prove that every field appears in delivery. Preview the ad, and put copy that must always be visible into the image or video itself. `validateOnly: true` supports all-image placementAssets without uploading or creating anything. Video placement validation remains unsupported because it requires uploads. **Media.** A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad format). Exactly one catch-all default is required. - Image mode: `defaultImageUrl` + `rules[].imageUrl`. - Video mode: `defaultVideoUrl` + `rules[].videoUrl`, with optional `thumbnailUrl`/`defaultThumbnailUrl` posters (Meta auto-generates them when omitted). Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Required in video mode.; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
+                placement_assets: Meta only. Pins a SPECIFIC asset (image OR video) to each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed). The same thing Ads Manager produces with "different creative per placement", mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Cannot be combined with `creatives[]` or top-level `bodies`/`headlines`/`descriptions` arrays. Works on the legacy single shape AND the attach shape: `adSetId` + placementAssets adds one placement-customized ad to an existing ad set. To build N per-placement ads sharing one ad set, create the first normally and attach the rest. **Text.** Each rule can override `headline`, `body` and `description` with one string per field. Omitted fields and unmatched placements use the top-level copy; `linkUrl` and `callToAction` remain shared. Zernio emits labelled text with `optimization_type: PLACEMENT`. Multiple text options rotating within a placement are not supported by this input. **Placements.** Each rule's `placements` accepts the same fields as the top-level `placements` object; Meta enforces co-selection rules and returns an actionable error. Meta controls text rendering by placement and format. Validation accepts these fields but does not prove that every field appears in delivery. Preview the ad, and put copy that must always be visible into the image or video itself. `validateOnly: true` supports all-image placementAssets, and video placementAssets with a video id in every slot and no thumbnails, without uploading or creating anything. Video URLs and thumbnails need an upload, so they return 400. **Media.** A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad format). Exactly one catch-all default is required. - Image mode: `defaultImageUrl` + `rules[].imageUrl`. - Video mode: `defaultVideoUrl` or `defaultVideoId` + `rules[].videoUrl` or `rules[].videoId`, with optional `thumbnailUrl`/`defaultThumbnailUrl` posters (Meta auto-generates them when omitted). An id reuses a video already on the ad account and wins over a URL in the same slot; the two can mix across slots. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Video mode requires this or `defaultVideoId`.; defaultVideoId (string) - Video mode. ID of a video already on the ad account, used as the catch-all instead of uploading `defaultVideoUrl`. Wins over `defaultVideoUrl`. A video still ...; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, videoId, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
                 audience_id: Custom audience ID for targeting
                 campaign_type: Google only. Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED. With `adSetId` it defaults to the ad group's own campaign type instead of display.
                 location_targeting_type: Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations.
@@ -11304,6 +11302,127 @@ def register_generated_tools(mcp, _get_client):
                 campaign_attribution: Meta ad-set attribution. Required as SKADNETWORK for iOS 14+ app promotion or a SKAdNetwork campaign. Requires AUCTION buying. Standalone Meta ad-set creation is not supported; use this field on /v1/ads/create.
                 promoted_object: Object with keys: pixelId (string) - Pixel ID. - **Meta:** Facebook Pixel ID, required for `goal: conversions`. Requires `customEventType` alongside it: Meta rejects any promoted_object carrying ...; customEventType (string) - The event the campaign/ad group optimises against. **Meta:** a standard event like `PURCHASE`, `LEAD`, `COMPLETE_REGISTRATION`, `ADD_TO_CART`. Uppercased ...; customEventStr (string) - Meta only. Pixel custom-event name to optimise against (Meta's `custom_event_str`), exactly as it appears in Events Manager and your CAPI payloads ...; pageId (string) - Facebook Page ID. Used by `goal: lead_generation`. Auto-filled from the connected Page when omitted.; applicationId (string) - App ID. Required for `goal: app_promotion`.; objectStoreUrl (string) - App Store / Play Store listing URL. Required for `goal: app_promotion`.; customConversionId (string) - Custom Conversion ID, when optimising against one instead of a standard event. Accepted alone by this API, without `pixelId` or `customEventType`. If ...; productCatalogId (string) - Optional catalog ID. If supplied with productSetId, the set must belong to this catalog (checked by Zernio when the Meta login carries catalog_management, by ...; productSetId (string) - Meta product SET ID, for example from GET /v1/ads/catalogs/{catalogId}/product-sets. Creating catalog ads needs only ads_management on the Meta login, not ...; offlineConversionDataSetId (string) - Meta only. Offline event set (dataset) to optimise toward. Post-merger these are datasets: the id is the dataset id (for pixel-backed datasets, the pixel id).; whatsappPhoneNumber (string) - Meta only. WhatsApp number on messaging-destination ad sets."""
         client = _get_client()
+        same_arguments: dict[str, Any] = {
+            "account_id": account_id,
+            "ad_account_id": ad_account_id,
+            "name": name,
+            "campaign_name": campaign_name,
+            "ad_set_name": ad_set_name,
+            "ad_name": ad_name,
+            "tracking": tracking,
+            "goal": goal,
+            "smart_targeting": smart_targeting,
+            "optimization_goal": optimization_goal,
+            "billing_event": billing_event,
+            "buying_type": buying_type,
+            "rf_prediction_id": rf_prediction_id,
+            "promotion": promotion,
+            "creative_features": creative_features,
+            "catalog_format": catalog_format,
+            "multi_advertiser": multi_advertiser,
+            "ai_disclosure": ai_disclosure,
+            "validate_only": validate_only,
+            "budget_amount": budget_amount,
+            "budget_type": budget_type,
+            "status": status,
+            "campaign_status": campaign_status,
+            "ad_set_status": ad_set_status,
+            "ad_status": ad_status,
+            "budget_level": budget_level,
+            "currency": currency,
+            "headline": headline,
+            "long_headline": long_headline,
+            "body": body,
+            "description": description,
+            "bodies": bodies,
+            "headlines": headlines,
+            "descriptions": descriptions,
+            "call_to_action": call_to_action,
+            "link_url": link_url,
+            "lead_gen_form_id": lead_gen_form_id,
+            "image_url": image_url,
+            "images": images,
+            "video": video,
+            "creatives": creatives,
+            "ad_set_id": ad_set_id,
+            "existing_campaign_id": existing_campaign_id,
+            "phone_number": phone_number,
+            "existing_creative_id": existing_creative_id,
+            "business_name": business_name,
+            "board_id": board_id,
+            "organization_id": organization_id,
+            "targeting": targeting,
+            "countries": countries,
+            "country_groups": country_groups,
+            "cities": cities,
+            "regions": regions,
+            "age_min": age_min,
+            "age_max": age_max,
+            "interests": interests,
+            "zips": zips,
+            "metros": metros,
+            "custom_locations": custom_locations,
+            "behaviors": behaviors,
+            "work_positions": work_positions,
+            "work_employers": work_employers,
+            "work_industries": work_industries,
+            "income_tier": income_tier,
+            "languages": languages,
+            "placements": placements,
+            "saved_targeting_id": saved_targeting_id,
+            "raw_targeting": raw_targeting,
+            "special_ad_categories": special_ad_categories,
+            "special_ad_category_country": special_ad_category_country,
+            "regional_regulated_categories": regional_regulated_categories,
+            "regional_regulation_identities": regional_regulation_identities,
+            "end_date": end_date,
+            "start_date": start_date,
+            "page_id": page_id,
+            "instagram_account_id": instagram_account_id,
+            "dynamic_creative": dynamic_creative,
+            "carousel_cards": carousel_cards,
+            "optimize_card_order": optimize_card_order,
+            "default_locale": default_locale,
+            "translations": translations,
+            "placement_assets": placement_assets,
+            "audience_id": audience_id,
+            "campaign_type": campaign_type,
+            "location_targeting_type": location_targeting_type,
+            "asset_group": asset_group,
+            "demand_gen": demand_gen,
+            "keywords": keywords,
+            "negative_keywords": negative_keywords,
+            "campaign_negative_keywords": campaign_negative_keywords,
+            "additional_headlines": additional_headlines,
+            "additional_descriptions": additional_descriptions,
+            "sitelinks": sitelinks,
+            "callouts": callouts,
+            "structured_snippets": structured_snippets,
+            "advantage_audience": advantage_audience,
+            "attribution_spec": attribution_spec,
+            "gender": gender,
+            "bid_strategy": bid_strategy,
+            "bid_amount": bid_amount,
+            "roas_average_floor": roas_average_floor,
+            "portfolio_bid_strategy_id": portfolio_bid_strategy_id,
+            "target_impression_share": target_impression_share,
+            "manual_cpc": manual_cpc,
+            "network_settings": network_settings,
+            "value_rule_set_id": value_rule_set_id,
+            "value_rules_applied": value_rules_applied,
+            "platform_specific_data": platform_specific_data,
+            "dsa_beneficiary": dsa_beneficiary,
+            "dsa_payor": dsa_payor,
+            "brand_identity": brand_identity,
+            "identity_id": identity_id,
+            "identity_type": identity_type,
+            "smart_plus": smart_plus,
+            "user_os": user_os,
+            "user_device": user_device,
+            "is_skadnetwork_attribution": is_skadnetwork_attribution,
+            "campaign_attribution": campaign_attribution,
+            "promoted_object": promoted_object,
+        }
         try:
             response = client.ad_campaigns.create_standalone_ad(
                 account_id=account_id,
@@ -11425,6 +11544,9 @@ def register_generated_tools(mcp, _get_client):
                 is_skadnetwork_attribution=is_skadnetwork_attribution,
                 campaign_attribution=campaign_attribution,
                 promoted_object=promoted_object,
+                idempotency_key=same_arguments_key(
+                    "ad_campaigns_create_standalone_ad", same_arguments
+                ),
             )
             return _format_response(response)
         except Exception as e:
@@ -20328,6 +20450,12 @@ def register_generated_tools(mcp, _get_client):
         Delete a comment on a post. Supported by Facebook, Instagram, Threads, LinkedIn, Reddit, Bluesky, X (Twitter), YouTube, and TikTok (accounts connected through the TikTok for Business app). Not supported on Google Business (reviews only).
         Requires accountId and commentId query parameters.
 
+        Zernio does not check `canDelete` before calling the platform. When the platform refuses, the call fails with the platform's message, normally as `platform_api_error` with the platform's own 4xx status.
+
+        On Facebook, Instagram and LinkedIn organization accounts, the account can delete anyone's comment on its own posts. On Threads, Meta refuses deleting other people's replies; hide them instead. On TikTok only the account's own comments can be deleted; hide the others.
+
+        On YouTube, a comment the channel did not write is rejected instead, through the same moderation status as `setCommentModeration`, and the response still reports it as deleted. Use `setCommentModeration` directly to reverse the ...
+
         Args:
             post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
             account_id: (required)
@@ -20449,7 +20577,10 @@ def register_generated_tools(mcp, _get_client):
         Hide a comment on a post. Supported by Facebook, Instagram, Threads, X, and TikTok
         (accounts connected through the TikTok for Business app).
         Hidden comments are only visible to the commenter and page admin.
+
         For X, the reply must belong to a conversation started by the authenticated user.
+
+        On Threads only top-level replies can be hidden, and hiding one also hides its nested replies.
 
         Args:
             post_id: (required)
@@ -29368,6 +29499,8 @@ def register_generated_tools(mcp, _get_client):
             "topup",
             "transfer",
             "fee",
+            "usage",
+            "grant",
         ]
         | None = None,
         limit: int = 50,
@@ -33822,6 +33955,8 @@ def register_generated_tools(mcp, _get_client):
             "topup",
             "transfer",
             "fee",
+            "usage",
+            "grant",
         ]
         | None = None,
         reference_type: str | None = None,
@@ -33932,7 +34067,7 @@ def register_generated_tools(mcp, _get_client):
         or `api_request` for your API request logs (method, path, status, latency).
                 status: Filter by status
                 platform: Filter by platform
-                action: Filter by action (e.g., post.published, message.sent, account.connected, webhook.delivered)
+                action: Filter by action (e.g., post.published, message.sent, message.media_download_failed, account.connected, webhook.delivered)
                 search: Free-text search across log fields
                 days: Number of days to look back (max 90)
                 limit: Maximum number of logs to return (max 100)
@@ -35493,6 +35628,8 @@ def register_generated_tools(mcp, _get_client):
 
             Platforms: meta
 
+            Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
+
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
                 tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
@@ -35686,7 +35823,7 @@ def register_generated_tools(mcp, _get_client):
 
         - WhatsApp in the list still needs the Page paired with a WhatsApp Business number.
         - With `adSetId`, the existing ad set must already use that combined destination_type.
-                placement_assets: A different image or video per placement on one messaging ad, e.g. a 4:5 image on Feed and a 9:16 image on Stories/Reels. Works on the single-creative shape and on attach (`adSetId`). Replaces top-level `imageUrl` / `video` (sending either alongside is a 400). `headline` and `body` stay required as the default copy. The CTA, `welcomeMessage` and `whatsappPhoneNumber` apply to every placement. Single `destination` only. Meta cannot combine per-placement media with `destinations`: it drops the placement rules from a multi-destination creative, or refuses more than one call to action per placement rule with error 1885878. So that combination is a 400. Also a 400 with `creatives[]`, `platformPostId`, `existingPostId` or `objectStoryId`, and on POST /v1/ads/call. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Required in video mode.; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
+                placement_assets: A different image or video per placement on one messaging ad, e.g. a 4:5 image on Feed and a 9:16 image on Stories/Reels. Works on the single-creative shape and on attach (`adSetId`). Replaces top-level `imageUrl` / `video` (sending either alongside is a 400). `headline` and `body` stay required as the default copy. The CTA, `welcomeMessage` and `whatsappPhoneNumber` apply to every placement. Single `destination` only. Meta cannot combine per-placement media with `destinations`: it drops the placement rules from a multi-destination creative, or refuses more than one call to action per placement rule with error 1885878. So that combination is a 400. Also a 400 with `creatives[]`, `platformPostId`, `existingPostId` or `objectStoryId`, and on POST /v1/ads/call. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Video mode requires this or `defaultVideoId`.; defaultVideoId (string) - Video mode. ID of a video already on the ad account, used as the catch-all instead of uploading `defaultVideoUrl`. Wins over `defaultVideoUrl`. A video still ...; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, videoId, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
                 workflow_id: A workflow in the ad account's profile, stored on the ad. 404 when no such workflow exists in the profile.
 
         When someone clicks the ad, the workflow starts in the conversation the click opens (on the first message, a postback or a standalone referral carrying the ad id), ahead of keyword-matched workflows, if it is active on the receiving account.
@@ -35697,6 +35834,86 @@ def register_generated_tools(mcp, _get_client):
 
         Success returns 200 with per-node results; a Meta rejection returns the Meta error."""
         client = _get_client()
+        same_arguments: dict[str, Any] = {
+            "creative_features": creative_features,
+            "tracking": tracking,
+            "account_id": account_id,
+            "ad_account_id": ad_account_id,
+            "name": name,
+            "campaign_name": campaign_name,
+            "ad_set_name": ad_set_name,
+            "platform_post_id": platform_post_id,
+            "existing_post_id": existing_post_id,
+            "object_story_id": object_story_id,
+            "page_id": page_id,
+            "whatsapp_phone_number": whatsapp_phone_number,
+            "headline": headline,
+            "body": body,
+            "description": description,
+            "image_url": image_url,
+            "video": video,
+            "welcome_message": welcome_message,
+            "carousel_cards": carousel_cards,
+            "optimize_card_order": optimize_card_order,
+            "creatives": creatives,
+            "ad_set_id": ad_set_id,
+            "existing_campaign_id": existing_campaign_id,
+            "budget_level": budget_level,
+            "budget_amount": budget_amount,
+            "budget_type": budget_type,
+            "currency": currency,
+            "start_date": start_date,
+            "end_date": end_date,
+            "countries": countries,
+            "cities": cities,
+            "regions": regions,
+            "zips": zips,
+            "metros": metros,
+            "country_groups": country_groups,
+            "custom_locations": custom_locations,
+            "age_min": age_min,
+            "age_max": age_max,
+            "interests": interests,
+            "audience_id": audience_id,
+            "placements": placements,
+            "gender": gender,
+            "languages": languages,
+            "places": places,
+            "neighborhoods": neighborhoods,
+            "excluded_locations": excluded_locations,
+            "behaviors": behaviors,
+            "work_positions": work_positions,
+            "work_employers": work_employers,
+            "work_industries": work_industries,
+            "income_tier": income_tier,
+            "user_os": user_os,
+            "user_device": user_device,
+            "audience_include": audience_include,
+            "audience_exclude": audience_exclude,
+            "saved_targeting_id": saved_targeting_id,
+            "targeting": targeting,
+            "raw_targeting": raw_targeting,
+            "special_ad_categories": special_ad_categories,
+            "special_ad_category_country": special_ad_category_country,
+            "advantage_audience": advantage_audience,
+            "objective": objective,
+            "status": status,
+            "campaign_status": campaign_status,
+            "ad_set_status": ad_set_status,
+            "ad_status": ad_status,
+            "bid_strategy": bid_strategy,
+            "bid_amount": bid_amount,
+            "roas_average_floor": roas_average_floor,
+            "dsa_beneficiary": dsa_beneficiary,
+            "dsa_payor": dsa_payor,
+            "regional_regulated_categories": regional_regulated_categories,
+            "regional_regulation_identities": regional_regulation_identities,
+            "destination": destination,
+            "destinations": destinations,
+            "placement_assets": placement_assets,
+            "workflow_id": workflow_id,
+            "validate_only": validate_only,
+        }
         try:
             response = client.messaging_ads.create_messaging_ad(
                 creative_features=creative_features,
@@ -35777,6 +35994,9 @@ def register_generated_tools(mcp, _get_client):
                 placement_assets=placement_assets,
                 workflow_id=workflow_id,
                 validate_only=validate_only,
+                idempotency_key=same_arguments_key(
+                    "messaging_ads_create_messaging_ad", same_arguments
+                ),
             )
             return _format_response(response)
         except Exception as e:
@@ -35928,6 +36148,8 @@ def register_generated_tools(mcp, _get_client):
             - If the first request is cut off mid-create (for example by a function timeout), ...
 
             Platforms: meta
+
+            Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
@@ -36118,6 +36340,83 @@ def register_generated_tools(mcp, _get_client):
                 phone_number: E.164 number the CALL_NOW CTA dials (e.g. +34600111222). (required)
                 link_url: Website shown as the creative's link. Required: Meta rejects tel: as link_data.link; the phone number rides only the CTA. (required)"""
         client = _get_client()
+        same_arguments: dict[str, Any] = {
+            "creative_features": creative_features,
+            "tracking": tracking,
+            "account_id": account_id,
+            "ad_account_id": ad_account_id,
+            "name": name,
+            "campaign_name": campaign_name,
+            "ad_set_name": ad_set_name,
+            "platform_post_id": platform_post_id,
+            "existing_post_id": existing_post_id,
+            "object_story_id": object_story_id,
+            "page_id": page_id,
+            "whatsapp_phone_number": whatsapp_phone_number,
+            "headline": headline,
+            "body": body,
+            "description": description,
+            "image_url": image_url,
+            "video": video,
+            "welcome_message": welcome_message,
+            "carousel_cards": carousel_cards,
+            "optimize_card_order": optimize_card_order,
+            "creatives": creatives,
+            "ad_set_id": ad_set_id,
+            "existing_campaign_id": existing_campaign_id,
+            "budget_level": budget_level,
+            "budget_amount": budget_amount,
+            "budget_type": budget_type,
+            "currency": currency,
+            "start_date": start_date,
+            "end_date": end_date,
+            "countries": countries,
+            "cities": cities,
+            "regions": regions,
+            "zips": zips,
+            "metros": metros,
+            "country_groups": country_groups,
+            "custom_locations": custom_locations,
+            "age_min": age_min,
+            "age_max": age_max,
+            "interests": interests,
+            "audience_id": audience_id,
+            "placements": placements,
+            "gender": gender,
+            "languages": languages,
+            "places": places,
+            "neighborhoods": neighborhoods,
+            "excluded_locations": excluded_locations,
+            "behaviors": behaviors,
+            "work_positions": work_positions,
+            "work_employers": work_employers,
+            "work_industries": work_industries,
+            "income_tier": income_tier,
+            "user_os": user_os,
+            "user_device": user_device,
+            "audience_include": audience_include,
+            "audience_exclude": audience_exclude,
+            "saved_targeting_id": saved_targeting_id,
+            "targeting": targeting,
+            "raw_targeting": raw_targeting,
+            "special_ad_categories": special_ad_categories,
+            "special_ad_category_country": special_ad_category_country,
+            "advantage_audience": advantage_audience,
+            "objective": objective,
+            "status": status,
+            "campaign_status": campaign_status,
+            "ad_set_status": ad_set_status,
+            "ad_status": ad_status,
+            "bid_strategy": bid_strategy,
+            "bid_amount": bid_amount,
+            "roas_average_floor": roas_average_floor,
+            "dsa_beneficiary": dsa_beneficiary,
+            "dsa_payor": dsa_payor,
+            "regional_regulated_categories": regional_regulated_categories,
+            "regional_regulation_identities": regional_regulation_identities,
+            "phone_number": phone_number,
+            "link_url": link_url,
+        }
         try:
             response = client.messaging_ads.create_call_ad(
                 creative_features=creative_features,
@@ -36195,6 +36494,9 @@ def register_generated_tools(mcp, _get_client):
                 regional_regulation_identities=regional_regulation_identities,
                 phone_number=phone_number,
                 link_url=link_url,
+                idempotency_key=same_arguments_key(
+                    "messaging_ads_create_call_ad", same_arguments
+                ),
             )
             return _format_response(response)
         except Exception as e:
@@ -36340,6 +36642,8 @@ def register_generated_tools(mcp, _get_client):
             - **Multi-creative**: supply a `creatives[]` array with N entries (each carrying fresh media and copy or an ...
 
             Platforms: meta
+
+            Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
@@ -36528,6 +36832,81 @@ def register_generated_tools(mcp, _get_client):
 
         When Meta rejects the ad set for a missing verified advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys (keys the declared categories expect), details.suggestedCategories (markets Meta ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId."""
         client = _get_client()
+        same_arguments: dict[str, Any] = {
+            "creative_features": creative_features,
+            "tracking": tracking,
+            "account_id": account_id,
+            "ad_account_id": ad_account_id,
+            "name": name,
+            "campaign_name": campaign_name,
+            "ad_set_name": ad_set_name,
+            "platform_post_id": platform_post_id,
+            "existing_post_id": existing_post_id,
+            "object_story_id": object_story_id,
+            "page_id": page_id,
+            "whatsapp_phone_number": whatsapp_phone_number,
+            "headline": headline,
+            "body": body,
+            "description": description,
+            "image_url": image_url,
+            "video": video,
+            "welcome_message": welcome_message,
+            "carousel_cards": carousel_cards,
+            "optimize_card_order": optimize_card_order,
+            "creatives": creatives,
+            "ad_set_id": ad_set_id,
+            "existing_campaign_id": existing_campaign_id,
+            "budget_level": budget_level,
+            "budget_amount": budget_amount,
+            "budget_type": budget_type,
+            "currency": currency,
+            "start_date": start_date,
+            "end_date": end_date,
+            "countries": countries,
+            "cities": cities,
+            "regions": regions,
+            "zips": zips,
+            "metros": metros,
+            "country_groups": country_groups,
+            "custom_locations": custom_locations,
+            "age_min": age_min,
+            "age_max": age_max,
+            "interests": interests,
+            "audience_id": audience_id,
+            "placements": placements,
+            "gender": gender,
+            "languages": languages,
+            "places": places,
+            "neighborhoods": neighborhoods,
+            "excluded_locations": excluded_locations,
+            "behaviors": behaviors,
+            "work_positions": work_positions,
+            "work_employers": work_employers,
+            "work_industries": work_industries,
+            "income_tier": income_tier,
+            "user_os": user_os,
+            "user_device": user_device,
+            "audience_include": audience_include,
+            "audience_exclude": audience_exclude,
+            "saved_targeting_id": saved_targeting_id,
+            "targeting": targeting,
+            "raw_targeting": raw_targeting,
+            "special_ad_categories": special_ad_categories,
+            "special_ad_category_country": special_ad_category_country,
+            "advantage_audience": advantage_audience,
+            "objective": objective,
+            "status": status,
+            "campaign_status": campaign_status,
+            "ad_set_status": ad_set_status,
+            "ad_status": ad_status,
+            "bid_strategy": bid_strategy,
+            "bid_amount": bid_amount,
+            "roas_average_floor": roas_average_floor,
+            "dsa_beneficiary": dsa_beneficiary,
+            "dsa_payor": dsa_payor,
+            "regional_regulated_categories": regional_regulated_categories,
+            "regional_regulation_identities": regional_regulation_identities,
+        }
         try:
             response = client.messaging_ads.create_ctwa_ad(
                 creative_features=creative_features,
@@ -36603,6 +36982,9 @@ def register_generated_tools(mcp, _get_client):
                 dsa_payor=dsa_payor,
                 regional_regulated_categories=regional_regulated_categories,
                 regional_regulation_identities=regional_regulation_identities,
+                idempotency_key=same_arguments_key(
+                    "messaging_ads_create_ctwa_ad", same_arguments
+                ),
             )
             return _format_response(response)
         except Exception as e:
@@ -43041,6 +43423,80 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get auto-recharge settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def treasury_get_auto_recharge() -> str:
+        """Get auto-recharge settings
+
+        Your balance's auto-recharge rule: when the balance drops below `belowCents`, the billing owner's saved card is charged back up to `toCents`, tax added on top as for any top-up.
+
+        The first read gives the default rule, sized from your last 30 days of pay-per-use: below about a week of spend (at least $5), back up by about two more weeks (at least $20).
+
+        - 409 `balance_billing_required`: the account is not on the prepaid balance.
+
+        A profile-scoped key answers 403."""
+        client = _get_client()
+        try:
+            response = client.treasury.get_auto_recharge()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update auto-recharge settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def treasury_update_auto_recharge(
+        enabled: bool | None = None,
+        below_cents: int | None = None,
+        to_cents: int | None = None,
+        monthly_limit_cents: str | None = None,
+        alert_below_cents: str | None = None,
+    ) -> str:
+        """Update auto-recharge settings
+
+        Changes the auto-recharge rule. Omitted fields keep their value.
+
+        A declined recharge is retried 1 hour, 1 day and 3 days later, with an email each time. After the last retry fails, auto-recharge switches off (`disabledReason: payment_failed`) until the card is updated. A top-up you make yourself resets the retries.
+
+        A bank asking for 3D Secure counts as a decline: the charge happens while you are away, so the email asks you to top up in Billing.
+
+        When this month's auto-recharges plus the next one would pass `monthlyLimitCents`, the card is not charged and you get one email that month. At $0, pay-per-use then answers 402 `usage_limit_reached`.
+
+        - 400: a field is out of range, or `toCents` is not more than $5 above `belowCents`.
+        - 409 `balance_billing_required`: the account is not on the prepaid balance.
+
+        Needs an owner, admin or billing admin, signed in or through a full-access key they created.
+
+        Args:
+            enabled: Turns auto-recharge on or off. A rule switched off by failed charges stays off until the card is updated.
+            below_cents: Recharge when the balance drops below this, in cents. At least $5.
+            to_cents: Recharge back up to this, in cents. More than $5 above belowCents.
+            monthly_limit_cents: Most auto-recharge may add per calendar month (UTC), before tax. Null for no limit.
+            alert_below_cents: Email the billing owner once each time the balance drops below this. Null for no email."""
+        client = _get_client()
+        try:
+            response = client.treasury.update_auto_recharge(
+                enabled=enabled,
+                below_cents=below_cents,
+                to_cents=to_cents,
+                monthly_limit_cents=monthly_limit_cents,
+                alert_below_cents=alert_below_cents,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Create a top-up",
             readOnlyHint=False,
             destructiveHint=True,
@@ -43054,19 +43510,19 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Create a top-up
 
-        Charges the billing owner's saved card (the default one, or `paymentMethodId`) `amountCents` plus the card fee, while the payer is present, and credits your balance what Stripe delivers.
+        Charges the billing owner's saved card (the default one, or `paymentMethodId`) `amountCents` plus tax, while the payer is present, and credits your balance `amountCents`. There is no card fee.
 
-        The card fee is Stripe's own rate for the card, learned from its past charges (`GET /v1/balance/top-ups/card-fee` answers it).
+        Tax is added on top of the amount (`taxCents`, `totalCents`): VAT at 21% in Spain, at the customer's country rate for EU consumers; an EU business with a valid VAT id is reverse charged (no VAT, `reverseCharge: true`); outside the EU there is none.
 
-        - When `feeIsExact` is true you receive exactly `amountCents`.
-        - When it is false (the first top-up on a card issued in the EEA, or Link, where Stripe prices by card product) the fee is the highest rate for the card's region.
-        - You then receive at least `amountCents`: if Stripe charges less, the difference is added to your balance.
+        Usage paid from the balance carries no further VAT. Get the figures before paying with `POST /v1/balance/top-ups/preview`.
 
-        - `status: succeeded`: the card was charged. What Stripe delivered is credited to `availableCents` within seconds. Transfers to payees can use it from 7 days after the charge.
-        - `status: requires_action`: the bank asked for 3D Secure. Complete it with Stripe.js `handleNextAction({ clientSecret })`, then call `POST ...
+        Each top-up has an invoice, with VAT where it applies (`GET /v1/balance/top-ups/{topupId}/invoice`), and a card receipt (`GET /v1/balance/top-ups/{topupId}/receipt`).
+
+        - `status: succeeded`: the card was charged. `amountCents` is credited to `availableCents` within seconds. Transfers to payees can use it from 7 days after the charge.
+        - `status: requires_action`: the bank asked for 3D Secure. Complete it with Stripe.js ...
 
         Args:
-            amount_cents: Amount to credit to your balance, in cents: $10 to $100,000. The card fee is charged on top. (required)
+            amount_cents: Amount to credit to your balance, in cents: $5 to $100,000. Tax is charged on top; no card fee. (required)
             method: Only card is available. bank_transfer returns 400 "Bank transfers are not available yet." (required)
             payment_method_id: A saved card of the billing owner's (`pm_...`). Defaults to the default payment method."""
         client = _get_client()
@@ -43103,30 +43559,26 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get the card fee for a top-up",
-            readOnlyHint=True,
-            destructiveHint=False,
-            openWorldHint=False,
+            title="Preview a top-up's tax",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
         )
     )
-    def treasury_get_topup_card_fee(payment_method_id: str | None = None) -> str:
-        """Get the card fee for a top-up
+    def treasury_preview_topup(amount_cents: int) -> str:
+        """Preview a top-up's tax
 
-        The card fee a top-up on the billing owner's saved card pays: `feeBps` of the charge plus `fixedCents`. The card is charged the smallest amount that leaves `amountCents` once Stripe takes `round_half_up(charge * feeBps / 10000) + fixedCents`.
+        The tax a top-up of `amountCents` will carry and the total the card is charged, calculated by Stripe Tax from the billing owner's billing address and tax ids, as the top-up's invoice will be. Charges nothing.
 
-        The rate is Stripe's own for the card, learned from its past charges.
+        - 400 `invalid_billing_address`: the billing address gives no tax location, so a top-up would be refused too.
 
-        `feeIsExact` is false for a card Zernio has not charged yet whose region Stripe prices by card product (EEA) or whose country is unknown (Link). The rate is then that region's highest, and the top-up credits at least the amount.
-
-        Needs an owner, admin or billing admin, signed in or through a full-access key they created.
+        Needs a full-access key or a signed-in session; a profile-scoped key answers 403.
 
         Args:
-            payment_method_id: A saved card of the billing owner's (`pm_...`). Defaults to the default payment method."""
+            amount_cents: Amount to credit to your balance, in cents. (required)"""
         client = _get_client()
         try:
-            response = client.treasury.get_topup_card_fee(
-                payment_method_id=payment_method_id
-            )
+            response = client.treasury.preview_topup(amount_cents=amount_cents)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -43142,13 +43594,75 @@ def register_generated_tools(mcp, _get_client):
     def treasury_get_topup_receipt(topup_id: str) -> str:
         """Get a top-up receipt
 
-        The receipt for a paid top-up or creator payout payment (`purpose: payout_batch`). `format: pdf` is the Stripe invoice PDF; `format: page` is Stripe's receipt page, for payments that have no invoice. The link is short-lived, so fetch it when you need it. A profile-scoped key answers 403.
+        The receipt for a paid top-up or creator payout payment (`purpose: payout_batch`). `url` is the payment's invoice PDF when it has one (`format: pdf`), else Stripe's card receipt page (`format: page`); `invoiceUrl` and `receiptUrl` give each on its own.
+
+        The invoice alone is at getTopupInvoice. The link is short-lived, so fetch it when you need it. A profile-scoped key answers 403.
 
         Args:
             topup_id: (required)"""
         client = _get_client()
         try:
             response = client.treasury.get_topup_receipt(topup_id=topup_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a top-up invoice",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def treasury_get_topup_invoice(topup_id: str) -> str:
+        """Get a top-up invoice
+
+        The invoice for a paid balance top-up: the PDF of the Stripe invoice it was paid through.
+
+        It shows the amount added to your balance and the tax charged on top: VAT where it applies, or a reverse charge note for an EU business with a valid VAT id. Usage paid from the balance carries no further VAT.
+
+        - `format: pdf` is the invoice PDF; `format: page` is its Stripe-hosted page when the PDF is not ready.
+        - 404 before the top-up is paid, and for a payment with no invoice (top-ups before 2026-11-05, creator payout payments). Its card receipt is at getTopupReceipt.
+
+        The link is short-lived, so fetch it when you need it. A profile-scoped key answers 403.
+
+        Args:
+            topup_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.treasury.get_topup_invoice(topup_id=topup_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a top-up invoice (alias)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def treasury_get_topup_statement(topup_id: str) -> str:
+        """Get a top-up invoice (alias)
+
+        Alias of getTopupInvoice, kept for clients written against its first name.
+
+        The invoice for a paid balance top-up: the PDF of the Stripe invoice it was paid through.
+
+        It shows the amount added to your balance and the tax charged on top: VAT where it applies, or a reverse charge note for an EU business with a valid VAT id. Usage paid from the balance carries no further VAT.
+
+        - `format: pdf` is the invoice PDF; `format: page` is its Stripe-hosted page when the PDF is not ready.
+        - 404 before the top-up is paid, and for a payment with no invoice (top-ups before 2026-11-05, creator payout payments). Its card receipt is at getTopupReceipt.
+
+        The link is short-lived, so fetch it when you need it. A profile-scoped key answers 403.
+
+        Args:
+            topup_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.treasury.get_topup_statement(topup_id=topup_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e

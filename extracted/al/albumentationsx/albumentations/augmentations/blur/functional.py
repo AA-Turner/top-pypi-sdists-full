@@ -13,20 +13,16 @@ from math import ceil, cos, radians, sin
 from typing import Literal, cast
 from warnings import warn
 
+import albucore
 import cv2
 import numpy as np
-from albucore import (
-    clipped,
-    float32_io,
-    preserve_channel_dim,
-    reduce_sum,
-    uint8_io,
-)
+from albucore import clip, convert_dtype, reduce_sum
+from numpy.typing import NDArray
 from pydantic import ValidationInfo
 
 from albumentations.augmentations.geometric.functional import scale
 from albumentations.augmentations.pixel.functional import convolve
-from albumentations.core.type_definitions import EIGHT, ImageFloat32, ImageType, ImageUInt8
+from albumentations.core.type_definitions import EIGHT, ImageFloat32, ImageUInt8
 
 __all__ = ["box_blur", "central_zoom", "defocus", "glass_blur", "mode_filter", "zoom_blur"]
 
@@ -41,42 +37,40 @@ _PILLOW_F32_SIX = np.float32(6.0)
 _PILLOW_F32_TWELVE = np.float32(12.0)
 
 
-@preserve_channel_dim
-def box_blur(img: ImageType, ksize: int) -> ImageType:
+def box_blur(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], ksize: int
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Smooth image with uniform rectangular kernel (moving average). ksize sets size. Use for
     mild noise reduction or downscale prep.
 
     This function applies a blur to an image.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         ksize (int): Kernel size.
 
     Returns:
-        ImageType: Blurred image.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Blurred image.
 
     """
-    result = np.array(img, copy=True, order="C")
-    cv2.blur(result, (ksize, ksize), dst=result)
-    return cast("ImageType", result)
+    return albucore.box_blur(img, ksize)
 
 
-@preserve_channel_dim
 def glass_blur(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     sigma: float,
     max_delta: int,
     iterations: int,
     dxy: np.ndarray,
     mode: Literal["fast", "exact"],
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Glass-like effect: Gaussian blur then random pixel swaps. Sigma, max_delta, iterations, dxy.
     Use for frosted-glass look.
 
     This function applies a glass blur to an image.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         sigma (float): Sigma.
         max_delta (int): Maximum delta.
         iterations (int): Number of iterations.
@@ -84,10 +78,17 @@ def glass_blur(
         mode (Literal['fast', 'exact']): Mode.
 
     Returns:
-        ImageType: Glass blurred image.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Glass blurred image.
 
     """
-    x = cv2.GaussianBlur(np.array(img), sigmaX=sigma, ksize=(0, 0))
+    working = convert_dtype(img, np.float32) if img.dtype.type is np.float16 else img
+    if img.dtype.type is np.uint8:
+        # The byte workspace avoids a measured small-image Gaussian slowdown.
+        working = working.copy(order="C")
+    single_channel = img.shape[-1] == 1
+    x = np.empty_like(working, order="C")
+    cv2.GaussianBlur(working, sigmaX=sigma, ksize=(0, 0), dst=x)
+    swap_image = x[..., 0] if single_channel else x
 
     if mode == "fast":
         hs = np.arange(img.shape[0] - max_delta, max_delta, -1)
@@ -98,7 +99,7 @@ def glass_blur(
         for i in range(iterations):
             dy = dxy[:, i, 0]
             dx = dxy[:, i, 1]
-            x[h, w], x[h + dy, w + dx] = x[h + dy, w + dx], x[h, w]
+            swap_image[h, w], swap_image[h + dy, w + dx] = swap_image[h + dy, w + dx], swap_image[h, w]
 
     elif mode == "exact":
         for ind, (i, h, w) in enumerate(
@@ -111,11 +112,15 @@ def glass_blur(
             idx = ind if ind < len(dxy) else ind % len(dxy)
             dy = dxy[idx, i, 0]
             dx = dxy[idx, i, 1]
-            x[h, w], x[h + dy, w + dx] = x[h + dy, w + dx], x[h, w]
+            swap_image[h, w], swap_image[h + dy, w + dx] = swap_image[h + dy, w + dx], swap_image[h, w]
     else:
         raise ValueError(f"Unsupported mode `{mode}`. Supports only `fast` and `exact`.")
 
-    return cast("ImageType", cv2.GaussianBlur(x, sigmaX=sigma, ksize=(0, 0)))
+    result = np.empty_like(x)
+    cv2.GaussianBlur(x, sigmaX=sigma, ksize=(0, 0), dst=result)
+    if img.dtype.type is np.float16:
+        return convert_dtype(result, cast("np.dtype[np.float16]", img.dtype))
+    return result
 
 
 @lru_cache(maxsize=128)
@@ -125,7 +130,7 @@ def _create_defocus_kernel_cached(radius: int, alias_blur: float) -> np.ndarray:
 
     x, y = np.meshgrid(length, length)
     aliased_disk = (x**2 + y**2 <= radius**2).astype(np.float32)
-    aliased_disk /= cast("np.float64", reduce_sum(aliased_disk))
+    aliased_disk /= reduce_sum(aliased_disk)
 
     return cv2.GaussianBlur(aliased_disk, (ksize, ksize), sigmaX=alias_blur)
 
@@ -137,25 +142,29 @@ def create_defocus_kernel(radius: int, alias_blur: float) -> np.ndarray:
     return _create_defocus_kernel_cached(radius, alias_blur).copy()
 
 
-def defocus(img: ImageType, radius: int, alias_blur: float) -> ImageType:
+def defocus(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], radius: int, alias_blur: float
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Blur with aliased disk kernel to simulate out-of-focus. radius, alias_blur set size and
     softness. Use for depth-of-field or bokeh-style effects.
     """
     return convolve(img, kernel=create_defocus_kernel(radius, alias_blur))
 
 
-def central_zoom(img: ImageType, zoom_factor: int) -> ImageType:
+def central_zoom(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], zoom_factor: int
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Zoom from center by integer factor: crop center, upsample, trim to original size.
     Used in zoom-blur pipeline; zoom_factor must be positive.
 
     This function zooms an image.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         zoom_factor (int): Zoom factor.
 
     Returns:
-        ImageType: Zoomed image.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Zoomed image.
 
     """
     height, width = img.shape[:2]
@@ -167,44 +176,54 @@ def central_zoom(img: ImageType, zoom_factor: int) -> ImageType:
     return img[h_trim_top : h_trim_top + height, w_trim_top : w_trim_top + width]
 
 
-@float32_io
-@clipped
-def zoom_blur(img: ImageType, zoom_factors: np.ndarray | Sequence[int]) -> ImageType:
+def zoom_blur(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], zoom_factors: np.ndarray | Sequence[int]
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Radial zoom blur: blend image with center-zoomed copies. zoom_factors; normalized result.
-    Use for motion or out-of-focus style. Float32 I/O, clipped.
+    Use for motion or out-of-focus style. Float32 working arithmetic with output clipped to [0, 1].
 
     This function zooms and blurs an image.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         zoom_factors (np.ndarray | Sequence[int]): Zoom factors.
 
     Returns:
-        ImageType: Zoomed and blurred image.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Zoomed and blurred image.
 
     """
+    input_dtype = img.dtype
+    if input_dtype.type is np.uint8 or input_dtype.type is np.float16:
+        img = convert_dtype(img, np.float32)
+
     out = np.zeros_like(img, dtype=np.float32)
 
     for zoom_factor in zoom_factors:
         out += central_zoom(img, zoom_factor)
 
-    return (img + out) * np.float32(1.0 / (len(zoom_factors) + 1))
+    np.add(img, out, out=out)
+    np.multiply(out, np.float32(1.0 / (len(zoom_factors) + 1)), out=out)
+    clip(out, out=out)
+    return convert_dtype(out, dtype=input_dtype)
 
 
-@preserve_channel_dim
-@uint8_io
-def mode_filter(img: ImageType, kernel_size: int) -> ImageType:
-    """Replace each pixel with the most frequent value (mode) in its local square neighborhood,
-    computed per channel; ties broken by smallest value (scipy default).
+def mode_filter(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel_size: int
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    """Replace each pixel with the most frequent value in its local square neighborhood.
 
-    Args:
-        img (ImageType): Input image (uint8 after @uint8_io conversion).
-        kernel_size (int): Side length of the square neighborhood (must be odd, ≥ 3).
-
-    Returns:
-        ImageType: Filtered image with the same shape and dtype as the input.
-
+    Float inputs are quantized to uint8 for the discrete mode operation, then restored to the
+    input dtype. Ties choose the smallest value and borders use reflect padding.
     """
+    input_dtype = img.dtype
+    uint8_img = cast("ImageUInt8", img) if input_dtype == np.uint8 else convert_dtype(img, np.uint8)
+    result = _mode_filter_uint8(uint8_img, kernel_size)
+    if input_dtype == np.uint8:
+        return result
+    return convert_dtype(convert_dtype(result, np.float32), input_dtype)
+
+
+def _mode_filter_uint8(img: ImageUInt8, kernel_size: int) -> ImageUInt8:
     pad = kernel_size // 2
     padded = np.pad(img, ((pad, pad), (pad, pad), (0, 0)), mode="reflect")
     windows = np.lib.stride_tricks.sliding_window_view(padded, (kernel_size, kernel_size, 1))
@@ -225,7 +244,7 @@ def mode_filter(img: ImageType, kernel_size: int) -> ImageType:
         best_counts = np.where(better_run, current_counts, best_counts)
         best_values = np.where(better_run, current_values, best_values)
 
-    return cast("ImageType", best_values.astype(img.dtype, copy=False))
+    return best_values.astype(img.dtype, copy=False)
 
 
 def _ensure_min_value(result: tuple[int, int], min_value: int, field_name: str | None) -> tuple[int, int]:
@@ -513,13 +532,18 @@ def _pillow_gaussian_blur_uint8(
 
 
 def _pillow_gaussian_blur_float32(
-    img: ImageFloat32,
+    img: NDArray[np.float16] | ImageFloat32,
     kernel: np.ndarray,
-) -> ImageFloat32:
+) -> NDArray[np.float16] | ImageFloat32:
+    input_dtype = img.dtype
     normalized_kernel = kernel.astype(np.float32) / _PILLOW_FIXED_POINT_SCALE_F32
     horizontal_kernel = normalized_kernel[np.newaxis, :]
     vertical_kernel = normalized_kernel[:, np.newaxis]
-    result = np.array(img, copy=True, order="C")
+    result = (
+        convert_dtype(img, np.float32)
+        if input_dtype.type is np.float16 and img.flags.c_contiguous
+        else np.array(img, dtype=np.float32, copy=True, order="C")
+    )
     output = np.empty_like(result)
 
     for filter_kernel in (
@@ -539,31 +563,48 @@ def _pillow_gaussian_blur_float32(
         )
         result, output = output, result
 
-    return result
+    if input_dtype.type is np.float16:
+        del output
+        half_result = convert_dtype(result, np.float16)
+        if not input_dtype.isnative:
+            half_result.byteswap(inplace=True)
+            return cast("NDArray[np.float16]", half_result.view(input_dtype))
+        return half_result
+    if input_dtype.isnative:
+        return result
+
+    del output
+    result.byteswap(inplace=True)
+    return cast("ImageFloat32", result.view(input_dtype))
 
 
-@preserve_channel_dim
-def pillow_gaussian_blur(img: ImageType, kernel: np.ndarray) -> ImageType:
+def pillow_gaussian_blur(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Blur an image with Pillow's three-pass extended-box Gaussian approximation, reproducing
     uint8 rounding without importing Pillow at runtime.
 
-    Float32 inputs use the same normalized kernel and replicated borders without uint8 quantization.
+    Float16 and float32 inputs use the same normalized kernel and replicated borders without uint8 quantization.
+    Floating work uses float32; float16 is rounded once on output. Non-native NumPy byte order is restored after
+    filtering.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         kernel (np.ndarray): Fixed-point extended-box kernel from `create_pillow_gaussian_kernel`.
 
     Returns:
-        ImageType: Blurred image with the input shape and dtype.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Blurred image with the input shape and dtype.
 
     """
     whole_weight = int(kernel[1])
     far_weight = int(kernel[0])
     if whole_weight == _PILLOW_FIXED_POINT_SCALE and far_weight == 0:
-        return cast("ImageType", np.array(img, copy=True, order="C"))
+        return cast(
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", np.array(img, copy=True, order="C")
+        )
     if img.dtype == np.uint8:
         return _pillow_gaussian_blur_uint8(cast("ImageUInt8", img), kernel)
-    return _pillow_gaussian_blur_float32(cast("ImageFloat32", img), kernel)
+    return _pillow_gaussian_blur_float32(cast("NDArray[np.float16] | ImageFloat32", img), kernel)
 
 
 def create_gaussian_kernel_input_array(size: int) -> np.ndarray:

@@ -112,7 +112,7 @@ from .snapshot import SnapshotMixin
 from .string import StringMixin
 from .warning import WarningMixin
 
-__version__ = "2.35.0"
+__version__ = "2.36.0"
 
 # the tracked value type of the generic AssertionBuilder fallback (_U appears only in narrowing stubs)
 _T = TypeVar("_T")
@@ -998,10 +998,11 @@ def assert_conforms(
     It reads the payload as it was sent: what a validator changed in place in a plain dict or list is put back
     for the check and returned afterwards.
 
-    Two things it does not see:
+    Three things it does not see:
 
     - a validator that renames keys, or reorders or rewrites the items of a container without changing its
       size: those items are read by position
+    - a validator that puts back into a dict a key validation dropped: the dict holds it, so it reads as kept
     - a model inside a container of plain values (``list[Any]``)
 
     A ``TypedDict`` is read off the schema pydantic built, so text annotations and type variables declare it

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky-queueserver
-Version: 0.0.25
+Version: 0.0.26
 Summary: Server for queueing and executing Bluesky plans.
 Author: Brookhaven National Laboratory
 License: BSD 3-Clause License
@@ -40,7 +40,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
@@ -83,6 +83,7 @@ Requires-Dist: aioca; extra == "dev"
 Requires-Dist: ophyd-async; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Requires-Dist: redis_json_dict; extra == "dev"
 Dynamic: license-file
 
 ===================

@@ -8,7 +8,6 @@ service's `get_by_id(id, ignore_cache=True)` did. The reads by source and by cha
 """
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional
 
 from ...models.company.assets.contact_point import ContactPoint
@@ -23,14 +22,7 @@ class CachedContactPointRepository(CachedCatalogById[ContactPoint]):
     item_type = ContactPoint
 
     async def get_fresh(self, contact_point_id: StrObjectId) -> ContactPoint:
-        item = await self.inner.get_fresh(contact_point_id)
-        try:
-            await self.assets.cache.set(self.assets.item_key(contact_point_id),
-                                        json.dumps(item.model_dump(by_alias=True, mode="json")),
-                                        ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass  # silent, as the asset service's write after a read
-        return item
+        return await self.assets.item(contact_point_id, lambda: self.inner.get_fresh(contact_point_id), ignore_cache=True)
 
     async def of_source(self, company_id: Optional[StrObjectId], source_id: StrObjectId) -> List[ContactPoint]:
         return await self.inner.of_source(company_id, source_id)

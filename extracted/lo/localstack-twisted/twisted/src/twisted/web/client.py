@@ -62,8 +62,7 @@ from twisted.web.iweb import (
 # any of the real implementation.
 
 if TYPE_CHECKING:
-    from email.message import EmailMessage as _InfoType
-    from http.client import HTTPResponse as _ResponseBase
+    from http.client import HTTPMessage as _InfoType, HTTPResponse as _ResponseBase
     from urllib.request import Request as _RequestBase
 else:
     _RequestBase = object
@@ -227,36 +226,6 @@ def _urljoin(base, url):
     # Looks like a regression in 3.14
     # See https://github.com/twisted/twisted/issues/12427
     return urljoin(url, b"#" + (urlFrag or baseFrag)).strip(b"#")
-
-
-def _makeGetterFactory(url, factoryFactory, contextFactory=None, *args, **kwargs):
-    """
-    Create and connect an HTTP page getting factory.
-
-    Any additional positional or keyword arguments are used when calling
-    C{factoryFactory}.
-
-    @param factoryFactory: Factory factory that is called with C{url}, C{args}
-        and C{kwargs} to produce the getter
-
-    @param contextFactory: Context factory to use when creating a secure
-        connection, defaulting to L{None}
-
-    @return: The factory created by C{factoryFactory}
-    """
-    uri = URI.fromBytes(_ensureValidURI(url.strip()))
-    factory = factoryFactory(url, *args, **kwargs)
-    from twisted.internet import reactor
-
-    if uri.scheme == b"https":
-        from twisted.internet import ssl
-
-        if contextFactory is None:
-            contextFactory = ssl.ClientContextFactory()
-        reactor.connectSSL(nativeString(uri.host), uri.port, factory, contextFactory)
-    else:
-        reactor.connectTCP(nativeString(uri.host), uri.port, factory)
-    return factory
 
 
 # The code which follows is based on the new HTTP client implementation.  It
@@ -1013,7 +982,7 @@ class _StandardEndpointFactory:
         @type connectTimeout: L{float} or L{None}
 
         @param bindAddress: The local address for client sockets to bind to.
-        @type bindAddress: L{bytes} or L{None}
+        @type bindAddress: L{Binding} or L{tuple} or L{bytes} or L{None}
         """
         self._reactor = reactor
         self._policyForHTTPS = contextFactory
@@ -1098,7 +1067,7 @@ class Agent(_AgentBase):
         @type connectTimeout: L{float}
 
         @param bindAddress: The local address for client sockets to bind to.
-        @type bindAddress: L{bytes}
+        @type bindAddress: L{Binding} or L{tuple} or L{bytes} or L{None}
 
         @param pool: An L{HTTPConnectionPool} instance, or L{None}, in which
             case a non-persistent L{HTTPConnectionPool} instance will be

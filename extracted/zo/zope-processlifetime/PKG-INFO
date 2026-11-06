@@ -1,23 +1,25 @@
 Metadata-Version: 2.4
 Name: zope.processlifetime
-Version: 4.0
+Version: 4.1
 Summary: Zope process lifetime events
-Home-page: http://github.com/zopefoundation/zope.processlifetime
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
-Keywords: zope process lifetime events
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Documentation, https://zopeprocesslifetime.readthedocs.io/
+Project-URL: Source, https://github.com/zopefoundation/zope.processlifetime
+Project-URL: Issues, https://github.com/zopefoundation/zope.processlifetime/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zope.processlifetime/master/CHANGES.rst
+Keywords: zope,process,lifetime,events
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
@@ -25,27 +27,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
 Classifier: Framework :: Zope :: 5
-Requires-Python: >=3.9
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Requires-Dist: zope.interface
 Provides-Extra: test
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ==========================
  ``zope.processlifetime``
@@ -77,10 +68,23 @@ These events are usually used with `zope.event
 
 Documentation is hosted at https://zopeprocesslifetime.readthedocs.io/en/latest/
 
-
 =========
  Changes
 =========
+
+4.1 (2026-11-05)
+================
+
+- Add support for Python 3.15.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.10.
+
+- Drop support for Python 3.9.
+
+- Move package metadata from setup.py to pyproject.toml.
+
 
 4.0 (2025-09-12)
 ================

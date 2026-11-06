@@ -136,6 +136,10 @@ def step(
         return Where(pan=where.pan), ""
     if key == "slash" or key == "/":
         return Where(search=""), ""
+    if key == "backspace":
+        if where.tree or where.dot or where.number:  # the whole typed key, not a character
+            return dataclasses.replace(where, dot=False, tree="", number=""), ""
+        return Where(pan=where.pan), ""
 
     zoomed = _block(blocks, where.block)
     if key == ".":
@@ -179,9 +183,20 @@ def step(
     return where, ""
 
 
+def typing(where: Where) -> bool:
+    """Whether the next key is part of something being typed: a search, an edit, a lemon's place."""
+    return (
+        where.search is not None
+        or where.dot
+        or bool(where.tree)
+        or bool(where.editing)
+        or where.whole
+    )
+
+
 def uses(where: Where, key: str, blocks: abc.Sequence[Block], arrangement: Arrangement) -> bool:
     """Whether the grove has a meaning for *key* now; a key it doesn't use belongs to the inbox."""
-    if where.search is not None or key in ("escape", "slash", "/") or key.isdigit():
+    if where.search is not None or key in ("escape", "slash", "/", "backspace") or key.isdigit():
         return True
 
     if where.dot:

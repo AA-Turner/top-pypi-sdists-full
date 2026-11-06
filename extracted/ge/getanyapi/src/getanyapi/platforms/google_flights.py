@@ -195,7 +195,7 @@ class GoogleFlightsNamespace:
         Price: $0.001 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-04", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-06", destination="LHR", origin="JFK")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options
@@ -230,7 +230,7 @@ class AsyncGoogleFlightsNamespace:
         Price: $0.001 per request.
 
         Example:
-            res = client.google_flights.search(departureDate="2026-12-04", destination="LHR", origin="JFK")
+            res = client.google_flights.search(departureDate="2026-12-06", destination="LHR", origin="JFK")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "google_flights.search", dict(input), options

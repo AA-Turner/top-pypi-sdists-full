@@ -19,7 +19,7 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "legit-api-client"
-VERSION = "1.1.5500"
+VERSION = "1.1.5502"
 PYTHON_REQUIRES = ">= 3.11"
 REQUIRES = [
     "urllib3 >= 2.7.0, < 3.0.0",

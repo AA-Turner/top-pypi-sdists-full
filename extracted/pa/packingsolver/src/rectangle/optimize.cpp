@@ -1,5 +1,6 @@
 #include "packingsolver/rectangle/optimize.hpp"
 
+
 #include "packingsolver/rectangle/algorithm_formatter.hpp"
 #include "packingsolver/rectangle/instance_builder.hpp"
 #include "packingsolver/rectangle/post_process.hpp"
@@ -7,6 +8,7 @@
 #include "rectangle/tree_search_maximal_spaces.hpp"
 #include "rectangle/benders_decomposition.hpp"
 #include "rectangle/benders_decomposition_contiguity.hpp"
+#include "rectangle/tree_search_packing_classes.hpp"
 #include "rectangle/dual_feasible_functions.hpp"
 #include "rectangle/conservative_scales.hpp"
 #include "rectangle/bar_relaxation.hpp"
@@ -338,11 +340,65 @@ void optimize_tree_search(
     tree_search(instance, ts_parameters);
 }
 
+/**
+ * Compute the expected number of items in a bin x (resp. y) section - a
+ * full-height (resp. full-width) strip as wide (resp. as tall) as the mean
+ * item - rather than in the whole bin: what actually drives 'tree_search''s
+ * skyline branching factor (see 'many_items_in_section_threshold''s own doc
+ * comment).
+ */
+void compute_mean_numbers_of_items_in_sections(
+        const Instance& instance,
+        double& mean_number_of_items_in_x_section,
+        double& mean_number_of_items_in_y_section)
+{
+    double mean_item_width = (double)instance.total_item_width() / instance.number_of_items();
+    double mean_item_height = (double)instance.total_item_height() / instance.number_of_items();
+    double mean_bin_width = (double)instance.total_bin_width() / instance.number_of_bins();
+    double mean_bin_height = (double)instance.total_bin_height() / instance.number_of_bins();
+    mean_number_of_items_in_x_section = mean_bin_height / mean_item_height;
+    mean_number_of_items_in_y_section = mean_bin_width / mean_item_width;
+}
+
+/**
+ * Compute the blocks of the tree search maximal spaces of 'instance' if this
+ * algorithm solves the 'Knapsack' sub-instances of the algorithms which
+ * solve sub-instances (see the automatic selection of 'optimize'), so that
+ * they are computed once for all their subproblems, instead of once per
+ * subproblem (see 'Instance::get_blocks').
+ */
+void request_blocks(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    if (instance.parameters().unloading_constraint != UnloadingConstraint::None)
+        return;
+    for (BinTypeId bin_type_id = 0;
+            bin_type_id < instance.number_of_bin_types();
+            ++bin_type_id) {
+        if (instance.bin_type(bin_type_id).semi_trailer_truck_data.is)
+            return;
+    }
+    double mean_number_of_items_in_x_section = 0;
+    double mean_number_of_items_in_y_section = 0;
+    compute_mean_numbers_of_items_in_sections(
+            instance,
+            mean_number_of_items_in_x_section,
+            mean_number_of_items_in_y_section);
+    if (mean_number_of_items_in_x_section <= parameters.many_items_in_section_threshold
+            || mean_number_of_items_in_y_section <= parameters.many_items_in_section_threshold) {
+        return;
+    }
+    instance.get_blocks(algorithm_formatter.end_boolean());
+}
+
 void optimize_sequential_single_knapsack(
         const Instance& instance,
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_blocks(instance, parameters, algorithm_formatter);
     for (Counter iteration = 0, queue_size = 1;; ++iteration) {
         NodeId queue_size_ms = queue_size;
         if (parameters.optimization_mode != OptimizationMode::Anytime
@@ -414,6 +470,7 @@ void optimize_sequential_value_correction(
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_blocks(instance, parameters, algorithm_formatter);
     SequentialValueCorrectionFunction<Instance, Solution> kp_solve
         = [&algorithm_formatter, &parameters](const Instance& kp_instance)
         {
@@ -527,6 +584,7 @@ void optimize_column_generation(
         AlgorithmFormatter& algorithm_formatter,
         BinPos lower_bound)
 {
+    request_blocks(instance, parameters, algorithm_formatter);
     ColumnGenerationPricingFunction<Instance, InstanceBuilder, Solution, rectangle::Output> pricing_function
         = [&parameters](const Instance& kp_instance, PricingType pricing_type)
         {
@@ -610,6 +668,10 @@ void optimize_benders_decomposition(
     bd_parameters.timer = parameters.timer;
     bd_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
     bd_parameters.optimization_mode = parameters.optimization_mode;
+    bd_parameters.subproblem_use_benders_decomposition_contiguity
+        = parameters.benders_decomposition_subproblem_use_benders_decomposition_contiguity;
+    bd_parameters.subproblem_use_tree_search_packing_classes
+        = parameters.benders_decomposition_subproblem_use_tree_search_packing_classes;
     // Only applied by 'benders_decomposition' itself in non-'Anytime' modes
     // (see 'BendersDecompositionParameters::not_anytime_maximum_number_of_iterations'),
     // so it is harmless to always set it here.
@@ -651,6 +713,24 @@ void optimize_benders_decomposition_contiguity(
         algorithm_formatter.update_bounds(psbdc_output);
     };
     benders_decomposition_contiguity(instance, bdc_parameters);
+}
+
+void optimize_tree_search_packing_classes(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    TreeSearchPackingClassesParameters tspc_parameters;
+    tspc_parameters.verbosity_level = 0;
+    tspc_parameters.timer = parameters.timer;
+    tspc_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    tspc_parameters.new_solution_callback = [&algorithm_formatter](
+            const rectangle::Output& ps_output)
+    {
+        algorithm_formatter.update_solution(ps_output.solution_pool.best(), "TSPC");
+        algorithm_formatter.update_bounds(ps_output);
+    };
+    tree_search_packing_classes(instance, tspc_parameters);
 }
 
 /**
@@ -893,17 +973,12 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
     // Select algorithms to run.
     ItemPos mean_number_of_items_in_bins
         = largest_bin_space(instance) / mean_item_space(instance);
-    // Expected number of items in a bin x (resp. y) section - a full-height
-    // (resp. full-width) strip as wide (resp. as tall) as the mean item -
-    // rather than in the whole bin: what actually drives 'tree_search''s
-    // skyline branching factor (see 'many_items_in_section_threshold''s own
-    // doc comment).
-    double mean_item_width = (double)instance.total_item_width() / instance.number_of_items();
-    double mean_item_height = (double)instance.total_item_height() / instance.number_of_items();
-    double mean_bin_width = (double)instance.total_bin_width() / instance.number_of_bins();
-    double mean_bin_height = (double)instance.total_bin_height() / instance.number_of_bins();
-    double mean_number_of_items_in_x_section = mean_bin_height / mean_item_height;
-    double mean_number_of_items_in_y_section = mean_bin_width / mean_item_width;
+    double mean_number_of_items_in_x_section = 0;
+    double mean_number_of_items_in_y_section = 0;
+    compute_mean_numbers_of_items_in_sections(
+            instance,
+            mean_number_of_items_in_x_section,
+            mean_number_of_items_in_y_section);
     // Directions 'tree_search' should run with, when the automatic
     // selection below picks it over 'tree_search_maximal_spaces' by
     // restricting to whichever of 'X'/'Y' has few enough items per section
@@ -919,6 +994,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
     bool use_column_generation = parameters.use_column_generation;
     bool use_benders_decomposition = parameters.use_benders_decomposition;
     bool use_benders_decomposition_contiguity = parameters.use_benders_decomposition_contiguity;
+    bool use_tree_search_packing_classes = parameters.use_tree_search_packing_classes;
     bool use_bar_relaxation = parameters.use_bar_relaxation;
     if (instance.number_of_bins() <= 1) {
         use_sequential_single_knapsack = false;
@@ -950,12 +1026,28 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         if (instance.objective() != Objective::Knapsack
                 && instance.objective() != Objective::Feasibility)
             use_bar_relaxation = false;
+        // 'tree_search_packing_classes' only supports the 'Feasibility'
+        // objective, with a single bin type used once, without defects,
+        // fixed items, unloading constraints, weight constraints and
+        // resources.
+        bool tree_search_packing_classes_applies
+            = instance.objective() == Objective::Feasibility
+            && instance.number_of_bin_types() == 1
+            && instance.bin_type(0).copies == 1
+            && instance.bin_type(0).defects.empty()
+            && instance.bin_type(0).fixed_items.empty()
+            && instance.parameters().unloading_constraint == UnloadingConstraint::None
+            && !instance.weight_matters()
+            && !instance.resources_matter();
+        if (!tree_search_packing_classes_applies)
+            use_tree_search_packing_classes = false;
         // Automatic selection.
         if (!use_tree_search
                 && !use_tree_search_maximal_spaces
                 && !use_benders_decomposition
                 && !use_bar_relaxation
-                && !use_benders_decomposition_contiguity) {
+                && !use_benders_decomposition_contiguity
+                && !use_tree_search_packing_classes) {
             if ((instance.objective() == Objective::Knapsack
                         || instance.objective() == Objective::Feasibility)
                     && instance.parameters().unloading_constraint == UnloadingConstraint::None) {
@@ -997,6 +1089,8 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
                         && instance.bin_type(0).copies == 1) {
                     use_benders_decomposition_contiguity = true;
                 }
+                if (tree_search_packing_classes_applies)
+                    use_tree_search_packing_classes = true;
             }
         }
     } else if (instance.objective() == Objective::Feasibility) {
@@ -1005,6 +1099,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         use_dichotomic_search = false;
         use_benders_decomposition = false;
         use_benders_decomposition_contiguity = false;
+        use_tree_search_packing_classes = false;
         use_bar_relaxation = false;
         // Automatic selection.
         if (!use_tree_search
@@ -1035,6 +1130,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         // validation) - this branch is only reached when
         // 'instance.number_of_bins() > 1'.
         use_benders_decomposition_contiguity = false;
+        use_tree_search_packing_classes = false;
         // Automatic selection.
         if (!use_tree_search
                 && !use_sequential_single_knapsack
@@ -1075,6 +1171,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         // 'benders_decomposition_contiguity' only supports 'Knapsack'/
         // 'Feasibility' (see its own validation).
         use_benders_decomposition_contiguity = false;
+        use_tree_search_packing_classes = false;
         if (instance.objective() == Objective::BinPackingWithLeftovers)
             use_benders_decomposition = false;
         if (instance.objective() == Objective::BinPackingWithLeftovers
@@ -1119,6 +1216,7 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         // 'benders_decomposition_contiguity' only supports 'Knapsack'/
         // 'Feasibility' (see its own validation).
         use_benders_decomposition_contiguity = false;
+        use_tree_search_packing_classes = false;
         if (instance.number_of_bin_types() == 1) {
             if (use_dichotomic_search) {
                 use_dichotomic_search = false;
@@ -1279,6 +1377,19 @@ packingsolver::rectangle::Output packingsolver::rectangle::optimize(
         auto context = task_context();
         tasks.push_back([&exception_ptr, &instance, context]() {
             wrapper<decltype(&optimize_benders_decomposition_contiguity), optimize_benders_decomposition_contiguity>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Tree search on packing classes.
+    if (use_tree_search_packing_classes) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_tree_search_packing_classes), optimize_tree_search_packing_classes>(
                     exception_ptr,
                     instance,
                     *context.first,

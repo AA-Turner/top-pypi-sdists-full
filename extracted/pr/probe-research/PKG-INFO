@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.408.0
+Version: 0.415.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -32,14 +32,14 @@ Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
-Requires-Dist: probe-research-cli==0.408.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.415.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: typer<1.0,>=0.12; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.408.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.415.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<1.0,>=0.12; extra == 'cli'

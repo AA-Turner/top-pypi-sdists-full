@@ -12,9 +12,10 @@ from kombu.utils.objects import cached_property
 from celery import Celery
 
 from . import current_app
+from .exceptions import ImproperlyConfigured
 from .utils.collections import AttributeDict
-from .utils.time import (ffwd, humanize_seconds, localize, maybe_make_aware, maybe_timedelta, remaining, timezone,
-                         weekday, yearmonth)
+from .utils.time import (ffwd, humanize_seconds, localize, maybe_make_aware, maybe_timedelta, remaining,
+                         subtract_datetimes, timezone, weekday, yearmonth)
 
 __all__ = (
     'ParseException', 'schedule', 'crontab', 'crontab_parser',
@@ -33,6 +34,17 @@ Argument cronspec needs to be of any of the following types: \
 int, str, or an iterable type. {type!r} was given.\
 """
 
+CRON_INVALID_DATE = """\
+Invalid crontab: day_of_month {day_of_month!r} never occurs in \
+month_of_year {month_of_year!r}.\
+"""
+
+# Number of days in each month, using the longest February (leap years).
+CRON_DAYS_IN_MONTH = {
+    1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
+    7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
+}
+
 CRON_REPR = """\
 <crontab: {0._orig_minute} {0._orig_hour} {0._orig_day_of_month} {0._orig_month_of_year} \
 {0._orig_day_of_week} (m/h/dM/MY/d)>\
@@ -48,6 +60,13 @@ Argument longitude {lon} is invalid, must be between -180 and 180.\
 
 SOLAR_INVALID_EVENT = """\
 Argument event "{event}" is invalid, must be one of {all_events}.\
+"""
+
+SOLAR_EPHEM_NOT_INSTALLED = """\
+You need to install the ephem library to use solar schedules.
+Please install by:
+
+    $ pip install celery[solar]
 """
 
 
@@ -169,7 +188,19 @@ class schedule(BaseSchedule):
         rem_delta = self.remaining_estimate(last_run_at)
         remaining_s = max(rem_delta.total_seconds(), 0)
         if remaining_s == 0:
-            return schedstate(is_due=True, next=self.seconds)
+            next_s = self.seconds
+            if self.relative:
+                # The next rounded deadline can differ from the interval,
+                # especially across DST or after a late run / restart. Realign
+                # to the next rounded clock boundary and do not check past it.
+                now = self.maybe_make_aware(self.now())
+                now = now.astimezone(last_run_at.tzinfo)
+                next_s = self.remaining_estimate(now).total_seconds()
+                if next_s <= 0:
+                    # Preserve the interval for subsecond rounding and
+                    # zero or negative intervals with no future boundary.
+                    next_s = self.seconds
+            return schedstate(is_due=True, next=next_s)
         return schedstate(is_due=False, next=remaining_s)
 
     def __repr__(self) -> str:
@@ -396,6 +427,9 @@ class crontab(BaseSchedule):
     execution events.  Or, ``day_of_week`` is 1 and ``day_of_month``
     is '1-7,15-21' means every first and third Monday of every month
     present in ``month_of_year``.
+
+    :exc:`ValueError` is raised if none of the days in ``day_of_month``
+    occur in any month in ``month_of_year`` (e.g., the 30th of February).
     """
 
     def __init__(self, minute: Cronspec = '*', hour: Cronspec = '*', day_of_week: Cronspec = '*',
@@ -411,6 +445,13 @@ class crontab(BaseSchedule):
         self.day_of_week = self._expand_cronspec(day_of_week, 7)
         self.day_of_month = self._expand_cronspec(day_of_month, 31, 1)
         self.month_of_year = self._expand_cronspec(month_of_year, 12, 1)
+        if not any(day <= CRON_DAYS_IN_MONTH[month]
+                   for month in self.month_of_year
+                   for day in self.day_of_month):
+            raise ValueError(CRON_INVALID_DATE.format(
+                day_of_month=self._orig_day_of_month,
+                month_of_year=self._orig_month_of_year,
+            ))
         super().__init__(**kwargs)
 
     @classmethod
@@ -568,12 +609,19 @@ class crontab(BaseSchedule):
         # Calling super's init because the kwargs aren't necessarily passed in
         # the same form as they are stored by the superclass
         super().__init__(**state)
+        self._orig_kwargs = dict(state)
 
-    def remaining_delta(self, last_run_at: datetime, tz: tzinfo | None = None,
+    def remaining_delta(self, last_run_at: datetime,
+                        tz: str | tzinfo | None = None,
                         ffwd: type = ffwd) -> tuple[datetime, Any, datetime]:
         # caching global ffwd
-        last_run_at = self.maybe_make_aware(last_run_at)
-        now = self.maybe_make_aware(self.now())
+        schedule_tz: tzinfo = timezone.get_timezone(tz or self.tz)
+        # Normalize both datetimes into the schedule's timezone, so that the
+        # crontab field matching and the next-run arithmetic below operate in
+        # the frame the crontab is defined in. An aware last_run_at may arrive
+        # in a different timezone (e.g. from django-celery-beat).
+        last_run_at = self.maybe_make_aware(last_run_at).astimezone(schedule_tz)
+        now = self.maybe_make_aware(self.now()).astimezone(schedule_tz)
         dow_num = last_run_at.isoweekday() % 7  # Sunday is day 0, not day 7
 
         execute_this_date = (
@@ -584,9 +632,6 @@ class crontab(BaseSchedule):
 
         execute_this_hour = (
             execute_this_date and
-            last_run_at.day == now.day and
-            last_run_at.month == now.month and
-            last_run_at.year == now.year and
             last_run_at.hour in self.hour and
             last_run_at.minute < max(self.minute)
         )
@@ -625,7 +670,7 @@ class crontab(BaseSchedule):
                 else:
                     delta = self._delta_to_next(last_run_at,
                                                 next_hour, next_minute)
-        return self.to_local(last_run_at), delta, self.to_local(now)
+        return last_run_at, delta, now
 
     def remaining_estimate(
             self, last_run_at: datetime, ffwd: type = ffwd) -> timedelta:
@@ -660,26 +705,16 @@ class crontab(BaseSchedule):
 
         deadline_secs = self.app.conf.beat_cron_starting_deadline
         has_passed_deadline = False
-        if deadline_secs is not None:
-            # Make sure we're looking at the latest possible feasible run
-            # date when checking the deadline.
-            last_date_checked = last_run_at
-            last_feasible_rem_secs = rem_secs
-            while rem_secs < 0:
-                last_date_checked = last_date_checked + abs(rem_delta)
-                rem_delta = self.remaining_estimate(last_date_checked)
-                rem_secs = rem_delta.total_seconds()
-                if rem_secs < 0:
-                    last_feasible_rem_secs = rem_secs
-
-            # if rem_secs becomes 0 or positive, second-to-last
-            # last_date_checked must be the last feasible run date.
-            # Check if the last feasible date is within the deadline
-            # for running
-            has_passed_deadline = -last_feasible_rem_secs > deadline_secs
-            if has_passed_deadline:
-                # Should not be due if we've passed the deadline for looking
-                # at past runs
+        if deadline_secs is not None and rem_secs < 0:
+            # If no feasible run date falls in [now - deadline_secs, now],
+            # the most recent missed run is too stale to catch up.
+            now = self.maybe_make_aware(self.now())
+            # Subtract 1 microsecond so a run exactly at (now - deadline_secs) is counted within the deadline.
+            deadline_since = (
+                now.astimezone(timezone.utc) - timedelta(seconds=deadline_secs, microseconds=1)
+            ).astimezone(now.tzinfo)
+            if self.remaining_estimate(deadline_since).total_seconds() > 0:
+                has_passed_deadline = True
                 due = False
 
         if due or has_passed_deadline:
@@ -789,9 +824,16 @@ class solar(BaseSchedule):
         'dusk_astronomical': True,
     }
 
+    #: How many days ahead to search for an event that doesn't happen
+    #: every day (see :meth:`_next_event`).
+    max_search_days = 366
+
     def __init__(self, event: str, lat: int | float, lon: int | float, **
                  kwargs: Any) -> None:
-        self.ephem = __import__('ephem')
+        try:
+            self.ephem = __import__('ephem')
+        except ImportError as exc:
+            raise ImproperlyConfigured(SOLAR_EPHEM_NOT_INSTALLED) from exc
         self.event = event
         self.lat = lat
         self.lon = lon
@@ -825,6 +867,31 @@ class solar(BaseSchedule):
             self.event, self.lat, self.lon,
         )
 
+    def _next_event(self, start: Any) -> Any:
+        """Return the first occurrence of the event after ``start``.
+
+        At high latitudes some events don't happen every day, e.g.
+        astronomical dawn in summer or sunrise during the polar night,
+        and :mod:`ephem` raises :exc:`~ephem.CircumpolarError` for them.
+        In that case the search continues from the next anti-transit
+        (one day later), for at most :attr:`max_search_days` days.
+
+        Returns:
+            ephem.Date: the time of the event, or, if it doesn't happen
+                within :attr:`max_search_days` days, the time at which
+                the search stopped, so the schedule is checked again then.
+        """
+        sun = self.ephem.Sun()
+        kwargs = {'use_center': True} if self.use_center else {}
+        for _ in range(self.max_search_days):
+            try:
+                return getattr(self.cal, self.method)(
+                    sun, start=start, **kwargs
+                )
+            except self.ephem.CircumpolarError:
+                start = self.cal.next_antitransit(sun, start=start)
+        return start
+
     def remaining_estimate(self, last_run_at: datetime) -> timedelta:
         """Return estimate of next time to run.
 
@@ -837,28 +904,10 @@ class solar(BaseSchedule):
         last_run_at = self.maybe_make_aware(last_run_at)
         last_run_at_utc = localize(last_run_at, timezone.utc)
         self.cal.date = last_run_at_utc
-        try:
-            if self.use_center:
-                next_utc = getattr(self.cal, self.method)(
-                    self.ephem.Sun(),
-                    start=last_run_at_utc, use_center=self.use_center
-                )
-            else:
-                next_utc = getattr(self.cal, self.method)(
-                    self.ephem.Sun(), start=last_run_at_utc
-                )
-
-        except self.ephem.CircumpolarError:  # pragma: no cover
-            # Sun won't rise/set today.  Check again tomorrow
-            # (specifically, after the next anti-transit).
-            next_utc = (
-                self.cal.next_antitransit(self.ephem.Sun()) +
-                timedelta(minutes=1)
-            )
+        next_utc = self._next_event(self.ephem.Date(last_run_at_utc))
         next = self.maybe_make_aware(next_utc.datetime())
         now = self.maybe_make_aware(self.now())
-        delta = next - now
-        return delta
+        return subtract_datetimes(next, now)
 
     def is_due(self, last_run_at: datetime) -> tuple[bool, datetime]:
         """Return tuple of ``(is_due, next_time_to_run)``.

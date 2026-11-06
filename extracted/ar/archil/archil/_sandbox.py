@@ -31,6 +31,10 @@ from ._sandbox_files import _SandboxFiles
 
 
 _POLL_INTERVAL_SECONDS = 0.5
+# The subprotocol the runtime selects for a process connection, and the
+# prefix of the one that carries the connection token.
+_CONNECT_SUBPROTOCOL = "archil.connect.v1"
+_TOKEN_SUBPROTOCOL_PREFIX = "archil.token."
 
 
 class _Sandbox:
@@ -168,8 +172,14 @@ class _Sandbox:
         offset: int = 0,
         on_output: Optional[SandboxProcessOutputHandler] = None,
         collect_output: bool = True,
+        shared: bool = False,
     ) -> "_SandboxProcess":
-        """Reattach to a process, optionally resuming output from a cursor."""
+        """Reattach to a process, optionally resuming output from a cursor.
+
+        Attaching takes the process over: the runtime closes the connection
+        that held it. With ``shared``, watch alongside that connection instead;
+        a shared connection is closed when the owner's closes.
+        """
         process = _SandboxProcess(
             process_id,
             offset,
@@ -178,10 +188,10 @@ class _Sandbox:
             self._new_process_connection,
             self._control_process,
         )
-        await process._connect(
-            {"type": "attach", "process_id": process_id, "offset": offset},
-            "attached",
-        )
+        request: dict[str, object] = {"type": "attach", "process_id": process_id, "offset": offset}
+        if shared:
+            request["shared"] = True
+        await process._connect(request, "attached")
         return process
 
     async def _new_process_connection(self) -> ClientConnection:
@@ -193,6 +203,13 @@ class _Sandbox:
                     f"/api/sandboxes/{self.id}/connections",
                     retry="transient",
                 )
+                # Prefer the token in a subprotocol, which keeps it out of
+                # request-line logs; older control planes only return `url`.
+                if data.get("endpoint") and data.get("token"):
+                    return await _websocket_connect(
+                        data["endpoint"],
+                        subprotocols=[_CONNECT_SUBPROTOCOL, f"{_TOKEN_SUBPROTOCOL_PREFIX}{data['token']}"],
+                    )
                 return await _websocket_connect(data["url"])
             except httpx.TransportError as exc:
                 raise ConnectionError("Process connection failed") from exc

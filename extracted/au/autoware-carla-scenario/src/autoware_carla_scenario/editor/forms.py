@@ -91,16 +91,32 @@ def _parse_bool(raw: Any) -> bool:
     return flag
 
 
+def _parse_list_int(part: str) -> int:
+    """Return one item of an id list as an int.
+
+    Raises:
+        ValueError: If *part* is not a whole number.
+    """
+    try:
+        return int(part)
+    except ValueError:
+        raise ValueError(f"must be whole numbers, got {part!r}") from None
+
+
 def parse_int_list(raw: Any) -> Any:
-    """Return *raw* as a list of ints, or verbatim when it is an interpolation."""
+    """Return *raw* as a list of ints, or verbatim when it is an interpolation.
+
+    Raises:
+        ValueError: If an item is not a whole number, naming that item.
+    """
     if isinstance(raw, (list, tuple)):
-        return [int(str(v).strip()) for v in raw if str(v).strip()]
+        return [_parse_list_int(str(v).strip()) for v in raw if str(v).strip()]
     text = str(raw or "").strip()
     if not text:
         return []
     if REFERENCE_PATTERN.match(text):
         return text
-    return [int(part) for part in _LIST_SEPARATORS.split(text) if part]
+    return [_parse_list_int(part) for part in _LIST_SEPARATORS.split(text) if part]
 
 
 def parse_value(spec: FieldSpec, raw: Any, *, present: bool) -> Any:
@@ -210,7 +226,7 @@ def parse_records(spec: FieldSpec, form: Mapping[str, Any]) -> list[dict[str, An
         if not key.startswith(prefix):
             continue
         slot, _, sub = key[len(prefix) :].partition(".")
-        if sub and slot.isdigit() and int(slot) < count:
+        if sub and slot.isascii() and slot.isdigit() and int(slot) < count:
             posted[int(slot)][sub] = value
     rows: list[dict[str, Any]] = []
     for index, row in enumerate(posted):

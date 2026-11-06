@@ -235,7 +235,6 @@ def write_chopped_images(
     """
     # Assemble required features
     av_feats = {}
-    h5ev = RTDC_HDF5(h5_dst.file.filename)
     # For general chopping, we need:
     # - "mask": identify where to chop
     # - "size_x" / "size_y": image size determination (inferreable from mask)
@@ -247,6 +246,7 @@ def write_chopped_images(
     if feat != "mask":
         required_features.append("frame")
 
+    h5ev = RTDC_HDF5(h5_dst.file.filename)
     for ft in required_features:
         if ft in ds:
             av_feats[ft] = ds[ft]
@@ -285,7 +285,7 @@ def write_chopped_images(
     dilate_structure = disk(int(np.ceil(pad_um / pixel_size)))
 
     # Clusters (event indices that are written to the same dataset)
-    clusters, num_clusters = determine_clustering(
+    events_labeled, num_clusters = determine_clustering(
         geometry=geometry, dtype=feat_dtype)
 
     # index array
@@ -330,9 +330,15 @@ def write_chopped_images(
     cluster_chunks = {}
     cluster_datasets = {}
 
+    # Disable the per-dataset chunk cache (1 MiB each by default): we keep all
+    # cluster datasets open and always write whole chunks. Do not use
+    # `create_dataset(rdcc_nbytes=0)` instead; h5py ignores falsy values.
+    dapl = h5py.h5p.create(h5py.h5p.DATASET_ACCESS)
+    dapl.set_chunk_cache(0, 0, 0.0)
+
     # Prepare all clusters for writing
     for cid in range(1, num_clusters + 1):
-        cidx = clusters == cid
+        cidx = events_labeled == cid
         cidx_where = np.where(cidx)[0]
         # determine maximum shape
         shy, shx = np.max(geometry[cidx, :2], axis=0)
@@ -351,6 +357,7 @@ def write_chopped_images(
             maxshape=(num_events, shy, shx),
             chunks=(chunk_size_opt, shy, shx),
             fletcher32=True,
+            dapl=dapl,
             **compression_kwargs)
         dset.attrs.create('CLASS', np.bytes_('IMAGE'))
         dset.attrs.create('IMAGE_VERSION', np.bytes_('1.2'))
@@ -369,7 +376,7 @@ def write_chopped_images(
 
     # Walk through the events in sequential order, populate the cache,
     # and write when cache size reaches chunk size.
-    for ii, cid in enumerate(clusters):
+    for ii, cid in enumerate(events_labeled):
         # shape and offset
         shyi, shxi, offy, offx = geometry[ii][:4]
         if offy + shyi > imshape[0]:
@@ -377,7 +384,7 @@ def write_chopped_images(
         if offx + shxi > imshape[1]:
             offx = imshape[1] - shxi
         # event data
-        feat_chop = feat_data[ii][offy:offy+shyi, offx:offx+shxi]
+        feat_chop = feat_data[ii][offy:offy+shyi, offx:offx+shxi].copy()
         if bg_data is not None:
             feat_chop -= bg_data[ii][offy:offy+shyi, offx:offx+shxi]
         if dilate:
@@ -391,12 +398,12 @@ def write_chopped_images(
         # append to cluster list
         cluster_cache[cid].append(feat_chop)
 
-        if ii % 1000 or ii == len(clusters) - 1:
+        if (ii % 1000) == 0 or ii == len(events_labeled) - 1:
             # flush cache to disk
-            for cid, dlist in cluster_cache.items():
-                chunks = cluster_chunks[cid]
+            for cid2, dlist in cluster_cache.items():
+                chunks = cluster_chunks[cid2]
                 # how many events to store
-                if ii == len(clusters) - 1:
+                if ii == len(events_labeled) - 1:
                     # final write (all events)
                     write_num = len(dlist)
                 else:
@@ -411,7 +418,7 @@ def write_chopped_images(
                         sh = im.shape
                         chunk_data[jj, :sh[0], :sh[1]] = im
                     # write the chunk
-                    dset = cluster_datasets[cid]
+                    dset = cluster_datasets[cid2]
                     offset = dset.shape[0]
                     dset.resize(offset + write_num, axis=0)
                     if is_boolean:
@@ -423,6 +430,8 @@ def write_chopped_images(
                     if bytes_chopped is not None:
                         bytes_chopped.value += (
                             np.prod(imshape) * write_num * feat_dtype.itemsize)
+
+    h5ev.close()
 
     # write index
     h5_dst_group.create_dataset(

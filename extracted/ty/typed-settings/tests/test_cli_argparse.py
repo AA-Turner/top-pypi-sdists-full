@@ -2,6 +2,7 @@
 Tests for "typed_settings.argparse_utils".
 """
 
+import argparse
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -44,6 +45,8 @@ def _invoke(monkeypatch: pytest.MonkeyPatch) -> Invoke:
     def invoke(cli: Callable[[], Any], *args: str) -> Any:
         with monkeypatch.context() as m:
             m.setattr(sys, "argv", [cli.__name__, *list(args)])
+            if _compat.PY_314:
+                m.setattr(argparse, "_prog_name", lambda _: cli.__name__)
             return cli()
 
     return invoke
@@ -96,11 +99,7 @@ def test_cli_desc_from_func(invoke: Invoke, capsys: pytest.CaptureFixture) -> No
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    if _compat.PY_314:
-        cli_name = "python3 -m pytest"
-    else:
-        cli_name = "cli"
-    assert out.startswith(f"usage: {cli_name} [-h] --o INT\n\nLe description.\n")
+    assert out.startswith("usage: cli [-h] --o INT\n\nLe description.\n")
     assert err == ""
 
 
@@ -119,11 +118,7 @@ def test_cli_desc_from_kwarg(invoke: Invoke, capsys: pytest.CaptureFixture) -> N
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    if _compat.PY_314:
-        cli_name = "python3 -m pytest"
-    else:
-        cli_name = "cli"
-    assert out.startswith(f"usage: {cli_name} [-h] --o INT\n\nLe description\n")
+    assert out.startswith("usage: cli [-h] --o INT\n\nLe description\n")
     assert err == ""
 
 
@@ -147,12 +142,8 @@ def test_help_text(invoke: Invoke, capsys: pytest.CaptureFixture) -> None:
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    if _compat.PY_314:
-        cli_name = "python3 -m pytest"
-    else:
-        cli_name = "cli"
     assert out == (
-        f"usage: {cli_name} [-h] [--a TEXT] [--b TEXT]\n"
+        "usage: cli [-h] [--a TEXT] [--b TEXT]\n"
         "\n"
         "Le description.\n"
         "\n"
@@ -192,12 +183,8 @@ def test_help_from_docstring(invoke: Invoke, capsys: pytest.CaptureFixture) -> N
         invoke(cli, "--help")
 
     out, err = capsys.readouterr()
-    if _compat.PY_314:
-        cli_name = "python3 -m pytest"
-    else:
-        cli_name = "cli"
     assert out == (
-        f"usage: {cli_name} [-h] [--a TEXT] [--b TEXT]\n"
+        "usage: cli [-h] [--a TEXT] [--b TEXT]\n"
         "\n"
         "Le description.\n"
         "\n"
@@ -363,12 +350,8 @@ def test_default_factory_multiple_invocations(
     with pytest.raises(SystemExit):
         invoke(cli, "--help")
     out, err = capsys.readouterr()
-    if _compat.PY_314:
-        cli_name = "python3 -m pytest"
-    else:
-        cli_name = "cli"
     assert out == (
-        f"usage: {cli_name} [-h] [--o INT]\n"
+        "usage: cli [-h] [--o INT]\n"
         "\n"
         "options:\n"
         "  -h, --help  show this help message and exit\n"

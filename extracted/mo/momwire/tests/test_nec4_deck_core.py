@@ -741,11 +741,56 @@ CASES: list[tuple[str, tuple[str, ...], str, str]] = [
         deck(DIPOLE, "LD 4 1 -3 2 50 0"),
         "already carries a load",
     ),
+    # consecutive LD cards on one segment stack (momwire#1807)
     (
         "ld_double",
         ("nec2", "nec4"),
         deck(DIPOLE, "LD 4 1 4 4 50 0", "LD 0 1 4 4 5"),
-        "already carries a load",
+        "parsed",
+    ),
+    # momwire#1812: another card between two LD cards ends the run, and the
+    # first LD of the next run discards every earlier load (nec2c's EK ends
+    # it, NEC-4.2's does not, so the nec4 dialect stacks the pair)
+    (
+        "ld_double_separated",
+        ("nec2", "nec4"),
+        deck(DIPOLE, "LD 4 1 4 4 50 0", "EK", "LD 0 1 4 4 5"),
+        "parsed",
+    ),
+    (
+        "ld_run_broken_other_segment",
+        ("nec2", "nec4"),
+        deck(DIPOLE, "LD 0 1 8 8 10", "FR 0 1 0 0 299.7925", "LD 0 1 3 3 20"),
+        "parsed",
+    ),
+    (
+        "ld_run_kept_across_print_and_comment_cards",
+        ("nec2", "nec4"),
+        deck(DIPOLE, "LD 0 1 8 8 10", "PT -1", "PQ -1", "CM x", "LD 0 1 8 8 20"),
+        "parsed",
+    ),
+    (
+        "ld_run_drops_materials",
+        ("nec2", "nec4"),
+        deck(DIPOLE, "LD 5 0 0 0 1e6", "LD 2 1 0 0 100", "GN -1", "LD 0 1 3 3 20"),
+        "parsed",
+    ),
+    (
+        "ld_run_zero_card_still_drops",
+        ("nec2", "nec4"),
+        deck(DIPOLE, "LD 0 1 8 8 10", "GN -1", "LD 0 1 3 3 0"),
+        "parsed",
+    ),
+    (
+        "ld_run_per_group",
+        ("nec2", "nec4"),
+        deck(
+            DIPOLE,
+            "LD 0 1 8 8 10",
+            tail="FR 0 1 0 0 300\nEX 0 1 6 0 1\nXQ\nLD 0 1 8 8 20\nLD 0 1 3 3 5\n"
+            "XQ\nEN\n",
+        ),
+        "parsed",
     ),
     (
         "ld_clear_and_restate",
@@ -1333,6 +1378,21 @@ def test_what_the_reader_declines(text, acc):
     """The declines are a decline in both dialects, never a misread."""
     for dialect in ("nec2", "nec4"):
         assert nc.classify(nc.cxx_parse(text, dialect, acc)) == "declined"
+
+
+def test_a_later_cards_refusal_wins_over_a_non_finite_decline(acc):
+    """A non-finite field on a card Python reads (an LD 5 NaN conductivity)
+    declines at the end of the cards, not on its own card: a later card that
+    Python refuses (an EX 4 in the nec4 dialect) is then refused in Python's
+    words, as the NEC-4.2 exes print it, rather than declined."""
+    text = deck(
+        DIPOLE,
+        "LD 5 0 0 0 nan",
+        tail="FR 0 1 0 0 299.7925\nEX 4 1 6 0 1 0\nXQ\nEN\n",
+    )
+    with pytest.raises(Exception, match="EX 4 is not served"):
+        parse(text, dialect="nec4")
+    assert _same(text, "nec4", acc) == "refused"
 
 
 def test_a_non_finite_field_python_serves_still_declines(acc):

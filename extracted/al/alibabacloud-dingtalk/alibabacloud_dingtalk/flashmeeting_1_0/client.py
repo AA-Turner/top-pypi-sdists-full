@@ -865,3 +865,145 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkflashmeeting__1__0_models.GetTaskFromShanhuiDocHeaders()
         return await self.get_task_from_shanhui_doc_with_options_async(request, headers, runtime)
+
+    def list_user_meetings_with_options(
+        self,
+        request: dingtalkflashmeeting__1__0_models.ListUserMeetingsRequest,
+        headers: dingtalkflashmeeting__1__0_models.ListUserMeetingsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse:
+        """
+        @summary 查询指定用户的闪会或会议纪要列表
+        
+        @param request: ListUserMeetingsRequest
+        @param headers: ListUserMeetingsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListUserMeetingsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.create_time_from):
+            query['createTimeFrom'] = request.create_time_from
+        if not UtilClient.is_unset(request.create_time_to):
+            query['createTimeTo'] = request.create_time_to
+        if not UtilClient.is_unset(request.keyword):
+            query['keyword'] = request.keyword
+        if not UtilClient.is_unset(request.list_type):
+            query['listType'] = request.list_type
+        if not UtilClient.is_unset(request.next_token):
+            query['nextToken'] = request.next_token
+        if not UtilClient.is_unset(request.order):
+            query['order'] = request.order
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.user_id):
+            query['userId'] = request.user_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListUserMeetings',
+            version='flashmeeting_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/flashmeeting/meetings/listUserMeetings',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_user_meetings_with_options_async(
+        self,
+        request: dingtalkflashmeeting__1__0_models.ListUserMeetingsRequest,
+        headers: dingtalkflashmeeting__1__0_models.ListUserMeetingsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse:
+        """
+        @summary 查询指定用户的闪会或会议纪要列表
+        
+        @param request: ListUserMeetingsRequest
+        @param headers: ListUserMeetingsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListUserMeetingsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.create_time_from):
+            query['createTimeFrom'] = request.create_time_from
+        if not UtilClient.is_unset(request.create_time_to):
+            query['createTimeTo'] = request.create_time_to
+        if not UtilClient.is_unset(request.keyword):
+            query['keyword'] = request.keyword
+        if not UtilClient.is_unset(request.list_type):
+            query['listType'] = request.list_type
+        if not UtilClient.is_unset(request.next_token):
+            query['nextToken'] = request.next_token
+        if not UtilClient.is_unset(request.order):
+            query['order'] = request.order
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.user_id):
+            query['userId'] = request.user_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListUserMeetings',
+            version='flashmeeting_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/flashmeeting/meetings/listUserMeetings',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_user_meetings(
+        self,
+        request: dingtalkflashmeeting__1__0_models.ListUserMeetingsRequest,
+    ) -> dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse:
+        """
+        @summary 查询指定用户的闪会或会议纪要列表
+        
+        @param request: ListUserMeetingsRequest
+        @return: ListUserMeetingsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkflashmeeting__1__0_models.ListUserMeetingsHeaders()
+        return self.list_user_meetings_with_options(request, headers, runtime)
+
+    async def list_user_meetings_async(
+        self,
+        request: dingtalkflashmeeting__1__0_models.ListUserMeetingsRequest,
+    ) -> dingtalkflashmeeting__1__0_models.ListUserMeetingsResponse:
+        """
+        @summary 查询指定用户的闪会或会议纪要列表
+        
+        @param request: ListUserMeetingsRequest
+        @return: ListUserMeetingsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkflashmeeting__1__0_models.ListUserMeetingsHeaders()
+        return await self.list_user_meetings_with_options_async(request, headers, runtime)

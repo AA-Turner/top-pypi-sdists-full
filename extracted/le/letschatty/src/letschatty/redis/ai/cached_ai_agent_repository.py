@@ -9,7 +9,6 @@ write is seen when the keys expire.
 """
 from __future__ import annotations
 
-import json
 from typing import Any, List, Optional, Tuple
 
 from ...models.company.assets.ai_agents_v2.chatty_ai_agent import ChattyAIAgent
@@ -25,16 +24,8 @@ class CachedAiAgentRepository(CachedCatalogWithPreviews[ChattyAIAgent]):
     item_type = ChattyAIAgent
 
     async def get_fresh(self, company_id: Optional[StrObjectId], agent_id: StrObjectId) -> ChattyAIAgent:
-        """The asset service's `get_by_id(ignore_cache=True)`. The same copy lives in the entradas' and the users' caches
-        (ENG-135: move it to `AssetCache`)."""
-        agent = await self.inner.get_fresh(company_id, agent_id)
-        try:
-            await self.assets.cache.set(self.assets.item_key(agent_id),
-                                        json.dumps(agent.model_dump(by_alias=True, mode="json")),
-                                        ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return agent
+        """The asset service's `get_by_id(ignore_cache=True)` (`AssetCache.item`, ENG-135)."""
+        return await self.assets.item(agent_id, lambda: self.inner.get_fresh(company_id, agent_id), ignore_cache=True)
 
     async def stored_updated_at(self, company_id: StrObjectId, agent_id: StrObjectId) -> Tuple[bool, Any]:
         return await self.inner.stored_updated_at(company_id, agent_id)

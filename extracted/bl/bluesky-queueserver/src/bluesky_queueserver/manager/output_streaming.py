@@ -135,8 +135,10 @@ class PublishZMQStreamOutput:
         The messages added to the queue will be automatically published to 0MQ socket.
     console_output_on : boolean
         Enable/disable printing console output to the terminal
-    zmq_publish_on : boolean
-        Enable/disable publishing console output to 0MQ socket
+    zmq_publish_console : boolean
+        Enable/disable publishing console output to 0MQ socket (``QS_Console`` topic).
+    zmq_publish_info : boolean
+        Enable/disable publishing info/status messages to 0MQ socket (``QS_Info`` topic).
     zmq_publish_addr : str, None
         Address of 0MQ PUB socket for the publishing server. If ``None``, then
         the default address ``tcp://*:60625`` is used.
@@ -155,7 +157,8 @@ class PublishZMQStreamOutput:
         *,
         msg_queue,
         console_output_on=True,
-        zmq_publish_on=True,
+        zmq_publish_console=True,
+        zmq_publish_info=True,
         zmq_publish_addr=None,
         encoding="json",
         zmq_topic_console=_default_zmq_console_topic,
@@ -168,7 +171,8 @@ class PublishZMQStreamOutput:
         self._polling_timeout = 0.1  # in sec.
 
         self._console_output_on = console_output_on
-        self._zmq_publish_on = zmq_publish_on
+        self._zmq_publish_console = zmq_publish_console
+        self._zmq_publish_info = zmq_publish_info
 
         self._encoding = process_zmq_encoding_name(encoding)
 
@@ -178,21 +182,25 @@ class PublishZMQStreamOutput:
         self._zmq_topic_console = zmq_topic_console
         self._zmq_topic_info = zmq_topic_info
 
+        zmq_publish_on = zmq_publish_console or zmq_publish_info
+
+        self._context = None
         self._socket = None
-        if self._zmq_publish_on:
+
+        if zmq_publish_on:
             try:
-                context = zmq.Context()
-                self._socket = context.socket(zmq.PUB)
+                self._context = zmq.Context()
+                self._socket = self._context.socket(zmq.PUB)
                 self._socket.bind(self._zmq_publish_addr)
             except Exception as ex:
                 logger.error(
-                    "Failed to create 0MQ socket at %s. Console output will not be published. Exception: %s",
+                    "Failed to create 0MQ socket at %s. Output will not be published. Exception: %s",
                     self._zmq_publish_addr,
                     ex,
                 )
 
-        if self._socket and self._zmq_publish_on:
-            logging.info("Publishing console output to 0MQ socket at %s", zmq_publish_addr)
+        if self._socket and zmq_publish_on:
+            logging.info("Publishing output to 0MQ socket at %s", zmq_publish_addr)
 
     def start(self):
         """
@@ -210,6 +218,8 @@ class PublishZMQStreamOutput:
         self.stop()
         if self._socket:
             self._socket.close()
+        if self._context:
+            self._context.term()
 
     def _start_processing_thread(self):
         # The thread should not be started of Message Queue object does not exist
@@ -237,13 +247,13 @@ class PublishZMQStreamOutput:
             sys.__stdout__.write(payload["msg"])
             sys.__stdout__.flush()
 
-        if self._zmq_publish_on and self._socket:
-            if channel == "console":
+        if self._socket:
+            if channel == "console" and self._zmq_publish_console:
                 topic = self._zmq_topic_console
-            elif channel == "info":
+            elif channel == "info" and self._zmq_publish_info:
                 topic = self._zmq_topic_info
             else:
-                logger.error("Failed to publish the message: unsupported 0MQ channel %s.")
+                return
             payload = {k: payload[k] for k in ("time", "msg")}
             if self._encoding == ZMQEncoding.JSON:
                 payload_json = json.dumps(payload)
@@ -321,12 +331,13 @@ class _ReceiveZMQStreamOutput:
 
         self._encoding = process_zmq_encoding_name(encoding)
 
+        self._context = None
         self._socket = None
         self._socket_subscribed = False
 
         if self._zmq_subscribe_addr:
-            context = zmq.Context()
-            self._socket = context.socket(zmq.SUB)
+            self._context = zmq.Context()
+            self._socket = self._context.socket(zmq.SUB)
             self._socket.connect(self._zmq_subscribe_addr)
 
     def subscribe(self):
@@ -392,7 +403,10 @@ class _ReceiveZMQStreamOutput:
         return payload
 
     def __del__(self):
-        self._socket.close()
+        if self._socket:
+            self._socket.close()
+        if self._context:
+            self._context.term()
 
 
 class ReceiveConsoleOutput(_ReceiveZMQStreamOutput):
@@ -543,13 +557,14 @@ class _ReceiveZMQStreamOutputAsync:
 
         self._encoding = process_zmq_encoding_name(encoding)
 
+        self._context = None
         self._socket = None
         self._socket_subscribed = False
         self._unsubscribe_when_stopping = False
 
         if self._zmq_subscribe_addr:
-            context = zmq.asyncio.Context()
-            self._socket = context.socket(zmq.SUB)
+            self._context = zmq.asyncio.Context()
+            self._socket = self._context.socket(zmq.SUB)
             self._socket.connect(self._zmq_subscribe_addr)
 
     def subscribe(self):
@@ -683,6 +698,8 @@ class _ReceiveZMQStreamOutputAsync:
         self.stop()
         if self._socket:
             self._socket.close()
+        if self._context:
+            self._context.term()
 
 
 class ReceiveConsoleOutputAsync(_ReceiveZMQStreamOutputAsync):
@@ -744,17 +761,11 @@ def qserver_console_monitor_cli():
         dest="zmq_info_addr",
         type=str,
         default=None,
-        help="The address of RE Manager socket used for publishing console output. The parameter overrides "
-        "the address set using QSERVER_ZMQ_INFO_ADDRESS environment variable. The default value is used "
-        "if the address is not set using the parameter or the environment variable. Address format: "
+        help="The address of RE Manager socket used for publishing console output, status info, and "
+        "progress updates. The parameter overrides the address set using QSERVER_ZMQ_INFO_ADDRESS "
+        "environment variable. The default value is used if the address is not set using the parameter "
+        "or the environment variable. Address format: "
         f"'tcp://127.0.0.1:60625' (default: {default_zmq_info_address}).",
-    )
-    parser.add_argument(
-        "--zmq-subscribe-addr",
-        dest="zmq_subscribe_addr",
-        type=str,
-        default=None,
-        help="The parameter is deprecated and will be removed. Use --zmq-info-addr instead.",
     )
 
     parser.add_argument(
@@ -770,11 +781,6 @@ def qserver_console_monitor_cli():
     args = parser.parse_args()
 
     zmq_info_addr = args.zmq_info_addr
-    if args.zmq_subscribe_addr is not None:
-        logger.warning(
-            "The parameter --zmq-subscribe-addr is deprecated and will be removed. Use --zmq-info-addr instead."
-        )
-    zmq_info_addr = zmq_info_addr or args.zmq_subscribe_addr
     zmq_info_addr = zmq_info_addr or os.environ.get("QSERVER_ZMQ_INFO_ADDRESS", None)
     zmq_info_addr = zmq_info_addr or default_zmq_info_address
 

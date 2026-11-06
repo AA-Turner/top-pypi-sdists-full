@@ -15,6 +15,12 @@
  * - native: one slow-time tile, +/- 1 / (2 T_E) = +/- 2,444 Hz;
  * - full:   +/- 50 kHz, the design's whole carrier range.
  *
+ * And the full span again with an S-band carrier set (2.2 GHz): every
+ * side tile then runs its code-rate ramp, which the one delay-Doppler map
+ * changes (#2752, docs/design/acq-surface.md §18.4), so its speed gate
+ * measures it against main. One tile has no ramp, so native has no such
+ * row.
+ *
  * One timed push is one dwell, D code periods at the receivers' rate, so
  * every push decides exactly one dwell and the rows compare like for like.
  *
@@ -23,7 +29,8 @@
  * (docs/design/async-dsss-receiver.md §5) and an idle receiver runs none,
  * so it should be one, whatever N is. And n=4 on 4 threads against one:
  * what do the workers buy back, given push() joins them once every code
- * period?
+ * period? At the full span that includes the search's own tile fan, on the
+ * pool's thread count (#2773).
  *
  * Fed noise alone from the shipped awgn, so every receiver stays idle and
  * the search runs all along; a row is recorded only if every receiver was
@@ -46,7 +53,7 @@
 #define ITERATIONS 10
 #define CODE_ONLY_S (500.0 / 3000.0) /* 500 data-free symbols */
 #define DOPPLER_RATE 500.0           /* Hz/s, the design's bound */
-#define N_ROWS 5
+#define N_ROWS 8
 
 typedef struct
 {
@@ -54,6 +61,7 @@ typedef struct
   size_t      n_rx;
   double      span_hz; /* the receivers' doppler_uncertainty, +/- */
   int         threads;
+  double      carrier_hz; /* RF carrier, Hz; 0 = none (no code-rate ramp) */
 } row_t;
 
 static double
@@ -114,11 +122,40 @@ main (void)
   const double cn0  = 10.0 + 10.0 * log10 (sym);
 
   const row_t rows[N_ROWS] = {
-    { "push[native,n=1,threads=1]", 1, tile / 2.0, 1 },
-    { "push[native,n=4,threads=1]", 4, tile / 2.0, 1 },
-    { "push[native,n=4,threads=4]", 4, tile / 2.0, 4 },
-    { "push[full,n=1,threads=1]", 1, 50e3, 1 },
-    { "push[full,n=4,threads=1]", 4, 50e3, 1 },
+    { .name    = "push[native,n=1,threads=1]",
+      .n_rx    = 1,
+      .span_hz = tile / 2.0,
+      .threads = 1 },
+    { .name    = "push[native,n=4,threads=1]",
+      .n_rx    = 4,
+      .span_hz = tile / 2.0,
+      .threads = 1 },
+    { .name    = "push[native,n=4,threads=4]",
+      .n_rx    = 4,
+      .span_hz = tile / 2.0,
+      .threads = 4 },
+    { .name    = "push[full,n=1,threads=1]",
+      .n_rx    = 1,
+      .span_hz = 50e3,
+      .threads = 1 },
+    { .name    = "push[full,n=4,threads=1]",
+      .n_rx    = 4,
+      .span_hz = 50e3,
+      .threads = 1 },
+    { .name    = "push[full,n=4,threads=4]",
+      .n_rx    = 4,
+      .span_hz = 50e3,
+      .threads = 4 },
+    { .name       = "push[full,n=1,threads=1,carrier]",
+      .n_rx       = 1,
+      .span_hz    = 50e3,
+      .threads    = 1,
+      .carrier_hz = 2.2e9 },
+    { .name       = "push[full,n=4,threads=4,carrier]",
+      .n_rx       = 4,
+      .span_hz    = 50e3,
+      .threads    = 4,
+      .carrier_hz = 2.2e9 },
   };
 
   /* The CCSDS default Gold code, as wfm.Gold() makes it. */
@@ -139,7 +176,8 @@ main (void)
       p[k] = dp_async_dsss_pool_create (
           code, CODE_LEN, rows[k].n_rx, chip, sym, chip * (double)spc, 2, cn0,
           1e-3, 0.9, rows[k].span_hz, 4, 8, 0, 0.5, 4, 14.0, 64, 8, false,
-          100000, 0.0, 2.0, false, CODE_ONLY_S, DOPPLER_RATE, rows[k].threads);
+          100000, rows[k].carrier_hz, 2.0, false, CODE_ONLY_S, DOPPLER_RATE,
+          rows[k].threads);
       rc[k] = dp_RateConverter_create (fs / fs_in, 0);
       if (!p[k] || !rc[k])
         {
@@ -209,7 +247,7 @@ main (void)
       jm_bench_add_unit (&_bench, rows[k].name, times[k], ITERATIONS, block_in,
                          JM_BENCH_SAMPLE);
       const double sec = min_sec (times[k], ITERATIONS);
-      printf ("  %-28s %8.3f ms/dwell  %7.2f ns/sample  %6.2fx real time\n",
+      printf ("  %-34s %8.3f ms/dwell  %7.2f ns/sample  %6.2fx real time\n",
               rows[k].name, sec * 1e3, sec / (double)block_in * 1e9,
               (double)block_in / sec / fs_in);
     }

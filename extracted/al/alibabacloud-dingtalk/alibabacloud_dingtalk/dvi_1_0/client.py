@@ -380,6 +380,128 @@ class Client(OpenApiClient):
         headers = dingtalkdvi__1__0_models.BatchUpdateDeviceCutCustomerSwitchHeaders()
         return await self.batch_update_device_cut_customer_switch_with_options_async(request, headers, runtime)
 
+    def bind_kanjian_record_task_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.BindKanjianRecordTaskRequest,
+        headers: dingtalkdvi__1__0_models.BindKanjianRecordTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse:
+        """
+        @summary 看鉴记录首次绑定主任务
+        
+        @param request: BindKanjianRecordTaskRequest
+        @param headers: BindKanjianRecordTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BindKanjianRecordTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.main_task_id):
+            body['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.record_id):
+            body['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BindKanjianRecordTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/task',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def bind_kanjian_record_task_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.BindKanjianRecordTaskRequest,
+        headers: dingtalkdvi__1__0_models.BindKanjianRecordTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse:
+        """
+        @summary 看鉴记录首次绑定主任务
+        
+        @param request: BindKanjianRecordTaskRequest
+        @param headers: BindKanjianRecordTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BindKanjianRecordTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.main_task_id):
+            body['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.record_id):
+            body['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BindKanjianRecordTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/task',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def bind_kanjian_record_task(
+        self,
+        request: dingtalkdvi__1__0_models.BindKanjianRecordTaskRequest,
+    ) -> dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse:
+        """
+        @summary 看鉴记录首次绑定主任务
+        
+        @param request: BindKanjianRecordTaskRequest
+        @return: BindKanjianRecordTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.BindKanjianRecordTaskHeaders()
+        return self.bind_kanjian_record_task_with_options(request, headers, runtime)
+
+    async def bind_kanjian_record_task_async(
+        self,
+        request: dingtalkdvi__1__0_models.BindKanjianRecordTaskRequest,
+    ) -> dingtalkdvi__1__0_models.BindKanjianRecordTaskResponse:
+        """
+        @summary 看鉴记录首次绑定主任务
+        
+        @param request: BindKanjianRecordTaskRequest
+        @return: BindKanjianRecordTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.BindKanjianRecordTaskHeaders()
+        return await self.bind_kanjian_record_task_with_options_async(request, headers, runtime)
+
     def control_recording_with_options(
         self,
         request: dingtalkdvi__1__0_models.ControlRecordingRequest,
@@ -631,6 +753,144 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkdvi__1__0_models.CreateAsrTranscriptionHeaders()
         return await self.create_asr_transcription_with_options_async(request, headers, runtime)
+
+    def create_kanjian_task_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.CreateKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.CreateKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.CreateKanjianTaskResponse:
+        """
+        @summary 创建看鉴任务
+        
+        @param request: CreateKanjianTaskRequest
+        @param headers: CreateKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: CreateKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.admin_user_ids):
+            body['adminUserIds'] = request.admin_user_ids
+        if not UtilClient.is_unset(request.description):
+            body['description'] = request.description
+        if not UtilClient.is_unset(request.executor_user_ids):
+            body['executorUserIds'] = request.executor_user_ids
+        if not UtilClient.is_unset(request.name):
+            body['name'] = request.name
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.report_content):
+            body['reportContent'] = request.report_content
+        if not UtilClient.is_unset(request.sub_tasks):
+            body['subTasks'] = request.sub_tasks
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='CreateKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.CreateKanjianTaskResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def create_kanjian_task_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.CreateKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.CreateKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.CreateKanjianTaskResponse:
+        """
+        @summary 创建看鉴任务
+        
+        @param request: CreateKanjianTaskRequest
+        @param headers: CreateKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: CreateKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.admin_user_ids):
+            body['adminUserIds'] = request.admin_user_ids
+        if not UtilClient.is_unset(request.description):
+            body['description'] = request.description
+        if not UtilClient.is_unset(request.executor_user_ids):
+            body['executorUserIds'] = request.executor_user_ids
+        if not UtilClient.is_unset(request.name):
+            body['name'] = request.name
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.report_content):
+            body['reportContent'] = request.report_content
+        if not UtilClient.is_unset(request.sub_tasks):
+            body['subTasks'] = request.sub_tasks
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='CreateKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.CreateKanjianTaskResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def create_kanjian_task(
+        self,
+        request: dingtalkdvi__1__0_models.CreateKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.CreateKanjianTaskResponse:
+        """
+        @summary 创建看鉴任务
+        
+        @param request: CreateKanjianTaskRequest
+        @return: CreateKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.CreateKanjianTaskHeaders()
+        return self.create_kanjian_task_with_options(request, headers, runtime)
+
+    async def create_kanjian_task_async(
+        self,
+        request: dingtalkdvi__1__0_models.CreateKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.CreateKanjianTaskResponse:
+        """
+        @summary 创建看鉴任务
+        
+        @param request: CreateKanjianTaskRequest
+        @return: CreateKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.CreateKanjianTaskHeaders()
+        return await self.create_kanjian_task_with_options_async(request, headers, runtime)
 
     def create_recording_schedule_with_options(
         self,
@@ -887,6 +1147,124 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkdvi__1__0_models.CreateTeamHeaders()
         return await self.create_team_with_options_async(request, headers, runtime)
+
+    def delete_kanjian_task_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.DeleteKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.DeleteKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.DeleteKanjianTaskResponse:
+        """
+        @summary 删除看鉴任务
+        
+        @param request: DeleteKanjianTaskRequest
+        @param headers: DeleteKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: DeleteKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.operator_user_id):
+            query['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.task_id):
+            query['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='DeleteKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='DELETE',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.DeleteKanjianTaskResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def delete_kanjian_task_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.DeleteKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.DeleteKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.DeleteKanjianTaskResponse:
+        """
+        @summary 删除看鉴任务
+        
+        @param request: DeleteKanjianTaskRequest
+        @param headers: DeleteKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: DeleteKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.operator_user_id):
+            query['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.task_id):
+            query['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='DeleteKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='DELETE',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.DeleteKanjianTaskResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def delete_kanjian_task(
+        self,
+        request: dingtalkdvi__1__0_models.DeleteKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.DeleteKanjianTaskResponse:
+        """
+        @summary 删除看鉴任务
+        
+        @param request: DeleteKanjianTaskRequest
+        @return: DeleteKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.DeleteKanjianTaskHeaders()
+        return self.delete_kanjian_task_with_options(request, headers, runtime)
+
+    async def delete_kanjian_task_async(
+        self,
+        request: dingtalkdvi__1__0_models.DeleteKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.DeleteKanjianTaskResponse:
+        """
+        @summary 删除看鉴任务
+        
+        @param request: DeleteKanjianTaskRequest
+        @return: DeleteKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.DeleteKanjianTaskHeaders()
+        return await self.delete_kanjian_task_with_options_async(request, headers, runtime)
 
     def delete_recording_schedule_with_options(
         self,
@@ -1801,6 +2179,348 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkdvi__1__0_models.GetCustomerInsightHeaders()
         return await self.get_customer_insight_with_options_async(request, headers, runtime)
+
+    def get_kanjian_device_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianDeviceRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianDeviceHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianDeviceResponse:
+        """
+        @summary 查询企业看鉴 BV 设备详情
+        
+        @param request: GetKanjianDeviceRequest
+        @param headers: GetKanjianDeviceHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianDeviceResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.device_sn):
+            query['deviceSn'] = request.device_sn
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianDevice',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/devices/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianDeviceResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def get_kanjian_device_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianDeviceRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianDeviceHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianDeviceResponse:
+        """
+        @summary 查询企业看鉴 BV 设备详情
+        
+        @param request: GetKanjianDeviceRequest
+        @param headers: GetKanjianDeviceHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianDeviceResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.device_sn):
+            query['deviceSn'] = request.device_sn
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianDevice',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/devices/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianDeviceResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def get_kanjian_device(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianDeviceRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianDeviceResponse:
+        """
+        @summary 查询企业看鉴 BV 设备详情
+        
+        @param request: GetKanjianDeviceRequest
+        @return: GetKanjianDeviceResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianDeviceHeaders()
+        return self.get_kanjian_device_with_options(request, headers, runtime)
+
+    async def get_kanjian_device_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianDeviceRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianDeviceResponse:
+        """
+        @summary 查询企业看鉴 BV 设备详情
+        
+        @param request: GetKanjianDeviceRequest
+        @return: GetKanjianDeviceResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianDeviceHeaders()
+        return await self.get_kanjian_device_with_options_async(request, headers, runtime)
+
+    def get_kanjian_record_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianRecordRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianRecordHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianRecordResponse:
+        """
+        @summary 查询看鉴记录详情
+        
+        @param request: GetKanjianRecordRequest
+        @param headers: GetKanjianRecordHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianRecordResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianRecord',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianRecordResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def get_kanjian_record_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianRecordRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianRecordHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianRecordResponse:
+        """
+        @summary 查询看鉴记录详情
+        
+        @param request: GetKanjianRecordRequest
+        @param headers: GetKanjianRecordHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianRecordResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianRecord',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianRecordResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def get_kanjian_record(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianRecordRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianRecordResponse:
+        """
+        @summary 查询看鉴记录详情
+        
+        @param request: GetKanjianRecordRequest
+        @return: GetKanjianRecordResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianRecordHeaders()
+        return self.get_kanjian_record_with_options(request, headers, runtime)
+
+    async def get_kanjian_record_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianRecordRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianRecordResponse:
+        """
+        @summary 查询看鉴记录详情
+        
+        @param request: GetKanjianRecordRequest
+        @return: GetKanjianRecordResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianRecordHeaders()
+        return await self.get_kanjian_record_with_options_async(request, headers, runtime)
+
+    def get_kanjian_task_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianTaskResponse:
+        """
+        @summary 查询看鉴主任务详情及子任务列表
+        
+        @param request: GetKanjianTaskRequest
+        @param headers: GetKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.task_id):
+            query['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianTaskResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def get_kanjian_task_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.GetKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.GetKanjianTaskResponse:
+        """
+        @summary 查询看鉴主任务详情及子任务列表
+        
+        @param request: GetKanjianTaskRequest
+        @param headers: GetKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: GetKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.task_id):
+            query['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='GetKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks/detail',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.GetKanjianTaskResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def get_kanjian_task(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianTaskResponse:
+        """
+        @summary 查询看鉴主任务详情及子任务列表
+        
+        @param request: GetKanjianTaskRequest
+        @return: GetKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianTaskHeaders()
+        return self.get_kanjian_task_with_options(request, headers, runtime)
+
+    async def get_kanjian_task_async(
+        self,
+        request: dingtalkdvi__1__0_models.GetKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.GetKanjianTaskResponse:
+        """
+        @summary 查询看鉴主任务详情及子任务列表
+        
+        @param request: GetKanjianTaskRequest
+        @return: GetKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.GetKanjianTaskHeaders()
+        return await self.get_kanjian_task_with_options_async(request, headers, runtime)
 
     def get_recording_schedule_with_options(
         self,
@@ -3402,6 +4122,380 @@ class Client(OpenApiClient):
         headers = dingtalkdvi__1__0_models.ListDeviceRecordingDurationHeaders()
         return await self.list_device_recording_duration_with_options_async(request, headers, runtime)
 
+    def list_kanjian_devices_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianDevicesRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianDevicesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianDevicesResponse:
+        """
+        @summary 分页查询看鉴 BV 设备列表
+        
+        @param request: ListKanjianDevicesRequest
+        @param headers: ListKanjianDevicesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianDevicesResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianDevices',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/devices',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianDevicesResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_kanjian_devices_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianDevicesRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianDevicesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianDevicesResponse:
+        """
+        @summary 分页查询看鉴 BV 设备列表
+        
+        @param request: ListKanjianDevicesRequest
+        @param headers: ListKanjianDevicesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianDevicesResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianDevices',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/devices',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianDevicesResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_kanjian_devices(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianDevicesRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianDevicesResponse:
+        """
+        @summary 分页查询看鉴 BV 设备列表
+        
+        @param request: ListKanjianDevicesRequest
+        @return: ListKanjianDevicesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianDevicesHeaders()
+        return self.list_kanjian_devices_with_options(request, headers, runtime)
+
+    async def list_kanjian_devices_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianDevicesRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianDevicesResponse:
+        """
+        @summary 分页查询看鉴 BV 设备列表
+        
+        @param request: ListKanjianDevicesRequest
+        @return: ListKanjianDevicesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianDevicesHeaders()
+        return await self.list_kanjian_devices_with_options_async(request, headers, runtime)
+
+    def list_kanjian_records_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianRecordsRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianRecordsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianRecordsResponse:
+        """
+        @summary 分页查询看鉴记录列表
+        
+        @param request: ListKanjianRecordsRequest
+        @param headers: ListKanjianRecordsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianRecordsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.device_sn):
+            query['deviceSn'] = request.device_sn
+        if not UtilClient.is_unset(request.end_time):
+            query['endTime'] = request.end_time
+        if not UtilClient.is_unset(request.main_task_id):
+            query['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            query['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.start_time):
+            query['startTime'] = request.start_time
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianRecords',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianRecordsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_kanjian_records_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianRecordsRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianRecordsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianRecordsResponse:
+        """
+        @summary 分页查询看鉴记录列表
+        
+        @param request: ListKanjianRecordsRequest
+        @param headers: ListKanjianRecordsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianRecordsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.device_sn):
+            query['deviceSn'] = request.device_sn
+        if not UtilClient.is_unset(request.end_time):
+            query['endTime'] = request.end_time
+        if not UtilClient.is_unset(request.main_task_id):
+            query['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            query['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.start_time):
+            query['startTime'] = request.start_time
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianRecords',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianRecordsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_kanjian_records(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianRecordsRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianRecordsResponse:
+        """
+        @summary 分页查询看鉴记录列表
+        
+        @param request: ListKanjianRecordsRequest
+        @return: ListKanjianRecordsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianRecordsHeaders()
+        return self.list_kanjian_records_with_options(request, headers, runtime)
+
+    async def list_kanjian_records_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianRecordsRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianRecordsResponse:
+        """
+        @summary 分页查询看鉴记录列表
+        
+        @param request: ListKanjianRecordsRequest
+        @return: ListKanjianRecordsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianRecordsHeaders()
+        return await self.list_kanjian_records_with_options_async(request, headers, runtime)
+
+    def list_kanjian_tasks_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianTasksRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianTasksHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianTasksResponse:
+        """
+        @summary 分页查询看鉴任务列表
+        
+        @param request: ListKanjianTasksRequest
+        @param headers: ListKanjianTasksHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianTasksResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianTasks',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianTasksResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_kanjian_tasks_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianTasksRequest,
+        headers: dingtalkdvi__1__0_models.ListKanjianTasksHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.ListKanjianTasksResponse:
+        """
+        @summary 分页查询看鉴任务列表
+        
+        @param request: ListKanjianTasksRequest
+        @param headers: ListKanjianTasksHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListKanjianTasksResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListKanjianTasks',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.ListKanjianTasksResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_kanjian_tasks(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianTasksRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianTasksResponse:
+        """
+        @summary 分页查询看鉴任务列表
+        
+        @param request: ListKanjianTasksRequest
+        @return: ListKanjianTasksResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianTasksHeaders()
+        return self.list_kanjian_tasks_with_options(request, headers, runtime)
+
+    async def list_kanjian_tasks_async(
+        self,
+        request: dingtalkdvi__1__0_models.ListKanjianTasksRequest,
+    ) -> dingtalkdvi__1__0_models.ListKanjianTasksResponse:
+        """
+        @summary 分页查询看鉴任务列表
+        
+        @param request: ListKanjianTasksRequest
+        @return: ListKanjianTasksResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.ListKanjianTasksHeaders()
+        return await self.list_kanjian_tasks_with_options_async(request, headers, runtime)
+
     def list_service_record_with_options(
         self,
         request: dingtalkdvi__1__0_models.ListServiceRecordRequest,
@@ -3893,6 +4987,250 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkdvi__1__0_models.ManageTeamMemberHeaders()
         return await self.manage_team_member_with_options_async(request, headers, runtime)
+
+    def page_kanjian_record_analysis_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisRequest,
+        headers: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse:
+        """
+        @summary 分页拉取看鉴记录的关键识别结果
+        
+        @param request: PageKanjianRecordAnalysisRequest
+        @param headers: PageKanjianRecordAnalysisHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: PageKanjianRecordAnalysisResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='PageKanjianRecordAnalysis',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/analysis',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def page_kanjian_record_analysis_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisRequest,
+        headers: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse:
+        """
+        @summary 分页拉取看鉴记录的关键识别结果
+        
+        @param request: PageKanjianRecordAnalysisRequest
+        @param headers: PageKanjianRecordAnalysisHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: PageKanjianRecordAnalysisResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='PageKanjianRecordAnalysis',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/analysis',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def page_kanjian_record_analysis(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisRequest,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse:
+        """
+        @summary 分页拉取看鉴记录的关键识别结果
+        
+        @param request: PageKanjianRecordAnalysisRequest
+        @return: PageKanjianRecordAnalysisResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.PageKanjianRecordAnalysisHeaders()
+        return self.page_kanjian_record_analysis_with_options(request, headers, runtime)
+
+    async def page_kanjian_record_analysis_async(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordAnalysisRequest,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordAnalysisResponse:
+        """
+        @summary 分页拉取看鉴记录的关键识别结果
+        
+        @param request: PageKanjianRecordAnalysisRequest
+        @return: PageKanjianRecordAnalysisResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.PageKanjianRecordAnalysisHeaders()
+        return await self.page_kanjian_record_analysis_with_options_async(request, headers, runtime)
+
+    def page_kanjian_record_process_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordProcessRequest,
+        headers: dingtalkdvi__1__0_models.PageKanjianRecordProcessHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse:
+        """
+        @summary 分页拉取看鉴记录的过程记录结果
+        
+        @param request: PageKanjianRecordProcessRequest
+        @param headers: PageKanjianRecordProcessHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: PageKanjianRecordProcessResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='PageKanjianRecordProcess',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/process',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def page_kanjian_record_process_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordProcessRequest,
+        headers: dingtalkdvi__1__0_models.PageKanjianRecordProcessHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse:
+        """
+        @summary 分页拉取看鉴记录的过程记录结果
+        
+        @param request: PageKanjianRecordProcessRequest
+        @param headers: PageKanjianRecordProcessHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: PageKanjianRecordProcessResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.cursor):
+            query['cursor'] = request.cursor
+        if not UtilClient.is_unset(request.page_size):
+            query['pageSize'] = request.page_size
+        if not UtilClient.is_unset(request.record_id):
+            query['recordId'] = request.record_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='PageKanjianRecordProcess',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/records/process',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def page_kanjian_record_process(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordProcessRequest,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse:
+        """
+        @summary 分页拉取看鉴记录的过程记录结果
+        
+        @param request: PageKanjianRecordProcessRequest
+        @return: PageKanjianRecordProcessResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.PageKanjianRecordProcessHeaders()
+        return self.page_kanjian_record_process_with_options(request, headers, runtime)
+
+    async def page_kanjian_record_process_async(
+        self,
+        request: dingtalkdvi__1__0_models.PageKanjianRecordProcessRequest,
+    ) -> dingtalkdvi__1__0_models.PageKanjianRecordProcessResponse:
+        """
+        @summary 分页拉取看鉴记录的过程记录结果
+        
+        @param request: PageKanjianRecordProcessRequest
+        @return: PageKanjianRecordProcessResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.PageKanjianRecordProcessHeaders()
+        return await self.page_kanjian_record_process_with_options_async(request, headers, runtime)
 
     def query_asr_task_with_options(
         self,
@@ -5134,6 +6472,250 @@ class Client(OpenApiClient):
         headers = dingtalkdvi__1__0_models.QueryUserDeviceLocationHeaders()
         return await self.query_user_device_location_with_options_async(request, headers, runtime)
 
+    def start_kanjian_recording_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.StartKanjianRecordingRequest,
+        headers: dingtalkdvi__1__0_models.StartKanjianRecordingHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.StartKanjianRecordingResponse:
+        """
+        @summary BV 设备开始录制
+        
+        @param request: StartKanjianRecordingRequest
+        @param headers: StartKanjianRecordingHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: StartKanjianRecordingResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.device_sn):
+            body['deviceSn'] = request.device_sn
+        if not UtilClient.is_unset(request.main_task_id):
+            body['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.title):
+            body['title'] = request.title
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='StartKanjianRecording',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/recordings/start',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.StartKanjianRecordingResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def start_kanjian_recording_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.StartKanjianRecordingRequest,
+        headers: dingtalkdvi__1__0_models.StartKanjianRecordingHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.StartKanjianRecordingResponse:
+        """
+        @summary BV 设备开始录制
+        
+        @param request: StartKanjianRecordingRequest
+        @param headers: StartKanjianRecordingHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: StartKanjianRecordingResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.device_sn):
+            body['deviceSn'] = request.device_sn
+        if not UtilClient.is_unset(request.main_task_id):
+            body['mainTaskId'] = request.main_task_id
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.title):
+            body['title'] = request.title
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='StartKanjianRecording',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/recordings/start',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.StartKanjianRecordingResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def start_kanjian_recording(
+        self,
+        request: dingtalkdvi__1__0_models.StartKanjianRecordingRequest,
+    ) -> dingtalkdvi__1__0_models.StartKanjianRecordingResponse:
+        """
+        @summary BV 设备开始录制
+        
+        @param request: StartKanjianRecordingRequest
+        @return: StartKanjianRecordingResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.StartKanjianRecordingHeaders()
+        return self.start_kanjian_recording_with_options(request, headers, runtime)
+
+    async def start_kanjian_recording_async(
+        self,
+        request: dingtalkdvi__1__0_models.StartKanjianRecordingRequest,
+    ) -> dingtalkdvi__1__0_models.StartKanjianRecordingResponse:
+        """
+        @summary BV 设备开始录制
+        
+        @param request: StartKanjianRecordingRequest
+        @return: StartKanjianRecordingResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.StartKanjianRecordingHeaders()
+        return await self.start_kanjian_recording_with_options_async(request, headers, runtime)
+
+    def stop_kanjian_recording_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.StopKanjianRecordingRequest,
+        headers: dingtalkdvi__1__0_models.StopKanjianRecordingHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.StopKanjianRecordingResponse:
+        """
+        @summary BV 设备结束录制
+        
+        @param request: StopKanjianRecordingRequest
+        @param headers: StopKanjianRecordingHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: StopKanjianRecordingResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.session_id):
+            body['sessionId'] = request.session_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='StopKanjianRecording',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/recordings/stop',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.StopKanjianRecordingResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def stop_kanjian_recording_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.StopKanjianRecordingRequest,
+        headers: dingtalkdvi__1__0_models.StopKanjianRecordingHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.StopKanjianRecordingResponse:
+        """
+        @summary BV 设备结束录制
+        
+        @param request: StopKanjianRecordingRequest
+        @param headers: StopKanjianRecordingHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: StopKanjianRecordingResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.session_id):
+            body['sessionId'] = request.session_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='StopKanjianRecording',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/recordings/stop',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.StopKanjianRecordingResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def stop_kanjian_recording(
+        self,
+        request: dingtalkdvi__1__0_models.StopKanjianRecordingRequest,
+    ) -> dingtalkdvi__1__0_models.StopKanjianRecordingResponse:
+        """
+        @summary BV 设备结束录制
+        
+        @param request: StopKanjianRecordingRequest
+        @return: StopKanjianRecordingResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.StopKanjianRecordingHeaders()
+        return self.stop_kanjian_recording_with_options(request, headers, runtime)
+
+    async def stop_kanjian_recording_async(
+        self,
+        request: dingtalkdvi__1__0_models.StopKanjianRecordingRequest,
+    ) -> dingtalkdvi__1__0_models.StopKanjianRecordingResponse:
+        """
+        @summary BV 设备结束录制
+        
+        @param request: StopKanjianRecordingRequest
+        @return: StopKanjianRecordingResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.StopKanjianRecordingHeaders()
+        return await self.stop_kanjian_recording_with_options_async(request, headers, runtime)
+
     def submit_agent_task_with_options(
         self,
         request: dingtalkdvi__1__0_models.SubmitAgentTaskRequest,
@@ -5649,6 +7231,148 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkdvi__1__0_models.UpdateDeviceBindingHeaders()
         return await self.update_device_binding_with_options_async(request, headers, runtime)
+
+    def update_kanjian_task_with_options(
+        self,
+        request: dingtalkdvi__1__0_models.UpdateKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.UpdateKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.UpdateKanjianTaskResponse:
+        """
+        @summary 更新看鉴主任务
+        
+        @param request: UpdateKanjianTaskRequest
+        @param headers: UpdateKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: UpdateKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.admin_user_ids):
+            body['adminUserIds'] = request.admin_user_ids
+        if not UtilClient.is_unset(request.description):
+            body['description'] = request.description
+        if not UtilClient.is_unset(request.executor_user_ids):
+            body['executorUserIds'] = request.executor_user_ids
+        if not UtilClient.is_unset(request.name):
+            body['name'] = request.name
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.report_content):
+            body['reportContent'] = request.report_content
+        if not UtilClient.is_unset(request.sub_tasks):
+            body['subTasks'] = request.sub_tasks
+        if not UtilClient.is_unset(request.task_id):
+            body['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='UpdateKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='PATCH',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.UpdateKanjianTaskResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def update_kanjian_task_with_options_async(
+        self,
+        request: dingtalkdvi__1__0_models.UpdateKanjianTaskRequest,
+        headers: dingtalkdvi__1__0_models.UpdateKanjianTaskHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkdvi__1__0_models.UpdateKanjianTaskResponse:
+        """
+        @summary 更新看鉴主任务
+        
+        @param request: UpdateKanjianTaskRequest
+        @param headers: UpdateKanjianTaskHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: UpdateKanjianTaskResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.admin_user_ids):
+            body['adminUserIds'] = request.admin_user_ids
+        if not UtilClient.is_unset(request.description):
+            body['description'] = request.description
+        if not UtilClient.is_unset(request.executor_user_ids):
+            body['executorUserIds'] = request.executor_user_ids
+        if not UtilClient.is_unset(request.name):
+            body['name'] = request.name
+        if not UtilClient.is_unset(request.operator_user_id):
+            body['operatorUserId'] = request.operator_user_id
+        if not UtilClient.is_unset(request.report_content):
+            body['reportContent'] = request.report_content
+        if not UtilClient.is_unset(request.sub_tasks):
+            body['subTasks'] = request.sub_tasks
+        if not UtilClient.is_unset(request.task_id):
+            body['taskId'] = request.task_id
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='UpdateKanjianTask',
+            version='dvi_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/dvi/bv/kanjian/tasks',
+            method='PATCH',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkdvi__1__0_models.UpdateKanjianTaskResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def update_kanjian_task(
+        self,
+        request: dingtalkdvi__1__0_models.UpdateKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.UpdateKanjianTaskResponse:
+        """
+        @summary 更新看鉴主任务
+        
+        @param request: UpdateKanjianTaskRequest
+        @return: UpdateKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.UpdateKanjianTaskHeaders()
+        return self.update_kanjian_task_with_options(request, headers, runtime)
+
+    async def update_kanjian_task_async(
+        self,
+        request: dingtalkdvi__1__0_models.UpdateKanjianTaskRequest,
+    ) -> dingtalkdvi__1__0_models.UpdateKanjianTaskResponse:
+        """
+        @summary 更新看鉴主任务
+        
+        @param request: UpdateKanjianTaskRequest
+        @return: UpdateKanjianTaskResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkdvi__1__0_models.UpdateKanjianTaskHeaders()
+        return await self.update_kanjian_task_with_options_async(request, headers, runtime)
 
     def update_recording_schedule_with_options(
         self,

@@ -43,9 +43,10 @@ from cozy_runtime.author._markers import (
     Preparation,
     _PreflightMarker,
 )
+from cozy_runtime.author._media import KIND_MEDIA, slot_kind
 from cozy_runtime.author._memo import Memoize
 from cozy_runtime.author._model import Model, component_use
-from cozy_runtime.author._project import adapter_result
+from cozy_runtime.author._node import Node
 from cozy_runtime.author._services import SERVICES, Secrets, Settings
 from cozy_runtime.author._walker import is_struct, strip, unwrap_optional, walk
 from cozy_runtime.author._weights import WeightsOutput, weights_class
@@ -95,6 +96,14 @@ class AssetsBinding:
 
     def preparation(self, kind: str) -> Preparation | None:
         return next((p for p in self.preparations if p.kind == kind), None)
+
+    def media_types(self, kind: str) -> tuple[str, ...]:
+        """What `kind` takes in this slot: what it declares, less what binds to another kind
+        here (`slot_kind`), so each type is in one row."""
+        kinds = [cls.kind for cls, _ in self.kinds]
+        bound = next(bound for cls, bound in self.kinds if cls.kind == kind)
+        declared = bound.media_types if bound and bound.media_types else KIND_MEDIA[kind]
+        return tuple(media for media in declared if slot_kind(kinds, media) in (kind, None))
 
     @property
     def wire_type(self) -> object:
@@ -201,7 +210,7 @@ def assets_binding(name: str, annotation: object) -> AssetsBinding:
             raise ConformanceError(
                 f"conflicting {type(marker).__name__} markers", code="preparation_target"
             )
-    return AssetsBinding(
+    binding = AssetsBinding(
         name,
         annotation,
         tuple(kinds[key] for key in sorted(kinds)),
@@ -210,6 +219,16 @@ def assets_binding(name: str, annotation: object) -> AssetsBinding:
         tuple(preparations[key] for key in sorted(preparations)),
         frozenset(undeclared),
     )
+    for cls, bound in binding.kinds:
+        if not binding.media_types(cls.kind) and (
+            cls.kind != "file" or (bound and bound.media_types)
+        ):
+            raise ConformanceError(
+                f"{cls.__name__} in {name} takes nothing another kind there doesn't: "
+                "name a media type only that kind reads, or drop it",
+                code="assets_element",
+            )
+    return binding
 
 
 def check_parameter_markers(annotation: object) -> None:
@@ -338,8 +357,8 @@ class Declaration:
     """Run by its own package's calls only (`app.child_task`), never a root request."""
     accelerator: bool = True
     """False: CPU only, never opens CUDA. True: the machine's GPU when it has one."""
-    reserved: tuple[str, ...] = ()
-    """A project adapter's tags: what its model reads in a text, which stay text."""
+    node: Node | None = None
+    """What its box says that its types can't."""
     model_defaults: Mapping[str, str] = field(default_factory=dict)
     model_components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """Model argument -> the components this callable runs; an absent argument runs all."""
@@ -471,8 +490,7 @@ def _classify(name: str, annotation: object, where: str) -> Param:
             raise ConformanceError(
                 f"{where}: model parameter {name} carries {markers[0]!r} — the Annotated "
                 "override-marker plane is EMPTY at launch: a bare typed parameter is "
-                "unconditionally the whole declaration (§1.1). Future markers enter "
-                "through cr-018's door",
+                "unconditionally the whole declaration: remove the marker",
                 code="empty_marker_plane",
                 fields=[name],
             )
@@ -518,7 +536,7 @@ def analyze(
     hidden: bool = False,
     child_task: bool = False,
     accelerator: bool = True,
-    reserved: tuple[str, ...] = (),
+    node: Node | None = None,
     invocable: bool = False,
     memoize: Memoize | None = None,
     model_defaults: Mapping[str, str] | None = None,
@@ -547,7 +565,7 @@ def analyze(
                 f"({parameter.default!r}) — every parameter here is INJECTED by the runtime, "
                 "so a default is a second source of the same fact. A model slot in "
                 "particular is declared by its bare type alone: there is no slot object and "
-                "no artifacts= dict (§1.1)",
+                "no artifacts= dict",
                 code="injected_default",
                 fields=[parameter.name],
             )
@@ -658,7 +676,7 @@ def analyze(
             payload_type = assets_payload(
                 typing.cast(type[msgspec.Struct], payload_type), binding, fn.__name__, fn.__module__
             )
-    result = adapter_result(hints.get("return"))
+    result = hints.get("return")
     if result is None or not is_struct(strip(result)[0]):
         raise ConformanceError(
             f"{where}: the return annotation must be a msgspec.Struct result schema "
@@ -705,7 +723,7 @@ def analyze(
         hidden=hidden,
         child_task=child_task,
         accelerator=accelerator,
-        reserved=reserved,
+        node=node,
         invocable=invocable,
         memoize=memoize,
         model_defaults=model_defaults or {},

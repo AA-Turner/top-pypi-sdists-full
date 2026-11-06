@@ -125,7 +125,7 @@ source-include = [
 
 [project]
 name = "python-utils"
-version = "4.1.4"
+version = "4.2.0"
 description = "Python Utils is a module with some convenient utilities not included with the standard Python install"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -150,6 +150,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",

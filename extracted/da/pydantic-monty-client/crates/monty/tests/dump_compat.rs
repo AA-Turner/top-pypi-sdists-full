@@ -6,11 +6,11 @@
 //! `DUMP_VERSION`, and a synthetic old/new type pair round-tripped through the
 //! codec itself.
 
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf, thread, time::Duration};
 
 use insta::assert_snapshot;
 use monty::{DUMP_VERSION, Dump, MontyRepl, ReplProgress, Session, SessionRef, dump};
-use monty_types::{CompileOptions, MontyObject, NameLookupResult, PrintWriter, ResourceTracker};
+use monty_types::{CompileOptions, ExecutionClock, MontyObject, NameLookupResult, PrintWriter, ResourceTracker};
 use serde::{Deserialize, Serialize};
 
 /// Environment variable that rewrites the fixture instead of checking it.
@@ -224,6 +224,8 @@ fn fixture_dump_loads_and_resumes() {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, bytes).unwrap();
         eprintln!("updated {}", path.display());
+        let call = progress.into_function_call().expect("suspended on host_call");
+        call.resume(MontyObject::int(41), PrintWriter::Stdout).unwrap();
         return;
     }
     let bytes = fs::read(&path).unwrap_or_else(|err| {
@@ -238,6 +240,7 @@ fn fixture_dump_loads_and_resumes() {
     let Session::Suspended(progress) = loaded.state else {
         panic!("fixture was dumped suspended on a host call");
     };
+    assert_eq!(progress.tracker().execution_clock(), ExecutionClock::Wall);
     let call = progress.into_function_call().expect("suspended on host_call");
     assert_eq!(call.function_name, "host_call");
     // the call arguments are a value graph of their own inside the dump
@@ -271,6 +274,21 @@ fn fixture_dump_loads_and_resumes() {
         checked,
         MontyObject::tuple(vec![MontyObject::int(42), MontyObject::int(13)])
     );
+}
+
+/// Main's version-14 dump format remains readable after inline strings bump it to 15.
+#[test]
+fn version_14_fixture_loads_after_inline_string_bump() {
+    let bytes = fs::read(fixture_path_for(14)).expect("main's version-14 fixture exists");
+    let loaded = Dump::load(&bytes).expect("version-14 dumps remain supported");
+    assert_eq!(loaded.script_name, "fixture.py");
+    let Session::Suspended(progress) = loaded.state else {
+        panic!("fixture was dumped suspended on a host call");
+    };
+    let call = progress.into_function_call().expect("suspended on host_call");
+    let progress = call.resume(MontyObject::int(41), PrintWriter::Stdout).unwrap();
+    let (_, value) = progress.into_complete().expect("host_call resumed to completion");
+    assert_eq!(value, MontyObject::int(42));
 }
 
 /// The class definitions in `dataclasses_v13.bin`, kept for reference: the
@@ -469,6 +487,32 @@ except dataclasses.FrozenInstanceError as e:
     .unwrap();
 }
 
+/// The snippet in `eval_offsets_v14_suspended.bin`, kept for reference: a
+/// version 14 build fed it and dumped it suspended on `host_value`. That build
+/// measured eval positions after stripping all leading whitespace. Never
+/// regenerate it.
+#[expect(dead_code, reason = "documents what the checked-in fixture holds")]
+const LEGACY_EVAL_OFFSETS_SNIPPET: &str = r"x = eval('\u2000\n(host_value,\n 1/0)')";
+
+/// A version 14 eval snippet's positions are rebased onto its full source, so
+/// the `1/0` raised after resuming is located on line 3 rather than inside the
+/// stripped `\u2000`.
+#[test]
+fn legacy_eval_offsets_upgrade() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/eval_offsets_v14_suspended.bin");
+    let loaded = Dump::load(&fs::read(&path).unwrap()).expect("a version 14 suspended dump loads");
+    let Session::Suspended(progress) = loaded.state else {
+        panic!("the fixture was dumped suspended");
+    };
+    let lookup = progress.into_name_lookup().expect("suspended on `host_value`");
+    let err = lookup
+        .resume(NameLookupResult::Value(MontyObject::int(42)), PrintWriter::Stdout)
+        .expect_err("1/0 raises");
+    let frame = err.error.traceback().last().expect("the eval frame");
+    assert_eq!(frame.filename, "<string>");
+    assert_snapshot!(format!("{:?}..{:?}", frame.start, frame.end), @"CodeLoc { line: 3, column: 2 }..CodeLoc { line: 3, column: 5 }");
+}
+
 /// A current-version dump runs no upgrade, so a dataclass whose generated
 /// methods were all rebound keeps its own hooks across a reload.
 #[test]
@@ -535,11 +579,15 @@ fn persisted_key_hashes_are_stable() {
 }
 
 /// The fixture for the current `DUMP_VERSION`; the name carries the version so
-/// a bump leaves the old file behind to delete rather than silently reuse.
+/// a bump creates a new fixture while older supported fixtures remain for compatibility tests.
 fn fixture_path() -> PathBuf {
+    fixture_path_for(DUMP_VERSION)
+}
+
+fn fixture_path_for(version: u16) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
-        .join(format!("dump_v{DUMP_VERSION}.bin"))
+        .join(format!("dump_v{version}.bin"))
 }
 
 /// A record as an older build wrote it.
@@ -618,4 +666,25 @@ fn layout_edits_load_older_encodings() {
         let bytes = minicbor_serde::to_vec(&old).unwrap();
         assert_eq!(minicbor_serde::from_slice::<RecordV2>(&bytes).unwrap(), expected);
     }
+}
+
+/// Legacy wall-clock snapshots retain consumed time across a resume.
+#[test]
+fn legacy_wall_clock_snapshot_preserves_consumption() {
+    let bytes = include_bytes!("fixtures/dump_v14.bin");
+    let loaded = Dump::load(bytes).unwrap();
+    let Session::Suspended(progress) = loaded.state else {
+        panic!("legacy fixture must be suspended");
+    };
+    let consumed = progress.tracker().elapsed();
+    // Durations encoded by the frozen version-14 fixture, before CPU accounting.
+    assert_eq!(consumed, Duration::from_nanos(10_029_209));
+    assert_eq!(progress.tracker().feed_elapsed(), Duration::from_nanos(79_167));
+    thread::sleep(Duration::from_millis(30));
+    assert_eq!(progress.tracker().elapsed(), consumed);
+    let call = progress.into_function_call().unwrap();
+    let completed = call.resume(MontyObject::int(41), PrintWriter::Stdout).unwrap();
+    let (repl, value) = completed.into_complete().unwrap();
+    assert_eq!(value, MontyObject::int(42));
+    assert!(repl.tracker().elapsed() >= consumed);
 }

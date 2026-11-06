@@ -26,6 +26,7 @@ from any_llm.types.completion import (
     Usage,
 )
 from any_llm.utils.structured_output import get_json_schema, is_structured_output_type
+from any_llm.utils.token_limit import resolve_output_token_limit
 
 INFERENCE_PARAMETERS = ["maxTokens", "temperature", "topP", "stopSequences"]
 
@@ -77,6 +78,16 @@ def _is_anthropic_model(model_id: str) -> bool:
     profile ids (``us.anthropic.claude-...``, ``eu.anthropic.claude-...``).
     """
     return "anthropic." in model_id
+
+
+def _is_gpt_oss_model(model_id: str) -> bool:
+    """Return True if the Bedrock model id refers to one of OpenAI's gpt-oss models, safeguard included."""
+    return "openai.gpt-oss" in model_id
+
+
+# gpt-oss takes OpenAI's own `reasoning_effort` field, which Converse forwards from
+# `additionalModelRequestFields`. https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-openai.html
+_GPT_OSS_REASONING_EFFORTS = ("low", "medium", "high")
 
 
 def _convert_response_format_to_tool_spec(response_format: dict[str, Any] | type, provider_name: str) -> dict[str, Any]:
@@ -146,8 +157,33 @@ def _build_tool_config(params: CompletionParams) -> dict[str, Any] | None:
     _check_no_reserved_tool_name_collision(params.tools)
 
     if params.response_format is None:
-        return _convert_tool_spec(params.tools, params.tool_choice) if params.tools else None
+        if params.tool_choice == "none":
+            # Converse has no "none" choice, so the tools are withheld; `_replayed_tool_config`
+            # still declares the ones the history called, which Converse requires.
+            return None
+        tool_config = _convert_tool_spec(params.tools or [], params.tool_choice)
+        if (
+            "toolChoice" in tool_config
+            and params.reasoning_effort is not None
+            and params.reasoning_effort not in ("auto", "none")
+            and not _is_gpt_oss_model(params.model_id)
+        ):
+            msg = "tool_choice with reasoning_effort"
+            raise UnsupportedParameterError(
+                msg,
+                "bedrock",
+                "Claude rejects forced tool use with manual extended thinking. Use tool_choice='auto' "
+                "or disable reasoning_effort to force a tool.",
+            )
+        return tool_config if params.tools else None
 
+    if _is_gpt_oss_model(params.model_id):
+        # Converse accepts `outputConfig` for gpt-oss but does not hold the model to the schema:
+        # live runs answered prose before the JSON ("2+2 equals {...}") or stopped mid-object.
+        msg = "response_format"
+        raise UnsupportedParameterError(
+            msg, "bedrock", "Bedrock does not constrain gpt-oss output to a schema, so the answer may not be JSON."
+        )
     if not _is_anthropic_model(params.model_id):
         msg = "response_format"
         raise UnsupportedParameterError(
@@ -176,9 +212,28 @@ def _build_tool_config(params: CompletionParams) -> dict[str, Any] | None:
             "thinking is enabled. Drop reasoning_effort (or set it to 'none') to use response_format.",
         )
 
-    tool_config = _convert_tool_spec(params.tools, params.tool_choice) if params.tools else {"tools": []}
+    tool_config = _convert_tool_spec(params.tools, None) if params.tools else {"tools": []}
     tool_config["tools"].append(_convert_response_format_to_tool_spec(params.response_format, "bedrock"))
-    tool_config["toolChoice"] = {"tool": {"name": _STRUCTURED_OUTPUT_TOOL_NAME}}
+    forced_choice = {"tool": {"name": _STRUCTURED_OUTPUT_TOOL_NAME}}
+    if params.tool_choice == "none":
+        msg = "tool_choice='none' with response_format"
+        raise UnsupportedParameterError(
+            msg,
+            "bedrock",
+            "response_format is emulated via a forced tool call, which tool_choice='none' forbids.",
+        )
+    requested_choice = _convert_tool_choice(
+        params.tool_choice, {tool["toolSpec"]["name"] for tool in tool_config["tools"]}
+    )
+    if requested_choice is not None and requested_choice not in ({"any": {}}, forced_choice):
+        msg = "tool_choice with response_format"
+        raise UnsupportedParameterError(
+            msg,
+            "bedrock",
+            "response_format requires the reserved structured-output tool. Drop the named tool_choice "
+            "or omit response_format to force a different tool.",
+        )
+    tool_config["toolChoice"] = forced_choice
     return tool_config
 
 
@@ -194,7 +249,13 @@ def _convert_params(params: CompletionParams, kwargs: dict[str, Any]) -> dict[st
     # An ARN (application inference profile, provisioned throughput, custom or imported model)
     # may front a Claude model without naming it, so it keeps the Claude shape rather than being refused.
     opaque_arn = params.model_id.startswith("arn:")
-    if reasoning_enabled and not _is_anthropic_model(params.model_id) and not opaque_arn:
+    gpt_oss = _is_gpt_oss_model(params.model_id)
+    if reasoning_enabled and gpt_oss and params.reasoning_effort not in _GPT_OSS_REASONING_EFFORTS:
+        msg = f"reasoning_effort '{params.reasoning_effort}'"
+        raise UnsupportedParameterError(
+            msg, "bedrock", f"gpt-oss on Bedrock takes one of: {', '.join(_GPT_OSS_REASONING_EFFORTS)}."
+        )
+    if reasoning_enabled and not gpt_oss and not _is_anthropic_model(params.model_id) and not opaque_arn:
         # `reasoning_config` with `budget_tokens` is Claude's extended thinking; other model
         # families on Bedrock each take their own reasoning field, and reject this object.
         msg = "reasoning_effort"
@@ -206,19 +267,25 @@ def _convert_params(params: CompletionParams, kwargs: dict[str, Any]) -> dict[st
         )
 
     inference_config: dict[str, Any] = {}
-    if params.max_tokens:
-        inference_config["maxTokens"] = params.max_tokens
+    max_tokens = resolve_output_token_limit(params)
+    if max_tokens:
+        inference_config["maxTokens"] = max_tokens
     if params.temperature is not None:
         inference_config["temperature"] = params.temperature
     if params.top_p is not None:
         inference_config["topP"] = params.top_p
     if params.stop:
-        inference_config["stopSequences"] = params.stop
+        inference_config["stopSequences"] = [params.stop] if isinstance(params.stop, str) else params.stop
 
     if inference_config:
         result_kwargs["inferenceConfig"] = inference_config
 
-    if reasoning_enabled:
+    if reasoning_enabled and gpt_oss:
+        result_kwargs["additionalModelRequestFields"] = {
+            **result_kwargs.get("additionalModelRequestFields", {}),
+            "reasoning_effort": params.reasoning_effort,
+        }
+    elif reasoning_enabled:
         additional_fields: dict[str, Any] = result_kwargs.get("additionalModelRequestFields", {})
         reasoning_config: dict[str, Any] = {"type": "enabled"}
         if params.reasoning_effort in REASONING_EFFORT_TO_THINKING_BUDGETS:
@@ -256,8 +323,42 @@ def _replayed_tool_config(messages: list[dict[str, Any]]) -> dict[str, Any] | No
     return _convert_tool_spec([{"type": "function", "function": {"name": name}} for name in names], tool_choice=None)
 
 
+def _convert_tool_choice(tool_choice: str | dict[str, Any] | None, tool_names: set[str]) -> dict[str, Any] | None:
+    """Translate an OpenAI `tool_choice` to a Converse `toolChoice`, or None for automatic selection.
+
+    `"none"` has no Converse equivalent and is handled by the caller. AWS validates
+    which native choice modes a given model supports.
+    """
+    if tool_choice is None or tool_choice == "auto":
+        return None
+    if tool_choice == "required":
+        if not tool_names:
+            msg = "tool_choice='required' requires at least one tool."
+            raise InvalidRequestError(msg, provider_name="bedrock")
+        return {"any": {}}
+    if isinstance(tool_choice, dict):
+        function = tool_choice.get("function")
+        if (
+            set(tool_choice) != {"type", "function"}
+            or tool_choice.get("type") != "function"
+            or not isinstance(function, dict)
+            or set(function) != {"name"}
+            or not isinstance(function["name"], str)
+            or not function["name"]
+        ):
+            msg = "tool_choice must be a function choice containing only a nonempty function name."
+            raise InvalidRequestError(msg, provider_name="bedrock")
+        name = function["name"]
+        if name not in tool_names:
+            msg = f"tool_choice names '{name}', which is not present in tools."
+            raise InvalidRequestError(msg, provider_name="bedrock")
+        return {"tool": {"name": name}}
+    msg = "tool_choice"
+    raise UnsupportedParameterError(msg, "bedrock", "Use 'auto', 'none', 'required', or a named function choice.")
+
+
 def _convert_tool_spec(tools: list[dict[str, Any]], tool_choice: str | dict[str, Any] | None) -> dict[str, Any]:
-    """Convert tool specifications to Bedrock format."""
+    """Convert tool specifications and supported explicit choices to Bedrock format."""
     tool_config: dict[str, Any] = {
         "tools": [
             {
@@ -270,9 +371,9 @@ def _convert_tool_spec(tools: list[dict[str, Any]], tool_choice: str | dict[str,
             for tool in tools
         ]
     }
-    if tool_choice:
-        if tool_choice == "required":
-            tool_config["toolChoice"] = {"any": {}}
+    converted_choice = _convert_tool_choice(tool_choice, {tool["function"]["name"] for tool in tools})
+    if converted_choice is not None:
+        tool_config["toolChoice"] = converted_choice
     return tool_config
 
 
@@ -346,6 +447,31 @@ def _convert_images_for_bedrock(content: list[dict[str, Any]]) -> list[dict[str,
     return converted_content
 
 
+def _convert_system_content(content: Any) -> list[dict[str, Any]]:
+    """Convert a system message's string or text parts into Bedrock system text blocks."""
+    if isinstance(content, str):
+        content = [{"type": "text", "text": content}]
+    if not isinstance(content, list) or not content:
+        msg = "System message content must be a nonempty string or a nonempty list of text parts."
+        raise InvalidRequestError(msg, provider_name="bedrock")
+
+    result = []
+    for block in content:
+        if not isinstance(block, dict):
+            msg = "System message content parts must be text objects."
+            raise InvalidRequestError(msg, provider_name="bedrock")
+        if block.get("type") != "text":
+            msg = "system content"
+            raise UnsupportedParameterError(msg, "bedrock", "Converse system messages only accept text parts.")
+        text = block.get("text")
+        # Bedrock's SystemContentBlock.text has a minimum length of 1.
+        if not isinstance(text, str) or not text:
+            msg = "System message content text must be a nonempty string."
+            raise InvalidRequestError(msg, provider_name="bedrock")
+        result.append({"text": text})
+    return result
+
+
 def _convert_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Convert messages to AWS Bedrock format.
 
@@ -353,11 +479,11 @@ def _convert_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, An
     This is necessary because Bedrock expects all toolResult blocks that correspond to
     tool calls from a single assistant message to be grouped together. Consecutive user
     messages are merged for the same reason: Bedrock rejects two user turns in a row.
+
+    Every system message, wherever it appears, is hoisted into the system prompt in order,
+    since Converse has no system role inside the conversation.
     """
-    system_message = []
-    if messages and messages[0]["role"] == "system":
-        system_message = [{"text": messages[0]["content"]}]
-        messages = messages[1:]
+    system_message: list[dict[str, Any]] = []
 
     formatted_messages: list[dict[str, Any]] = []
     pending_tool_results: list[dict[str, Any]] = []
@@ -370,9 +496,8 @@ def _convert_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, An
 
     for message in messages:
         if message["role"] == "system":
-            continue
-
-        if message["role"] == "tool":
+            system_message.extend(_convert_system_content(message.get("content")))
+        elif message["role"] == "tool":
             tool_result_content = _convert_tool_result_content(message)
             if tool_result_content:
                 pending_tool_results.append(tool_result_content)
@@ -424,11 +549,14 @@ def _convert_tool_result_content(message: dict[str, Any]) -> dict[str, Any] | No
         msg = "Tool result message must include tool_call_id"
         raise RuntimeError(msg)
 
-    try:
-        content_json = json.loads(message["content"])
-        content = [{"json": content_json}]
-    except json.JSONDecodeError:
-        content = [{"text": message["content"]}]
+    if isinstance(message["content"], list):
+        content = _convert_images_for_bedrock(message["content"])
+    else:
+        try:
+            content_json = json.loads(message["content"])
+            content = [{"json": content_json}]
+        except json.JSONDecodeError:
+            content = [{"text": message["content"]}]
 
     return {"toolResult": {"toolUseId": tool_call_id, "content": content}}
 

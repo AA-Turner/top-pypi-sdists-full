@@ -50,7 +50,9 @@ from .imports import (
     get_desired_key_values,
     makeParams,
 )
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# No logging.basicConfig here: a library configuring the root logger at import
+# turned on DEBUG output for every package in the host process. This module logs
+# through its own logger; errors still reach stderr via logging's last resort.
 logger = logging.getLogger(__name__)
 def convert_and_normalize_values(values):
     for value in values:

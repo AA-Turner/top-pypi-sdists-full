@@ -116,6 +116,8 @@ __all__ = (
     "ResendContactReachabilityEmailResponseTypeDef",
     "ResendOperationAuthorizationRequestTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreDomainRequestTypeDef",
+    "RestoreDomainResponseTypeDef",
     "RetrieveDomainAuthCodeRequestTypeDef",
     "RetrieveDomainAuthCodeResponseTypeDef",
     "SortConditionTypeDef",
@@ -388,6 +390,10 @@ class ResendContactReachabilityEmailResponseTypeDef(TypedDict):
     isAlreadyVerified: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RestoreDomainResponseTypeDef(TypedDict):
+    OperationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class RetrieveDomainAuthCodeResponseTypeDef(TypedDict):
     AuthCode: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -450,6 +456,10 @@ class RenewDomainRequestTypeDef(TypedDict):
     DomainName: str
     CurrentExpiryYear: int
     DurationInYears: NotRequired[int]
+    Consent: NotRequired[ConsentTypeDef]
+
+class RestoreDomainRequestTypeDef(TypedDict):
+    DomainName: str
     Consent: NotRequired[ConsentTypeDef]
 
 class ContactDetailOutputTypeDef(TypedDict):

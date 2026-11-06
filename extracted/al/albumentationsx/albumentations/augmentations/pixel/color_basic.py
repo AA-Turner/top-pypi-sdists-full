@@ -3,6 +3,10 @@
 from collections.abc import Callable, Sequence
 from typing import Annotated, Any, Literal, cast
 
+import torch
+from albucore import ImageInputT
+from numpy.typing import NDArray
+
 from albumentations.core.invocation import SamplingContext
 from albumentations.core.transform_params import (
     SampledParams,
@@ -19,7 +23,6 @@ from ._color_shared import (
     BaseTransformInitSchema,
     Field,
     ImageOnlyTransform,
-    ImageType,
     Self,
     VolumeType,
     albucore,
@@ -34,7 +37,7 @@ from ._color_shared import (
 )
 
 
-def _equalize_mask_input(view: TargetView) -> ImageType:
+def _equalize_mask_input(view: TargetView) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Return the image unit Equalize will receive when it applies a target."""
     if view.canonical_type not in {"images", "volume", "volumes"}:
         return view.value
@@ -87,7 +90,7 @@ class RandomToneCurve(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -151,22 +154,22 @@ class RandomToneCurve(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         low_y: float | np.ndarray,
         high_y: float | np.ndarray,
         num_channels: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.move_tone_curve(img, low_y, high_y, num_channels)
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         low_y: float | np.ndarray,
         high_y: float | np.ndarray,
         num_channels: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.move_tone_curve(images, low_y, high_y, num_channels)
 
     def sample_parameters(
@@ -229,10 +232,10 @@ class HueSaturationValue(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
-        3
+        1 or 3
 
     Note:
         - The transform first converts the input RGB image to the HSV color space.
@@ -279,12 +282,12 @@ class HueSaturationValue(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         hue_shift: int,
         sat_shift: int,
         val_shift: int,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not is_rgb_image(img) and not is_grayscale_image(img):
             msg = "HueSaturationValue transformation expects 1-channel or 3-channel images."
             raise TypeError(msg)
@@ -292,12 +295,12 @@ class HueSaturationValue(ImageOnlyTransform):
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         hue_shift: float,
         sat_shift: float,
         val_shift: float,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.shift_hsv_images(images, hue_shift, sat_shift, val_shift)
 
     def sample_parameters(
@@ -349,7 +352,7 @@ class Solarize(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -414,10 +417,14 @@ class Solarize(ImageOnlyTransform):
         super().__init__(p=p)
         self.threshold_range = threshold_range
 
-    def apply(self, img: ImageType, threshold: float, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], threshold: float, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.solarize(img, threshold)
 
-    def apply_to_images(self, images: ImageType, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return self.apply(images, **params)
 
     def sample_parameters(
@@ -530,13 +537,15 @@ class Posterize(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         num_bits: Literal[1, 2, 3, 4, 5, 6, 7] | list[Literal[1, 2, 3, 4, 5, 6, 7]],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.posterize(img, num_bits)
 
-    def apply_to_images(self, images: ImageType, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return self.apply(images, **params)
 
     def sample_parameters(
@@ -583,7 +592,7 @@ class Equalize(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         1,3
@@ -677,7 +686,9 @@ class Equalize(ImageOnlyTransform):
             args["mask"] = args["mask"].tolist()
         return args
 
-    def apply(self, img: ImageType, mask: np.ndarray, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], mask: np.ndarray, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not is_rgb_image(img) and not is_grayscale_image(img):
             raise ValueError("Equalize transform is only supported for RGB and grayscale images.")
         return fpixel.equalize(
@@ -849,11 +860,11 @@ class RandomBrightnessContrast(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         alpha: float,
         beta: float,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not self.brightness_by_max and not self.ensure_safe_output:
             return fpixel.apply_brightness_contrast_torchvision(
                 img,
@@ -869,7 +880,9 @@ class RandomBrightnessContrast(ImageOnlyTransform):
             self.ensure_safe_output,
         )
 
-    def apply_to_images(self, images: ImageType, *args: Any, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], *args: Any, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not self.brightness_by_max:
             return self._apply_to_batch_same_shape(images, lambda image: self.apply(image, *args, **params))
         return self.apply(images, *args, **params)
@@ -1034,11 +1047,18 @@ class ExposureMatching(ImageOnlyTransform):
         self.target_mean_range = target_mean_range
         self.gain_range = gain_range
 
-    def apply(self, img: ImageType, gain: float, **params: Any) -> ImageType:
-        result = albucore.multiply(img, gain, inplace=False)
-        return fpixel.clip(result, img.dtype, inplace=True) if img.dtype == np.float32 else result
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], gain: float, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+        result = albucore.multiply(img, gain)
+        return fpixel.clip(result, out=result) if img.dtype in (np.float16, np.float32) else result
 
-    def apply_to_images(self, images: ImageType, gain: float | list[float], **params: Any) -> ImageType:
+    def apply_to_images(
+        self,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+        gain: float | list[float],
+        **params: Any,
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.exposure_match_batch(images, np.asarray(gain, dtype=np.float32))
 
     def apply_to_volume(self, volume: VolumeType, gain: float | list[float], **params: Any) -> VolumeType:
@@ -1114,7 +1134,7 @@ class CLAHE(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         1, 3
@@ -1151,7 +1171,9 @@ class CLAHE(ImageOnlyTransform):
         self.clip_range = clip_range
         self.tile_grid_size = tile_grid_size
 
-    def apply(self, img: ImageType, clip_limit: float, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], clip_limit: float, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if not is_rgb_image(img) and not is_grayscale_image(img):
             msg = "CLAHE transformation expects 1-channel or 3-channel images."
             raise TypeError(msg)
@@ -1260,10 +1282,12 @@ class RandomGamma(ImageOnlyTransform):
         super().__init__(p=p)
         self.gamma_range = gamma_range
 
-    def apply(self, img: ImageType, gamma: float, **params: Any) -> ImageType:
+    def apply(self, img: Annotated[ImageInputT, torch.Tensor], gamma: float, **params: Any) -> ImageInputT:
         return fpixel.gamma_transform(img, gamma=gamma)
 
-    def apply_to_images(self, images: ImageType, gamma: float, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], gamma: float, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return self.apply(images, gamma=gamma)
 
     def apply_to_volumes(self, volumes: np.ndarray, gamma: float, **params: Any) -> np.ndarray:
@@ -1320,7 +1344,7 @@ class AutoContrast(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Note:
         - The transform processes each color channel independently
@@ -1361,7 +1385,9 @@ class AutoContrast(ImageOnlyTransform):
         self.ignore = ignore
         self.method = method
 
-    def apply(self, img: ImageType, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.auto_contrast(img, self.cutoff, self.ignore, self.method)
 
 

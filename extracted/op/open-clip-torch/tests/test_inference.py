@@ -6,17 +6,9 @@ import open_clip
 import util_test
 import PIL
 
-os.environ['CUDA_VISIBLE_DEVICES'] = ''
-
 torch.serialization.add_safe_globals([PIL.Image.Image])
 
-if hasattr(torch._C, '_jit_set_profiling_executor'):
-    # legacy executor is too slow to compile large models for unit tests
-    # no need for the fusion performance here
-    torch._C._jit_set_profiling_executor(True)
-    torch._C._jit_set_profiling_mode(False)
-
-models_to_test = set(open_clip.list_models())
+models_to_test = {m for m in open_clip.list_models() if not (open_clip.get_model_config(m) or {}).get("audio_cfg")}
 
 # testing excemptions
 models_to_test = models_to_test.difference({
@@ -32,7 +24,11 @@ models_to_test = models_to_test.difference({
         'mt5-xl-ViT-H-14',
         'coca_base',
         'coca_ViT-B-32',
-        'coca_roberta-ViT-B-32'
+        'coca_roberta-ViT-B-32',
+        'coca2_ViT-B-32',
+        'coca2-moderntext_ViT-B-32',
+        'mammut_ViT-L-14',
+        'mammut2_ViT-L-14',
 })
 
 if 'OPEN_CLIP_TEST_REG_MODELS' in os.environ:
@@ -41,22 +37,14 @@ if 'OPEN_CLIP_TEST_REG_MODELS' in os.environ:
         models_to_test = set(f.read().splitlines()).intersection(models_to_test)
     print(f"Selected models from {external_model_list}: {models_to_test}")
 
-# TODO: add "coca_ViT-B-32" onece https://github.com/pytorch/pytorch/issues/92073 gets fixed
-models_to_test = list(models_to_test)
-models_to_test.sort()
-models_to_test = [(model_name, False) for model_name in models_to_test]
-
-models_to_jit_test = {"ViT-B-32"}
-models_to_jit_test = list(models_to_jit_test)
-models_to_jit_test = [(model_name, True) for model_name in models_to_jit_test]
-models_to_test_fully = models_to_test + models_to_jit_test
+models_to_test = sorted(models_to_test)
 
 
+# Preserve the suffix used by CI's model-list parser and cached pytest-split durations.
 @pytest.mark.regression_test
-@pytest.mark.parametrize("model_name,jit", models_to_test_fully)
+@pytest.mark.parametrize("model_name", models_to_test, ids=lambda name: f"{name}-False")
 def test_inference_with_data(
         model_name,
-        jit,
         pretrained = None,
         pretrained_hf = False,
         precision = 'fp32',
@@ -67,7 +55,6 @@ def test_inference_with_data(
             model_name,
             pretrained = pretrained,
             precision = precision,
-            jit = jit,
             force_quick_gelu = force_quick_gelu,
             pretrained_hf = pretrained_hf
     )
@@ -80,8 +67,8 @@ def test_inference_with_data(
         pytest.skip(reason = f"missing test data, expected at {input_text_path}")
     if not os.path.isfile(gt_text_path):
         pytest.skip(reason = f"missing test data, expected at {gt_text_path}")
-    input_text = torch.load(input_text_path)
-    gt_text = torch.load(gt_text_path)
+    input_text = torch.load(input_text_path, weights_only=True)
+    gt_text = torch.load(gt_text_path, weights_only=True)
     y_text = util_test.inference_text(model, model_name, input_text)
     assert (y_text == gt_text).all(), f"text output differs @ {input_text_path}"
     # image
@@ -94,43 +81,19 @@ def test_inference_with_data(
         pytest.skip(reason = f"missing test data, expected at {input_image_path}")
     if not os.path.isfile(gt_image_path):
         pytest.skip(reason = f"missing test data, expected at {gt_image_path}")
-    input_image = torch.load(input_image_path)
-    gt_image = torch.load(gt_image_path)
+    input_image = torch.load(input_image_path, weights_only=True)
+    gt_image = torch.load(gt_image_path, weights_only=True)
     y_image = util_test.inference_image(model, preprocess_val, input_image)
     assert (y_image == gt_image).all(), f"image output differs @ {input_image_path}"
-    
-    if not jit:
-        model.eval()
-        model_out = util_test.forward_model(model, model_name, preprocess_val, input_image, input_text)
-        if type(model) not in [open_clip.CLIP, open_clip.CustomTextCLIP]:
-            assert type(model_out) == dict
-        else:
-            model.output_dict = True
-            model_out_dict = util_test.forward_model(model, model_name, preprocess_val, input_image, input_text)
-            assert (model_out_dict["image_features"] == model_out[0]).all()
-            assert (model_out_dict["text_features"] == model_out[1]).all()
-            assert (model_out_dict["logit_scale"] == model_out[2]).all()
-            model.output_dict = None
+
+    model.eval()
+    model_out = util_test.forward_model(model, model_name, preprocess_val, input_image, input_text)
+    if type(model) not in [open_clip.CLIP, open_clip.CustomTextCLIP]:
+        assert type(model_out) == dict
     else:
-        model, _, preprocess_val = open_clip.create_model_and_transforms(
-            model_name,
-            pretrained = pretrained,
-            precision = precision,
-            jit = False,
-            force_quick_gelu = force_quick_gelu,
-            pretrained_hf = pretrained_hf
-        )
-        
-        test_model = util_test.TestWrapper(model, model_name, output_dict=False)
-        test_model = torch.jit.script(test_model)
-        model_out = util_test.forward_model(test_model, model_name, preprocess_val, input_image, input_text)
-        assert model_out["test_output"].shape[-1] == 2
-
-        test_model = util_test.TestWrapper(model, model_name, output_dict=True)
-        test_model = torch.jit.script(test_model)
-        model_out = util_test.forward_model(test_model, model_name, preprocess_val, input_image, input_text)
-        assert model_out["test_output"].shape[-1] == 2
-        
-    
-
-
+        model.output_dict = True
+        model_out_dict = util_test.forward_model(model, model_name, preprocess_val, input_image, input_text)
+        assert (model_out_dict["image_features"] == model_out[0]).all()
+        assert (model_out_dict["text_features"] == model_out[1]).all()
+        assert (model_out_dict["logit_scale"] == model_out[2]).all()
+        model.output_dict = None

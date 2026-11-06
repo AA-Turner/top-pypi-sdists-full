@@ -47,6 +47,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'demo',
+    'page_assets',
 ]
 
 # `sphinx-autodoc-typehints` is a declared docs dependency but is
@@ -98,7 +99,7 @@ master_doc = 'index'
 # General information about the project.
 project = 'Progress Bar'
 project_slug: str = ''.join(project.capitalize().split())
-copyright = f'{datetime.date.today().year},  <a href="http://wol.ph/">{metadata.__author__}</a>'
+copyright: str = f'{datetime.date.today().year}, {metadata.__author__}'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -158,7 +159,25 @@ html_theme = 'furo'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
+html_title: str = 'progressbar2 documentation'
+html_css_files: list[str] = ['brand.css']
+
 html_theme_options: dict[str, object] = {
+    'light_css_variables': {
+        'color-brand-primary': '#6550b5',
+        'color-brand-content': '#6550b5',
+        'color-background-primary': '#f8f7f4',
+        'color-background-secondary': '#efece5',
+        'color-background-border': '#dedbd3',
+        'font-stack': 'system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    },
+    'dark_css_variables': {
+        'color-brand-primary': '#b9a5f0',
+        'color-brand-content': '#b9a5f0',
+        'color-background-primary': '#1c1b1f',
+        'color-background-secondary': '#252429',
+        'color-background-border': '#49454f',
+    },
     'source_repository': 'https://github.com/wolph/python-progressbar/',
     'source_branch': 'develop',
     'source_directory': 'docs/',
@@ -384,3 +403,22 @@ epub_copyright: str = copyright
 intersphinx_mapping: dict[str, tuple[str, None]] = {
     'python': ('https://docs.python.org/3', None)
 }
+
+# -- Options for linkcheck ------------------------------------------------
+
+# Without a timeout, one hanging external server blocks its linkcheck
+# worker forever and runs the CI docs-linkcheck job into its 10-minute
+# kill, where it ends up cancelled instead of failed. A bounded timeout
+# turns the hang into an ordinary broken-link failure, which the
+# workflow's continue-on-error for experimental envs can absorb.
+linkcheck_timeout = 15
+linkcheck_retries = 2
+# GitHub 429-rate-limits anonymous CI requests to github.com pages (seen
+# on this repository's own /commits/develop link), and sphinx's backoff
+# sleeps up to linkcheck_rate_limit_timeout per retry -- 300 s by
+# default, which single-handedly blows the job's 10-minute budget.
+# Links into this repository verify nothing worth that cost.
+linkcheck_rate_limit_timeout = 30
+linkcheck_ignore = [
+    r'https://github\.com/(WoLpH|wolph)/python-progressbar.*',
+]

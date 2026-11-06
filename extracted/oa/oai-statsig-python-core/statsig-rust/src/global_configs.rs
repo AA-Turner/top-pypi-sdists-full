@@ -297,6 +297,12 @@ impl GlobalConfigs {
         }
     }
 
+    pub(crate) fn is_id_list_access_metrics_enabled(&self) -> bool {
+        self.use_sdk_config_value("id_list_access_metrics", |value| {
+            value.and_then(|value| value.json_value.as_f64()) == Some(1.0)
+        })
+    }
+
     pub fn use_sdk_config_value<T>(
         &self,
         key: &str,

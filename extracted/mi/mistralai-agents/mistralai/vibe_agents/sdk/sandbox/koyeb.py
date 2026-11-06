@@ -465,9 +465,7 @@ class KoyebSandboxDriver(SandboxDriver):
         return self._proxy_identity
 
     def resolve_files_root(self, namespace: str) -> str:
-        namespace = normalized_sandbox_root(namespace)
-        name = namespace.strip("/").replace("/", "-")
-        return f"{_FILES_ROOT}/{name}-{hashlib.sha256(namespace.encode()).hexdigest()[:8]}"
+        return koyeb_files_root(namespace)
 
     async def write_files(self, request: WorkflowSandboxWriteFilesRequest) -> WorkflowSandboxWriteFilesResult:
         if not isinstance(self._state.get("sandbox_id"), str):
@@ -532,6 +530,14 @@ class KoyebSandboxDriver(SandboxDriver):
             await self._proxy.configure()
         else:
             self._proxy.attach_existing_sandbox()
+
+
+def koyeb_files_root(namespace: str) -> str:
+    """The folder a Koyeb Sandbox writes the files of `namespace` to; it depends on `namespace` alone."""
+
+    namespace = normalized_sandbox_root(namespace)
+    name = namespace.strip("/").replace("/", "-")
+    return f"{_FILES_ROOT}/{name}-{hashlib.sha256(namespace.encode()).hexdigest()[:8]}"
 
 
 async def open_borrowed_koyeb_sandbox(

@@ -33,11 +33,12 @@ class PreviewGroupSource(object):
     CLOUD_MEMBERS = "cloud_members"
     SUGGESTED = "suggested"
     OWNERS = "owners"
+    ORGANIZATION_ADMIN = "organization_admin"
     STAGED = "staged"
     EXISTING = "existing"
     DIRECTORY = "directory"
 
-    allowable_values = [ALL_USERS, LEGACY_ROLE, CLOUD_MEMBERS, SUGGESTED, OWNERS, STAGED, EXISTING, DIRECTORY]  # noqa: E501
+    allowable_values = [ALL_USERS, LEGACY_ROLE, CLOUD_MEMBERS, SUGGESTED, OWNERS, ORGANIZATION_ADMIN, STAGED, EXISTING, DIRECTORY]  # noqa: E501
 
     """
     Attributes:

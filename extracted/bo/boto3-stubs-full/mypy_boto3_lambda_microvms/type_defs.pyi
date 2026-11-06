@@ -22,7 +22,9 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    ArchitectureType,
     BuildStateType,
+    ChipsetType,
     HookStateType,
     ManagedMicrovmImageVersionStatusType,
     MicrovmImageStateType,
@@ -119,7 +121,7 @@ class CodeArtifactTypeDef(TypedDict):
     uri: NotRequired[str]
 
 class CpuConfigurationTypeDef(TypedDict):
-    architecture: Literal["ARM_64"]
+    architecture: ArchitectureType
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -193,13 +195,6 @@ class ListManagedMicrovmImageVersionsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-class ManagedMicrovmImageVersionTypeDef(TypedDict):
-    imageArn: str
-    imageVersion: str
-    createdAt: datetime
-    status: NotRequired[ManagedMicrovmImageVersionStatusType]
-    updatedAt: NotRequired[datetime]
-
 class ListManagedMicrovmImagesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -214,8 +209,8 @@ class ListMicrovmImageBuildsInputTypeDef(TypedDict):
     imageVersion: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    architecture: NotRequired[Literal["ARM_64"]]
-    chipset: NotRequired[Literal["GRAVITON"]]
+    architecture: NotRequired[ArchitectureType]
+    chipset: NotRequired[ChipsetType]
     chipsetGeneration: NotRequired[str]
 
 class MicrovmImageBuildSummaryTypeDef(TypedDict):
@@ -223,8 +218,8 @@ class MicrovmImageBuildSummaryTypeDef(TypedDict):
     imageVersion: str
     buildId: str
     buildState: BuildStateType
-    architecture: Literal["ARM_64"]
-    chipset: Literal["GRAVITON"]
+    architecture: ArchitectureType
+    chipset: ChipsetType
     chipsetGeneration: str
     createdAt: datetime
     stateReason: NotRequired[str]
@@ -297,6 +292,14 @@ class LoggingTypeDef(TypedDict):
     disabled: NotRequired[Mapping[str, Any]]
     cloudWatch: NotRequired[CloudWatchLoggingTypeDef]
 
+class ManagedMicrovmImageVersionTypeDef(TypedDict):
+    imageArn: str
+    imageVersion: str
+    createdAt: datetime
+    status: NotRequired[ManagedMicrovmImageVersionStatusType]
+    supportedCpuConfigurations: NotRequired[list[CpuConfigurationTypeDef]]
+    updatedAt: NotRequired[datetime]
+
 class CreateMicrovmAuthTokenResponseTypeDef(TypedDict):
     authToken: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -339,8 +342,8 @@ class GetMicrovmImageBuildOutputTypeDef(TypedDict):
     imageVersion: str
     buildId: str
     buildState: BuildStateType
-    architecture: Literal["ARM_64"]
-    chipset: Literal["GRAVITON"]
+    architecture: ArchitectureType
+    chipset: ChipsetType
     chipsetGeneration: str
     stateReason: str
     createdAt: datetime
@@ -394,8 +397,8 @@ class ListManagedMicrovmImagesInputPaginateTypeDef(TypedDict):
 class ListMicrovmImageBuildsInputPaginateTypeDef(TypedDict):
     imageIdentifier: str
     imageVersion: str
-    architecture: NotRequired[Literal["ARM_64"]]
-    chipset: NotRequired[Literal["GRAVITON"]]
+    architecture: NotRequired[ArchitectureType]
+    chipset: NotRequired[ChipsetType]
     chipsetGeneration: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -411,11 +414,6 @@ class ListMicrovmsRequestPaginateTypeDef(TypedDict):
     imageIdentifier: NotRequired[str]
     imageVersion: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListManagedMicrovmImageVersionsOutputTypeDef(TypedDict):
-    items: list[ManagedMicrovmImageVersionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class ListManagedMicrovmImagesOutputTypeDef(TypedDict):
     items: list[ManagedMicrovmImageSummaryTypeDef]
@@ -446,6 +444,11 @@ PortSpecificationTypeDef = TypedDict(
     },
 )
 LoggingUnionTypeDef = Union[LoggingTypeDef, LoggingOutputTypeDef]
+
+class ListManagedMicrovmImageVersionsOutputTypeDef(TypedDict):
+    items: list[ManagedMicrovmImageVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CreateMicrovmImageResponseTypeDef(TypedDict):
     imageArn: str

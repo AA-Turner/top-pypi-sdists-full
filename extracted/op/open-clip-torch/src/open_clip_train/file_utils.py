@@ -1,20 +1,23 @@
+import glob
 import logging
-import os
 import multiprocessing
+import os
+import re
 import subprocess
 import time
 import fsspec
 import torch
-from tqdm import tqdm
+
+_logger = logging.getLogger(__name__)
 
 def remote_sync_s3(local_dir, remote_dir):
     # skip epoch_latest which can change during sync.
     result = subprocess.run(["aws", "s3", "sync", local_dir, remote_dir, '--exclude', '*epoch_latest.pt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
-        logging.error(f"Error: Failed to sync with S3 bucket {result.stderr.decode('utf-8')}")
+        _logger.error(f"Error: Failed to sync with S3 bucket {result.stderr.decode('utf-8')}")
         return False
         
-    logging.info(f"Successfully synced with S3 bucket")
+    _logger.info(f"Successfully synced with S3 bucket")
     return True
 
 def remote_sync_fsspec(local_dir, remote_dir):
@@ -27,28 +30,28 @@ def remote_sync_fsspec(local_dir, remote_dir):
         if 'epoch_latest.pt' in k:
             continue
 
-        logging.info(f'Attempting to sync {k}')
+        _logger.info(f'Attempting to sync {k}')
         if k in b and len(a[k]) == len(b[k]):
-            logging.debug(f'Skipping remote sync for {k}.')
+            _logger.debug(f'Skipping remote sync for {k}.')
             continue
 
         try:
-            logging.info(f'Successful sync for {k}.')
+            _logger.info(f'Successful sync for {k}.')
             b[k] = a[k]
         except Exception as e:
-            logging.info(f'Error during remote sync for {k}: {e}')
+            _logger.info(f'Error during remote sync for {k}: {e}')
             return False
 
     return True
 
 def remote_sync(local_dir, remote_dir, protocol):
-    logging.info('Starting remote sync.')
+    _logger.info('Starting remote sync.')
     if protocol == 's3':
         return remote_sync_s3(local_dir, remote_dir)
     elif protocol == 'fsspec':
         return remote_sync_fsspec(local_dir, remote_dir)
     else:
-        logging.error('Remote protocol not known')
+        _logger.error('Remote protocol not known')
         return False
 
 def keep_running_remote_sync(sync_every, local_dir, remote_dir, protocol):
@@ -67,11 +70,17 @@ def pt_save(pt_obj, file_path):
         torch.save(pt_obj, file_path)
 
 def pt_load(file_path, map_location=None):
+    """Load a checkpoint via fsspec. Uses ``weights_only=True``.
+
+    If a checkpoint contains optimizer state with custom (non-allowlisted)
+    types, the caller must register them via
+    ``torch.serialization.add_safe_globals([...])`` before calling.
+    """
     if file_path.startswith('s3'):
-        logging.info('Loading remote checkpoint, which may take a bit.')
+        _logger.info('Loading remote checkpoint, which may take a bit.')
     of = fsspec.open(file_path, "rb")
     with of as f:
-        out = torch.load(f, map_location=map_location)
+        out = torch.load(f, map_location=map_location, weights_only=True)
     return out
 
 def check_exists(file_path):
@@ -81,3 +90,46 @@ def check_exists(file_path):
     except FileNotFoundError:
         return False
     return True
+
+
+def natural_key(string_):
+    """See http://www.codinghorror.com/blog/archives/001018.html"""
+    return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', string_.lower())]
+
+
+def get_latest_checkpoint(path: str, remote: bool, *, include_sharded: bool = True):
+    if remote:
+        result = subprocess.run(["aws", "s3", "ls", path + "/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        _logger.debug("Remote checkpoint listing: %s", result)
+        if result.returncode == 1:
+            return None
+        checkpoints = [os.path.join(path, x.split(' ')[-1]) for x in result.stdout.decode().split('\n')[:-1]]
+    else:
+        # Flat like the remote listing; recursing would also pick up _metadata_extra.pt inside sharded DCP dirs.
+        checkpoints = glob.glob(os.path.join(path, '*.pt'))
+        # Also find DCP checkpoint dirs (contain .metadata file from DCP)
+        if include_sharded:
+            for d in glob.glob(os.path.join(path, 'epoch_*')):
+                if os.path.isdir(d) and os.path.exists(os.path.join(d, '.metadata')):
+                    checkpoints.append(d)
+    if checkpoints:
+        checkpoints = sorted(checkpoints, key=natural_key)
+        return checkpoints[-1]
+    return None
+
+
+def copy_codebase(args):
+    from shutil import copytree, ignore_patterns
+    new_code_path = os.path.join(args.logs, args.name, "code")
+    if os.path.exists(new_code_path):
+        print(
+            f"Error. Experiment already exists at {new_code_path}. Use --name to specify a new experiment."
+        )
+        return -1
+    print(f"Copying codebase to {new_code_path}")
+    current_code_path = os.path.realpath(__file__)
+    for _ in range(3):
+        current_code_path = os.path.dirname(current_code_path)
+    copytree(current_code_path, new_code_path, ignore=ignore_patterns('log', 'logs', 'wandb'))
+    print("Done copying code.")
+    return 1

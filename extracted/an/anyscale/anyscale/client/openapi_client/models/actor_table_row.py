@@ -49,7 +49,14 @@ class ActorTableRow(object):
         'ray_session_name': 'str',
         'exit_message': 'str',
         'num_restarts': 'int',
-        'data_operator_id': 'str'
+        'data_operator_id': 'str',
+        'name_hash': 'str',
+        'class_name_hash': 'str',
+        'serialized_runtime_env_hash': 'str',
+        'definition_batch_id': 'str',
+        'death_reason': 'str',
+        'exit_message_hash': 'str',
+        'exit_batch_id': 'str'
     }
 
     attribute_map = {
@@ -69,10 +76,17 @@ class ActorTableRow(object):
         'ray_session_name': 'ray_session_name',
         'exit_message': 'exit_message',
         'num_restarts': 'num_restarts',
-        'data_operator_id': 'data_operator_id'
+        'data_operator_id': 'data_operator_id',
+        'name_hash': 'name_hash',
+        'class_name_hash': 'class_name_hash',
+        'serialized_runtime_env_hash': 'serialized_runtime_env_hash',
+        'definition_batch_id': 'definition_batch_id',
+        'death_reason': 'death_reason',
+        'exit_message_hash': 'exit_message_hash',
+        'exit_batch_id': 'exit_batch_id'
     }
 
-    def __init__(self, id=None, name=None, job_id=None, class_name=None, serialized_runtime_env=None, required_resources_serialized=None, placement_group_id=None, label_selector_serialized=None, state=None, node_id=None, worker_id=None, exit_detail_serialized=None, transition_timestamp=None, ray_session_name=None, exit_message=None, num_restarts=0, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, job_id=None, class_name=None, serialized_runtime_env=None, required_resources_serialized=None, placement_group_id=None, label_selector_serialized=None, state=None, node_id=None, worker_id=None, exit_detail_serialized=None, transition_timestamp=None, ray_session_name=None, exit_message=None, num_restarts=0, data_operator_id=None, name_hash=None, class_name_hash=None, serialized_runtime_env_hash=None, definition_batch_id=None, death_reason=None, exit_message_hash=None, exit_batch_id=None, local_vars_configuration=None):  # noqa: E501
         """ActorTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -95,6 +109,13 @@ class ActorTableRow(object):
         self._exit_message = None
         self._num_restarts = None
         self._data_operator_id = None
+        self._name_hash = None
+        self._class_name_hash = None
+        self._serialized_runtime_env_hash = None
+        self._definition_batch_id = None
+        self._death_reason = None
+        self._exit_message_hash = None
+        self._exit_batch_id = None
         self.discriminator = None
 
         self.id = id
@@ -129,6 +150,20 @@ class ActorTableRow(object):
             self.num_restarts = num_restarts
         if data_operator_id is not None:
             self.data_operator_id = data_operator_id
+        if name_hash is not None:
+            self.name_hash = name_hash
+        if class_name_hash is not None:
+            self.class_name_hash = class_name_hash
+        if serialized_runtime_env_hash is not None:
+            self.serialized_runtime_env_hash = serialized_runtime_env_hash
+        if definition_batch_id is not None:
+            self.definition_batch_id = definition_batch_id
+        if death_reason is not None:
+            self.death_reason = death_reason
+        if exit_message_hash is not None:
+            self.exit_message_hash = exit_message_hash
+        if exit_batch_id is not None:
+            self.exit_batch_id = exit_batch_id
 
     @property
     def id(self):
@@ -490,6 +525,153 @@ class ActorTableRow(object):
         """
 
         self._data_operator_id = data_operator_id
+
+    @property
+    def name_hash(self):
+        """Gets the name_hash of this ActorTableRow.  # noqa: E501
+
+
+        :return: The name_hash of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._name_hash
+
+    @name_hash.setter
+    def name_hash(self, name_hash):
+        """Sets the name_hash of this ActorTableRow.
+
+
+        :param name_hash: The name_hash of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._name_hash = name_hash
+
+    @property
+    def class_name_hash(self):
+        """Gets the class_name_hash of this ActorTableRow.  # noqa: E501
+
+
+        :return: The class_name_hash of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._class_name_hash
+
+    @class_name_hash.setter
+    def class_name_hash(self, class_name_hash):
+        """Sets the class_name_hash of this ActorTableRow.
+
+
+        :param class_name_hash: The class_name_hash of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._class_name_hash = class_name_hash
+
+    @property
+    def serialized_runtime_env_hash(self):
+        """Gets the serialized_runtime_env_hash of this ActorTableRow.  # noqa: E501
+
+
+        :return: The serialized_runtime_env_hash of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._serialized_runtime_env_hash
+
+    @serialized_runtime_env_hash.setter
+    def serialized_runtime_env_hash(self, serialized_runtime_env_hash):
+        """Sets the serialized_runtime_env_hash of this ActorTableRow.
+
+
+        :param serialized_runtime_env_hash: The serialized_runtime_env_hash of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._serialized_runtime_env_hash = serialized_runtime_env_hash
+
+    @property
+    def definition_batch_id(self):
+        """Gets the definition_batch_id of this ActorTableRow.  # noqa: E501
+
+
+        :return: The definition_batch_id of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._definition_batch_id
+
+    @definition_batch_id.setter
+    def definition_batch_id(self, definition_batch_id):
+        """Sets the definition_batch_id of this ActorTableRow.
+
+
+        :param definition_batch_id: The definition_batch_id of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._definition_batch_id = definition_batch_id
+
+    @property
+    def death_reason(self):
+        """Gets the death_reason of this ActorTableRow.  # noqa: E501
+
+
+        :return: The death_reason of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._death_reason
+
+    @death_reason.setter
+    def death_reason(self, death_reason):
+        """Sets the death_reason of this ActorTableRow.
+
+
+        :param death_reason: The death_reason of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._death_reason = death_reason
+
+    @property
+    def exit_message_hash(self):
+        """Gets the exit_message_hash of this ActorTableRow.  # noqa: E501
+
+
+        :return: The exit_message_hash of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._exit_message_hash
+
+    @exit_message_hash.setter
+    def exit_message_hash(self, exit_message_hash):
+        """Sets the exit_message_hash of this ActorTableRow.
+
+
+        :param exit_message_hash: The exit_message_hash of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._exit_message_hash = exit_message_hash
+
+    @property
+    def exit_batch_id(self):
+        """Gets the exit_batch_id of this ActorTableRow.  # noqa: E501
+
+
+        :return: The exit_batch_id of this ActorTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._exit_batch_id
+
+    @exit_batch_id.setter
+    def exit_batch_id(self, exit_batch_id):
+        """Sets the exit_batch_id of this ActorTableRow.
+
+
+        :param exit_batch_id: The exit_batch_id of this ActorTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._exit_batch_id = exit_batch_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -14,7 +14,6 @@ global `…:all` lists), 24 h. What is NOT the generic `AssetCache` and stays as
 """
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -36,43 +35,16 @@ class CachedSourceRepository:
 
     def __init__(self, inner, cache: CacheProtocol, config: Optional[CacheConfig] = None):
         self.inner = inner
-        self.cache = cache
-        self.assets = AssetCache(self.prefix, SourceBase, cache, config)
+        self.assets = AssetCache(self.prefix, SourceBase, cache, config, build=SourceFactory.instantiate_source,
+                                 raise_read_failures=True)
 
     # ── whole reads ──
 
     async def get(self, source_id: StrObjectId) -> SourceBase:
-        key = self.assets.item_key(source_id)
-        cached = await self.cache.get(key)
-        if cached:
-            try:
-                return SourceFactory.instantiate_source(json.loads(cached))
-            except Exception:
-                pass
-        source = await self.inner.get(source_id)
-        try:
-            await self.cache.set(key, json.dumps(source.model_dump(by_alias=True, mode="json")),
-                                 ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return source
+        return await self.assets.item(source_id, lambda: self.inner.get(source_id))
 
     async def list_live(self, company_id: StrObjectId, fresh: bool = False) -> List[SourceBase]:
-        key = self.assets.all_key(company_id)
-        if not fresh:
-            cached = await self.cache.get(key)
-            if cached:
-                try:
-                    return [SourceFactory.instantiate_source(doc) for doc in json.loads(cached)]
-                except Exception:
-                    pass
-        sources = await self.inner.list_live(company_id)
-        try:
-            await self.cache.set(key, json.dumps([s.model_dump(by_alias=True, mode="json") for s in sources]),
-                                 ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return sources
+        return await self.assets.all(company_id, lambda: self.inner.list_live(company_id), ignore_cache=fresh)
 
     async def list_for_validation(self, company_id: StrObjectId) -> List[SourceBase]:
         return await self.inner.list_for_validation(company_id)
@@ -122,6 +94,10 @@ class CachedSourceRepository:
     async def mapping_candidates(self, company_id: StrObjectId, ad_types: List[str]) -> List[Dict[str, Any]]:
         return await self.inner.mapping_candidates(company_id, ad_types)
 
+    async def stored_fields(self, company_id: StrObjectId, source_ids: List[str],
+                            fields: List[str]) -> List[Dict[str, Any]]:
+        return await self.inner.stored_fields(company_id, source_ids, fields)
+
     async def set_fields(self, company_id: StrObjectId, source_id: StrObjectId, fields: Dict[str, Any],
                           when: Optional[str] = None) -> bool:
         return await self.inner.set_fields(company_id, source_id, fields, when)
@@ -132,20 +108,14 @@ class CachedSourceRepository:
 
     # ── cache ──
 
-    def _company_keys(self, company_id: StrObjectId, source_ids: List[str]) -> List[str]:
-        return ([self.assets.item_key(s) for s in source_ids]
-                + [self.assets.previews_key(str(company_id)), self.assets.all_key(str(company_id))])
-
     async def forget(self, company_id: StrObjectId, source_ids: List[str]) -> None:
-        try:
-            await self.cache.delete_many(self._company_keys(company_id, source_ids))
-        except Exception:
-            # The write is already in Mongo: a copy that could not be dropped expires (TTL) and the runtime reads the
-            # source again. The trace is left at ERROR.
-            logger.error("sources_cache_no_invalidada company_id=%s", company_id, exc_info=True)
+        # The write is already in Mongo: a copy that could not be dropped expires (TTL) and the runtime reads the
+        # source again. The trace is left at ERROR.
+        await self.assets.drop(self.assets.company_keys(str(company_id), source_ids), on_failure=lambda _: logger.error(
+            "sources_cache_no_invalidada company_id=%s", company_id, exc_info=True))
 
     async def all_ids(self, company_id: StrObjectId) -> List[str]:
         return await self.inner.all_ids(company_id)
 
     async def drop_cache(self, company_id: StrObjectId, source_ids: List[str]) -> None:
-        await self.cache.delete_many(self._company_keys(company_id, source_ids))
+        await self.assets.drop(self.assets.company_keys(str(company_id), source_ids), on_failure=None)

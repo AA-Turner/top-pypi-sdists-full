@@ -64,7 +64,7 @@ impl StatsigHttpEventLoggingAdapter {
             event_compression_format,
             log_event_url,
             network: NetworkClient::new_for_event_upload(sdk_key, Some(headers), options),
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, options),
         }
     }
 

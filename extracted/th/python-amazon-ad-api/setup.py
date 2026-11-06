@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='python-amazon-ad-api',
-    version='1.6.0',
+    version='1.7.0',
     install_requires=[
         "requests>=2.27.1,<2.35.0",
         "six>=1.16,<1.18",
@@ -16,6 +16,7 @@ setup(
         'ad_api.api',
         'ad_api.auth',
         'ad_api.base',
+        'ad_api.shared',
         'ad_api.api.sp',
         'ad_api.api.sb',
         'ad_api.api.sd',

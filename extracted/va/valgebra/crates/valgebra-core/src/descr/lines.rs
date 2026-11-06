@@ -107,9 +107,9 @@ impl Line {
 
     /// The values of the kind this line does not admit, as a union.
     ///
-    /// `¬(s ∧ o)` is `¬s ∨ ¬o`: either the structure fails, or it holds and the
-    /// object constraints do not. Two lines, which is why a complement doubles
-    /// the count rather than exploding it.
+    /// `¬(s ∧ o)` is `¬s ∨ ¬o` [FCB08, Lem. 6.2], so either the structure
+    /// fails, or it holds and the object constraints do not. Two lines, which
+    /// is why a complement doubles the count rather than exploding it.
     ///
     /// **Both halves end up within the kind**, and the fold below is what puts
     /// them there. A representation does not always say which kind it serves --
@@ -168,6 +168,23 @@ impl Summand for Line {
 
     fn complement(&self, whole: Whole) -> [Line; 2] {
         Line::complement(self, whole)
+    }
+
+    /// The line, unless it is proved empty, merged into the first line of the
+    /// list that agrees with it on objects where their structures join, as
+    /// [`compacted`](Summand::compacted) below merges a list.
+    fn admit(kept: &mut Vec<Line>, line: Line) -> Option<()> {
+        if line.is_empty() {
+            return Some(());
+        }
+        if let Some(held) = kept.iter_mut().find(|held| held.objects == line.objects)
+            && let Some(joined) = held.structure.combine(&line.structure, Op::Union)
+        {
+            held.structure = joined;
+            return Some(());
+        }
+        kept.push(line);
+        Some(())
     }
 
     /// Drop the lines proved empty, merge the ones that differ only in

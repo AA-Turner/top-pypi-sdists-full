@@ -59,6 +59,7 @@ from doppler.detection import (
     det_threshold_noncoherent,
     det_verify_count,
 )
+from doppler.examples._extra import require
 from doppler.impairment import DopplerChannel
 from doppler.source import AWGN, LO
 from doppler.track import Dll
@@ -312,6 +313,7 @@ def check(runs, outputs):
 
 
 def main(out_path="async_despread_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

@@ -23,6 +23,9 @@ import os
 import threading
 import time
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

@@ -45,6 +45,7 @@ from ministack.core.responses import (
     get_region,
     get_request_client_ip,
     new_uuid,
+    request_scope,
 )
 
 logger = logging.getLogger("alb")
@@ -179,6 +180,17 @@ def _parse_member_list(params, prefix):
     return items
 
 
+def _page(params, items):
+    """PageSize (1-400)/Marker offset paging; returns (page, NextMarker XML or "")."""
+    raw = _p(params, "PageSize")
+    marker = _p(params, "Marker")
+    start = int(marker) if marker.isdigit() else 0
+    if not re.fullmatch(r"-?[0-9]+", raw or ""):
+        return items[start:], ""
+    end = start + min(max(int(raw), 1), 400)
+    return items[start:end], (f"<NextMarker>{end}</NextMarker>" if end < len(items) else "")
+
+
 def _parse_tags(params):
     tags, i = [], 1
     while True:
@@ -204,6 +216,11 @@ def _elbv2_resource_tail(arn: str, prefix: str) -> str:
 def _load_balancer_id_from_arn(arn: str) -> str:
     tail = _elbv2_resource_tail(arn, "loadbalancer/")
     return tail.rpartition("/")[2] if tail else ""
+
+
+def _lb_type_segment(arn: str) -> str:
+    tail = _elbv2_resource_tail(arn, "loadbalancer/")
+    return tail.split("/", 1)[0] if tail else "app"
 
 
 def _listener_id_from_arn(arn: str) -> str:
@@ -252,6 +269,94 @@ def _resolve_taggable_elbv2_arns(arns):
             return [], err
         resolved.append(arn)
     return resolved, None
+
+
+def _shape(name):
+    import botocore.session
+
+    global _MODEL
+    if "_MODEL" not in globals():
+        _MODEL = botocore.session.get_session().get_service_model("elbv2")
+    return _MODEL.shape_for(name)
+
+
+def _query_value(params, prefix, shape):
+    """A Query-protocol member under *prefix*, typed by its botocore shape, or None when absent."""
+    if shape.type_name == "structure":
+        out = {}
+        for member, member_shape in shape.members.items():
+            value = _query_value(params, f"{prefix}.{member}", member_shape)
+            if value is not None:
+                out[member] = value
+        return out or None
+    if shape.type_name == "list":
+        items, i = [], 1
+        while (value := _query_value(params, f"{prefix}.member.{i}", shape.member)) is not None:
+            items.append(value)
+            i += 1
+        return items or None
+    if shape.type_name == "map":
+        out, i = {}, 1
+        while f"{prefix}.entry.{i}.key" in params:
+            out[_p(params, f"{prefix}.entry.{i}.key")] = _query_value(params, f"{prefix}.entry.{i}.value", shape.value)
+            i += 1
+        return out or None
+    if prefix not in params:
+        return None
+    raw = _p(params, prefix)
+    if shape.type_name in ("integer", "long"):
+        return int(raw)
+    if shape.type_name == "boolean":
+        return raw.lower() == "true"
+    return raw
+
+
+def _shape_xml(value, shape):
+    if shape.type_name == "structure":
+        return "".join(f"<{k}>{_shape_xml(value[k], shape.members[k])}</{k}>" for k in shape.members if k in value)
+    if shape.type_name == "list":
+        return "".join(f"<member>{_shape_xml(v, shape.member)}</member>" for v in value)
+    if shape.type_name == "map":
+        return "".join(f"<entry><key>{_esc(str(k))}</key><value>{_shape_xml(v, shape.value)}</value></entry>"
+                       for k, v in value.items())
+    if shape.type_name == "boolean":
+        return "true" if value else "false"
+    return _esc(str(value))
+
+
+def _members_xml(record, shape_name, members):
+    shape = _shape(shape_name)
+    return "".join(f"<{m}>{_shape_xml(record[m], shape.members[m])}</{m}>" for m in members if m in record)
+
+
+def _action_target_groups(action):
+    """Every target group a forward action names, in TargetGroupArn or ForwardConfig."""
+    arns = [action["TargetGroupArn"]] if action.get("TargetGroupArn") else []
+    for tg in (action.get("ForwardConfig") or {}).get("TargetGroups", []):
+        if tg.get("TargetGroupArn") and tg["TargetGroupArn"] not in arns:
+            arns.append(tg["TargetGroupArn"])
+    return arns
+
+
+def _forward_target_group(action):
+    """The target group a forward action sends this request to: weighted across ForwardConfig."""
+    if action.get("TargetGroupArn"):
+        return action["TargetGroupArn"]
+    groups = [tg for tg in (action.get("ForwardConfig") or {}).get("TargetGroups", [])
+              if tg.get("TargetGroupArn") and tg.get("Weight", 1) > 0]
+    if not groups:
+        return ""
+    return random.choices([g["TargetGroupArn"] for g in groups], [g.get("Weight", 1) for g in groups])[0]
+
+
+def _parse_subnets(params):
+    subnets = _parse_member_list(params, "Subnets")
+    if not subnets:
+        idx = 1
+        while sid := _p(params, f"SubnetMappings.member.{idx}.SubnetId"):
+            subnets.append(sid)
+            idx += 1
+    return subnets
 
 
 def _parse_actions(params, prefix="DefaultActions"):
@@ -307,6 +412,14 @@ def _parse_actions(params, prefix="DefaultActions"):
                 "ContentType": _p(params, f"{prefix}.member.{i}.FixedResponseConfig.ContentType", "text/plain"),
                 "MessageBody": _p(params, f"{prefix}.member.{i}.FixedResponseConfig.MessageBody", ""),
             }
+        for member in ("ForwardConfig", "AuthenticateCognitoConfig"):
+            value = _query_value(params, f"{prefix}.member.{i}.{member}", _shape("Action").members[member])
+            if value is not None:
+                action[member] = value
+        if "AuthenticateCognitoConfig" in action:
+            action["AuthenticateCognitoConfig"] = {
+                "SessionCookieName": OIDC_DEFAULT_COOKIE_NAME, "Scope": "openid", "SessionTimeout": 604800,
+                "OnUnauthenticatedRequest": "authenticate", **action["AuthenticateCognitoConfig"]}
         actions.append(action)
         i += 1
     return actions
@@ -431,7 +544,7 @@ def _error(code, message, status=400):
 
 def _attrs_xml(attrs):
     return "".join(
-        f"<member><Key>{a['Key']}</Key><Value>{a['Value']}</Value></member>"
+        f"<member><Key>{_esc(str(a['Key']))}</Key><Value>{_esc(str(a['Value']))}</Value></member>"
         for a in attrs
     )
 
@@ -441,67 +554,61 @@ def _attrs_xml(attrs):
 
 def _lb_xml(lb):
     azs = "".join(
-        f"<member><ZoneName>{get_region()}a</ZoneName><SubnetId>{s}</SubnetId>"
+        f"<member><ZoneName>{get_region()}a</ZoneName><SubnetId>{_esc(str(s))}</SubnetId>"
         f"<LoadBalancerAddresses/></member>"
         for s in lb.get("Subnets", [])
     )
-    sgs = "".join(f"<member>{sg}</member>" for sg in lb.get("SecurityGroups", []))
+    sgs = "".join(f"<member>{_esc(str(sg))}</member>" for sg in lb.get("SecurityGroups", []))
     return (
         f"<member>"
-        f"<LoadBalancerArn>{lb['LoadBalancerArn']}</LoadBalancerArn>"
-        f"<LoadBalancerName>{lb['LoadBalancerName']}</LoadBalancerName>"
-        f"<DNSName>{lb['DNSName']}</DNSName>"
+        f"<LoadBalancerArn>{_esc(str(lb['LoadBalancerArn']))}</LoadBalancerArn>"
+        f"<LoadBalancerName>{_esc(str(lb['LoadBalancerName']))}</LoadBalancerName>"
+        f"<DNSName>{_esc(str(lb['DNSName']))}</DNSName>"
         f"<CanonicalHostedZoneId>Z35SXDOTRQ7X7K</CanonicalHostedZoneId>"
-        f"<CreatedTime>{lb['CreatedTime']}</CreatedTime>"
-        f"<Scheme>{lb['Scheme']}</Scheme>"
-        f"<VpcId>{lb.get('VpcId','')}</VpcId>"
-        f"<State><Code>{lb['State']}</Code></State>"
-        f"<Type>{lb['Type']}</Type>"
+        f"<CreatedTime>{_esc(str(lb['CreatedTime']))}</CreatedTime>"
+        f"<Scheme>{_esc(str(lb['Scheme']))}</Scheme>"
+        f"<VpcId>{_esc(str(lb.get('VpcId','')))}</VpcId>"
+        f"<State><Code>{_esc(str(lb['State']))}</Code></State>"
+        f"<Type>{_esc(str(lb['Type']))}</Type>"
         f"<AvailabilityZones>{azs}</AvailabilityZones>"
         f"<SecurityGroups>{sgs}</SecurityGroups>"
-        f"<IpAddressType>{lb.get('IpAddressType','ipv4')}</IpAddressType>"
+        f"<IpAddressType>{_esc(str(lb.get('IpAddressType','ipv4')))}</IpAddressType>"
+        f"{_members_xml(lb, 'LoadBalancer', ('EnablePrefixForIpv6SourceNat', 'IpamPools'))}"
         f"</member>"
     )
 
 
 def _tg_xml(tg):
-    lb_arns = "".join(f"<member>{a}</member>" for a in tg.get("LoadBalancerArns", []))
+    lb_arns = "".join(f"<member>{_esc(str(a))}</member>" for a in tg.get("LoadBalancerArns", []))
     return (
         f"<member>"
-        f"<TargetGroupArn>{tg['TargetGroupArn']}</TargetGroupArn>"
-        f"<TargetGroupName>{tg['TargetGroupName']}</TargetGroupName>"
-        f"<Protocol>{tg.get('Protocol','HTTP')}</Protocol>"
-        f"<Port>{tg.get('Port',80)}</Port>"
-        f"<VpcId>{tg.get('VpcId','')}</VpcId>"
-        f"<HealthCheckProtocol>{tg.get('HealthCheckProtocol','HTTP')}</HealthCheckProtocol>"
-        f"<HealthCheckPort>{tg.get('HealthCheckPort','traffic-port')}</HealthCheckPort>"
-        f"<HealthCheckEnabled>{str(tg.get('HealthCheckEnabled',True)).lower()}</HealthCheckEnabled>"
-        f"<HealthCheckPath>{tg.get('HealthCheckPath','/')}</HealthCheckPath>"
-        f"<HealthCheckIntervalSeconds>{tg.get('HealthCheckIntervalSeconds',30)}</HealthCheckIntervalSeconds>"
-        f"<HealthCheckTimeoutSeconds>{tg.get('HealthCheckTimeoutSeconds',5)}</HealthCheckTimeoutSeconds>"
-        f"<HealthyThresholdCount>{tg.get('HealthyThresholdCount',5)}</HealthyThresholdCount>"
-        f"<UnhealthyThresholdCount>{tg.get('UnhealthyThresholdCount',2)}</UnhealthyThresholdCount>"
-        f"<Matcher><HttpCode>{tg.get('Matcher',{}).get('HttpCode','200')}</HttpCode></Matcher>"
+        f"<TargetGroupArn>{_esc(str(tg['TargetGroupArn']))}</TargetGroupArn>"
+        f"<TargetGroupName>{_esc(str(tg['TargetGroupName']))}</TargetGroupName>"
+        f"<Protocol>{_esc(str(tg.get('Protocol','HTTP')))}</Protocol>"
+        f"<Port>{_esc(str(tg.get('Port',80)))}</Port>"
+        f"<VpcId>{_esc(str(tg.get('VpcId','')))}</VpcId>"
+        f"{_members_xml(tg, 'TargetGroup', ('HealthCheckProtocol', 'HealthCheckPort', 'HealthCheckEnabled', 'HealthCheckIntervalSeconds', 'HealthCheckTimeoutSeconds', 'HealthyThresholdCount', 'UnhealthyThresholdCount', 'HealthCheckPath', 'Matcher'))}"
         f"<LoadBalancerArns>{lb_arns}</LoadBalancerArns>"
-        f"<TargetType>{tg.get('TargetType','instance')}</TargetType>"
+        f"<TargetType>{_esc(str(tg.get('TargetType','instance')))}</TargetType>"
+        f"{_members_xml(tg, 'TargetGroup', ('ProtocolVersion', 'IpAddressType', 'TargetControlPort'))}"
         f"</member>"
     )
 
 
 def _action_xml(a):
-    inner = f"<Type>{a['Type']}</Type><Order>{a.get('Order',1)}</Order>"
+    inner = f"<Type>{_esc(str(a['Type']))}</Type><Order>{_esc(str(a.get('Order',1)))}</Order>"
     if "TargetGroupArn" in a:
-        inner += f"<TargetGroupArn>{a['TargetGroupArn']}</TargetGroupArn>"
+        inner += f"<TargetGroupArn>{_esc(str(a['TargetGroupArn']))}</TargetGroupArn>"
     if "RedirectConfig" in a:
         rc = a["RedirectConfig"]
         inner += (
             f"<RedirectConfig>"
-            f"<Protocol>{rc.get('Protocol','#{protocol}')}</Protocol>"
-            f"<Port>{rc.get('Port','#{port}')}</Port>"
-            f"<Host>{rc.get('Host','#{host}')}</Host>"
-            f"<Path>{rc.get('Path','/#{path}')}</Path>"
+            f"<Protocol>{_esc(str(rc.get('Protocol','#{protocol}')))}</Protocol>"
+            f"<Port>{_esc(str(rc.get('Port','#{port}')))}</Port>"
+            f"<Host>{_esc(str(rc.get('Host','#{host}')))}</Host>"
+            f"<Path>{_esc(str(rc.get('Path','/#{path}')))}</Path>"
             f"<Query>{_esc(rc.get('Query', '#{query}'))}</Query>"
-            f"<StatusCode>{rc.get('StatusCode','HTTP_301')}</StatusCode>"
+            f"<StatusCode>{_esc(str(rc.get('StatusCode','HTTP_301')))}</StatusCode>"
             f"</RedirectConfig>"
         )
     if "AuthenticateOidcConfig" in a:
@@ -509,26 +616,27 @@ def _action_xml(a):
         # ClientSecret is deliberately absent: AWS never echoes it back.
         inner += (
             f"<AuthenticateOidcConfig>"
-            f"<Issuer>{oc.get('Issuer','')}</Issuer>"
-            f"<AuthorizationEndpoint>{oc.get('AuthorizationEndpoint','')}</AuthorizationEndpoint>"
-            f"<TokenEndpoint>{oc.get('TokenEndpoint','')}</TokenEndpoint>"
-            f"<UserInfoEndpoint>{oc.get('UserInfoEndpoint','')}</UserInfoEndpoint>"
-            f"<ClientId>{oc.get('ClientId','')}</ClientId>"
-            f"<Scope>{oc.get('Scope','openid')}</Scope>"
-            f"<SessionCookieName>{oc.get('SessionCookieName', OIDC_DEFAULT_COOKIE_NAME)}</SessionCookieName>"
-            f"<SessionTimeout>{oc.get('SessionTimeout', OIDC_DEFAULT_SESSION_TIMEOUT)}</SessionTimeout>"
-            f"<OnUnauthenticatedRequest>{oc.get('OnUnauthenticatedRequest','authenticate')}</OnUnauthenticatedRequest>"
+            f"<Issuer>{_esc(str(oc.get('Issuer','')))}</Issuer>"
+            f"<AuthorizationEndpoint>{_esc(str(oc.get('AuthorizationEndpoint','')))}</AuthorizationEndpoint>"
+            f"<TokenEndpoint>{_esc(str(oc.get('TokenEndpoint','')))}</TokenEndpoint>"
+            f"<UserInfoEndpoint>{_esc(str(oc.get('UserInfoEndpoint','')))}</UserInfoEndpoint>"
+            f"<ClientId>{_esc(str(oc.get('ClientId','')))}</ClientId>"
+            f"<Scope>{_esc(str(oc.get('Scope','openid')))}</Scope>"
+            f"<SessionCookieName>{_esc(str(oc.get('SessionCookieName', OIDC_DEFAULT_COOKIE_NAME)))}</SessionCookieName>"
+            f"<SessionTimeout>{_esc(str(oc.get('SessionTimeout', OIDC_DEFAULT_SESSION_TIMEOUT)))}</SessionTimeout>"
+            f"<OnUnauthenticatedRequest>{_esc(str(oc.get('OnUnauthenticatedRequest','authenticate')))}</OnUnauthenticatedRequest>"
             f"</AuthenticateOidcConfig>"
         )
     if "FixedResponseConfig" in a:
         frc = a["FixedResponseConfig"]
         inner += (
             f"<FixedResponseConfig>"
-            f"<StatusCode>{frc.get('StatusCode','200')}</StatusCode>"
-            f"<ContentType>{frc.get('ContentType','text/plain')}</ContentType>"
-            f"<MessageBody>{frc.get('MessageBody','')}</MessageBody>"
+            f"<StatusCode>{_esc(str(frc.get('StatusCode','200')))}</StatusCode>"
+            f"<ContentType>{_esc(str(frc.get('ContentType','text/plain')))}</ContentType>"
+            f"<MessageBody>{_esc(str(frc.get('MessageBody','')))}</MessageBody>"
             f"</FixedResponseConfig>"
         )
+    inner += _members_xml(a, "Action", ("ForwardConfig", "AuthenticateCognitoConfig"))
     return f"<member>{inner}</member>"
 
 
@@ -550,12 +658,13 @@ def _listener_xml(l):
     # Member order follows the botocore Listener shape.
     return (
         f"<member>"
-        f"<ListenerArn>{l['ListenerArn']}</ListenerArn>"
-        f"<LoadBalancerArn>{l['LoadBalancerArn']}</LoadBalancerArn>"
-        f"<Port>{l.get('Port',80)}</Port>"
-        f"<Protocol>{l.get('Protocol','HTTP')}</Protocol>"
+        f"<ListenerArn>{_esc(str(l['ListenerArn']))}</ListenerArn>"
+        f"<LoadBalancerArn>{_esc(str(l['LoadBalancerArn']))}</LoadBalancerArn>"
+        f"<Port>{_esc(str(l.get('Port',80)))}</Port>"
+        f"<Protocol>{_esc(str(l.get('Protocol','HTTP')))}</Protocol>"
         f"{certs_xml}{policy_xml}"
         f"<DefaultActions>{acts}</DefaultActions>"
+        f"{_members_xml(l, 'Listener', ('AlpnPolicy', 'MutualAuthentication'))}"
         f"</member>"
     )
 
@@ -603,8 +712,8 @@ def _condition_xml(c):
     change on every run to put the values back.
     """
     values = c.get("Values", [])
-    members = "".join(f"<member>{v}</member>" for v in values)
-    xml = f"<member><Field>{c['Field']}</Field><Values>{members}</Values>"
+    members = "".join(f"<member>{_esc(str(v))}</member>" for v in values)
+    xml = f"<member><Field>{_esc(str(c['Field']))}</Field><Values>{members}</Values>"
     config_key = _CONDITION_VALUE_KEYS.get(c.get("Field"))
     if config_key:
         xml += f"<{config_key}><Values>{members}</Values></{config_key}>"
@@ -823,8 +932,8 @@ def _rule_xml(r, with_transforms=True):
                   + "</Transforms>") if with_transforms else ""
     return (
         f"<member>"
-        f"<RuleArn>{r['RuleArn']}</RuleArn>"
-        f"<Priority>{r['Priority']}</Priority>"
+        f"<RuleArn>{_esc(str(r['RuleArn']))}</RuleArn>"
+        f"<Priority>{_esc(str(r['Priority']))}</Priority>"
         f"<Conditions>{conds}</Conditions>"
         f"<Actions>{acts}</Actions>"
         f"<IsDefault>{str(r.get('IsDefault',False)).lower()}</IsDefault>"
@@ -845,7 +954,9 @@ def _create_lb(params):
             return _error("DuplicateLoadBalancerName",
                           f"A load balancer with name '{name}' already exists.")
     lid = _short_id()
-    arn = f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}:loadbalancer/app/{name}/{lid}"
+    lb_type = _p(params, "Type", "application")
+    prefix = {"network": "net", "gateway": "gwy"}.get(lb_type, "app")
+    arn = f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}:loadbalancer/{prefix}/{name}/{lid}"
     lb = {
         "LoadBalancerArn": arn,
         "LoadBalancerName": name,
@@ -853,12 +964,18 @@ def _create_lb(params):
         "Scheme": _p(params, "Scheme", "internet-facing"),
         "VpcId": _p(params, "VpcId", "vpc-00000001"),
         "State": "active",
-        "Type": _p(params, "Type", "application"),
-        "Subnets": _parse_member_list(params, "Subnets"),
+        "Type": lb_type,
+        "Subnets": _parse_subnets(params),
         "SecurityGroups": _parse_member_list(params, "SecurityGroups"),
         "IpAddressType": _p(params, "IpAddressType", "ipv4"),
         "CreatedTime": _now_iso(),
     }
+    prefix_nat = _p(params, "EnablePrefixForIpv6SourceNat") or ("off" if lb_type == "network" else "")
+    if prefix_nat:
+        lb["EnablePrefixForIpv6SourceNat"] = prefix_nat
+    ipam_pools = _query_value(params, "IpamPools", _shape("IpamPools"))
+    if ipam_pools:
+        lb["IpamPools"] = ipam_pools
     _lbs[arn] = lb
     _tags[arn] = _parse_tags(params)
     _lb_attrs[arn] = [
@@ -891,8 +1008,9 @@ def _describe_lbs(params):
         results = [lb for lb in results if lb["LoadBalancerName"] in name_filter]
         if not results:
             return _error("LoadBalancerNotFound", "One or more load balancers not found", 400)
+    results, next_xml = _page(params, results)
     return _xml(200, "DescribeLoadBalancers",
-                f"<LoadBalancers>{''.join(_lb_xml(lb) for lb in results)}</LoadBalancers>")
+                f"<LoadBalancers>{''.join(_lb_xml(lb) for lb in results)}</LoadBalancers>{next_xml}")
 
 
 def _delete_lb(params):
@@ -948,24 +1066,24 @@ def _create_tg(params):
                           f"A target group with name '{name}' already exists.")
     tid = _short_id()
     arn = f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}:targetgroup/{name}/{tid}"
+    protocol = _p(params, "Protocol", "HTTP")
+    target_type = _p(params, "TargetType", "instance")
     tg = {
         "TargetGroupArn": arn,
         "TargetGroupName": name,
-        "Protocol": _p(params, "Protocol", "HTTP"),
+        "Protocol": protocol,
         "Port": int(_p(params, "Port", "80") or 80),
         "VpcId": _p(params, "VpcId", ""),
-        "HealthCheckProtocol": _p(params, "HealthCheckProtocol", "HTTP"),
-        "HealthCheckPort": _p(params, "HealthCheckPort", "traffic-port"),
-        "HealthCheckEnabled": _p(params, "HealthCheckEnabled", "true").lower() == "true",
-        "HealthCheckPath": _p(params, "HealthCheckPath", "/"),
-        "HealthCheckIntervalSeconds": int(_p(params, "HealthCheckIntervalSeconds", "30") or 30),
-        "HealthCheckTimeoutSeconds": int(_p(params, "HealthCheckTimeoutSeconds", "5") or 5),
-        "HealthyThresholdCount": int(_p(params, "HealthyThresholdCount", "5") or 5),
-        "UnhealthyThresholdCount": int(_p(params, "UnhealthyThresholdCount", "2") or 2),
-        "Matcher": {"HttpCode": _p(params, "Matcher.HttpCode", "200")},
+        "HealthCheckPort": _p(params, "HealthCheckPort", "80" if protocol == "GENEVE" else "traffic-port"),
         "LoadBalancerArns": [],
-        "TargetType": _p(params, "TargetType", "instance"),
+        "TargetType": target_type,
+        "IpAddressType": _p(params, "IpAddressType", "ipv4"),
     }
+    if protocol in ("HTTP", "HTTPS") and target_type != "lambda":
+        tg["ProtocolVersion"] = _p(params, "ProtocolVersion", "HTTP1")
+    if _p(params, "TargetControlPort"):
+        tg["TargetControlPort"] = int(_p(params, "TargetControlPort"))
+    _apply_health_check(tg, params, _health_check_defaults(protocol, target_type, tg.get("ProtocolVersion")))
     _tgs[arn] = tg
     _targets[arn] = []
     _tags[arn] = _parse_tags(params)
@@ -975,6 +1093,45 @@ def _create_tg(params):
         {"Key": "stickiness.type", "Value": "lb_cookie"},
     ]
     return _xml(200, "CreateTargetGroup", f"<TargetGroups>{_tg_xml(tg)}</TargetGroups>")
+
+
+def _health_check_defaults(protocol, target_type, protocol_version):
+    """The health check a target group gets for each member not sent (CreateTargetGroup docs)."""
+    if target_type == "lambda":
+        return {"HealthCheckProtocol": "HTTP", "HealthCheckEnabled": False, "HealthCheckIntervalSeconds": 35,
+                "HealthCheckTimeoutSeconds": 30, "HealthyThresholdCount": 5, "UnhealthyThresholdCount": 5}
+    alb = protocol in ("HTTP", "HTTPS")
+    return {
+        "HealthCheckProtocol": "HTTP" if alb else "TCP",
+        "HealthCheckEnabled": True,
+        "HealthCheckIntervalSeconds": 10 if protocol == "GENEVE" else 30,
+        "HealthCheckTimeoutSeconds": {"HTTP": 6, "GENEVE": 5}.get(protocol, 10),
+        "HealthyThresholdCount": 5,
+        "UnhealthyThresholdCount": 2,
+        "HealthCheckPath": "/AWS.ALB/healthcheck" if protocol_version == "GRPC" else "/",
+        "Matcher": ({"GrpcCode": "12"} if protocol_version == "GRPC"
+                    else {"HttpCode": "200" if alb else "200-399"}),
+    }
+
+
+def _apply_health_check(tg, params, defaults=None):
+    """Store the health check members sent, and the defaults for the rest on create."""
+    for field, cast in (("HealthCheckProtocol", str), ("HealthCheckPath", str),
+                        ("HealthCheckEnabled", lambda v: v.lower() == "true"),
+                        ("HealthCheckIntervalSeconds", int), ("HealthCheckTimeoutSeconds", int),
+                        ("HealthyThresholdCount", int), ("UnhealthyThresholdCount", int)):
+        v = _p(params, field)
+        if v:
+            tg[field] = cast(v)
+    if _p(params, "HealthCheckPort"):
+        tg["HealthCheckPort"] = _p(params, "HealthCheckPort")
+    matcher = _query_value(params, "Matcher", _shape("Matcher"))
+    if matcher:
+        tg["Matcher"] = {**(tg.get("Matcher") or {}), **matcher}
+    for field, value in (defaults or {}).items():
+        if field in ("HealthCheckPath", "Matcher") and tg.get("HealthCheckProtocol") not in ("HTTP", "HTTPS"):
+            continue
+        tg.setdefault(field, value)
 
 
 def _describe_tgs(params):
@@ -990,8 +1147,9 @@ def _describe_tgs(params):
         results = [tg for tg in results if tg["TargetGroupName"] in name_filter]
     if lb_arn:
         results = [tg for tg in results if lb_arn in tg.get("LoadBalancerArns", [])]
+    results, next_xml = _page(params, results)
     return _xml(200, "DescribeTargetGroups",
-                f"<TargetGroups>{''.join(_tg_xml(tg) for tg in results)}</TargetGroups>")
+                f"<TargetGroups>{''.join(_tg_xml(tg) for tg in results)}</TargetGroups>{next_xml}")
 
 
 def _modify_tg(params):
@@ -999,25 +1157,7 @@ def _modify_tg(params):
     tg = _tgs.get(arn)
     if not tg:
         return _error("TargetGroupNotFound", f"Target group '{arn}' not found.")
-    for field, param in [("HealthCheckProtocol", "HealthCheckProtocol"),
-                         ("HealthCheckPort", "HealthCheckPort"),
-                         ("HealthCheckPath", "HealthCheckPath")]:
-        v = _p(params, param)
-        if v:
-            tg[field] = v
-    for field, param, cast in [
-        ("HealthCheckEnabled", "HealthCheckEnabled", lambda v: v.lower() == "true"),
-        ("HealthCheckIntervalSeconds", "HealthCheckIntervalSeconds", int),
-        ("HealthCheckTimeoutSeconds", "HealthCheckTimeoutSeconds", int),
-        ("HealthyThresholdCount", "HealthyThresholdCount", int),
-        ("UnhealthyThresholdCount", "UnhealthyThresholdCount", int),
-    ]:
-        v = _p(params, param)
-        if v:
-            tg[field] = cast(v)
-    http_code = _p(params, "Matcher.HttpCode")
-    if http_code:
-        tg["Matcher"]["HttpCode"] = http_code
+    _apply_health_check(tg, params)
     return _xml(200, "ModifyTargetGroup", f"<TargetGroups>{_tg_xml(tg)}</TargetGroups>")
 
 
@@ -1078,18 +1218,19 @@ def _create_listener(params):
     lb_name = lb["LoadBalancerName"]
     lb_id = _load_balancer_id_from_arn(lb_arn)
     l_arn = (f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}"
-             f":listener/app/{lb_name}/{lb_id}/{lid}")
+             f":listener/{_lb_type_segment(lb_arn)}/{lb_name}/{lb_id}/{lid}")
     actions = _parse_actions(params, "DefaultActions")
     for action in actions:
-        tg_arn = action.get("TargetGroupArn")
-        if tg_arn and tg_arn in _tgs and lb_arn not in _tgs[tg_arn]["LoadBalancerArns"]:
-            _tgs[tg_arn]["LoadBalancerArns"].append(lb_arn)
+        for tg_arn in _action_target_groups(action):
+            if tg_arn in _tgs and lb_arn not in _tgs[tg_arn]["LoadBalancerArns"]:
+                _tgs[tg_arn]["LoadBalancerArns"].append(lb_arn)
     listener = {
         "ListenerArn": l_arn,
         "LoadBalancerArn": lb_arn,
         "Port": int(_p(params, "Port", "80") or 80),
         "Protocol": _p(params, "Protocol", "HTTP"),
         "DefaultActions": actions,
+        **_listener_members(params),
     }
     _apply_tls_settings(listener, certs, _p(params, "SslPolicy"))
     _listeners[l_arn] = listener
@@ -1100,13 +1241,25 @@ def _create_listener(params):
     # auto-create default rule
     rule_id = _short_id()
     rule_arn = (f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}"
-                f":listener-rule/app/{lb_name}/{lb_id}/{lid}/{rule_id}")
+                f":listener-rule/{_lb_type_segment(lb_arn)}/{lb_name}/{lb_id}/{lid}/{rule_id}")
     _rules[rule_arn] = {
         "RuleArn": rule_arn, "ListenerArn": l_arn,
         "Priority": "default", "Conditions": [],
         "Actions": actions, "IsDefault": True,
     }
     return _xml(200, "CreateListener", f"<Listeners>{_listener_xml(listener)}</Listeners>")
+
+
+def _listener_members(params):
+    shape = _shape("Listener")
+    out = {}
+    for member in ("AlpnPolicy", "MutualAuthentication"):
+        value = _query_value(params, member, shape.members[member])
+        if value is not None:
+            out[member] = value
+    if "MutualAuthentication" in out:
+        out["MutualAuthentication"].setdefault("Mode", "off")
+    return out
 
 
 def _describe_listeners(params):
@@ -1117,8 +1270,9 @@ def _describe_listeners(params):
         results = [l for l in results if l["LoadBalancerArn"] == lb_arn]
     if arn_filter:
         results = [l for l in results if l["ListenerArn"] in arn_filter]
+    results, next_xml = _page(params, results)
     return _xml(200, "DescribeListeners",
-                f"<Listeners>{''.join(_listener_xml(l) for l in results)}</Listeners>")
+                f"<Listeners>{''.join(_listener_xml(l) for l in results)}</Listeners>{next_xml}")
 
 
 def _modify_listener(params):
@@ -1136,9 +1290,15 @@ def _modify_listener(params):
     if protocol:
         listener["Protocol"] = protocol
     _apply_tls_settings(listener, certs, _p(params, "SslPolicy"))
+    listener.update(_listener_members(params))
     actions = _parse_actions(params, "DefaultActions")
     if actions:
         listener["DefaultActions"] = actions
+        for action in actions:
+            for tg_arn in _action_target_groups(action):
+                lb_arn = listener["LoadBalancerArn"]
+                if tg_arn in _tgs and lb_arn not in _tgs[tg_arn]["LoadBalancerArns"]:
+                    _tgs[tg_arn]["LoadBalancerArns"].append(lb_arn)
         # CreateListener snapshots the default actions into an auto-created
         # default rule, and the data plane reads the rule, not the listener.
         # Updating only the listener leaves the old actions serving traffic —
@@ -1198,8 +1358,9 @@ def _describe_listener_certificates(params):
     # Added certificates first, in the order added, then the default one.
     entries = [(cert, False) for cert in listener.get("ExtraCertificates", [])]
     entries += [(cert, True) for cert in listener.get("Certificates", [])]
+    entries, next_xml = _page(params, entries)
     return _xml(200, "DescribeListenerCertificates",
-                f"<Certificates>{_listener_certificate_members(entries)}</Certificates>")
+                f"<Certificates>{_listener_certificate_members(entries)}</Certificates>{next_xml}")
 
 
 def _remove_listener_certificates(params):
@@ -1277,7 +1438,7 @@ def _create_rule(params):
     l_id = _listener_id_from_arn(l_arn)
     rule_id = _short_id()
     rule_arn = (f"arn:aws:elasticloadbalancing:{get_region()}:{get_account_id()}"
-                f":listener-rule/app/{lb_name}/{lb_id}/{l_id}/{rule_id}")
+                f":listener-rule/{_lb_type_segment(lb_arn)}/{lb_name}/{lb_id}/{l_id}/{rule_id}")
     rule = {
         "RuleArn": rule_arn, "ListenerArn": l_arn,
         "Priority": _p(params, "Priority", "1"),
@@ -1299,7 +1460,8 @@ def _describe_rules(params):
         results = [r for r in results if r.get("ListenerArn") == l_arn]
     if arn_filter:
         results = [r for r in results if r["RuleArn"] in arn_filter]
-    return _xml(200, "DescribeRules", f"<Rules>{''.join(_rule_xml(r) for r in results)}</Rules>")
+    results, next_xml = _page(params, results)
+    return _xml(200, "DescribeRules", f"<Rules>{''.join(_rule_xml(r) for r in results)}</Rules>{next_xml}")
 
 
 def _modify_rule(params):
@@ -1422,8 +1584,7 @@ def _describe_target_health(params):
     default_port = _tgs[tg_arn].get("Port", 80)
     descs = "".join(
         f"<member>"
-        f"<Target><Id>{t['Id']}</Id><Port>{t.get('Port', default_port)}</Port></Target>"
-        f"<HealthStatus>healthy</HealthStatus>"
+        f"<Target><Id>{_esc(str(t['Id']))}</Id><Port>{_esc(str(t.get('Port', default_port)))}</Port></Target>"
         f"<TargetHealth><State>healthy</State></TargetHealth>"
         f"</member>"
         for t in registered
@@ -1472,10 +1633,10 @@ def _describe_tags(params):
         if err:
             return err
         tags_xml = "".join(
-            f"<member><Key>{t['Key']}</Key><Value>{t['Value']}</Value></member>"
+            f"<member><Key>{_esc(str(t['Key']))}</Key><Value>{_esc(str(t['Value']))}</Value></member>"
             for t in _tags.get(arn, [])
         )
-        descs += f"<member><ResourceArn>{arn}</ResourceArn><Tags>{tags_xml}</Tags></member>"
+        descs += f"<member><ResourceArn>{_esc(str(arn))}</ResourceArn><Tags>{tags_xml}</Tags></member>"
     return _xml(200, "DescribeTags", f"<TagDescriptions>{descs}</TagDescriptions>")
 
 
@@ -1488,31 +1649,20 @@ def _set_subnets(params):
     lb = _lbs.get(arn)
     if not lb:
         return _error("LoadBalancerNotFound", "Load balancer not found", 400)
-    subnets = _parse_member_list(params, "Subnets")
-    if not subnets:
-        # SubnetMappings.member.N.SubnetId form
-        mappings = []
-        idx = 1
-        while True:
-            sid = _p(params, f"SubnetMappings.member.{idx}.SubnetId")
-            if not sid:
-                break
-            mappings.append(sid)
-            idx += 1
-        subnets = mappings
+    subnets = _parse_subnets(params)
     if subnets:
         lb["Subnets"] = subnets
     ip_type = _p(params, "IpAddressType")
     if ip_type:
         lb["IpAddressType"] = ip_type
     azs = "".join(
-        f"<member><ZoneName>{get_region()}a</ZoneName><SubnetId>{s}</SubnetId>"
+        f"<member><ZoneName>{get_region()}a</ZoneName><SubnetId>{_esc(str(s))}</SubnetId>"
         f"<LoadBalancerAddresses/></member>"
         for s in lb.get("Subnets", [])
     )
     return _xml(200, "SetSubnets",
                 f"<AvailabilityZones>{azs}</AvailabilityZones>"
-                f"<IpAddressType>{lb.get('IpAddressType','ipv4')}</IpAddressType>")
+                f"<IpAddressType>{_esc(str(lb.get('IpAddressType','ipv4')))}</IpAddressType>")
 
 
 def _set_ip_address_type(params):
@@ -1526,7 +1676,7 @@ def _set_ip_address_type(params):
                       f"Invalid IpAddressType: {ip_type}", 400)
     lb["IpAddressType"] = ip_type
     return _xml(200, "SetIpAddressType",
-                f"<IpAddressType>{ip_type}</IpAddressType>")
+                f"<IpAddressType>{_esc(str(ip_type))}</IpAddressType>")
 
 
 def _set_security_groups(params):
@@ -1536,7 +1686,7 @@ def _set_security_groups(params):
         return _error("LoadBalancerNotFound", "Load balancer not found", 400)
     sgs = _parse_member_list(params, "SecurityGroups")
     lb["SecurityGroups"] = sgs
-    members = "".join(f"<member>{s}</member>" for s in sgs)
+    members = "".join(f"<member>{_esc(str(s))}</member>" for s in sgs)
     return _xml(200, "SetSecurityGroups",
                 f"<SecurityGroupIds>{members}</SecurityGroupIds>")
 
@@ -1605,9 +1755,17 @@ async def handle_request(method, path, headers, body, query_params):
 # Data-plane: host/name lookup
 # ---------------------------------------------------------------------------
 
+def _lbs_in_every_tenant():
+    """Every load balancer, the request's own account and region first: data-plane requests are unsigned."""
+    own = (get_account_id(), get_region())
+    items = _lbs.all_items()
+    return ([lb for (account, region, _), lb in items if (account, region) == own]
+            + [lb for (account, region, _), lb in items if (account, region) != own])
+
+
 def find_lb_for_host(host):
     hostname = host.split(":")[0].lower()
-    for lb in _lbs.values():
+    for lb in _lbs_in_every_tenant():
         if lb["DNSName"].lower() == hostname:
             return lb
         if hostname == f"{lb['LoadBalancerName'].lower()}.alb.localhost":
@@ -1620,9 +1778,11 @@ def _alias_target_for_host(hostname):
     from ministack.services import route53
 
     fqdn, best, best_rank = f"{hostname}.", [], -1
+    own = get_account_id()
+    zones, zone_info = sorted(route53._records.to_dict().items(), key=lambda item: item[0][0] != own), route53._zones.to_dict()
     with route53._lock:
-        for zone_id, records in route53._records.items():
-            if (route53._zones.get(zone_id) or {}).get("private"):
+        for (account, zone_id), records in zones:
+            if (zone_info.get((account, zone_id)) or {}).get("private"):
                 continue
             for rs in records:
                 name = rs.get("Name", "").lower().replace("\\052", "*")
@@ -1647,12 +1807,12 @@ def _find_lb_for_alias_record(hostname):
         return None
     target = target.lower().rstrip(".")
     target = target[len("dualstack."):] if target.startswith("dualstack.") else target
-    return next((lb for lb in _lbs.values() if lb["DNSName"].lower() == target), None)
+    return next((lb for lb in _lbs_in_every_tenant() if lb["DNSName"].lower() == target), None)
 
 
 def _find_lb_by_name(name):
     name_lc = name.lower()
-    for lb in _lbs.values():
+    for lb in _lbs_in_every_tenant():
         if lb["LoadBalancerName"].lower() == name_lc:
             return lb
     return None
@@ -1868,12 +2028,7 @@ def _oidc_get_userinfo(url, access_token, timeout=10.0):
             conn.close()
 
 
-# The key the emulator signs x-amzn-oidc-data with. AWS signs with a regional
-# key served from public-keys.auth.elb.<region>.amazonaws.com/<kid>; there is
-# no such endpoint locally, so the signature is real ES256 but verifiable only
-# in principle. Apps that decode the payload (the common pattern) work; apps
-# that fetch the AWS key endpoint fail loudly, exactly as they would against
-# any non-AWS host.
+# Per-process signing key; app.py serves its public half by kid.
 _OIDC_SIGNING_KEY = None
 _OIDC_KID = None
 
@@ -1888,6 +2043,18 @@ def _oidc_signing_material():
         except Exception:
             _OIDC_SIGNING_KEY = None
     return _OIDC_SIGNING_KEY, _OIDC_KID
+
+
+def oidc_public_key_pem(kid: str):
+    """The PEM public key for ``kid``, or None if it is not the current signing kid."""
+    if _OIDC_SIGNING_KEY is None or kid != _OIDC_KID:
+        return None
+    from cryptography.hazmat.primitives import serialization
+
+    return _OIDC_SIGNING_KEY.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
 
 
 def _oidc_b64url(raw: bytes) -> str:
@@ -1948,6 +2115,44 @@ def _oidc_claims(id_token):
         return {}
 
 
+# The session cookie lives 7 days whatever the session timeout, which the session itself carries (AWS docs).
+OIDC_COOKIE_MAX_AGE = 604800
+# Internal key: cookies a refreshed session needs, added to the response by _execute_actions.
+_OIDC_REFRESHED_COOKIES = "__ministack_oidc_cookies"
+
+
+def _oidc_access_exp(tokens):
+    """When the access token expires (epoch seconds): ``expires_in``, else a JWT access token's ``exp``; 0 if unknown."""
+    try:
+        return int(time.time()) + int(tokens["expires_in"])
+    except (KeyError, TypeError, ValueError):
+        pass
+    try:
+        return int(_oidc_claims(tokens.get("access_token", "")).get("exp", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _oidc_session_from_tokens(cfg, tokens, session_exp, refresh_token=""):
+    """The session for a token response: claims from the user info endpoint, the refresh token AWS keeps."""
+    userinfo = cfg.get("UserInfoEndpoint", "")
+    claims = None
+    if userinfo:
+        claims = await run_reentrant(
+            lambda: _oidc_get_userinfo(userinfo, tokens.get("access_token", "")),
+            thread_name="ministack-alb-oidc-userinfo",
+        )
+    if not claims:
+        claims = _oidc_claims(tokens.get("id_token", ""))
+    return {
+        "claims": claims,
+        "access_token": tokens.get("access_token", ""),
+        "refresh_token": tokens.get("refresh_token") or refresh_token,
+        "access_exp": _oidc_access_exp(tokens),
+        "exp": session_exp,
+    }
+
+
 async def _authenticate_oidc(action, method, path, headers, body, query_params, listener_port,
                              lb_arn=""):
     """Run one authenticate-oidc action.
@@ -2002,29 +2207,37 @@ async def _authenticate_oidc(action, method, path, headers, body, query_params, 
         # AWS; the ID token only serves as a fallback when the IdP has no
         # usable user info response. AWS never passes the ID token itself to
         # the backend, and neither does this.
-        userinfo = cfg.get("UserInfoEndpoint", "")
-        claims = None
-        if userinfo:
-            claims = await run_reentrant(
-                lambda: _oidc_get_userinfo(userinfo, tokens.get("access_token", "")),
-                thread_name="ministack-alb-oidc-userinfo",
-            )
-        if not claims:
-            claims = _oidc_claims(tokens.get("id_token", ""))
-        session = {
-            "claims": claims,
-            "access_token": tokens.get("access_token", ""),
-            "exp": int(time.time()) + session_timeout,
-        }
+        session = await _oidc_session_from_tokens(cfg, tokens, int(time.time()) + session_timeout)
         return (302, {
             "Location": pending["url"],
-            "Set-Cookie": _oidc_session_cookies(cookie_name, session, session_timeout, secure),
+            "Set-Cookie": _oidc_session_cookies(cookie_name, session, OIDC_COOKIE_MAX_AGE, secure),
             "Content-Type": "text/plain",
         }, b"")
 
     # --- an established session -------------------------------------------
     session = _oidc_read_session(jar, cookie_name)
-    if session and int(session.get("exp", 0)) > time.time():
+    live = bool(session) and int(session.get("exp", 0)) > time.time()
+    if live and session.get("access_exp") and int(session["access_exp"]) <= time.time():
+        # AWS refreshes the claims with the IdP's refresh token each time the access token expires, until the
+        # session times out or the refresh fails; without one, or on failure, the user signs in again.
+        live = False
+        if session.get("refresh_token"):
+            status, tokens = await run_reentrant(
+                lambda: _oidc_post_form(cfg.get("TokenEndpoint", ""), {
+                    "grant_type": "refresh_token",
+                    "refresh_token": session["refresh_token"],
+                    "client_id": cfg.get("ClientId", ""),
+                    "client_secret": cfg.get("ClientSecret", ""),
+                }),
+                thread_name="ministack-alb-oidc-refresh",
+            )
+            if status < 400 and "access_token" in tokens:
+                session = await _oidc_session_from_tokens(cfg, tokens, int(session["exp"]), session["refresh_token"])
+                headers[_OIDC_REFRESHED_COOKIES] = (
+                    _oidc_expiry_cookies(cookie_name, len(jar))
+                    + _oidc_session_cookies(cookie_name, session, OIDC_COOKIE_MAX_AGE, secure))
+                live = True
+    if live:
         claims = session.get("claims") or {}
         headers["x-amzn-oidc-identity"] = str(claims.get("sub", ""))
         headers["x-amzn-oidc-accesstoken"] = session.get("access_token", "")
@@ -2036,7 +2249,8 @@ async def _authenticate_oidc(action, method, path, headers, body, query_params, 
     on_unauth = (cfg.get("OnUnauthenticatedRequest") or "authenticate").lower()
     if on_unauth == "allow":
         return None
-    if on_unauth == "deny":
+    if on_unauth == "deny" and not session:
+        # deny answers 401 to a request with no authentication information; expired information is sent to the IdP.
         return (401, {"Content-Type": "text/plain"}, b"Unauthorized")
 
     host = headers.get("host") or f"localhost:{listener_port}"
@@ -2057,6 +2271,7 @@ async def _authenticate_oidc(action, method, path, headers, body, query_params, 
         "created": time.time(),
     }
     location = cfg.get("AuthorizationEndpoint", "") + "?" + urlencode({
+        **(cfg.get("AuthenticationRequestExtraParams") or {}),
         "client_id": cfg.get("ClientId", ""),
         "response_type": "code",
         "scope": cfg.get("Scope") or "openid",
@@ -2101,6 +2316,16 @@ async def _execute_actions(actions, method, path, headers, body, query_params, l
                                                 lb_arn=lb_arn)
             if response is not None:
                 return response
+            refreshed = forwarded.pop(_OIDC_REFRESHED_COOKIES, None)
+            if refreshed:
+                status, out_headers, out_body = await _execute_actions(
+                    [a for a in ordered if int(a.get("Order", 1) or 1) > int(action.get("Order", 1) or 1)],
+                    method, path, forwarded, body, query_params, listener_port, lb_arn=lb_arn,
+                    target_host=target_host, raw_query_string=raw_query_string, raw_path=raw_path)
+                out_headers = dict(out_headers or {})
+                existing = out_headers.get("Set-Cookie")
+                out_headers["Set-Cookie"] = ([existing] if isinstance(existing, str) else list(existing or [])) + refreshed
+                return status, out_headers, out_body
             continue
         if atype == "authenticate-cognito":
             # Cognito authentication is the same protocol with the endpoints
@@ -2109,6 +2334,8 @@ async def _execute_actions(actions, method, path, headers, body, query_params, l
             # request to a target that assumes the load balancer checked.
             return (501, {"Content-Type": "application/json"},
                     json.dumps({"message": "authenticate-cognito is not implemented"}).encode())
+        if atype == "forward":
+            action = {**action, "TargetGroupArn": _forward_target_group(action)}
         tg = _tgs.get(action.get("TargetGroupArn", "")) if atype == "forward" else None
         if target_host and tg and tg.get("TargetType", "instance") in ("instance", "ip"):
             # Authentication used the client's Host; an instance or IP target gets the load balancer's.
@@ -2148,7 +2375,7 @@ async def _execute_action(action, method, path, headers, body, query_params, raw
         return code, {"Location": location, "Content-Type": "text/plain"}, b""
 
     if atype == "forward":
-        tg_arn = action.get("TargetGroupArn", "")
+        tg_arn = _forward_target_group(action)
         return await _forward_to_tg(tg_arn, method, path, headers, body, query_params, raw_query_string, raw_path)
 
     return (502, {"Content-Type": "application/json"},
@@ -2501,8 +2728,25 @@ def _with_alb_server(response, listener_arn=None):
     return status, {**headers, "Server": "awselb/2.0"}, body
 
 
+def _lb_scope(lb):
+    owner = parse_arn(lb["LoadBalancerArn"])
+    return request_scope(owner.account_id, owner.region)
+
+
+def listeners_of(lb):
+    with _lb_scope(lb):
+        return [l for l in _listeners.values() if l["LoadBalancerArn"] == lb["LoadBalancerArn"]]
+
+
 async def dispatch_request(lb, method, path, headers, body, query_params, port=80, client_ip=None,
                            raw_query_string=None, raw_path=None):
+    with _lb_scope(lb):
+        return await _dispatch_request(lb, method, path, headers, body, query_params, port, client_ip,
+                                       raw_query_string, raw_path)
+
+
+async def _dispatch_request(lb, method, path, headers, body, query_params, port, client_ip,
+                            raw_query_string, raw_path):
     lb_arn = lb["LoadBalancerArn"]
 
     candidates = [l for l in _listeners.values() if l["LoadBalancerArn"] == lb_arn]

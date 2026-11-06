@@ -8,18 +8,30 @@ from operator import ior
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     Literal,
     Union,
+    get_args,
+    get_origin,
 )
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, computed_field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    computed_field,
+)
 
-from numpydantic import NDArray, Shape
+from numpydantic import L, NDArray, NDArraySchema, Shape
 from numpydantic.dtype import Float
 from numpydantic.interface import Interface, InterfaceTyping
+from numpydantic.shape._range import _RangeDim
+from numpydantic.shape._variadic import _variadic_item
 from numpydantic.types import DtypeType, NDArrayType
+from numpydantic.validation.dtype import is_union
 
 if TYPE_CHECKING:
     from _pytest.mark.structures import MarkDecorator
@@ -114,9 +126,6 @@ class InterfaceCase(ABC):
         return False
 
 
-_a_shape_type = tuple[int | Literal["*"] | Literal["..."], ...]
-
-
 class ValidationCase(BaseModel):
     """
     Test case for validating an array.
@@ -129,13 +138,11 @@ class ValidationCase(BaseModel):
     """
     String identifying the validation case
     """
-    annotation_shape: (
-        None | tuple[int | str, ...] | tuple[tuple[int | str, ...], ...]
-    ) = (
-        10,
-        10,
-        "*",
-        "*",
+    annotation_shape: None | tuple[Any, ...] | tuple[tuple[Any, ...], ...] = (
+        L[10],
+        L[10],
+        int,
+        int,
     )
     """
     Shape to use in computed annotation used to validate against
@@ -165,13 +172,8 @@ class ValidationCase(BaseModel):
         Annotation used in the model we validate against
         """
         # make a union type if we need to
-        shape_union = (
-            False
-            if self.annotation_shape is None
-            else all(
-                isinstance(s, Sequence) and not isinstance(s, str)
-                for s in self.annotation_shape
-            )
+        shape_union = self.annotation_shape is not None and all(
+            isinstance(s, tuple) for s in self.annotation_shape
         )
         dtype_union = isinstance(self.annotation_dtype, Sequence) and all(
             isinstance(s, Sequence) for s in self.annotation_dtype
@@ -188,16 +190,30 @@ class ValidationCase(BaseModel):
                 if shape is None:
                     annotations.append(NDArray[Any, dtype])
                 else:
-                    shape_str = ", ".join([str(i) for i in shape])
-                    annotations.append(NDArray[Shape[shape_str], dtype])
+                    annotations.append(NDArray[Shape[shape], dtype])
             return Union[tuple(annotations)]  # noqa: UP007
 
         else:
             if self.annotation_shape is None:
                 return NDArray[Any, self.annotation_dtype]
             else:
-                shape_str = ", ".join([str(i) for i in self.annotation_shape])
-                return NDArray[Shape[shape_str], self.annotation_dtype]
+                return NDArray[Shape[self.annotation_shape], self.annotation_dtype]
+
+    def ndarray_schema(self, array_type: type) -> type:
+        """
+        The `Annotated` form of the NDArray annotation using NDArraySchema
+        """
+        if is_union(self.annotation):
+            anns = tuple(
+                Annotated[array_type, NDArraySchema(a.__args__[0], a.__args__[1])]
+                for a in self.annotation.__args__
+            )
+            return Union[anns]  # noqa: UP007
+        else:
+            return Annotated[
+                array_type,
+                NDArraySchema(self.annotation.__args__[0], self.annotation.__args__[1]),
+            ]
 
     @computed_field()
     def model(self) -> type[BaseModel]:
@@ -294,8 +310,9 @@ class ValidationCase(BaseModel):
         typer: InterfaceTyping = self.interface.interface.typing
 
         imports = typer.emit_imports() + [
-            "from typing import Any",
-            "from numpydantic import NDArray, Shape",
+            "from typing import Any, Literal as L",
+            "from typing_extensions import Unpack",
+            "from numpydantic import NDArray, Range, Repeat, Shape",
             "from numpydantic.dtype import Integer, Float",
             "import numpy",
         ]
@@ -303,8 +320,8 @@ class ValidationCase(BaseModel):
 
         rhs_dtype = _render_dtype_annotation(self.dtype)
         constructor = typer.emit_constructor_source(self.shape, rhs_dtype)
-        rhs_shape = ",".join(str(s) for s in self.shape)
-        rhs_annotation = f'NDArray[Shape["{rhs_shape}"], {rhs_dtype}]'
+        rhs_shape = ", ".join(_render_shape_dim(s) for s in self.shape)
+        rhs_annotation = f"NDArray[Shape[{rhs_shape}], {rhs_dtype}]"
 
         if self.annotation_dtype == Float:
             # FIXME: tuple types were a bad idea.
@@ -313,8 +330,8 @@ class ValidationCase(BaseModel):
             lhs_dtype = "Float"
         else:
             lhs_dtype = _render_dtype_annotation(self.annotation_dtype)
-        lhs_shape = ",".join(str(s) for s in self.annotation_shape)
-        lhs_annotation = f'NDArray[Shape["{lhs_shape}"], {lhs_dtype}]'
+        lhs_shape = ", ".join(_render_shape_dim(s) for s in self.annotation_shape)
+        lhs_annotation = f"NDArray[Shape[{lhs_shape}], {lhs_dtype}]"
         return _MYPY_TEMPLATE.format(
             imports="\n".join(imports),
             constructor=constructor,
@@ -341,6 +358,22 @@ reveal_type(make)
 x: {lhs_annotation} = make()
 reveal_type(x)
 """
+
+
+def _render_shape_dim(dim: Any) -> str:
+    if dim is int:
+        return "int"
+    elif dim is Any:
+        return "Any"
+    elif isinstance(dim, int):
+        return f"L[{dim}]"
+    elif get_origin(dim) is Literal:
+        return f"L[{get_args(dim)[0]}]"
+    elif isinstance(dim, _RangeDim):
+        return repr(dim)
+    elif _variadic_item(dim) is int:
+        return "Unpack[Repeat]"
+    raise ValueError(f"Don't know how to render shape dimension {dim!r}")
 
 
 def _render_dtype_annotation(a_dtype: type | str) -> str:
@@ -378,15 +411,12 @@ def merge_cases(*args: ValidationCase) -> ValidationCase:
     if len(args) == 1:  # pragma: no cover
         return args[0]
 
+    # only the fields each case set, without dumping them,
+    # which would turn objects like Range[...] into dicts
+    exclude = {"model", "annotation", "pytest_marks"}
     dumped = [
-        m.model_dump(
-            exclude_unset=True, exclude={"model", "annotation", "pytest_marks"}
-        )
-        for m in args
+        {name: getattr(m, name) for name in m.model_fields_set - exclude} for m in args
     ]
-
-    # self_dump = self.model_dump(exclude_unset=True)
-    # other_dump = other.model_dump(exclude_unset=True)
 
     # dumps might not have set `passes`, use only the ones that have
     passes = [v.get("passes") for v in dumped if "passes" in v]

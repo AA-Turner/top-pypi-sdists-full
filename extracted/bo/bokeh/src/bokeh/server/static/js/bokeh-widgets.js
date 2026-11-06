@@ -30,7 +30,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 (function(root, factory) {
-  factory(root["Bokeh"], "3.10.1");
+  factory(root["Bokeh"], "3.10.2");
 })(this, function(Bokeh, version) {
   let define;
   return (function(modules, entry, aliases, externals) {
@@ -4360,7 +4360,107 @@
 738: /* models/widgets/div.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const markup_1 = require(739) /* ./markup */;
+    /**
+     * Finds the target of a fragment link (`#name`) in `root`: an element whose `id`
+     * is `name`, or else an `<a>` element whose `name` is `name`, as browsers do.
+     */
+    function fragment_target(root, name) {
+        return root.getElementById(name) ?? root.querySelector(`a[name="${CSS.escape(name)}"]`);
+    }
+    /**
+     * Like `fragment_target()`, but also searches every open shadow root nested in `root`.
+     */
+    function deep_fragment_target(root, name) {
+        const target = fragment_target(root, name);
+        if (target != null) {
+            return target;
+        }
+        for (const el of root.querySelectorAll("*")) {
+            if (el.shadowRoot != null) {
+                const target = deep_fragment_target(el.shadowRoot, name);
+                if (target != null) {
+                    return target;
+                }
+            }
+        }
+        return null;
+    }
+    /**
+     * Whether following `anchor` navigates the current browsing context. Like browsers,
+     * this uses the `target` of the document's `<base>` if `anchor` has no `target`.
+     */
+    function navigates_self(anchor) {
+        const target = (() => {
+            if (anchor.hasAttribute("target")) {
+                return anchor.target;
+            }
+            const base = anchor.ownerDocument.querySelector("base[target]");
+            return base?.target ?? "";
+        })();
+        return target == "" || target == "_self";
+    }
+    function without_fragment(url) {
+        const result = new URL(url);
+        result.hash = "";
+        return result.href;
+    }
     class DivView extends markup_1.MarkupView {
+        connect_signals() {
+            super.connect_signals();
+            // The text is rendered in a shadow root, so the browser can't find the targets
+            // of fragment links (`<a href="#name">`) in it, nor in any other component.
+            this.shadow_el.addEventListener("click", (event) => {
+                if (event instanceof MouseEvent) {
+                    this._follow_fragment_link(event);
+                }
+            });
+        }
+        _follow_fragment_link(event) {
+            if (event.defaultPrevented || event.button != 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+                return;
+            }
+            const anchor = event.composedPath().find((el) => el instanceof HTMLAnchorElement);
+            if (anchor == null || anchor.hasAttribute("download") || !navigates_self(anchor)) {
+                return;
+            }
+            const href = anchor.getAttribute("href");
+            if (href == null || !href.startsWith("#") || href.length == 1) {
+                return;
+            }
+            // With `<base href>`, the link may point to another document.
+            const old_url = window.location.href;
+            const new_url = anchor.href;
+            if (without_fragment(new_url) != without_fragment(old_url)) {
+                return;
+            }
+            const name = (() => {
+                try {
+                    return decodeURIComponent(href.slice(1));
+                }
+                catch {
+                    return href.slice(1);
+                }
+            })();
+            // The browser finds targets that are in the document itself.
+            if (fragment_target(document, name) != null) {
+                return;
+            }
+            // Prefer a target in this component's own text.
+            const target = deep_fragment_target(this.shadow_el, name) ?? deep_fragment_target(document, name);
+            if (target != null) {
+                // The browser would scroll again after this (to the top of the page for `#top`), so
+                // follow the link ourselves: update the URL and history, and fire the same events.
+                event.preventDefault();
+                if (new_url != old_url) {
+                    window.history.pushState(null, "", new_url);
+                }
+                window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+                target.scrollIntoView();
+                if (new_url != old_url) {
+                    setTimeout(() => window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: old_url, newURL: new_url })));
+                }
+            }
+        }
         render() {
             super.render();
             if (this.model.render_as_text) {
@@ -18138,13 +18238,14 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const base_numerical_slider_1 = require(785) /* ./base_numerical_slider */;
     class NumericalRangeSliderView extends base_numerical_slider_1.BaseNumericalSliderView {
         _calc_to() {
+            const { start, end, value, step } = this.model;
             return {
                 range: {
-                    min: this.model.start,
-                    max: this.model.end,
+                    min: start,
+                    max: end,
                 },
-                start: this.model.value,
-                step: this.model.step,
+                start: value,
+                step,
             };
         }
         _calc_from(values) {
@@ -18156,17 +18257,50 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         constructor(attrs) {
             super(attrs);
         }
+        _clamp(value) {
+            const [lo, hi] = this._bounds();
+            const clamp = (v) => Math.min(Math.max(v, lo), hi);
+            return [clamp(value[0]), clamp(value[1])];
+        }
+        _enforce_bounds() {
+            const { value, value_throttled } = this.properties;
+            const changes = {};
+            if (!value.is_unset) {
+                const [v0, v1] = this.value;
+                const clamped = this._clamp([v0, v1]);
+                if (clamped[0] != v0 || clamped[1] != v1) {
+                    changes.value = clamped;
+                }
+            }
+            if (!value_throttled.is_unset) {
+                const [t0, t1] = this.value_throttled;
+                const clamped = this._clamp([t0, t1]);
+                if (clamped[0] != t0 || clamped[1] != t1) {
+                    changes.value_throttled = clamped;
+                }
+            }
+            else if (changes.value != null) {
+                // copy, so that `value` and `value_throttled` never share one array
+                changes.value_throttled = [...changes.value];
+            }
+            if (changes.value != null || changes.value_throttled != null) {
+                this.setv(changes);
+            }
+        }
     }
     exports.NumericalRangeSlider = NumericalRangeSlider;
 },
 785: /* models/widgets/sliders/base_numerical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    const tslib_1 = require(1) /* tslib */;
     const abstract_slider_1 = require(779) /* ./abstract_slider */;
     const tick_formatter_1 = require(275) /* ../../formatters/tick_formatter */;
+    const p = tslib_1.__importStar(require(20) /* ../../../core/properties */);
     class BaseNumericalSliderView extends abstract_slider_1.AbstractSliderView {
         connect_signals() {
             super.connect_signals();
             const { start, end, step } = this.model.properties;
+            this.on_change([start, end], () => this._update_title());
             this.on_change([start, end, step], () => this._update_slider());
         }
         pretty(value) {
@@ -18178,11 +18312,28 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         constructor(attrs) {
             super(attrs);
         }
+        initialize() {
+            super.initialize();
+            this._enforce_bounds();
+        }
+        connect_signals() {
+            super.connect_signals();
+            const { start, end } = this.properties;
+            this.connect(start.change, () => this._enforce_bounds());
+            this.connect(end.change, () => this._enforce_bounds());
+        }
+        _bounds() {
+            const { start, end } = this.properties;
+            return [
+                start.is_unset ? -Infinity : start.get_value(),
+                end.is_unset ? Infinity : end.get_value(),
+            ];
+        }
         static {
             this.define(({ Float, Str, Or, Ref }) => {
                 return {
-                    start: [Float],
-                    end: [Float],
+                    start: [Float, p.unset],
+                    end: [Float, p.unset],
                     step: [Float, 1],
                     format: [Or(Str, Ref(tick_formatter_1.TickFormatter))],
                 };
@@ -18255,6 +18406,34 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     class NumericalSlider extends base_numerical_slider_1.BaseNumericalSlider {
         constructor(attrs) {
             super(attrs);
+        }
+        _clamp(value) {
+            const [lo, hi] = this._bounds();
+            return Math.min(Math.max(value, lo), hi);
+        }
+        _enforce_bounds() {
+            const { value, value_throttled } = this.properties;
+            const changes = {};
+            if (!value.is_unset) {
+                const v = this.value;
+                const clamped = this._clamp(v);
+                if (clamped != v) {
+                    changes.value = clamped;
+                }
+            }
+            if (!value_throttled.is_unset) {
+                const t = this.value_throttled;
+                const clamped = this._clamp(t);
+                if (clamped != t) {
+                    changes.value_throttled = clamped;
+                }
+            }
+            else if (changes.value != null) {
+                changes.value_throttled = changes.value;
+            }
+            if (changes.value != null || changes.value_throttled != null) {
+                this.setv(changes);
+            }
         }
     }
     exports.NumericalSlider = NumericalSlider;

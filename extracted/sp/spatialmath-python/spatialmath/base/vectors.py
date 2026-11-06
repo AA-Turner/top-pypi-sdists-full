@@ -16,14 +16,7 @@ import numpy as np
 from spatialmath.base.argcheck import getvector
 from spatialmath.base.types import *
 
-try:  # pragma: no cover
-    # print('Using SymPy')
-    import sympy
-
-    _symbolics = True
-
-except ImportError:  # pragma: no cover
-    _symbolics = False
+from spatialmath.base import symbolic as sym
 
 _eps = np.finfo(np.float64).eps
 
@@ -55,8 +48,8 @@ def norm(v: ArrayLikePure) -> float:
     for x in v:
         sum += x * x
 
-    if _symbolics and isinstance(sum, sympy.Expr):
-        return sympy.sqrt(sum)
+    if sym.issymbol(sum):
+        return sym.sqrt(sum)
     else:
         return math.sqrt(sum)
 
@@ -567,13 +560,10 @@ def wrap_mpi2_pi2(theta: ArrayLike) -> Union[float, NDArray]:
 
     """
     theta = getvector(theta)
-    n = theta / np.pi * 2
-    if isinstance(n, np.ndarray):
-        n = n.astype(int)
-    else:
-        n = np.fix(n).astype(int)
-
-    y = np.where(np.bitwise_and(n, 1) == 0, theta - n * np.pi, n * np.pi - theta)
+    theta = np.fmod(theta, 2 * np.pi)
+    theta = np.where(theta > np.pi, theta - 2 * np.pi, theta)
+    theta = np.where(theta < -np.pi, theta + 2 * np.pi, theta)
+    y = np.where(np.abs(theta) <= np.pi / 2, theta, np.copysign(np.pi, theta) - theta)
     if isinstance(y, np.ndarray) and len(y) == 1:
         return float(y[0])
     else:
@@ -686,14 +676,28 @@ def angle_std(theta: ArrayLike) -> float:
     r"""
     Standard deviation of angular values
 
-    :param theta: angular values
+    :param theta: angular values, in radians
     :type theta: array_like
-    :return: circular standard deviation
+    :return: circular standard deviation, in radians
     :rtype: float
+
+    The circular standard deviation is
 
     .. math::
 
-        \sigma_{\theta} = \sqrt{-2 \log \| \left[ \frac{\sum \sin \theta_i}{N}, \frac{\sum \sin \theta_i}{N} \right] \|} \in [0, \infty)
+        \sigma_{\theta} = \sqrt{-2 \log R} \in [0, \infty), \quad
+        R = \left\| \left[ \frac{\sum \cos \theta_i}{N}, \frac{\sum \sin \theta_i}{N} \right] \right\|
+
+    where :math:`R` is the length of the mean of the unit vectors at angles
+    :math:`\theta_i`.  :math:`R = 1` if all the angles are equal, giving a
+    standard deviation of zero, and :math:`R \to 0` as the angles spread evenly
+    around the circle, when the standard deviation grows without bound.
+
+    This is the same quantity as ``scipy.stats.circstd`` with its default
+    arguments.
+
+    .. note:: If :math:`R` is exactly zero the result is ``inf``, with a NumPy
+        divide-by-zero warning.
 
     :seealso: :func:`angle_mean`
     """
@@ -701,23 +705,33 @@ def angle_std(theta: ArrayLike) -> float:
     Y = np.sin(theta).mean()
     R = np.sqrt(X**2 + Y**2)
 
-    return np.sqrt(-2 * np.log(R))
+    # R is the length of an average of unit vectors so is at most 1, but
+    # rounding can make it 1 + eps, which would give the square root of a
+    # (tiny) negative number and nan
+    return np.sqrt(max(0.0, -2 * np.log(R)))
 
 
 def angle_mean(theta: ArrayLike) -> float:
     r"""
     Mean of angular values
 
-    :param theta: angular values
-    :type v: array_like
-    :return: circular mean
+    :param theta: angular values, in radians
+    :type theta: array_like
+    :return: circular mean, in radians
     :rtype: float
 
-    The circular mean is given by
+    The circular mean is the angle of the mean of the unit vectors at angles
+    :math:`\theta_i`
 
     .. math::
 
-        \bar{\theta} = \tan^{-1} \frac{\sum \sin \theta_i}{\sum \cos \theta_i} \in [-\pi, \pi)]
+        \bar{\theta} = \tan^{-1} \frac{\sum \sin \theta_i}{\sum \cos \theta_i} \in [-\pi, \pi]
+
+    computed with the two-argument arctangent so that the quadrant is correct.
+
+    .. note:: If the unit vectors cancel, for example the angles :math:`0` and
+        :math:`\pi`, the mean direction is undefined and the result is decided by
+        rounding error.
 
     :seealso: :func:`angle_std`
     """
@@ -730,8 +744,8 @@ def angle_wrap(theta: ArrayLike, mode: str = "-pi:pi") -> Union[float, NDArray]:
     """
     Generalized angle-wrapping
 
-    :param v: angles to wrap
-    :type v: array_like
+    :param theta: angles to wrap
+    :type theta: array_like
     :param mode: wrapping mode, one of: ``"0:2pi"``, ``"0:pi"``, ``"-pi/2:pi/2"`` or ``"-pi:pi"`` [default]
     :type mode: str, optional
     :return: wrapped angles
@@ -832,7 +846,14 @@ def project(v1: ArrayLike3, v2: ArrayLike3) -> ArrayLike3:
     :return: vector projection of v1 onto v2 (parrallel to v2)
     :rtype: ndarray(n)
     """
-    return np.dot(v1, v2) * v2
+    v1 = getvector(v1)
+    v2 = getvector(v2)
+    scale = np.max(np.abs(v2))
+    if scale == 0:
+        return np.zeros_like(v2)
+    # Normalize the scale before dot products to avoid over/underflow.
+    v2 = v2 / scale
+    return (np.dot(v1, v2) / np.dot(v2, v2)) * v2
 
 
 def orthogonalize(v1: ArrayLike3, v2: ArrayLike3, normalize: bool = True) -> ArrayLike3:

@@ -26,6 +26,7 @@ import sys
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import Dll
 from doppler.wfm import PN, mls_poly
 
@@ -81,6 +82,7 @@ def _disc_var(snr_db, sps=16, nper=400):
 
 
 def main(out_path="dll_theory_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

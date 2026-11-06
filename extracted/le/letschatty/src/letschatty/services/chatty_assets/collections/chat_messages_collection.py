@@ -39,7 +39,9 @@ from ....models.messages.meta_message_model.schema.values.motivos_de_no_entrega 
 from ....models.utils import MessageType, Status
 from ....models.utils.types.message_types import MessageSubtype
 from ....models.utils.types.identifier import StrObjectId
-from ....models.utils.types.message_status_types import is_meta_message_id
+
+# Los estados que un «leído hasta acá» puede avanzar a `read`: no prueba nada de un `failed` ni de un `waiting`.
+READ_UP_TO_ADVANCES = (Status.SENT, Status.DELIVERED)
 
 logger = logging.getLogger("ChatMessagesCollection")
 
@@ -305,10 +307,10 @@ class ChatMessagesCollection:
 
     # ── Cambios a un mensaje (posicionales, sin cargar el chat) ──
 
-    async def update_status(self, chat_id: StrObjectId, message_id: str, status: Status, error_details: Optional[ErrorDetail] = None) -> bool:
-        """El ✓✓ de Meta. Condicional: sólo entra si el estado guardado es uno que éste reemplaza
+    async def update_status(self, chat_id: StrObjectId, message_id: str, status: Status, error_details: Optional[ErrorDetail] = None, *, confirmed_by_provider: bool) -> bool:
+        """El ✓✓ del proveedor. Condicional: sólo entra si el estado guardado es uno que éste reemplaza
         (`Status.supersedes`), porque Meta manda sent/delivered/read sin orden garantizado."""
-        superseded = [s.value for s in status.superseded_statuses(confirmed_by_meta=is_meta_message_id(message_id))] + [None]
+        superseded = [s.value for s in status.superseded_statuses(confirmed_by_provider=confirmed_by_provider)] + [None]
         fields: Dict[str, Any] = {"messages.$.status": status.value}
         if error_details:
             fields["messages.$.error_details"] = error_details.model_dump(mode="json")
@@ -320,6 +322,28 @@ class ChatMessagesCollection:
             {"$set": fields},
         )
         return result.matched_count > 0
+
+    async def mark_read_up_to(self, chat_id: StrObjectId, up_to: datetime) -> List[str]:
+        """Marca `read` los mensajes salientes del chat con fecha hasta `up_to` (inclusive). Devuelve los ids que
+        ESTE llamador cambió.
+
+        Es la lectura de los canales que avisan «leído hasta acá» en vez de un estado por mensaje. Sólo avanzan `sent`
+        y `delivered`: un «leído hasta acá» no prueba nada de los anteriores, así que un `failed` o un `waiting` (un
+        envío que no salió o no se confirmó) quedan como están. Cada mensaje entra por el mismo `update_status`
+        condicional de siempre (`Status.supersedes`): uno que ya está `read`, o que otro escritor leyó a la vez, no se
+        cuenta ni retrocede.
+        """
+        cutoff = _as_utc(up_to)
+        buckets = await self.collection.find({"chat_id": chat_id, "first_at": {"$lte": cutoff}}).to_list(None)
+        pending = [
+            m for m in self._messages_of(buckets)
+            if m.is_outgoing and _as_utc(m.created_at) <= cutoff and m.status in READ_UP_TO_ADVANCES
+        ]
+        marked: List[str] = []
+        for message in pending:
+            if await self.update_status(chat_id, message.id, Status.READ, confirmed_by_provider=True):
+                marked.append(message.id)
+        return marked
 
     async def set_message_fields(self, chat_id: StrObjectId, message_id: str, fields: Dict[str, Any]) -> bool:
         """`$set` posicional de campos del mensaje (`{"revoked": True}`, `{"content.body": ...}`)."""

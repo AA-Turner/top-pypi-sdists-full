@@ -31,6 +31,9 @@ Run:
 
 from __future__ import annotations
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")
@@ -63,7 +66,7 @@ x = Composer(timeline).compose()  # → complex64
 # The narrative block above must stay self-contained (the gallery page
 # includes it verbatim), so this import follows it. noqa: E402 — import
 # not at top of file, by design.
-from doppler.spectral import PSD, Spectrogram  # noqa: E402
+from doppler.spectral import PSD, Spectrogram
 
 N = 1 << 16  # == the scene's num_samples above
 

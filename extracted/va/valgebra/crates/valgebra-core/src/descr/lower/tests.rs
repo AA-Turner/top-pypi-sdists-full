@@ -4,14 +4,15 @@ use std::sync::{Arc, LazyLock};
 use proptest::prelude::*;
 
 use super::{
-    BUDGET, Bounds, Constants, DEPTH, Operand, Room, WORK, descend, lower, lower_widened,
-    lower_within, nests_past_the_depth,
+    BUDGET, Bounds, Constants, DEPTH, Operand, Room, WORK, an_empty_reading_stands, descend, lower,
+    lower_widened, lower_within, nests_past_the_depth, read_widened,
 };
 use crate::descr::budget;
 use crate::descr::classes::Class;
 use crate::descr::{Descr, Value};
 use crate::ir::{
-    ClassIx, ConstIx, Constraint, Field, MapClause, Openness, OperandIx, Schema, SeqKind, SeqShape,
+    ClassIx, ConstIx, Constraint, Field, MapClause, Openness, OperandIx, PredIx, Schema, SeqKind,
+    SeqShape,
 };
 use crate::kind::Kind;
 use crate::verdict::{Relation, Verdict};
@@ -749,10 +750,26 @@ fn a_schema_past_a_bound_refuses() {
     );
     assert!(lower(&wide(BUDGET as usize / 2), &pool).is_some());
 
-    let nested =
-        |levels: u32| (0..levels).fold(Schema::Str, |inner, _| Schema::Complement(Arc::new(inner)));
+    // The depth bounds the containers a build starts below other nodes, and
+    // a scalar tower starts none: complements of a string lower past it.
+    let nested = |levels: u32| {
+        (0..levels).fold(Schema::Str, |inner, _| {
+            Schema::list(SeqShape::homogeneous(inner))
+        })
+    };
     assert!(lower(&nested(DEPTH + 1), &pool).is_none(), "too deep");
-    assert!(lower(&nested(DEPTH - 1), &pool).is_some());
+    // The build refuses it on its own as well, where no walk read it first.
+    assert!(
+        descend(&nested(DEPTH + 1), &pool, &Room::new(BUDGET), DEPTH).is_none(),
+        "built past the depth"
+    );
+    assert!(lower(&nested(DEPTH), &pool).is_some());
+    let scalars =
+        |levels: u32| (0..levels).fold(Schema::Str, |inner, _| Schema::Complement(Arc::new(inner)));
+    assert!(
+        lower(&scalars(DEPTH + 3), &pool).is_some(),
+        "a scalar tower starts no build"
+    );
 }
 
 /// A build that would cost too much refuses, and the same schema lowers
@@ -1177,20 +1194,331 @@ fn a_literal_key_of_every_constant_kind_names_its_key() {
     }
 }
 
-/// An operand the pool cannot read refuses the constraint that names it.
+/// An operand the pool cannot read as a number refuses the constraint that
+/// names it, and so does `nan`, which orders nothing.
 #[test]
 fn an_operand_the_pool_cannot_read_refuses() {
-    let pool = Pool(vec![Operand::Float(0.5)]);
-    assert!(
-        lower(
+    for operand in [Operand::NoneType, Operand::Float(f64::NAN)] {
+        let pool = Pool(vec![operand.clone()]);
+        assert!(
+            lower(
+                &Schema::Refine {
+                    base: Arc::new(Schema::Int),
+                    constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+                },
+                &pool,
+            )
+            .is_none(),
+            "{operand:?} bounds no integer"
+        );
+    }
+}
+
+/// The comparison a bound makes between an integer and a float, as Python
+/// makes it: exactly, which `f64` does for the small integers drawn here.
+fn compares(constraint: &Constraint, n: i64, x: f64) -> bool {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "the integers drawn are small, so the conversion is exact"
+    )]
+    let n = n as f64;
+    match constraint {
+        Constraint::Gt(_) => n > x,
+        Constraint::Ge(_) => n >= x,
+        Constraint::Lt(_) => n < x,
+        Constraint::Le(_) => n <= x,
+        other => panic!("{other:?} is no comparison"),
+    }
+}
+
+proptest! {
+    /// A float bound over the integers is read at its floor or its ceiling: the
+    /// lowered set admits an integer, and a boolean, exactly where Python's
+    /// comparison of it with the float holds, over operands at, between and
+    /// past the integers drawn, `-0.0`, and both infinities.
+    #[test]
+    fn a_float_bound_over_the_integers_is_read_as_python_compares(
+        whole in -4i64..4,
+        quarter in 0i64..4,
+        special in prop_oneof![
+            Just(None),
+            Just(Some(-0.0)),
+            Just(Some(f64::INFINITY)),
+            Just(Some(f64::NEG_INFINITY)),
+        ],
+        which in 0usize..4,
+        n in -6i64..6,
+    ) {
+        #[expect(clippy::cast_precision_loss, reason = "small integers convert exactly")]
+        let x = special.unwrap_or(whole as f64 + quarter as f64 / 4.0);
+        let at = OperandIx::new(0);
+        let constraint = [
+            Constraint::Gt(at),
+            Constraint::Ge(at),
+            Constraint::Lt(at),
+            Constraint::Le(at),
+        ]
+        .into_iter()
+        .nth(which)
+        .expect("one of four");
+        let set = lower(
             &Schema::Refine {
                 base: Arc::new(Schema::Int),
-                constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+                constraints: vec![constraint.clone()].into(),
             },
-            &pool,
+            &Pool(vec![Operand::Float(x)]),
         )
-        .is_none(),
-        "a float bound is not an integer set"
+        .expect("a float bound over the integers lowers");
+        prop_assert_eq!(set.admits(Value::integer(n)), compares(&constraint, n, x), "{} {:?}", n, x);
+        for boolean in [false, true] {
+            prop_assert_eq!(
+                set.admits(Value::boolean(boolean)),
+                compares(&constraint, i64::from(boolean), x),
+                "{} {:?}",
+                boolean,
+                x
+            );
+        }
+    }
+
+    /// A `Fraction` or `Decimal` bound over the integers is read at the floor or
+    /// the ceiling the pool reads of it: the lowered set admits an integer, and
+    /// a boolean, exactly where Python's exact comparison of it with `p / q`
+    /// holds -- `n * q` against `p`, `q` being positive -- over operands at and
+    /// between the integers drawn.
+    #[test]
+    fn a_rational_bound_over_the_integers_is_read_as_python_compares(
+        p in -16i64..16,
+        q in 1i64..5,
+        which in 0usize..4,
+        n in -6i64..6,
+    ) {
+        let at = OperandIx::new(0);
+        let constraint = [
+            Constraint::Gt(at),
+            Constraint::Ge(at),
+            Constraint::Lt(at),
+            Constraint::Le(at),
+        ]
+        .into_iter()
+        .nth(which)
+        .expect("one of four");
+        let rational = Operand::Rational {
+            floor: p.div_euclid(q),
+            ceil: -(-p).div_euclid(q),
+        };
+        let set = lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Int),
+                constraints: vec![constraint.clone()].into(),
+            },
+            &Pool(vec![rational]),
+        )
+        .expect("a rational bound over the integers lowers");
+        let holds = |n: i64| match constraint {
+            Constraint::Gt(_) => n * q > p,
+            Constraint::Ge(_) => n * q >= p,
+            Constraint::Lt(_) => n * q < p,
+            Constraint::Le(_) => n * q <= p,
+            ref other => panic!("{other:?} is no comparison"),
+        };
+        prop_assert_eq!(set.admits(Value::integer(n)), holds(n), "{} {}/{}", n, p, q);
+        for boolean in [false, true] {
+            prop_assert_eq!(
+                set.admits(Value::boolean(boolean)),
+                holds(i64::from(boolean)),
+                "{} {}/{}",
+                boolean,
+                p,
+                q
+            );
+        }
+    }
+}
+
+proptest! {
+    /// A truth value bounding a number is the integer it is to every comparison
+    /// Python makes, over the integers and over the floats: the set it lowers
+    /// to is the one `0` or `1` lowers to. `Le(True)` equals `Le(1)` and hashes
+    /// alike, so `typing` hands either spelling the other's marker.
+    #[test]
+    fn a_boolean_bound_is_read_as_the_integer_it_is(
+        boolean in any::<bool>(),
+        which in 0usize..4,
+        base in prop_oneof![Just(Schema::Int), Just(Schema::Float)],
+    ) {
+        let at = OperandIx::new(0);
+        let constraint = [
+            Constraint::Gt(at),
+            Constraint::Ge(at),
+            Constraint::Lt(at),
+            Constraint::Le(at),
+        ]
+        .into_iter()
+        .nth(which)
+        .expect("one of four");
+        let refined = Schema::Refine {
+            base: Arc::new(base),
+            constraints: vec![constraint].into(),
+        };
+        let read = lower(&refined, &Pool(vec![Operand::Boolean(boolean)]));
+        prop_assert!(read.is_some(), "a boolean bound lowers");
+        prop_assert_eq!(read, lower(&refined, &Pool(vec![Operand::Integer(i64::from(boolean))])));
+    }
+}
+
+/// `True` as a step over the integers is the step `1`, which every integer
+/// meets: `%` reads a boolean as the integer it is.
+#[test]
+fn a_true_step_is_read_as_the_integer_step() {
+    let stepped = Schema::Refine {
+        base: Arc::new(Schema::Int),
+        constraints: vec![Constraint::MultipleOf(OperandIx::new(0))].into(),
+    };
+    let read = lower(&stepped, &Pool(vec![Operand::Boolean(true)]));
+    assert!(read.is_some(), "a true step lowers");
+    assert_eq!(read, lower(&stepped, &Pool(vec![Operand::Integer(1)])));
+    assert_eq!(read, lower(&Schema::Int, &Pool(Vec::new())));
+}
+
+/// A number a comparison is asked of, as Python reads it: `None` for a value
+/// no builtin number orders, whose comparison raises.
+fn as_number(value: &Value) -> Option<f64> {
+    if *value == Value::of_kind(Kind::NoneType) || *value == Value::word(b"a", Kind::Str) {
+        return None;
+    }
+    [
+        (Value::boolean(false), 0.0),
+        (Value::boolean(true), 1.0),
+        (Value::integer(-1), -1.0),
+        (Value::integer(0), 0.0),
+        (Value::integer(2), 2.0),
+        (Value::float(0.5), 0.5),
+        (Value::float(-2.5), -2.5),
+    ]
+    .into_iter()
+    .find(|(held, _)| held == value)
+    .map(|(_, number)| number)
+}
+
+proptest! {
+    // THEORY: a-refinement-narrows-its-base
+    /// A refinement of a union is the union of its refined branches, and a
+    /// value a bound cannot be compared with is refused: the lowered set admits
+    /// a value exactly where the value is of a branch and Python's comparison
+    /// of it with the operand holds, an error read as a non-match, as the walk
+    /// reads one. Over branches the components hold whole numbers, floats,
+    /// truth values and `None`, two at a time; a branch of strings declines.
+    #[test]
+    fn a_bound_over_a_union_is_asked_of_each_branch(
+        first in 0usize..5,
+        second in 0usize..5,
+        which in 0usize..4,
+        operand in prop_oneof![
+            (-2i64..3).prop_map(Operand::Integer),
+            prop_oneof![Just(-0.5), Just(0.5), Just(2.0)].prop_map(Operand::Float),
+            any::<bool>().prop_map(Operand::Boolean),
+        ],
+    ) {
+        let bases = [Schema::Int, Schema::Float, Schema::Bool, Schema::NoneType, Schema::Str];
+        let kinds = [
+            vec![Kind::Int, Kind::Bool],
+            vec![Kind::Float],
+            vec![Kind::Bool],
+            vec![Kind::NoneType],
+            vec![Kind::Str],
+        ];
+        let at = OperandIx::new(0);
+        let constraint = [
+            Constraint::Gt(at),
+            Constraint::Ge(at),
+            Constraint::Lt(at),
+            Constraint::Le(at),
+        ]
+        .into_iter()
+        .nth(which)
+        .expect("one of four");
+        let bound = match operand {
+            Operand::Integer(n) => {
+                #[expect(clippy::cast_precision_loss, reason = "small integers convert exactly")]
+                let n = n as f64;
+                n
+            }
+            Operand::Float(x) => x,
+            Operand::Boolean(b) => f64::from(u8::from(b)),
+            _ => unreachable!("the operands drawn are numbers"),
+        };
+        let refined = Schema::Refine {
+            base: Arc::new(Schema::Union(vec![bases[first].clone(), bases[second].clone()].into())),
+            constraints: vec![constraint.clone()].into(),
+        };
+        // A string may be of a class that answers the comparison, so a branch of
+        // strings is not read as refused; the union declines with it.
+        let strings = first == 4 || second == 4;
+        let set = lower(&refined, &Pool(vec![operand]));
+        prop_assert_eq!(set.is_some(), !strings, "{:?} lowers where no branch is strings", refined);
+        let Some(set) = set else {
+            return Ok(());
+        };
+        for value in [
+            Value::boolean(false),
+            Value::boolean(true),
+            Value::integer(-1),
+            Value::integer(0),
+            Value::integer(2),
+            Value::float(0.5),
+            Value::float(-2.5),
+            Value::of_kind(Kind::NoneType),
+            Value::word(b"a", Kind::Str),
+        ] {
+            let of_a_branch = [first, second].iter().any(|&at| {
+                kinds[at].iter().any(|kind| Descr::of_kind(*kind).admits(value))
+            });
+            let holds = as_number(&value).is_some_and(|x| match constraint {
+                Constraint::Gt(_) => x > bound,
+                Constraint::Ge(_) => x >= bound,
+                Constraint::Lt(_) => x < bound,
+                _ => x <= bound,
+            });
+            prop_assert_eq!(set.admits(value), of_a_branch && holds, "{:?} in {:?}", value, refined);
+        }
+    }
+}
+
+// THEORY: a-refinement-narrows-its-base
+/// `None` under any constraint but a predicate is empty: it orders against no
+/// builtin value, has no length, takes no remainder and matches no pattern, and
+/// the walk reads each error as a non-match. A predicate may accept it, and an
+/// operand the pool does not read may answer a reflected comparison, so both
+/// leave the set unread.
+#[test]
+fn none_under_a_constraint_is_empty() {
+    let at = OperandIx::new(0);
+    let refined = |constraint: Constraint| Schema::Refine {
+        base: Arc::new(Schema::NoneType),
+        constraints: vec![constraint].into(),
+    };
+    for constraint in [
+        Constraint::Ge(at),
+        Constraint::Lt(at),
+        Constraint::MultipleOf(at),
+        Constraint::MinLen(0),
+        Constraint::MaxLen(3),
+        Constraint::Regex(".*".into()),
+    ] {
+        let set = lower(
+            &refined(constraint.clone()),
+            &Pool(vec![Operand::Integer(2)]),
+        );
+        assert_eq!(set, Some(Descr::nothing()), "{constraint:?}");
+    }
+    assert_eq!(lower(&refined(Constraint::Ge(at)), &empty_pool()), None);
+    assert_eq!(
+        lower(
+            &refined(Constraint::Predicate(PredIx::new(0))),
+            &empty_pool()
+        ),
+        None
     );
 }
 
@@ -1272,6 +1600,7 @@ fn a_length_bound_over_a_list_lowers_two_hundred_elements_deep() {
     assert!(at_most.admits(integers(200)) && !at_most.admits(integers(201)));
 }
 
+// THEORY: a-length-is-a-count-beside-the-automaton
 /// What a length bound over a list costs: three units of the build's allowance
 /// an element, for a lower bound and an upper one, and 134 at twenty elements
 /// for a lower one. So the longest lower bound the default allowance of 4,096
@@ -2555,6 +2884,226 @@ fn a_member_past_the_depth_is_left_out_whatever_it_holds() {
     assert_eq!(kept, Some(vec![words("^a+$"), words("^b+$")]));
 }
 
+/// A member at the edge of the depth by its key alone is left out by the last
+/// thinned reading, which counts a key as a level.
+///
+/// The first two keep it, since the build reads a key without descending, and
+/// beside its literal-keyed records the meet is not proved empty with it: the
+/// readings answer nothing. Without it the meet holds `{}` alone, which the
+/// complement of `dict[Literal[True], None]` leaves out, so it is empty, and a
+/// reading of fewer members holds more values: the proof stands.
+#[test]
+fn a_member_deep_by_its_key_is_left_out_by_the_last_reading() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Boolean(true),
+    ]);
+    let a = || Schema::Literal(ConstIx::new(0));
+    let not = |schema: Schema| Schema::Complement(Arc::new(schema));
+    let mapping = |key: Schema, value: Schema| Schema::mapping(MapClause { key, value });
+    let keyed = |field: Schema, key: Schema, value: Schema| Schema::KeyedMap {
+        fields: vec![Field {
+            name: "a".into(),
+            schema: field,
+            required: false,
+        }]
+        .into(),
+        defaults: vec![MapClause { key, value }].into(),
+    };
+    let nothing_at_a = Schema::KeyedMap {
+        fields: vec![Field {
+            name: "a".into(),
+            schema: Schema::Nothing,
+            required: true,
+        }]
+        .into(),
+        defaults: Vec::new().into(),
+    };
+    let edge = not(mapping(
+        meet(vec![Schema::Int, not(Schema::Bool)]),
+        Schema::ANYTHING,
+    ));
+    let subject = meet(vec![
+        mapping(Schema::Float, a()),
+        keyed(a(), Schema::Str, a()),
+        Schema::Union(
+            vec![
+                nothing_at_a,
+                meet(vec![
+                    keyed(a(), Schema::Str, Schema::Int),
+                    keyed(Schema::NoneType, Schema::Str, not(Schema::Int)),
+                ]),
+            ]
+            .into(),
+        ),
+        not(mapping(Schema::Literal(ConstIx::new(1)), Schema::NoneType)),
+        edge.clone(),
+    ]);
+    let mut left_out = false;
+    let proved = read_widened(
+        &subject,
+        &[],
+        &pool,
+        |_| true,
+        |set, kept| {
+            let stands = match kept {
+                None => an_empty_reading_stands(&[&subject], &[], &[], &pool),
+                Some(kept) => {
+                    left_out = !kept.contains(&edge);
+                    an_empty_reading_stands(&kept.iter().collect::<Vec<_>>(), &[], &[], &pool)
+                }
+            };
+            (set.emptiness() == Verdict::Empty && stands).then_some(())
+        },
+    );
+    assert!(proved.is_some(), "the meet is empty");
+    assert!(
+        left_out,
+        "proved by the reading without the member deep by its key"
+    );
+}
+
+/// The first two thinned readings count no clause's key, as the build spends
+/// no level on one: a member whose key holds a container past the room the
+/// meet leaves it -- `str | tuple[Any, ...]`, whole kinds the build reads for
+/// their parts -- is kept by the first, and the last reading, which counts the
+/// key, is not reached.
+#[test]
+fn a_key_holding_a_container_is_no_level_of_the_first_readings() {
+    let pool = empty_pool();
+    let keyed = Schema::Complement(Arc::new(Schema::Union(
+        vec![
+            Schema::KeyedMap {
+                fields: Vec::new().into(),
+                defaults: vec![MapClause {
+                    key: Schema::Union(
+                        vec![
+                            Schema::Str,
+                            Schema::tuple(SeqShape::homogeneous(Schema::ANYTHING)),
+                        ]
+                        .into(),
+                    ),
+                    value: Schema::Int,
+                }]
+                .into(),
+            },
+            Schema::NoneType,
+        ]
+        .into(),
+    )));
+    assert!(lower(&meet(vec![keyed.clone()]), &pool).is_some());
+    let mut kept = None;
+    assert!(
+        lower_widened(
+            &meet(vec![keyed.clone(), nested_lists(DEPTH)]),
+            &[],
+            &pool,
+            &mut kept,
+            |_| true
+        )
+        .is_some()
+    );
+    assert_eq!(kept, Some(vec![keyed]));
+}
+
+/// Each reading is decided under an allowance of its own, [`WORK`] as the
+/// build was, whether it was built whole or thinned.
+///
+/// Reading a descriptor is a build: a negated union's emptiness expands it by
+/// a product, and a caller deciding outside an allowance spends without bound.
+/// The decision below spends until it is refused, so it answers only where it
+/// was given exactly the figure.
+#[test]
+fn each_reading_is_decided_under_an_allowance_of_its_own() {
+    let pool = empty_pool();
+    let spent = |_: &Descr, _: Option<&[Schema]>| {
+        let mut units = 0;
+        while units <= WORK && budget::spend() {
+            units += 1;
+        }
+        (units == WORK).then_some(units)
+    };
+    assert_eq!(
+        read_widened(&words("^a+$"), &[], &pool, |_| true, spent),
+        Some(WORK),
+        "read whole"
+    );
+    let beside = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+    };
+    assert_eq!(
+        read_widened(
+            &meet(vec![words("^a+$"), beside]),
+            &[],
+            &pool,
+            |_| true,
+            spent
+        ),
+        Some(WORK),
+        "read thinned of the predicate"
+    );
+}
+
+// THEORY: a-refinement-narrows-its-base
+/// An order bound over `str` or `bytes` lowers to the words on its side of
+/// the bound, read against a word of the base's own kind and no other.
+#[test]
+fn an_order_bound_over_words_lowers_to_the_words_it_admits() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Word(b"b".to_vec(), Kind::Str),
+        Operand::Word(b"a".to_vec(), Kind::Bytes),
+    ]);
+    let bounded = |base: Schema, constraint| Schema::Refine {
+        base: Arc::new(base),
+        constraints: vec![constraint].into(),
+    };
+    let from_a = bounded(Schema::Str, Constraint::Ge(OperandIx::new(0)));
+    let from_b = bounded(Schema::Str, Constraint::Ge(OperandIx::new(1)));
+    let set = lower(&from_a, &pool).expect("a word bound over str lowers");
+    assert_eq!(set.emptiness(), Verdict::Inhabited);
+    assert_eq!(
+        from_b.descriptor_contained_in(&from_a, &pool, &[]),
+        Relation::Holds
+    );
+    assert_eq!(
+        from_a.descriptor_contained_in(&from_b, &pool, &[]),
+        Relation::Fails
+    );
+    let below_nothing = bounded(Schema::Str, Constraint::Lt(OperandIx::new(0)));
+    assert!(lower(&below_nothing, &pool).is_some());
+    assert!(
+        lower(
+            &bounded(Schema::Str, Constraint::Ge(OperandIx::new(2))),
+            &pool
+        )
+        .is_none(),
+        "a bytes bound orders no str"
+    );
+}
+
+/// A member whose scalar lies past the depth, its containers within it, is
+/// kept by the first thinned reading, which counts the containers alone.
+///
+/// The member beside the lists past the depth is `b+` under six complements,
+/// the same set, its pattern a level past the depth. The build spends a level
+/// a node and reads a scalar it reaches with none left, so the reading that
+/// leaves the lists out reads the member, and its meet with `a+` is empty.
+#[test]
+fn a_member_whose_scalar_is_past_the_depth_is_kept_by_the_first_reading() {
+    let pool = empty_pool();
+    let tower = (0..6).fold(words("^b+$"), |inner, _| {
+        Schema::Complement(Arc::new(inner))
+    });
+    let three = meet(vec![words("^a+$"), tower.clone(), nested_lists(DEPTH)]);
+    assert!(nests_past_the_depth(&three, Bounds::DEFAULT));
+    let mut kept = None;
+    let set = lower_widened(&three, &[], &pool, &mut kept, for_emptiness).expect("read thinned");
+    assert_eq!(set.emptiness(), Verdict::Empty);
+    assert_eq!(kept, Some(vec![words("^a+$"), tower]));
+}
+
 // THEORY: a-cut-reference-proves
 /// A conjunct whose deepest node is a clause's key is kept by a thinned
 /// reading where the build reads it.
@@ -2655,6 +3204,118 @@ fn a_member_deep_only_past_the_node_bound_is_refused_for_its_nodes() {
     assert!(lower_widened(&three, &[], &pool, &mut None, for_emptiness).is_none());
 }
 
+// THEORY: a-cut-reference-proves
+/// A meet holding a scalar past the depth is read first without the member
+/// that holds it, a reading that builds less.
+///
+/// `dict[str, Literal["a"]]` and `{"a": Literal[0]}` share no value, so their
+/// meet with anything is empty. The member beside them nests `int` and `str`
+/// a level past the depth, scalars the build reads, under a complement that
+/// puts the label `"a"` on the side a difference narrows: the whole reading is
+/// empty and its proof stands on nothing. The reading that leaves the member
+/// out is asked first, and proves the meet empty.
+#[test]
+fn a_meet_holding_a_deep_scalar_is_read_first_without_it() {
+    let pool = Pool(vec![
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Integer(0),
+    ]);
+    let label = || Schema::Literal(ConstIx::new(0));
+    let keyed = |key, value| Schema::keyed_map(Vec::new(), vec![MapClause { key, value }]);
+    let complement = |inner| Schema::Complement(Arc::new(inner));
+    let strings = keyed(Schema::Str, label());
+    let labeled = complement(meet(vec![
+        keyed(label(), complement(Schema::Str)),
+        complement(keyed(label(), Schema::Int)),
+    ]));
+    let zero = Schema::keyed_map(
+        vec![Field {
+            name: "a".into(),
+            schema: Schema::Literal(ConstIx::new(1)),
+            required: true,
+        }],
+        Vec::new(),
+    );
+    let three = meet(vec![strings.clone(), labeled, zero.clone()]);
+
+    assert!(!nests_past_the_depth(&three, Bounds::DEFAULT));
+    let mut kept = None;
+    let first = lower_widened(&three, &[], &pool, &mut kept, |_| true).expect("read thinned");
+    assert_eq!(
+        (first.emptiness(), kept),
+        (Verdict::Empty, Some(vec![strings, zero]))
+    );
+    assert!(!an_empty_reading_stands(&[&three], &[], &[], &pool));
+    assert_eq!(
+        three.descriptor_contained_in(&Schema::Nothing, &pool, &[]),
+        Relation::Holds
+    );
+}
+
+// THEORY: a-cut-reference-proves
+/// The whole build a scalar past the depth defers to the thinned readings is
+/// put to the caller as a thinned reading's members are: made where the caller
+/// can read what it may answer, and spared where it says it cannot -- an
+/// emptiness the rules find inhabited, which the build would only confirm.
+#[test]
+fn a_deep_scalar_is_built_whole_where_the_caller_can_read_it() {
+    let pool = empty_pool();
+    let tower = (0..DEPTH + 2).fold(Schema::Str, |inner, _| Schema::Complement(Arc::new(inner)));
+    let asked = |answer: bool| {
+        let mut kept = None;
+        let mut put = Vec::new();
+        let read = lower_widened(&tower, &[], &pool, &mut kept, |read| {
+            put.push(read.to_vec());
+            answer
+        });
+        (read.is_some(), kept, put)
+    };
+    assert_eq!(asked(false), (false, None, vec![vec![tower.clone()]]));
+    assert_eq!(asked(true), (true, None, vec![vec![tower.clone()]]));
+}
+
+/// A member of a union the law below draws: one the lowering reads, one past
+/// its depth or its nodes, or one it refuses outright -- a literal an empty
+/// pool cannot read, a predicate.
+fn beside_the_top() -> impl Strategy<Value = Schema> {
+    prop_oneof![
+        nested_schema(),
+        Just(Schema::Literal(ConstIx::new(0))),
+        Just(Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+        }),
+    ]
+}
+
+proptest! {
+    /// A union holding the top lowers to the universe, whatever its other
+    /// members are and however deep in unions of its own the top sits: `x ∪ ⊤`
+    /// is `⊤` [FCB08, Def. 4.1], a member the lowering refuses included.
+    #[test]
+    fn a_union_holding_the_top_lowers_to_the_universe(
+        others in prop::collection::vec(beside_the_top(), 0..4),
+        at in any::<prop::sample::Index>(),
+        wrapped in 0usize..4,
+    ) {
+        let mut top = Schema::ANYTHING;
+        for _ in 0..wrapped {
+            top = Schema::Union(vec![top].into());
+        }
+        let mut members = others;
+        members.insert(at.index(members.len() + 1), top);
+        let union = Schema::Union(members.into());
+        let built = budget::under(WORK, || {
+            descend(&union, &empty_pool(), &Room::new(BUDGET), DEPTH)
+        });
+        prop_assert!(
+            built.is_some_and(|set| set.complement().emptiness() == Verdict::Empty),
+            "{:?} is not read as the universe",
+            union
+        );
+    }
+}
+
 /// Schemas nested to either side of the depth bound, a clause's key among
 /// their nodes and wide enough at times to spend the node bound first. No
 /// complement: its products are what a work allowance refuses, and the law
@@ -2710,22 +3371,23 @@ proptest! {
     /// at all: the same set, or the same refusal for its nodes. The walk
     /// spends the build's nodes in the build's order, so a schema whose deep
     /// node lies past the node bound clears it, as the build refuses it for
-    /// nodes first. Both builds run with no work allowance, so neither
-    /// refuses for a reason the walk does not read.
+    /// nodes first. Both builds run under one work allowance, a law's
+    /// ([`budget::law`]): a schema within the depth is read by the same steps
+    /// with the depth bound or without it, so the two spend alike and a
+    /// refusal for work is the other's refusal too. Unheld, a mutation that
+    /// makes a passing case's build dear runs it past a sweep's timeout.
     #[test]
     fn the_depth_read_off_a_schema_is_the_build_s(schema in nested_schema()) {
         let pool = empty_pool();
-        let built =
-            budget::under(u64::MAX, || descend(&schema, &pool, &Room::new(BUDGET), DEPTH));
+        let built = budget::under(WORK, || descend(&schema, &pool, &Room::new(BUDGET), DEPTH));
         if nests_past_the_depth(&schema, Bounds::DEFAULT) {
             prop_assert!(built.is_none(), "{schema:?} is read past the depth and built");
         } else {
-            let unbounded = Bounds {
+            let past_any_depth = Bounds {
                 depth: u32::MAX,
-                work: u64::MAX,
                 ..Bounds::DEFAULT
             };
-            prop_assert_eq!(built, lower_within(unbounded, &schema, &pool), "{:?}", schema);
+            prop_assert_eq!(built, lower_within(past_any_depth, &schema, &pool), "{:?}", schema);
         }
     }
 }

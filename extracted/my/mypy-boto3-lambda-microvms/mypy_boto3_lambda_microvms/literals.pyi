@@ -45,10 +45,10 @@ __all__ = (
     "ServiceName",
 )
 
-ArchitectureType = Literal["ARM_64"]
+ArchitectureType = Literal["ARM_64", "X86_64"]
 BuildStateType = Literal["FAILED", "IN_PROGRESS", "PENDING", "SUCCESSFUL"]
 CapabilityType = Literal["ALL"]
-ChipsetType = Literal["GRAVITON"]
+ChipsetType = Literal["GRAVITON", "INTEL"]
 HookStateType = Literal["DISABLED", "ENABLED"]
 ListManagedMicrovmImageVersionsPaginatorName = Literal["list_managed_microvm_image_versions"]
 ListManagedMicrovmImagesPaginatorName = Literal["list_managed_microvm_images"]
@@ -56,7 +56,7 @@ ListMicrovmImageBuildsPaginatorName = Literal["list_microvm_image_builds"]
 ListMicrovmImageVersionsPaginatorName = Literal["list_microvm_image_versions"]
 ListMicrovmImagesPaginatorName = Literal["list_microvm_images"]
 ListMicrovmsPaginatorName = Literal["list_microvms"]
-ManagedMicrovmImageVersionStatusType = Literal["AVAILABLE", "DEPRECATED"]
+ManagedMicrovmImageVersionStatusType = Literal["AVAILABLE", "DEPRECATED", "RECALLED"]
 MicrovmImageStateType = Literal[
     "CREATED",
     "CREATE_FAILED",
@@ -80,6 +80,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -156,6 +157,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -183,6 +185,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -228,12 +231,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -301,6 +304,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -353,6 +357,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -434,6 +439,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -484,7 +490,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

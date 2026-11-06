@@ -16,8 +16,10 @@ import lemonaid.grove.cli
 import lemonaid.home.cli
 import lemonaid.hooks.cli
 import lemonaid.inbox.cli
+import lemonaid.lemon_keys.cli
 import lemonaid.lineage.cli
 import lemonaid.messages.cli
+import lemonaid.messages.mailbox_command
 import lemonaid.openclaw.cli
 import lemonaid.opencode.cli
 import lemonaid.places.cli
@@ -144,10 +146,12 @@ def main() -> None:
 
     lemonaid.inbox.cli.setup_parser(subparsers)
     lemonaid.messages.cli.add_tell_parser(subparsers)
+    lemonaid.messages.cli.setup_parser(subparsers)
     go.setup_parser(subparsers)
     lemonaid.lineage.cli.setup_parser(subparsers)
     lemonaid.groups.cli.setup_parser(subparsers)
     lemonaid.grove.cli.setup_parser(subparsers)
+    lemonaid.lemon_keys.cli.setup_parser(subparsers)
     lemonaid.home.cli.setup_parser(subparsers)
     lemonaid.hooks.cli.setup_parser(subparsers)
     lemonaid.claude.cli.setup_parser(subparsers)
@@ -177,8 +181,9 @@ def main() -> None:
     # intercepts before parse_args when the first arg after "claude" is a flag.
     claude.resume.maybe_intercept(sys.argv[1:])
 
-    args = passthrough.parse_args(parser, sys.argv[1:])
-    args.invocation = ["lemonaid", *sys.argv[1:]]
+    argv = lemonaid.messages.mailbox_command.canonical(sys.argv[1:])
+    args = passthrough.parse_args(parser, argv)
+    args.invocation = ["lemonaid", *argv]
     lemonaid.watch.restart.after_upgrade()
     lemonaid.watch.reconcile.after_install()
     if getattr(args, "brief_command", None) not in lemonaid.brief.archive_cli.COMMANDS:

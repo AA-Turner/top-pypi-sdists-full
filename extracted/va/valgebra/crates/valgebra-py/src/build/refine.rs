@@ -16,7 +16,7 @@ use pyo3::types::{
     PyTuple, PyType,
 };
 use valgebra_core::{
-    Carries, Constraint, Kind, OperandIx, OrderGroup, Schema, StepGroup, carries_division,
+    Carries, Constraint, Kind, LONGEST, OperandIx, OrderGroup, Schema, StepGroup, carries_division,
     carries_length, carries_pattern,
 };
 
@@ -111,7 +111,8 @@ fn equal_to_a_real(
     })
 }
 
-/// Refuse an order bound that orders nothing: `nan`, and a complex number.
+/// Refuse an order bound that orders nothing: a not-a-number, a float's or a
+/// `Decimal`'s, and a complex number.
 ///
 /// Every comparison with `nan` is false, so `Annotated[float, Ge(nan)]` admits
 /// **no value at all** -- and it is the empty set written as a bound, which no
@@ -125,18 +126,55 @@ fn equal_to_a_real(
 /// complex number are the absence of an order.
 pub(super) fn refuse_unordered_bound(attr: &str, bound: &Bound<'_, PyAny>) -> PyResult<()> {
     let py = bound.py();
-    let unordered = unless_fatal(bound.extract::<f64>().map(f64::is_nan), py, false)?;
-    if unordered {
-        return Err(PyValueError::new_err(format!(
-            "{attr} cannot be nan: every comparison with nan is false, so the \
-             bound admits no value at all. Write the bound you mean, or `nothing` \
-             for the empty set"
-        )));
+    if unless_fatal(bound.extract::<f64>().map(f64::is_nan), py, false)? {
+        return Err(nan_bound(attr));
     }
-    if !is_a_builtin_number(bound) && unless_fatal(is_complex(bound), py, false)? {
-        return Err(complex_bound(attr, bound)?);
+    // A builtin number is ordered once it is not `nan`; the two questions
+    // below are a `Decimal`'s and a complex number's.
+    if !is_a_builtin_number(bound) {
+        if unless_fatal(is_a_decimal_nan(bound), py, false)? {
+            return Err(nan_bound(attr));
+        }
+        if unless_fatal(is_complex(bound), py, false)? {
+            return Err(complex_bound(attr, bound)?);
+        }
     }
     Ok(())
+}
+
+/// The refusal of a not-a-number bound, out of line as [`complex_bound`] is.
+#[cold]
+#[inline(never)]
+fn nan_bound(attr: &str) -> PyErr {
+    PyValueError::new_err(format!(
+        "{attr} cannot be nan: every comparison with nan is false, so the \
+         bound admits no value at all. Write the bound you mean, or `nothing` \
+         for the empty set"
+    ))
+}
+
+/// Whether `operand` is a `Decimal` not-a-number, quiet or signaling, as
+/// `Decimal.is_nan` reads it.
+///
+/// The `f64` reading the two refusals take first converts a quiet one to
+/// `nan`, and a signaling one, `Decimal("sNaN")`, refuses the conversion, so
+/// that reading passes it. Every comparison and remainder with it raises
+/// `InvalidOperation`, which the walk reads as a refusal: a bound or a step of
+/// it admits no value, as one of `nan` does. The class's own `is_nan` is
+/// called, rather than one looked up on the operand, so a subclass's override
+/// is not what answers, and the class is read off the operand's type rather
+/// than through `isinstance`, which asks a value outside it for its
+/// `__class__`.
+fn is_a_decimal_nan(operand: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = operand.py();
+    let decimal = DECIMAL.import(py, "decimal", "Decimal")?;
+    if !operand.get_type().is_subclass(decimal)? {
+        return Ok(false);
+    }
+    decimal
+        .getattr(intern!(py, "is_nan"))?
+        .call1((operand,))?
+        .is_truthy()
 }
 
 /// The refusal of a complex bound, out of line so that the path every real
@@ -491,16 +529,18 @@ fn is_constraint_vocabulary(ty: &Bound<'_, PyType>) -> PyResult<bool> {
 }
 
 /// Whether `ty` is named as one of the two markers of the vocabulary that
-/// exclude no value: `DocInfo`, which documents an annotation, and `Unit`, which
+/// exclude no value: the one that documents an annotation, and `Unit`, which
 /// names what a number is measured in and leaves the reading to the consumer.
+/// The first is `DocInfo` before annotated-types 0.8.0 and `Doc` from it, the
+/// class `doc()` makes where `typing_extensions` has none to lend.
 ///
 /// Each is ignored as metadata written for someone else is. Refusing one as a
 /// constraint this frontend does not check would refuse it for admitting the
 /// values it excludes, and it excludes none.
 fn narrows_nothing(ty: &Bound<'_, PyType>) -> PyResult<bool> {
     let py = ty.py();
-    Ok(names(ty, intern!(py, "__name__"), "DocInfo")?
-        || names(ty, intern!(py, "__name__"), "Unit")?)
+    let name = intern!(py, "__name__");
+    Ok(names(ty, name, "Doc")? || names(ty, name, "DocInfo")? || names(ty, name, "Unit")?)
 }
 
 /// Whether `ty` is a string-pattern marker: valgebra's `Regex`, or a compiled
@@ -796,7 +836,7 @@ const _: () = {
 /// per-object lock, and two threads that miss on one type both compute the same
 /// mask and write it, since the mask is a property of the type and not of
 /// either thread. The `PyOnceLock` around it makes the dict itself arrive once.
-static CARRIED: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
+pub(super) static CARRIED: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
 
 /// How many marker types the mask cache keeps.
 ///
@@ -809,8 +849,9 @@ static CARRIED: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
 /// slower than the cache, and no worse than having none.
 ///
 /// The far side is exercised by `tests/test_adversarial_bounds.py`, which
-/// builds marker types well past this and reads the same answers from them.
-const MAX_MARKER_TYPES: usize = 256;
+/// builds marker types well past this and reads the same answers from them,
+/// and `the_marker_cache_stops_at_its_bound` holds the cache to it.
+pub(super) const MAX_MARKER_TYPES: usize = 256;
 
 /// How a marker's optional attributes are read, decided once per marker.
 ///
@@ -899,7 +940,7 @@ impl<'py> Probes<'py> {
         }
         // A `__getattr__` answers for names no namespace holds, and so does a
         // `__getattribute__` other than the generic lookup. A builtin base that
-        // names the generic lookup in a namespace of its own -- `int` on 3.10 to
+        // names the generic lookup in a namespace of its own -- `int` on 3.11 to
         // 3.13 -- reads as one too, which gives up the saving and no answer.
         let lookup = intern!(py, "__getattribute__");
         if ty.getattr_opt(intern!(py, "__getattr__"))?.is_some()
@@ -1062,17 +1103,72 @@ fn parse_grouped<'py>(
 ///
 /// `__index__` answers the extraction, and a fatal signal it raises is the
 /// interpreter unwinding rather than a bound that is no length.
+///
+/// A real number equal to a whole length is that length: `len` is an `int`
+/// and Python compares it with a `float`, a `Fraction` or a `Decimal` exactly,
+/// so `MaxLen(2.0)` admits what `MaxLen(2)` does. And `typing` caches
+/// `Annotated` by equality, `MaxLen(2.0)` equal to `MaxLen(2)`, so refusing the
+/// float would refuse a correct `MaxLen(2)` wherever the float was written
+/// first -- the reason a truth value is read as the length it equals.
+///
+/// A length past `sys.maxsize`, [`LONGEST`], is refused as one no value has:
+/// `CPython` counts a length in a `Py_ssize_t`, and `len()` raises past it. Read,
+/// `MinLen(2**63)` is the empty set written as a bound, and the refutations at
+/// any length named a value longer than any there is.
 fn length_bound(probe: Probe, bound: &Bound<'_, PyAny>) -> PyResult<usize> {
     let py = bound.py();
     match bound.extract::<usize>() {
-        Ok(n) => Ok(n),
+        Ok(n) if n <= LONGEST => Ok(n),
         Err(err) if is_fatal(&err, py) => Err(err),
-        Err(_) => Err(PyValueError::new_err(format!(
-            "{} must be a length a value can have, and {} is not",
-            probe.name(py),
-            summarize(bound)?
-        ))),
+        _ => {
+            if let Some(n) = whole_length(bound)?.filter(|n| *n <= LONGEST) {
+                return Ok(n);
+            }
+            // A complex number equal to a whole length is no length -- `len`
+            // orders nothing against it -- and equals the real one, which is
+            // how a caller who wrote that one meets it.
+            let note = if unless_fatal(is_complex(bound), py, false)? {
+                equal_to_a_real(bound, bound.getattr(intern!(py, "real")))?
+            } else {
+                String::new()
+            };
+            Err(PyValueError::new_err(format!(
+                "{} must be a length a value can have, and {} is not{note}",
+                probe.name(py),
+                summarize(bound)?
+            )))
+        }
     }
+}
+
+/// `fractions.Fraction`, resolved once per process.
+static FRACTION: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// The length a real number other than an `int` names, where it is exactly a
+/// whole one: an exact `float`, `Decimal` or `Fraction` whose own exact
+/// arithmetic, `as_integer_ratio`, gives a denominator of one. `None` for one
+/// with a fraction or no finite value, and for any other type: a subclass or a
+/// number of the program's own answers `int()` and `==` with code of its own,
+/// so `MinLen(EqF(2.5))`, whose `==` holds every value, is not `MinLen(2)` to
+/// `len`, which reads `2 >= EqF(2.5)` through the float it stores.
+fn whole_length(bound: &Bound<'_, PyAny>) -> PyResult<Option<usize>> {
+    let py = bound.py();
+    let ty = bound.get_type();
+    if !(bound.is_exact_instance_of::<PyFloat>()
+        || ty.is(DECIMAL.import(py, "decimal", "Decimal")?)
+        || ty.is(FRACTION.import(py, "fractions", "Fraction")?))
+    {
+        return Ok(None);
+    }
+    let ratio = bound.call_method0(intern!(py, "as_integer_ratio"));
+    let Some(ratio) = unless_fatal(ratio.map(Some), py, None)? else {
+        return Ok(None);
+    };
+    let (whole, denominator): (Bound<'_, PyAny>, Bound<'_, PyAny>) = ratio.extract()?;
+    if denominator.extract::<u64>().ok() != Some(1) {
+        return Ok(None);
+    }
+    Ok(whole.extract::<usize>().ok())
 }
 
 fn parse_constraint_within<'py>(
@@ -1109,6 +1205,15 @@ fn parse_constraint_within<'py>(
     // would hand that pattern to this frontend's whole-string reading. The flag
     // is a probe, so a marker that carries none answers without a lookup.
     if groups_other_markers(marker, &probes)? {
+        // A group's minimum length is read before it unpacks: `annotated_types`
+        // yields no `MinLen` from a `Len` whose minimum is below one, so
+        // `Len(-1)` would unpack to no bound at all where `MinLen(-1)` is
+        // refused for naming no length a value can have.
+        if let Some(bound) = probes.get(marker, Probe::MinLength)?
+            && !bound.is_none()
+        {
+            length_bound(Probe::MinLength, &bound)?;
+        }
         return parse_grouped(marker, out, sets, lits, depth);
     }
 
@@ -1140,11 +1245,10 @@ fn parse_constraint_within<'py>(
         let pattern = with_inline_flags(marker, &probes, pattern)?;
         // Refused before the compile, because this engine compiles these and
         // reads them as a different set than `re` does. The parse error the
-        // compile gives is for the loud direction; this is the quiet one.
+        // compile gives is for the loud direction; this is the quiet one. The
+        // compile is the validator's, which holds every pattern of the schema
+        // within one allowance and keeps what it compiled.
         super::dialect::reject_reserved_class_syntax(&pattern)?;
-        crate::check::compile_pattern(&pattern).map_err(|err| {
-            PyValueError::new_err(format!("invalid regular expression {pattern:?}: {err}"))
-        })?;
         out.push(Constraint::Regex(pattern));
         return Ok(());
     }
@@ -1252,7 +1356,10 @@ fn read_vocabulary<'py>(
         && !multiple.is_none()
     {
         let py = multiple.py();
-        if unless_fatal(multiple.extract::<f64>().map(f64::is_nan), py, false)? {
+        if unless_fatal(multiple.extract::<f64>().map(f64::is_nan), py, false)?
+            || (!is_a_builtin_number(&multiple)
+                && unless_fatal(is_a_decimal_nan(&multiple), py, false)?)
+        {
             return Err(PyValueError::new_err(
                 "MultipleOf(nan) is not a valid constraint: no value is a multiple \
                  of nan, because every comparison with nan is false. Write the \

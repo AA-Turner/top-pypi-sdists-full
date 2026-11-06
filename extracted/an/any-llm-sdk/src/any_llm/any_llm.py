@@ -2217,9 +2217,12 @@ class AnyLLM(FilesMixin, ABC):
         *,
         seconds: int | None = None,
         size: str | None = None,
+        resolution: str | None = None,
+        aspect_ratio: str | None = None,
         seed: int | None = None,
         negative_prompt: str | None = None,
         reference_images: list[str] | None = None,
+        reference_audios: list[str] | None = None,
         first_frame: str | None = None,
         last_frame: str | None = None,
         **kwargs: Any,
@@ -2234,10 +2237,13 @@ class AnyLLM(FilesMixin, ABC):
             model: Model identifier for the chosen provider (e.g., 'ByteDance/Seedance-2.0' for Together).
             prompt: A text description of the desired video.
             seconds: Length of the video in seconds.
-            size: Size of the video as ``WIDTHxHEIGHT`` (e.g., '1280x720').
+            size: Size of the video as ``WIDTHxHEIGHT`` (e.g., '1280x720'). Not combined with the next two.
+            resolution: How sharp, by short side: '480p', '720p', '1080p' or '4k'.
+            aspect_ratio: What shape, as ``WIDTH:HEIGHT`` (e.g., '16:9').
             seed: Seed for reproducible generation.
             negative_prompt: What the video should not contain.
             reference_images: Image URLs the video should take its subjects or style from.
+            reference_audios: Audio URLs the video should follow, for lip sync, beat-matched motion or a sound track.
             first_frame: Image URL to start the video from.
             last_frame: Image URL to end the video on.
             **kwargs: Additional provider-specific arguments that will be passed to the provider's API call.
@@ -2254,9 +2260,12 @@ class AnyLLM(FilesMixin, ABC):
             prompt=prompt,
             seconds=seconds,
             size=size,
+            resolution=resolution,
+            aspect_ratio=aspect_ratio,
             seed=seed,
             negative_prompt=negative_prompt,
             reference_images=reference_images,
+            reference_audios=reference_audios,
             first_frame=first_frame,
             last_frame=last_frame,
         )

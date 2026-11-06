@@ -16,11 +16,13 @@ _ACTIVITY_SLEEP_HEADROOM_SECONDS = 5.0
 
 
 def now() -> dt.datetime:
-    """Return the current time as a timezone-aware UTC datetime.
+    """The current time in UTC, as a timezone-aware datetime.
 
-    In a workflow, this returns Temporal's replay-stable workflow time. In an activity or a local run,
-    it returns the host clock. An activity result is recorded in workflow history, so its observed time
-    remains stable on replay.
+    Use it instead of ``datetime.now()``. In the agent loop of a deployed agent, such as in a custom
+    sandbox's methods or a ``SandboxHook``, it gets the same time when the agent runs the loop again
+    to resume a session, so a deadline holds. In a tool, a ``Hook`` or a local run, it is the clock's
+    time: tools and ``Hook`` methods run as recorded steps, outside the part of the loop a deployed
+    agent replays.
     """
     if temporalio.workflow.in_workflow():
         return temporalio.workflow.now()
@@ -29,11 +31,9 @@ def now() -> dt.datetime:
 
 
 def uuid4() -> uuid_module.UUID:
-    """Return a UUID4 that is stable across replay of one workflow run.
+    """A random UUID that stays the same when a deployed agent runs the agent loop again.
 
-    In a workflow, this uses Temporal's seeded generator. Outside a workflow, it uses `uuid.uuid4()`. A
-    continue-as-new starts a new run with a new seed. Carry identifiers in continuation state when they
-    must survive that boundary.
+    Use it instead of ``uuid.uuid4()``. In a tool, a ``Hook`` or a local run, it is ``uuid.uuid4()``.
     """
     if temporalio.workflow.in_workflow():
         return temporalio.workflow.uuid4()
@@ -42,11 +42,11 @@ def uuid4() -> uuid_module.UUID:
 
 
 def random() -> random_module.Random:
-    """Return a random source that is stable across replay of one workflow run.
+    """A random number generator that gives the same numbers when a deployed agent runs the loop again.
 
-    In a workflow, this returns Temporal's seeded generator. Outside a workflow, it returns a new
-    `random.Random`. A continue-as-new starts a new random sequence. The returned generator supports
-    methods such as `random`, `uniform`, `choice`, and `shuffle`.
+    Use it instead of the ``random`` module. It has methods such as ``random``, ``uniform``,
+    ``choice`` and ``shuffle``. In a tool, a ``Hook`` or a local run, it is a new
+    ``random.Random``.
     """
     if temporalio.workflow.in_workflow():
         return temporalio.workflow.random()
@@ -55,15 +55,20 @@ def random() -> random_module.Random:
 
 
 async def sleep(duration: timedelta | float, *, summary: str | None = None) -> None:
-    """Wait from a workflow, an activity, or a local run.
+    """Wait for ``duration``, in the agent loop, a tool, a ``Hook`` or a local run.
 
-    In a workflow, this uses a durable Temporal timer. The timer survives worker restarts, holds no
-    worker slot, and uses `summary` as its Temporal UI label. In an activity, this uses a heartbeating
-    local sleep bounded by the activity's `start_to_close_timeout`. In a local run, this uses
-    `asyncio.sleep`. The `summary` argument is ignored outside a workflow.
+    Use it instead of ``asyncio.sleep()``. In the agent loop of a deployed agent, such as in a custom
+    sandbox's methods or a ``SandboxHook``, the wait is a timer on the server: it survives a restart
+    of the agent, and nothing of the agent runs while it waits. Tools and ``Hook`` methods run as
+    recorded steps, outside the part of the loop a deployed agent replays: there the wait must end
+    within the step's time limit. In a local run, it is ``asyncio.sleep()``.
+
+    Args:
+        duration: How long to wait, as a ``timedelta`` or in seconds.
+        summary: A label for the wait in the agent loop of a deployed agent. Ignored elsewhere.
 
     Raises:
-        SdkError: When an activity sleep would exceed its remaining `start_to_close_timeout`.
+        SdkError: When the wait of a tool or a ``Hook`` would outlast the step's time limit.
     """
     if temporalio.workflow.in_workflow():
         await temporalio.workflow.sleep(duration, summary=summary)
@@ -87,11 +92,9 @@ async def sleep(duration: timedelta | float, *, summary: str | None = None) -> N
 
         if seconds >= remaining_budget:
             raise SdkError(
-                f"agents.sleep({seconds:g}s) does not fit in what is left of activity "
-                f"{info.activity_type!r}: {max(remaining_budget, 0.0):g}s of its "
-                f"{budget.total_seconds():g}s start_to_close_timeout remain. The activity would be "
-                "killed mid-sleep and its whole body retried. Sleep for less, or move the wait to "
-                "the workflow side where it becomes a durable timer."
+                f"agents.sleep({seconds:g}s) does not fit in the time left for this call: "
+                f"{max(remaining_budget, 0.0):g}s of its {budget.total_seconds():g}s time limit remain. "
+                "The call would be stopped mid-sleep and run again from the start. Sleep for less."
             )
 
     slice_seconds = _ACTIVITY_SLEEP_SLICE_SECONDS

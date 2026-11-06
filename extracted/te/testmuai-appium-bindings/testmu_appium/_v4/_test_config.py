@@ -34,7 +34,7 @@ _TO_CONFIGURE = {
 _HANDLED = {
     "udid", "private_cloud", "test_instance_id", "test_id", "platform_name",
     "folder_name", "project_name", "code_req_name", "session_timezone",
-    "driver_settings", "app_package", "is_virtual_device",
+    "driver_settings", "app_package", "is_virtual_device", "ignoreOrientationError",
 }
 
 #: Entry keys _build_lt_options translates into LT:Options caps (V2 build_caps
@@ -50,7 +50,7 @@ _LT_KEYS = {
     "mobile_region", "timezone", "locationCoordinates", "passcode",
     "langLocale", "enableBiometricInjection", "enableImageInjection",
     "enableVideoInjection", "enableScreenshotUnblock", "appium_plugins",
-    "upload_media",
+    "upload_media", "update_app_settings",
 }
 
 
@@ -105,6 +105,12 @@ def _build_lt_options(entry: dict) -> dict:
         # Enterprise apps ship pre-signed; re-signing breaks them.
         if entry.get("disable_app_resigning", False):
             lt["resignApp"] = False
+        # iOS app permissions to set on the device; the session reports any it could not apply
+        settings = entry.get("update_app_settings")
+        if isinstance(settings, dict) and settings and app and app.lower() != "stock":
+            lt["updateAppSettings"] = settings
+            lt["appSettingsStatus"] = True
+            lt["kaneAppPermissions"] = True
     # Both spellings: V2's writer/readers used deviceOrientation, forge's
     # TestRunConfig emits device_orientation.
     lt["deviceOrientation"] = entry.get("deviceOrientation") \
@@ -226,6 +232,11 @@ def test_config_overrides(entry: dict) -> dict:
     # smart-variables engine reads for date/time resolution.
     if entry.get("session_timezone"):
         os.environ["KANE_SESSION_TIMEZONE"] = entry["session_timezone"]
+    # Cleared, not skipped: a later test in this process may not have opted in.
+    if entry.get("ignoreOrientationError"):
+        os.environ["KANE_IGNORE_ORIENTATION_ERROR"] = "true"
+    else:
+        os.environ.pop("KANE_IGNORE_ORIENTATION_ERROR", None)
     lt_options = _build_lt_options(entry)
     if lt_options:
         overrides["lt_options"] = lt_options

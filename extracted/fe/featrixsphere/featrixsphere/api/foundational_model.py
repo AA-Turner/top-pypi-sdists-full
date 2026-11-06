@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 
 from .record_utils import clean_record
+from .http_client import PREDICT_ROUTER_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
     from .http_client import ClientContext
@@ -2533,6 +2534,8 @@ class FoundationalModel:
                 "records": cleaned,
                 "model": model,
             },
+            # The first call on a model loads it on the node: same budget as predict_table.
+            timeout=PREDICT_ROUTER_TIMEOUT_SECONDS,
         )
 
         return response.get('predictions', [])
@@ -2594,6 +2597,8 @@ class FoundationalModel:
                 "records": cleaned,
                 "model": model,
             },
+            # The first call on a model loads it on the node: same budget as predict_table.
+            timeout=PREDICT_ROUTER_TIMEOUT_SECONDS,
         )
 
         results = []
@@ -2952,6 +2957,9 @@ class FoundationalModel:
                 f1=f1,
                 created_at=created_at,
                 deletion_protection=bool(predictor_deletion_protection.get(pred_id, False)),
+                # The server trains for "balanced" when no intent was named.
+                intent=spec.get('intent') or 'balanced',
+                ignore_columns=list(spec.get('ignore_columns') or []),
                 _ctx=self._ctx,
                 _foundational_model=self,
             ))

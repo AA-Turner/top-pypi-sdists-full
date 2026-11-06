@@ -1,5 +1,11 @@
-from typing import Any, Dict, List, Optional
-from typing_extensions import TypeAlias, TypedDict
+import sys
+from typing import Any, Dict, List, Optional, TypeAlias
+
+if sys.version_info >= (3, 12):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
+
 from statsig_python_core import StatsigUser, PersistentStorageBaseClass
 
 class StickyValues(TypedDict):

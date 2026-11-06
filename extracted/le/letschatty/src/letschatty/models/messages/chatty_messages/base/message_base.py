@@ -8,7 +8,6 @@ from ....utils.types.serializer_type import SerializerType
 from ....utils.types.message_types import MessageType
 from bson import ObjectId
 from ....utils import MessageType, Status, MessageSubtype
-from ....utils.types.message_status_types import is_meta_message_id
 from ..schema import ChattyContent, ChattyContext, ChattyReferral
 from ...meta_message_model.schema.values.value_statuses import ErrorDetail
 from ...meta_message_model.schema.values.motivos_de_no_entrega import NoEntrega
@@ -203,8 +202,10 @@ class Message(BaseModel):
             return v
         raise ValueError('must be a datetime')
 
-    def update_status(self, new_status: Status, status_datetime: datetime) -> bool:
-        """Aplica el estado sólo si avanza (ver `Status.supersedes`). Devuelve si lo aplicó."""
+    def update_status(self, new_status: Status, status_datetime: datetime, *, confirmed_by_provider: bool) -> bool:
+        """Aplica el estado sólo si avanza (ver `Status.supersedes`). Devuelve si lo aplicó.
+
+        `confirmed_by_provider`: si el id de este mensaje lo asignó el proveedor (lo calcula el canal)."""
         if new_status == Status.PLAYED:
             # PLAYED is a voice-note webhook receipt, NOT a delivery status. It must never
             # overwrite the delivery ladder (sent→delivered→read) — the receiver records it
@@ -212,7 +213,7 @@ class Message(BaseModel):
             raise ValueError("Status.PLAYED is a voice-note receipt, not a delivery status; use mark_played()")
         if new_status not in Status:
             raise ValueError(f"Invalid status: {new_status}")
-        if not new_status.supersedes(self.status, confirmed_by_meta=is_meta_message_id(self.id)):
+        if not new_status.supersedes(self.status, confirmed_by_provider=confirmed_by_provider):
             return False
         self.status = new_status
         self.updated_at = status_datetime

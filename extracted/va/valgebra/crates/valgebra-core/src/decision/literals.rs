@@ -19,7 +19,7 @@ use crate::ir::{ConstIx, Schema};
 use crate::oracle::{asks_no_callback, every_node_within};
 use crate::verdict::{Relation, Verdict};
 
-use super::LeafRelations;
+use super::{Cx, LeafRelations};
 
 /// The constants of a schema that is a literal, or a union of nothing but
 /// literals; `None` for anything else.
@@ -237,6 +237,58 @@ enum Placed {
     Unread,
 }
 
+/// Whether `schema` is a finite set of constants, of which a fresh `object()`
+/// is no value, so that its complement holds one.
+///
+/// A literal is the model's singleton [FCB08, §4.2] widened to the values of
+/// its constant's exact type that `==` joins to it ([`Schema::Literal`]). A
+/// constant whose exact type is `object` equals nothing but itself, and one of
+/// any other type holds no `object()`, so a fresh one is in no literal of the
+/// set. Which constants the set holds is not asked, so no oracle is.
+pub(super) fn misses_a_fresh_object(schema: &Schema) -> bool {
+    finite_set(schema).is_some()
+}
+
+/// Whether `subject` holds every value of a kind no finite set of constants
+/// holds whole, against `other`, which is one.
+///
+/// A literal holds values of its constant's exact type that equal the
+/// constant, the model's singleton [FCB08, §4.2] widened by `==`
+/// ([`Schema::Literal`]), so of the values whose type is a builtin, a finite set
+/// holds those equal to one of its constants of that builtin and no others.
+/// Every kind but `None` and `bool` has infinitely many such values no two of
+/// which are equal -- `0`, `1`, `2`; `""`, `"a"`, `"aa"`; `()`, `((),)` -- and
+/// a constant equals at most one of them, so the set misses one, and a subject
+/// holding the kind whole holds that value outside it. Which constants the set
+/// holds is not asked, so no oracle is.
+///
+/// Out of line, asked by the arm a literal supertype reaches and by the union
+/// arm once its branches have declined, so a pair of any other shape pays
+/// nothing for it.
+#[inline(never)]
+pub(super) fn spills_past_a_table(subject: &Schema, other: &Schema, cx: &Cx<'_>) -> bool {
+    finite_set(other).is_some() && subject.holds_a_boundless_kind_whole(cx)
+}
+
+/// [`spills_past_a_table`] for a union supertype, as the answer it gives: a
+/// refutation, or none. Its first member is read inline, so a union of any
+/// other members pays one discriminant test and no call.
+#[inline]
+pub(super) fn a_union_spilled_past_as_a_table(
+    subject: &Schema,
+    members: &[Schema],
+    other: &Schema,
+    cx: &Cx<'_>,
+) -> Relation {
+    if matches!(members.first(), Some(Schema::Literal(_)))
+        && spills_past_a_table(subject, other, cx)
+    {
+        Relation::Fails
+    } else {
+        Relation::Unknown
+    }
+}
+
 /// Whether the canonical `table` holds the constant at `index`.
 fn holds_index(table: &[Schema], index: ConstIx) -> bool {
     table
@@ -266,12 +318,19 @@ fn apart_from(index: ConstIx, table: &[Schema], oracle: &dyn LeafRelations) -> b
 /// it, a predicate included. The literal is the values of the constant's exact
 /// type that `==` it: the model's singleton [FCB08, §4.2] where `==` joins no
 /// other value to the constant, and a wider set where it does -- `-0.0` beside
-/// `0.0`, `Decimal("1.0")` beside `Decimal("1.00")`. Two equal values answer
-/// every atom alike under the trust base but two: a callback, which may answer
-/// any function of the value ([`asks_no_callback`]), and an attribute record,
-/// which reads what two equal instances of a type with its own `__eq__` may
-/// hold apart. So the constant speaks for the literal where it is the only
-/// value, or where `other` reaches neither of those.
+/// `0.0`, `Decimal("1.0")` beside `Decimal("1.00")`. Two values equal under an
+/// equality the atoms read through ([`LeafRelations::equal_values_read_alike`])
+/// answer every atom alike but two: a callback, which may answer any function
+/// of the value ([`asks_no_callback`]), and an attribute record, which reads
+/// what two equal instances of a type with its own `__eq__` may hold apart.
+/// Under an equality a builtin subclass defines for itself, a pattern, a
+/// length, a bound and a step read the builtin's storage, which that equality
+/// need not respect. Every value of the literal has the constant's exact type,
+/// so a node reading the type alone ([`reads_the_type_alone`]) answers them as
+/// it answers the constant, whatever their equality. So the constant speaks
+/// for the literal where it is the only value, or where each node `other`
+/// reaches reads the type alone or, under an equality read through, is neither
+/// a callback nor an attribute record.
 ///
 /// Out of line, behind the discriminant test its caller makes, so the leaf
 /// proofs of every other subject pay nothing for it.
@@ -282,13 +341,44 @@ pub(super) fn the_constant_speaks_for_the_literal(
     oracle: &dyn LeafRelations,
     definitions: &[Schema],
 ) -> bool {
-    oracle.constant_is_alone(constant)
-        || every_node_within(other, definitions, |node| {
-            !matches!(node, Schema::AttrRecord { .. }) && asks_no_callback(node, oracle)
-        })
+    if oracle.constant_is_alone(constant) {
+        return true;
+    }
+    let mut alike = None;
+    every_node_within(other, definitions, |node| {
+        reads_the_type_alone(node, oracle)
+            || (!matches!(node, Schema::AttrRecord { .. })
+                && asks_no_callback(node, oracle)
+                && *alike.get_or_insert_with(|| oracle.equal_values_read_alike(constant)))
+    })
+}
+
+/// Whether `node` answers every value of one exact type alike: top, bottom, a
+/// kind, a class whose `isinstance` runs no hook, or a connective, whose
+/// members are asked in turn. Every other node reads the value: a constant, a
+/// pattern, a length, a bound, a step, a callback, an attribute, an item.
+fn reads_the_type_alone(node: &Schema, oracle: &dyn LeafRelations) -> bool {
+    match node {
+        Schema::Anything(_)
+        | Schema::Nothing
+        | Schema::NoneType
+        | Schema::Bool
+        | Schema::Int
+        | Schema::Float
+        | Schema::Str
+        | Schema::Bytes
+        | Schema::Union(_)
+        | Schema::Intersection(_)
+        | Schema::Complement(_) => true,
+        Schema::Instance(_) => asks_no_callback(node, oracle),
+        _ => false,
+    }
 }
 
 /// A meet holding a table of constants, read one constant at a time.
+///
+/// `None`'s kind is such a table: its one value is `None`, alone in its
+/// literal, which is how `Literal[None]` is built ([`values_listed`]).
 ///
 /// The table is the union of its constants' literals, so the meet is the union
 /// of each literal met with the other members [FCB08, Lem. 6.2], and a literal
@@ -328,7 +418,7 @@ pub(super) fn a_meet_read_by_its_constants(
     let Some((at, table)) = members
         .iter()
         .enumerate()
-        .find_map(|(at, member)| finite_set(member).map(|table| (at, table)))
+        .find_map(|(at, member)| values_listed(member).map(|table| (at, table)))
     else {
         return Verdict::Unknown;
     };
@@ -340,10 +430,11 @@ pub(super) fn a_meet_read_by_its_constants(
     }
     let mut verdict = Verdict::Empty;
     for constant in table {
-        let Schema::Literal(index) = constant else {
-            return Verdict::Unknown;
+        let (holds_a_value, index) = match constant {
+            Schema::Literal(index) => (oracle.literals_disjoint(*index, *index), Some(*index)),
+            Schema::NoneType => (Some(false), None),
+            _ => return Verdict::Unknown,
         };
-        let holds_a_value = oracle.literals_disjoint(*index, *index);
         if holds_a_value == Some(true) {
             continue;
         }
@@ -353,11 +444,26 @@ pub(super) fn a_meet_read_by_its_constants(
             .enumerate()
             .filter(|(place, _)| *place != at)
             .any(|(_, member)| {
-                if oracle.leaf_subtype(constant, member) == Some(true) {
+                // A complement the oracle does not walk is its inner set's
+                // answer negated, where the oracle walks that.
+                let admits = oracle
+                    .leaf_subtype(constant, member)
+                    .or_else(|| match member {
+                        Schema::Complement(inner) => {
+                            oracle.leaf_subtype(constant, inner).map(|held| !held)
+                        }
+                        _ => None,
+                    });
+                if admits == Some(true) {
                     return false;
                 }
                 admitted = false;
-                the_constant_speaks_for_the_literal(*index, member, oracle, definitions)
+                // An oracle that cannot read the member reads no complement
+                // built over it, and the build is spared.
+                admits.is_some()
+                    && index.is_none_or(|index| {
+                        the_constant_speaks_for_the_literal(index, member, oracle, definitions)
+                    })
                     && match member {
                         Schema::Complement(inner) => oracle.leaf_subtype(constant, inner),
                         member => oracle
@@ -373,6 +479,17 @@ pub(super) fn a_meet_read_by_its_constants(
         verdict = Verdict::Unknown;
     }
     verdict
+}
+
+/// The values of a meet member, where they are finitely many and each read as
+/// a constant's literal is, the model's singleton [FCB08, §4.2] widened by
+/// `==`: a finite set of constants, or `None`'s kind, which is the literal of
+/// `None` and holds `None` alone.
+fn values_listed(member: &Schema) -> Option<&[Schema]> {
+    match member {
+        Schema::NoneType => Some(slice::from_ref(member)),
+        other => finite_set(other),
+    }
 }
 
 /// `A ⊆ B` between two finite sets of constants, decided by membership.

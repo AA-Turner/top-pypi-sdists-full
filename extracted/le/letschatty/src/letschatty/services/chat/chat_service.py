@@ -544,9 +544,10 @@ class ChatService:
         return message
 
     @staticmethod
-    def update_message_status(chat : Chat, message_id : str, status : Status, error_details : Optional[ErrorDetail] = None ) -> ChattyMessage:
+    def update_message_status(chat : Chat, message_id : str, status : Status, error_details : Optional[ErrorDetail] = None, *, confirmed_by_provider : bool) -> ChattyMessage:
         """
-        Update the status of a message in the chat.
+        Update the status of a message in the chat. `confirmed_by_provider`: whether the provider
+        assigned this message's id (computed by the channel; WhatsApp: `is_meta_message_id`).
         """
         from letschatty.services.continuous_conversation_service.continuous_conversation_helper import ContinuousConversationHelper
 
@@ -558,7 +559,7 @@ class ChatService:
         # Si llegó tarde (un `sent` después del `delivered`), update_status no lo aplica. Lo
         # de abajo —la conversación continua y la señal de plantilla fallida— sigue igual
         # que siempre: lo único que cambia es que el estado guardado no retrocede.
-        message.update_status(new_status=status, status_datetime=datetime.now())
+        message.update_status(new_status=status, status_datetime=datetime.now(), confirmed_by_provider=confirmed_by_provider)
         # The agent-facing failure NOTICE (the central "… falló: {motivo}" message) is built and
         # persisted by the ORCHESTRATION layer (api: ChatMessagesEditor._persist_failure_notice),
         # NOT here. This is a pure in-memory domain service with no persistence, so a notice added

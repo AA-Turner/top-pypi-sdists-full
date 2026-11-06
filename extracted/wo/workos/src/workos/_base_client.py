@@ -6,6 +6,7 @@ import json
 import math
 import os
 import platform
+import sys
 import time
 import uuid
 import random
@@ -13,6 +14,11 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Optional, Sequence, Type, Union, cast, overload
 from urllib.parse import quote, urlencode
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from ._types import _format_datetime
 from ._errors import (
@@ -33,6 +39,7 @@ from ._http import (
     TransportConnectError,
     TransportError,
     TransportTimeout,
+    record_request,
     resolve_async_backend,
     resolve_sync_backend,
 )
@@ -533,6 +540,10 @@ class WorkOSClient(_BaseWorkOSClient):
         self._backend, self._owns_http_client = resolve_sync_backend(
             http_client, self._request_timeout
         )
+        # The process that sent the first request through the HTTP client, so
+        # a forked process can tell whether it would share an earlier
+        # process's connections.
+        self._first_request_pid: Optional[int] = None
 
     def close(self) -> None:
         """Release the HTTP client if the SDK created it.
@@ -542,7 +553,7 @@ class WorkOSClient(_BaseWorkOSClient):
         if self._owns_http_client:
             self._backend.close()
 
-    def __enter__(self) -> "WorkOSClient":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -592,6 +603,9 @@ class WorkOSClient(_BaseWorkOSClient):
         timeout = self._resolve_timeout(request_options)
         max_retries = self._resolve_max_retries(request_options)
         last_error: Optional[Exception] = None
+        if self._first_request_pid is None:
+            self._first_request_pid = os.getpid()
+        record_request(self._backend)
         for attempt in range(max_retries + 1):
             try:
                 response = self._backend.request(
@@ -777,6 +791,10 @@ class AsyncWorkOSClient(_BaseWorkOSClient):
         self._backend, self._owns_http_client = resolve_async_backend(
             http_client, self._request_timeout
         )
+        # The process that sent the first request through the HTTP client, so
+        # a forked process can tell whether it would share an earlier
+        # process's connections.
+        self._first_request_pid: Optional[int] = None
 
     async def close(self) -> None:
         """Release the HTTP client if the SDK created it.
@@ -786,7 +804,7 @@ class AsyncWorkOSClient(_BaseWorkOSClient):
         if self._owns_http_client:
             await self._backend.close()
 
-    async def __aenter__(self) -> "AsyncWorkOSClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -836,6 +854,9 @@ class AsyncWorkOSClient(_BaseWorkOSClient):
         timeout = self._resolve_timeout(request_options)
         max_retries = self._resolve_max_retries(request_options)
         last_error: Optional[Exception] = None
+        if self._first_request_pid is None:
+            self._first_request_pid = os.getpid()
+        record_request(self._backend)
         for attempt in range(max_retries + 1):
             try:
                 response = await self._backend.request(

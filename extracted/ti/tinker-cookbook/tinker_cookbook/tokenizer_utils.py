@@ -82,6 +82,20 @@ class TmlTokenizer(Protocol):
 
 
 @runtime_checkable
+class SupportsEncodeOrdinary(Protocol):
+    def encode_ordinary(self, text: str) -> Sequence[int]: ...
+
+
+def encode_without_special_tokens(
+    tokenizer: Tokenizer | SupportsEncodeOrdinary, text: str
+) -> list[int]:
+    """Encode raw text without adding model-level BOS/EOS tokens."""
+    if isinstance(tokenizer, SupportsEncodeOrdinary):
+        return list(tokenizer.encode_ordinary(text))
+    return list(tokenizer.encode(text, add_special_tokens=False))
+
+
+@runtime_checkable
 class SupportsTmlTokenizer(Protocol):
     """Tokenizer facade that exposes an underlying :class:`TmlTokenizer`."""
 
@@ -99,7 +113,10 @@ class TmlRenderersTokenizerAdapter:
         tokenizers = importlib.import_module("tml_renderers.tokenizers")
 
         self.name_or_path = name_or_path
-        self.tml_tokenizer = tokenizers.o200k_base_chat()
+        if name_or_path.split(":", 1)[0] == "thinkingmachines/Inkling-2-Small":
+            self.tml_tokenizer = tokenizers.H200kBaseChatTokenizer()
+        else:
+            self.tml_tokenizer = tokenizers.O200kBaseChatTokenizer()
         self.bos_token = self.tml_tokenizer.bos_token
         self.eos_token = self.tml_tokenizer.eos_token
         try:
@@ -183,7 +200,7 @@ def get_tokenizer(model_name: str) -> Tokenizer:
     """Get a tokenizer by name.
 
     Checks the custom registry first (see :func:`register_tokenizer`),
-    then returns a tml-renderers tokenizer for Inkling, or falls back to
+    then returns a tml-renderers tokenizer for Inkling models, or falls back to
     HuggingFace ``AutoTokenizer``. HuggingFace tokenizers are cached after first load.
 
     Args:
@@ -191,7 +208,7 @@ def get_tokenizer(model_name: str) -> Tokenizer:
             ``"Qwen/Qwen3-8B"``) or a custom registered name.
 
     Returns:
-        Tokenizer: A tml-renderers tokenizer for Inkling, otherwise a
+        Tokenizer: A tml-renderers tokenizer for Inkling models, otherwise a
             HuggingFace ``PreTrainedTokenizer``.
 
     Example::

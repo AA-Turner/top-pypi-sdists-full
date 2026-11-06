@@ -237,6 +237,9 @@ class SandboxProvider(ABC):
     _DECLARES_SANDBOX_ACCEPTS: ClassVar[bool] = False
     # Whether create_container(private_network=True) puts containers on a network they share.
     PRIVATE_NETWORK: ClassVar[bool] = False
+    # Whether its sandboxes' exposed ports carry WebSockets both ways, as a website browser's CDP address needs: on
+    # where our own tests or its tunnel's documentation say so.
+    WEBSOCKETS: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -627,6 +630,15 @@ def sandbox_request_headers_for_url(url: str) -> dict[str, str]:
         except Exception:
             logger.warning("Provider %s failed to contribute request headers; skipping", cls.__name__, exc_info=True)
     return headers
+
+
+def sandbox_request_header_names() -> tuple[str, ...]:
+    """The names of every header any registered provider attaches to requests for its URLs
+    (``sandbox_request_headers_for_url``), lower-cased and sorted: what a gateway takes off the requests it forwards,
+    so no service behind it reads a provider's credentials. Names only, so no credential is resolved."""
+    names = {header.lower() for cls in registered_sandbox_provider_classes()
+             for entries in (cls.REQUEST_HEADERS or {}).values() for header in entries}
+    return tuple(sorted(names))
 
 
 def _resolve_container_env(provider_cls: type[SandboxProvider]) -> dict[str, str]:

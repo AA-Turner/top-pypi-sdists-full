@@ -12,6 +12,23 @@ _GLOB_METACHARACTERS = frozenset("*?[")
 
 
 class PermissionRule(harness_session.PermissionRule):
+    """Whether calls of the tools that match ``tools`` run, ask for an approval or are refused.
+
+    A policy applies the first rule whose ``tools`` match the call's stable tool ID, such as
+    ``client.deploy_service``, not the name the model sees; a call that matches no rule gets the
+    policy's ``default``. In the rule that applies:
+
+    1. A ``denylist`` pattern matches: deny.
+    2. A ``sensitive`` pattern matches: ask.
+    3. ``allowlist`` is not empty: allow if a pattern matches, otherwise ask.
+    4. Otherwise: the rule's ``decision``.
+
+    Patterns are case-sensitive globs that match the whole text. Argument patterns match the call's
+    arguments as JSON with sorted keys, with or without a space after ``:`` and ``,``, such as
+    ``'*"environment": "production"*'``. A ``tools`` pattern with no namespace and no wildcard, such
+    as ``deploy_service``, matches no tool, so it raises ``ValueError``.
+    """
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @model_validator(mode="after")

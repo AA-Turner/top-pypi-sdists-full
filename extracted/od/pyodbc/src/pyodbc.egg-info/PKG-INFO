@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pyodbc
-Version: 5.3.0
+Version: 5.4.0
 Summary: DB API module for ODBC
 Home-page: https://github.com/mkleehammer/pyodbc
 Author-email: Michael Kleehammer <michael@kleehammer.com>
 Maintainer: Michael Kleehammer
 Maintainer-email: Michael Kleehammer <michael@kleehammer.com>
-License: MIT
+License-Expression: MIT-0
 Project-URL: Homepage, https://github.com/mkleehammer/pyodbc
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -16,7 +16,7 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Dynamic: home-page

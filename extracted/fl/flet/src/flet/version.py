@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 # set by CI
-flet_version = "1.0.5"
+flet_version = "1.1.0"
 """
 The Flet version in use.
 
@@ -26,7 +26,7 @@ when available.
 """
 
 # set by CI
-flutter_version = "3.44.8"
+flutter_version = "3.47.9"
 """
 The Flutter SDK version used when building the flet client or packaging
 apps with [`flet build`](https://flet.dev/docs/cli/flet-build/).

@@ -108,6 +108,26 @@ pub trait IdListsUpdateListener: Send + Sync {
         self.try_receive_id_list_updates_with_propagation(updates, propagation)
     }
 
+    /// Whether eager private HTTP initialization should offload index builds to a blocking worker.
+    fn uses_parallel_id_list_init(&self) -> bool {
+        false
+    }
+
+    /// Publishes an opted-in startup batch. Only successfully downloaded bodies need indexing.
+    fn try_receive_eager_id_list_updates(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, super::IdListPropagationUpdate>,
+        incomplete: bool,
+        _successful_downloads: u64,
+    ) -> Result<(), StatsigErr> {
+        if incomplete {
+            self.try_receive_incomplete_id_list_refresh(updates, propagation)
+        } else {
+            self.try_receive_id_list_updates_with_propagation(updates, propagation)
+        }
+    }
+
     /// Whether HTTP publication must run on a blocking worker.
     fn requires_blocking_id_list_publication(&self) -> bool {
         false

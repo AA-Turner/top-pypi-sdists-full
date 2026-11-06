@@ -1490,7 +1490,7 @@ def TrinoSource(
 
 @overload
 def DatabricksSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSourceProtocol:
-    """Connect to the only configured Databricks database.
+    """Connect to the only configured Databricks data source.
 
     If you have only one Databricks connection that you'd like
     to add to Chalk, you do not need to specify any arguments
@@ -1567,7 +1567,8 @@ def DatabricksSource(
     access_token
         Access token to connect to Databricks.
     db
-        Database to use.
+        Initial Databricks catalog. Schemas (also called databases in Databricks SQL)
+        are a separate namespace level.
     port
         Port number to use.
     client_id

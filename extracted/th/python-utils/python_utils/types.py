@@ -16,6 +16,7 @@ The module also configures Pyright to ignore wildcard import warnings.
 # `from python_utils.types import datetime, decimal` worked in 3.x.
 import datetime as datetime
 import decimal as decimal
+import sys
 from re import Match, Pattern
 from types import *  # pragma: no cover  # noqa: F403
 from typing import *  # pragma: no cover  # noqa: F403
@@ -175,3 +176,10 @@ __all__ = [
     'runtime_checkable',
     'timestamp_type',
 ]
+
+# Python 3.15 removed these from `typing`. Keeping them in `__all__` there
+# would make `from python_utils.types import *` raise `AttributeError`. They
+# stay at their 4.1.4 positions on older versions.
+if sys.version_info >= (3, 15):  # pragma: no cover
+    __all__.remove('ByteString')
+    __all__.remove('no_type_check_decorator')

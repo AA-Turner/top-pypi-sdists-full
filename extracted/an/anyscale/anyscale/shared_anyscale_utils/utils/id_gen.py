@@ -158,6 +158,9 @@ class IDTypes(Enum):
     kuberay_cr_states = "kcrst"
     kuberay_cr_scheduling_states = "kcrsch"
     workload_specs = "wspec"
+    aggregated_kuberay_usage = "akuse"
+    kuberay_usage = "kuse"
+    kuberay_usage_tracking = "kust"
     organization_settings = "orgset"
     api_key_expiration = "apikeyexp"  # pragma: allowlist secret
 

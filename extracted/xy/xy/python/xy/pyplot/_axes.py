@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import builtins
 import copy
+import importlib
 import math
 import warnings
 
@@ -673,6 +674,8 @@ class _AxisProxy:
 
     def set_minor_locator(self, locator: Any) -> None:
         """Set the locator used for the independent unlabeled minor tick set."""
+        if self._is_units_registry_ticker(locator):
+            return
         host, key = self._ticker_slot()
         host._tickers[(key, "minor_locator")] = locator
         host._invalidate_shared_ticker_axis(key)
@@ -687,6 +690,8 @@ class _AxisProxy:
 
     def set_minor_formatter(self, formatter: Any) -> None:
         """Set a minor formatter, used when a labeled minor set is promoted."""
+        if self._is_units_registry_ticker(formatter):
+            return
         host, key = self._ticker_slot()
         host._tickers[(key, "minor_formatter")] = as_formatter(formatter, "set_minor_formatter()")
         host._invalidate_shared_ticker_axis(key)
@@ -1239,6 +1244,143 @@ def _patch_placement(patch: Any) -> tuple[Any, Any]:
     return patch_transform, artist_transform
 
 
+def _patch_fillability(patch: Any) -> Optional[bool]:
+    """Return FancyArrowPatch's renderer fill decision when it exposes one.
+
+    Matplotlib arrow styles return fillability separately from their Path.
+    ``FancyArrowPatch.get_path()`` deliberately drops that bit while combining
+    multiple subpaths, so treating its ordinary ``get_fill()`` flag as the
+    answer paints open bracket and ``->`` styles as giant closed polygons.
+    """
+    getter = getattr(patch, "_get_path_in_displaycoord", None)
+    if not callable(getter):
+        return None
+    try:
+        _path, raw = getter()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    values = np.asarray(raw if np.iterable(raw) else [raw], dtype=bool).reshape(-1)
+    return bool(np.any(values)) if values.size else None
+
+
+def _open_path_polylines(path: Any, transform: Any) -> list[np.ndarray]:
+    """Flatten an unfillable Path while preserving its MOVETO breaks.
+
+    ``Path.to_polygons`` closes every subpath, even when the authored path is
+    an open bracket or arrow shaft. That is useful for fills but invents long
+    diagonal outline segments here. ``cleaned(curves=False)`` flattens curves
+    without changing those open/closed semantics.
+    """
+    try:
+        flattened = path.cleaned(transform=transform, curves=False, simplify=False)
+        vertices = np.asarray(flattened.vertices, dtype=np.float64)
+        codes = flattened.codes
+    except (AttributeError, TypeError, ValueError):
+        vertices = np.asarray(transform.transform(path.vertices), dtype=np.float64)
+        codes = getattr(path, "codes", None)
+    if codes is None:
+        return [vertices]
+    lines: list[np.ndarray] = []
+    current: list[np.ndarray] = []
+    for vertex, code in zip(vertices, np.asarray(codes).reshape(-1), strict=True):
+        numeric_code = int(code)
+        if numeric_code == 0:  # STOP
+            break
+        if numeric_code == 1:  # MOVETO
+            if current:
+                lines.append(np.asarray(current, dtype=np.float64))
+            current = [vertex]
+            continue
+        if not current:
+            current = [vertex]
+        else:
+            current.append(vertex)
+    if current:
+        lines.append(np.asarray(current, dtype=np.float64))
+    return lines
+
+
+def _fancy_arrow_geometry(
+    patch: Any,
+    axes: Any,
+) -> Optional[tuple[list[np.ndarray], list[bool]]]:
+    """Resolve a Matplotlib FancyArrowPatch in display space, then return data paths.
+
+    Arrow mutation sizes, endpoint shrinking, brackets, and connection curves
+    are measured in display points. Calling ``get_path`` on an unattached
+    external patch treats those points as data units, producing plot-spanning
+    heads and brackets. Matplotlib's own draw path temporarily gets the Axes
+    data transform and renderer DPI; reproduce that only for this duck-typed
+    interop object and immediately map the finished paths back to data space.
+    """
+    getter = getattr(patch, "_get_path_in_displaycoord", None)
+    if not callable(getter) or getattr(patch, "is_transform_set", lambda: True)():
+        return None
+    host = axes._y2_of or axes
+    if any(host._scale_specs[key]["name"] != "linear" for key in ("x", "y")):
+        return None
+    try:
+        mpl_transforms = importlib.import_module("matplotlib.transforms")
+        width, height = rc_figsize_px(axes.figure._figsize, axes.figure._dpi)
+        left, bottom, rect_width, rect_height = axes.get_position().bounds
+        x0, x1 = axes.get_xlim()
+        y0, y1 = axes.get_ylim()
+        if x0 == x1 or y0 == y1:
+            return None
+        sx = rect_width * width / (x1 - x0)
+        sy = rect_height * height / (y1 - y0)
+        data_to_display = mpl_transforms.Affine2D(
+            np.asarray(
+                [
+                    [sx, 0.0, left * width - sx * x0],
+                    [0.0, sy, bottom * height - sy * y0],
+                    [0.0, 0.0, 1.0],
+                ],
+                dtype=np.float64,
+            )
+        )
+    except (AttributeError, ImportError, TypeError, ValueError):
+        return None
+
+    old_transform = getattr(patch, "_transform", None)
+    old_transform_set = getattr(patch, "_transformSet", False)
+    old_dpi_correction = getattr(patch, "_dpi_cor", 1.0)
+    try:
+        patch.set_transform(data_to_display)
+        patch._dpi_cor = axes._point_scale()
+        raw_paths, raw_fillable = getter()
+        paths = list(raw_paths) if isinstance(raw_paths, (list, tuple)) else [raw_paths]
+        fillable = (
+            [bool(value) for value in raw_fillable]
+            if np.iterable(raw_fillable)
+            else [bool(raw_fillable)]
+        )
+        if len(fillable) != len(paths):
+            return None
+        display_identity = mpl_transforms.IdentityTransform()
+        display_to_data = data_to_display.inverted()
+        outlines: list[np.ndarray] = []
+        flags: list[bool] = []
+        for path, may_fill in zip(paths, fillable, strict=True):
+            pieces = (
+                list(path.to_polygons())
+                if may_fill
+                else _open_path_polylines(path, display_identity)
+            )
+            for piece in pieces:
+                points = np.asarray(display_to_data.transform(piece), dtype=np.float64)
+                if len(points) >= 2:
+                    outlines.append(points)
+                    flags.append(may_fill)
+        return (outlines, flags) if outlines else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+    finally:
+        patch._transform = old_transform
+        patch._transformSet = old_transform_set
+        patch._dpi_cor = old_dpi_correction
+
+
 def _patch_outline(patch: Any, pixels: float = 1024.0) -> list[np.ndarray]:
     """Data-space rings of a patch, curves flattened and its transform applied.
 
@@ -1260,12 +1402,15 @@ def _patch_outline(patch: Any, pixels: float = 1024.0) -> list[np.ndarray]:
         to_polygons = getattr(path, "to_polygons", None)
         if to_polygons is not None:
             transform, after = _patch_placement(patch)
-            rings = list(to_polygons(transform))
-            if rings:
-                # A duck path that cannot be rebuilt from vertices and codes
-                # keeps its data-space flattening rather than losing geometry.
-                with suppress(AttributeError, TypeError, ValueError):
-                    rings = list(_refine_at_pixel_scale(path, transform, rings, pixels))
+            if _patch_fillability(patch) is False:
+                rings = _open_path_polylines(path, transform)
+            else:
+                rings = list(to_polygons(transform))
+                if rings:
+                    # A duck path that cannot be rebuilt from vertices and codes
+                    # keeps its data-space flattening rather than losing geometry.
+                    with suppress(AttributeError, TypeError, ValueError):
+                        rings = list(_refine_at_pixel_scale(path, transform, rings, pixels))
             if after is not None:
                 rings = [np.asarray(after.transform(ring), dtype=np.float64) for ring in rings]
     if not rings:
@@ -1323,6 +1468,8 @@ def _patch_fill_color(patch: Any) -> Any:
     """The patch's own face color, or None when it asks not to be filled."""
     if not getattr(patch, "get_fill", lambda: True)():
         return None
+    if _patch_fillability(patch) is False:
+        return None
     return _opaque_or_none(getattr(patch, "get_facecolor", lambda: None)())
 
 
@@ -1361,7 +1508,12 @@ class Axes(PlotTypeMixin):
         self._aspect_bounds: Optional[tuple[float, float, float, float]] = None
         self._insets: list[tuple["Axes", tuple[float, float, float, float]]] = []
         self._insets_materialized = False
+        self._inset_parent: Optional["Axes"] = None
+        self._inset_bounds: Optional[tuple[float, float, float, float]] = None
+        self._inset_layout_base: Optional[tuple[float, float, float, float]] = None
         self._figure_rect: Optional[tuple[float, float, float, float]] = None
+        self._tree_node: Any = None
+        self._twin_parent: Optional["Axes"] = y2_of
         # The originating gridspec span, when _figure_rect came from one —
         # subplots_adjust() re-resolves the rect instead of keeping it frozen.
         self._subplot_spec: Optional[Any] = None
@@ -1505,11 +1657,14 @@ class Axes(PlotTypeMixin):
 
     def _invalidate(self) -> None:
         host = self._y2_of or self
-        host._chart = None
         # Shared render domains are a snapshot from the preceding Figure
         # materialization pass. Any artist/limit mutation must make the next
         # pass discover the group's new final view before clipping axlines.
-        host.__dict__.pop("_shared_render_domains", None)
+        # Date units are inferred across shared x axes too: a sibling cached
+        # before a date artist was added or removed must refresh its ticks.
+        for ax in _SharedAxesGroup("x").get_siblings(host):
+            ax._chart = None
+            ax.__dict__.pop("_shared_render_domains", None)
         if host.figure is not None:
             host.figure._invalidate()
 
@@ -1848,6 +2003,7 @@ class Axes(PlotTypeMixin):
 
         handles: list[Line2D] = []
         for gx, gy, fmt in _iter_plot_groups(args):
+            gx = _restore_pandas_period_timestamps(self, gx)
             gx, gy = np.atleast_1d(gx), np.atleast_1d(gy)
             gx, gy = _convert_timedelta_axis(gx), _convert_timedelta_axis(gy)
             # A 2-D operand draws one line per column; each column advances the
@@ -3029,8 +3185,31 @@ class Axes(PlotTypeMixin):
         if transform not in (None, "xaxis transform"):
             raise not_implemented("fill_between(transform=...)")
         check_unsupported(kwargs, "fill_between()")
+
+        from xy.components import _is_datetime_like
+
+        # Convert temporal x coordinates to epoch milliseconds while preserving
+        # masked entries and snapshot metadata for datetime-axis detection.
+        is_datetime_x = False
+        if np.ma.isMaskedArray(x):
+            compressed = x.compressed()
+            if (len(compressed) > 0 and _is_datetime_like(compressed)) or _is_datetime_like(x.data):
+                is_datetime_x = True
+
+            if is_datetime_x:
+                # Fill masked points with NaT so unit_converted_values transforms
+                # dates to float milliseconds without failing on MaskedConstant,
+                # then reapply the mask to break polygon intervals.
+                raw_conv = unit_converted_values(x.filled(np.datetime64("NaT", "ms")))
+                conv_x = np.ma.array(raw_conv, mask=x.mask)
+            else:
+                conv_x = x
+        else:
+            is_datetime_x = _is_datetime_like(x)
+            conv_x = unit_converted_values(x) if is_datetime_x else x
+
         xv, upper, lower = np.broadcast_arrays(
-            _masked_float(x),
+            _masked_float(conv_x),
             _masked_float(y1),
             _masked_float(y2),
         )
@@ -3085,24 +3264,23 @@ class Axes(PlotTypeMixin):
             if step is not None:
                 sx, su = _step_values(sx, su, step)
                 _sx, sl = _step_values(xv[start:end], sl, step)
-            entries.append(
-                self._add(
-                    "area",
-                    {
-                        "x": sx,
-                        "y": su,
-                        "kwargs": {
-                            "base": sl,
-                            "color": resolved_color,
-                            "opacity": float(alpha) if alpha is not None else 1.0,
-                            "line_width": float(rcParams["patch.linewidth"]) * self._point_scale(),
-                            "line_opacity": float(alpha) if alpha is not None else 1.0,
-                            "stroke_perimeter": True,
-                            "name": str(label) if label is not None and not entries else None,
-                        },
-                    },
-                )
-            )
+            area_dict = {
+                "x": sx,
+                "y": su,
+                "kwargs": {
+                    "base": sl,
+                    "color": resolved_color,
+                    "opacity": float(alpha) if alpha is not None else 1.0,
+                    "line_width": float(rcParams["patch.linewidth"]) * self._point_scale(),
+                    "line_opacity": float(alpha) if alpha is not None else 1.0,
+                    "stroke_perimeter": True,
+                    "name": str(label) if label is not None and not entries else None,
+                },
+            }
+            if is_datetime_x:
+                area_dict["_datetime_x"] = True
+
+            entries.append(self._add("area", area_dict))
         if interpolate:
             # A single selected point between deselected neighbors spans no
             # interval, but matplotlib still draws its interpolated wedge.
@@ -3131,27 +3309,22 @@ class Axes(PlotTypeMixin):
                                 su.append(cross_y)
                                 sl.append(cross_y)
                 if len(sx) >= 2:
-                    entries.append(
-                        self._add(
-                            "area",
-                            {
-                                "x": np.asarray(sx),
-                                "y": np.asarray(su),
-                                "kwargs": {
-                                    "base": np.asarray(sl),
-                                    "color": resolved_color,
-                                    "opacity": float(alpha) if alpha is not None else 1.0,
-                                    "line_width": float(rcParams["patch.linewidth"])
-                                    * self._point_scale(),
-                                    "line_opacity": float(alpha) if alpha is not None else 1.0,
-                                    "stroke_perimeter": True,
-                                    "name": str(label)
-                                    if label is not None and not entries
-                                    else None,
-                                },
-                            },
-                        )
-                    )
+                    interp_dict = {
+                        "x": np.asarray(sx),
+                        "y": np.asarray(su),
+                        "kwargs": {
+                            "base": np.asarray(sl),
+                            "color": resolved_color,
+                            "opacity": float(alpha) if alpha is not None else 1.0,
+                            "line_width": float(rcParams["patch.linewidth"]) * self._point_scale(),
+                            "line_opacity": float(alpha) if alpha is not None else 1.0,
+                            "stroke_perimeter": True,
+                            "name": str(label) if label is not None and not entries else None,
+                        },
+                    }
+                    if is_datetime_x:
+                        interp_dict["_datetime_x"] = True
+                    entries.append(self._add("area", interp_dict))
         if not entries:
             # Matplotlib still returns a collection handle, but there is no
             # polygon to retain when no pair of adjacent points is selected.
@@ -3170,7 +3343,7 @@ class Axes(PlotTypeMixin):
                 },
             }
             return PolyCollection(self, empty)
-        return PolyCollection(self, entries[0])
+        return PolyCollection(self, entries[0], companion_entries=entries[1:])
 
     def imshow(self, z: ArrayLike, cmap: Any = None, **kwargs: Any) -> AxesImage:
         """Display a 2-D scalar array or RGB(A) image.
@@ -4285,7 +4458,8 @@ class Axes(PlotTypeMixin):
             abs(ty1 - ty0) * self._aspect_value,
             np.finfo(float).eps,
         )
-        fig_width, fig_height = self.figure.get_size_inches()
+        root_figure = self.get_figure(root=True)
+        fig_width, fig_height = root_figure.get_size_inches()
         left, bottom, width, height = rect
         physical_ratio = width * fig_width / max(height * fig_height, np.finfo(float).eps)
         if physical_ratio > data_ratio:
@@ -4314,11 +4488,25 @@ class Axes(PlotTypeMixin):
         self._figure_rect = _parse_bounds(position, "set_position()")
         self._invalidate()
 
-    def _axis_holds_datetimes(self, axis: str) -> bool:
+    def _axis_holds_datetimes(self, axis: str, *, shared: bool = False) -> bool:
         from xy.components import _is_datetime_like
 
         key = "x" if axis == "x" else "y"
-        return any(key in entry and _is_datetime_like(entry[key]) for entry in self._entries)
+        datetime_key = f"_datetime_{key}"
+
+        def _is_datetime_value(val: Any) -> bool:
+            if np.ma.isMaskedArray(val):
+                comp = val.compressed()
+                if len(comp) > 0:
+                    return _is_datetime_like(comp)
+                return _is_datetime_like(val.data)
+            return _is_datetime_like(val)
+
+        return any(
+            entry.get(datetime_key, False) or (key in entry and _is_datetime_value(entry[key]))
+            for ax in (_SharedAxesGroup(axis).get_siblings(self) if shared else [self])
+            for entry in ax._entries
+        )
 
     def _data_coordinate(self, value: Any, axis: str) -> Optional[float]:
         """A data-space coordinate as the engine's float — numbers directly,
@@ -5231,8 +5419,10 @@ class Axes(PlotTypeMixin):
         return self.yaxis
 
     def get_figure(self, root: bool | None = None) -> Any:
-        """The owning figure (``root`` is a compat-noop)."""
-        del root  # compat-noop: no nested subfigures; both roots are self.figure
+        """Return the direct subfigure owner or the root figure."""
+        if root and self.figure is not None:
+            getter = getattr(self.figure, "get_figure", None)
+            return getter(root=True) if callable(getter) else self.figure
         return self.figure
 
     def get_lines(self) -> list[Line2D]:
@@ -5484,22 +5674,68 @@ class Axes(PlotTypeMixin):
     def inset_axes(
         self, bounds: tuple[float, float, float, float] | Sequence[float], **kwargs: Any
     ) -> "Axes":
-        """Add a child inset axes.
+        """Add an independently rendered child axes.
 
         ``bounds`` is ``(left, bottom, width, height)`` in parent-axes
-        fractions; ``sharex``/``sharey`` hints link the figure's axes. The
-        inset's contents are drawn into the parent when the chart
-        materializes.
+        fractions.  Matplotlib insets are full axes (and bounds outside
+        ``[0, 1]`` are commonly used for marginal plots), so convert the
+        rectangle to figure coordinates and let the normal free-form panel
+        compositor render it instead of projecting its artists into the
+        parent's data coordinates.
         """
-        inset = Axes(self.figure)
         parsed = tuple(float(value) for value in bounds)
-        if len(parsed) != 4:
+        if len(parsed) != 4 or any(value < 0 for value in parsed[2:]):
             raise ValueError("inset_axes bounds must be [left, bottom, width, height]")
-        self._insets.append((inset, parsed))
-        if kwargs.get("sharex") is not None:
-            self.figure._sharex = True
-        if kwargs.get("sharey") is not None:
-            self.figure._sharey = True
+
+        parent = self.get_position().bounds
+        left, bottom, width, height = parsed
+        figure_rect = (
+            parent[0] + left * parent[2],
+            parent[1] + bottom * parent[3],
+            width * parent[2],
+            height * parent[3],
+        )
+        sharex = kwargs.pop("sharex", None)
+        sharey = kwargs.pop("sharey", None)
+        root = self.get_figure(root=True)
+        absolute_creator = getattr(self.figure, "_add_axes_absolute", None)
+        inset = (
+            absolute_creator(figure_rect, **kwargs)
+            if callable(absolute_creator)
+            else root.add_axes(figure_rect, **kwargs)
+        )
+        inset._inset_parent = self
+        inset._inset_bounds = parsed
+        parent_node = root._tree.node_for(self)
+        if parent_node is not None:
+            root._register_axes(inset, parent=parent_node, kind="inset_axes")
+        self.figure._share_subplot_axes(inset, sharex=sharex, sharey=sharey)
+        if self.figure._layout_options.get("engine") == "tight":
+            # Constrained layout must leave figure room for marginal axes
+            # whose parent-relative coordinates extend above/right (or below/
+            # left) of the main panel. Preserve the first solved parent box
+            # and fit the whole inset family inside that allocation.
+            if self._inset_layout_base is None:
+                self._inset_layout_base = self.get_position().bounds
+            family = [
+                child._inset_bounds
+                for child in self.figure.axes
+                if child._inset_parent is self and child._inset_bounds is not None
+            ]
+            min_x = min([0.0, *(item[0] for item in family)])
+            min_y = min([0.0, *(item[1] for item in family)])
+            max_x = max([1.0, *(item[0] + item[2] for item in family)])
+            max_y = max([1.0, *(item[1] + item[3] for item in family)])
+            base_x, base_y, base_w, base_h = self._inset_layout_base
+            fitted_w = base_w / (max_x - min_x)
+            fitted_h = base_h / (max_y - min_y)
+            self._figure_rect = (
+                base_x - min_x * fitted_w,
+                base_y - min_y * fitted_h,
+                fitted_w,
+                fitted_h,
+            )
+            self._invalidate()
         return inset
 
     def _materialize_insets(self) -> None:
@@ -5859,13 +6095,20 @@ class Axes(PlotTypeMixin):
         from xy import kernels
 
         canvas = rc_figsize_px(self.figure._figsize, self.figure._dpi)
-        outline = _patch_outline(patch, pixels=float(max(canvas)))
+        fancy_geometry = _fancy_arrow_geometry(patch, self)
+        if fancy_geometry is None:
+            outline = _patch_outline(patch, pixels=float(max(canvas)))
+            fillable = [True] * len(outline)
+        else:
+            outline, fillable = fancy_geometry
         face = _patch_fill_color(patch)
         edge = _patch_edge_color(patch)
         width = float(getattr(patch, "get_linewidth", lambda: 1.0)()) * self._point_scale()
         entries: list[dict[str, Any]] = []
         if face is not None and not _rings_are_nested(outline):
-            for ring in outline:
+            for ring, may_fill in zip(outline, fillable, strict=True):
+                if not may_fill:
+                    continue
                 xv, yv = ring[:, 0], ring[:, 1]
                 # Non-finite vertices have no triangulation, as in `Axes.fill`.
                 finite = np.isfinite(xv) & np.isfinite(yv)
@@ -6834,6 +7077,15 @@ class Axes(PlotTypeMixin):
             raise ValueError("twinx() of a twin axes is not supported")
         if self._twin is None:
             self._twin = Axes(self.figure, y2_of=self)
+            root = self.get_figure(root=True)
+            parent_node = root._tree.node_for(self)
+            if parent_node is not None:
+                root._register_axes(
+                    self._twin,
+                    parent=parent_node,
+                    kind="twin_axes",
+                    rendered=False,
+                )
         return self._twin
 
     def twiny(self) -> "Axes":
@@ -6845,10 +7097,14 @@ class Axes(PlotTypeMixin):
         if self.figure is None:
             raise ValueError("twiny() requires an Axes attached to a Figure")
         twin = Axes(self.figure)
+        twin._twin_parent = self
         twin._axis["y"] = self._axis_props("y")
-        self.figure._axes.append(twin)
-        self.figure._current_ax = twin
-        self.figure._invalidate()
+        root = self.get_figure(root=True)
+        root._axes.append(twin)
+        parent_node = root._tree.node_for(self)
+        root._register_axes(twin, parent=parent_node, kind="twin_axes")
+        root._current_ax = twin
+        root._invalidate()
         return twin
 
     def legend(self, *args: Any, **kwargs: Any) -> Any:
@@ -8514,6 +8770,13 @@ class Axes(PlotTypeMixin):
         y_props = {k: v for k, v in self._axis["y"].items() if v is not None}
         self._inherit_shared_axis_state("x", x_props)
         self._inherit_shared_axis_state("y", y_props)
+        # fill_between retains datetime identity after converting its geometry
+        # to f64 milliseconds. Carry it into the rendered axis (dossier §16),
+        # without overriding explicit scales or persisting an inferred type.
+        if self._scale_specs["x"]["name"] == "linear" and self._axis_holds_datetimes(
+            "x", shared=True
+        ):
+            x_props.setdefault("type_", "time")
         rotation_source = self._shared_ticker_source("x")
         if (
             rotation_source._tick_rotation_modes.get("x") == "xtick"
@@ -9304,6 +9567,49 @@ def _parse_date_text(value: str) -> Optional[np.datetime64]:
     return None
 
 
+def _restore_pandas_period_timestamps(ax: Any, values: Any) -> Any:
+    """pandas' PeriodIndex ordinals → the timestamps they stand for, else ``values``.
+
+    pandas >= 3.1 plots a time series by handing ``ax.plot`` its
+    ``PeriodIndex.asi8`` integer ordinals (older releases passed Period
+    objects, which `_convert_timedelta_axis` already maps). Those ordinals only
+    mean something through matplotlib's units registry, which this engine
+    deliberately omits: its time axis is native ms-since-epoch. pandas records
+    the series it is about to draw in ``ax._plot_data`` immediately before the
+    call, so restore timestamps only when the integers *are* that record's
+    index storage (shared memory) and its complete ordinal sequence. A later
+    numeric overlay whose values happen to equal period ordinals is ordinary
+    data and stays untouched. Duck-typed: the shim never imports pandas.
+    """
+    if not isinstance(values, np.ndarray) or values.dtype != np.int64 or values.ndim != 1:
+        return values
+    records = getattr(ax, "_plot_data", None)
+    if not isinstance(records, list) or not records:
+        return values
+    record = records[-1]
+    index = getattr(record[0], "index", None) if isinstance(record, tuple) and record else None
+    to_timestamp = getattr(index, "to_timestamp", None)
+    freq = getattr(ax, "freq", None)  # pandas' axis frequency: alias or offset
+    business_day = (freq if isinstance(freq, str) else getattr(freq, "name", None)) == "B"
+    if callable(to_timestamp):
+        ordinals = getattr(index, "asi8", None)  # PeriodIndex storage
+    elif business_day:
+        # Business-day series skip Period[B] (deprecated): pandas plots an
+        # int64 Index of np.busday_count ordinals from 1970-01-01 instead.
+        ordinals = getattr(index, "_values", None)
+    else:
+        return values
+    if not isinstance(ordinals, np.ndarray) or ordinals.dtype != np.int64:
+        return values
+    if ordinals.shape != values.shape or not np.shares_memory(values, ordinals):
+        return values
+    if not np.array_equal(values, ordinals):
+        return values
+    if callable(to_timestamp):
+        return np.asarray(to_timestamp(how="start").to_numpy(), dtype="datetime64[ns]")
+    return np.busday_offset(np.datetime64("1970-01-01", "D"), values).astype("datetime64[ns]")
+
+
 def _convert_timedelta_axis(values: np.ndarray) -> np.ndarray:
     """Map timedelta coordinates to seconds; dates and categories stay native."""
     array = np.asanyarray(values)
@@ -9466,10 +9772,6 @@ def _pow_label(value: float, base: float = 10.0) -> str:
     if not np.isfinite(exponent) or abs(exponent - round(exponent)) > 1e-9:
         return f"{value:g}"
     return f"{base:g}" + str(round(float(exponent))).translate(_SUPERSCRIPT_DIGITS)
-
-
-def _pow10_label(value: float) -> str:
-    return _pow_label(value, 10.0)
 
 
 def _plain_text(value: Any) -> str:

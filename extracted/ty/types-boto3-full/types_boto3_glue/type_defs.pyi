@@ -28,6 +28,7 @@ from .literals import (
     AggFunctionType,
     AllowFullTableExternalDataAccessEnumType,
     AuthenticationTypeType,
+    AutoUpgradeStatusType,
     BackfillErrorCodeType,
     BlueprintRunStateType,
     BlueprintStatusType,
@@ -146,6 +147,7 @@ from .literals import (
     StartingPositionType,
     StatementStateType,
     StatisticEvaluationLevelType,
+    StatusType,
     SubObjectSourceTypeType,
     TableAttributesType,
     TableOptimizerEventTypeType,
@@ -163,6 +165,7 @@ from .literals import (
     UnnestSpecType,
     UpdateBehaviorType,
     UpdateCatalogBehaviorType,
+    UpgradeConsentType,
     ViewDialectType,
     ViewUpdateActionType,
     WorkerTypeType,
@@ -214,6 +217,7 @@ __all__ = (
     "AuthenticationConfigurationTypeDef",
     "AuthorizationCodePropertiesTypeDef",
     "AutoDataQualityTypeDef",
+    "AutoUpgradeMetadataTypeDef",
     "BackfillErrorTypeDef",
     "BasicAuthenticationCredentialsTypeDef",
     "BasicAuthenticationPropertiesTypeDef",
@@ -747,6 +751,8 @@ __all__ = (
     "GetJobRunsRequestPaginateTypeDef",
     "GetJobRunsRequestTypeDef",
     "GetJobRunsResponseTypeDef",
+    "GetJobUpgradeAnalysisRequestTypeDef",
+    "GetJobUpgradeAnalysisResponseTypeDef",
     "GetJobsRequestPaginateTypeDef",
     "GetJobsRequestTypeDef",
     "GetJobsResponsePaginatorTypeDef",
@@ -1342,6 +1348,8 @@ __all__ = (
     "StartImportLabelsTaskRunResponseTypeDef",
     "StartJobRunRequestTypeDef",
     "StartJobRunResponseTypeDef",
+    "StartJobUpgradeAnalysisRequestTypeDef",
+    "StartJobUpgradeAnalysisResponseTypeDef",
     "StartMLEvaluationTaskRunRequestTypeDef",
     "StartMLEvaluationTaskRunResponseTypeDef",
     "StartMLLabelingSetGenerationTaskRunRequestTypeDef",
@@ -1367,6 +1375,7 @@ __all__ = (
     "StopColumnStatisticsTaskRunScheduleRequestTypeDef",
     "StopCrawlerRequestTypeDef",
     "StopCrawlerScheduleRequestTypeDef",
+    "StopJobUpgradeAnalysisRequestTypeDef",
     "StopMaterializedViewRefreshTaskRunRequestTypeDef",
     "StopSessionRequestTypeDef",
     "StopSessionResponseTypeDef",
@@ -1586,6 +1595,12 @@ class AuthorizationCodePropertiesTypeDef(TypedDict):
 class AutoDataQualityTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
     EvaluationContext: NotRequired[str]
+
+class AutoUpgradeMetadataTypeDef(TypedDict):
+    TargetVersion: NotRequired[str]
+    SourceVersion: NotRequired[str]
+    Status: NotRequired[AutoUpgradeStatusType]
+    AnalysisId: NotRequired[str]
 
 class PartitionValueListOutputTypeDef(TypedDict):
     Values: list[str]
@@ -3238,6 +3253,10 @@ class GetJobRunsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class GetJobUpgradeAnalysisRequestTypeDef(TypedDict):
+    analysisId: str
+    jobName: str
+
 class GetJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -4019,6 +4038,11 @@ class StartImportLabelsTaskRunRequestTypeDef(TypedDict):
     InputS3Path: str
     ReplaceAllLabels: NotRequired[bool]
 
+class StartJobUpgradeAnalysisRequestTypeDef(TypedDict):
+    jobName: str
+    analysisId: NotRequired[str]
+    upgradeConsent: NotRequired[UpgradeConsentType]
+
 class StartMLEvaluationTaskRunRequestTypeDef(TypedDict):
     TransformId: str
 
@@ -4065,6 +4089,10 @@ class StopCrawlerRequestTypeDef(TypedDict):
 
 class StopCrawlerScheduleRequestTypeDef(TypedDict):
     CrawlerName: str
+
+class StopJobUpgradeAnalysisRequestTypeDef(TypedDict):
+    jobName: str
+    analysisId: str
 
 class StopMaterializedViewRefreshTaskRunRequestTypeDef(TypedDict):
     CatalogId: str
@@ -4688,6 +4716,18 @@ class GetGlueIdentityCenterConfigurationResponseTypeDef(TypedDict):
     UserBackgroundSessionsEnabled: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetJobUpgradeAnalysisResponseTypeDef(TypedDict):
+    jobName: str
+    analysisId: str
+    status: StatusType
+    sourceVersion: str
+    targetVersion: str
+    analysisType: Literal["AUTO_UPGRADE"]
+    autoUpgradeEvaluationSummary: str
+    errorMessage: str
+    autoUpgradeEligibilitySummary: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetPlanResponseTypeDef(TypedDict):
     PythonScript: str
     ScalaCode: str
@@ -4911,6 +4951,11 @@ class StartImportLabelsTaskRunResponseTypeDef(TypedDict):
 
 class StartJobRunResponseTypeDef(TypedDict):
     JobRunId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartJobUpgradeAnalysisResponseTypeDef(TypedDict):
+    analysisId: str
+    jobName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartMLEvaluationTaskRunResponseTypeDef(TypedDict):
@@ -9421,6 +9466,7 @@ class JobTypeDef(TypedDict):
     SourceControlDetails: NotRequired[SourceControlDetailsTypeDef]
     MaintenanceWindow: NotRequired[str]
     ProfileName: NotRequired[str]
+    AutoUpgradeMetadata: NotRequired[AutoUpgradeMetadataTypeDef]
 
 class JobPaginatorTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -9450,6 +9496,7 @@ class JobPaginatorTypeDef(TypedDict):
     SourceControlDetails: NotRequired[SourceControlDetailsTypeDef]
     MaintenanceWindow: NotRequired[str]
     ProfileName: NotRequired[str]
+    AutoUpgradeMetadata: NotRequired[AutoUpgradeMetadataTypeDef]
 
 FilterUnionTypeDef = Union[FilterTypeDef, FilterOutputTypeDef]
 GroupFiltersUnionTypeDef = Union[GroupFiltersTypeDef, GroupFiltersOutputTypeDef]

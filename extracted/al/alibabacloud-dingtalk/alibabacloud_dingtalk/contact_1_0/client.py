@@ -780,6 +780,120 @@ class Client(OpenApiClient):
         headers = dingtalkcontact__1__0_models.AnnualCertificationAuditHeaders()
         return await self.annual_certification_audit_with_options_async(request, headers, runtime)
 
+    def batch_add_acting_manager_relations_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse:
+        """
+        @summary 批量添加虚线归属关系
+        
+        @param request: BatchAddActingManagerRelationsRequest
+        @param headers: BatchAddActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchAddActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchAddActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchAddActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_add_acting_manager_relations_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse:
+        """
+        @summary 批量添加虚线归属关系
+        
+        @param request: BatchAddActingManagerRelationsRequest
+        @param headers: BatchAddActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchAddActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchAddActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchAddActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_add_acting_manager_relations(
+        self,
+        request: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse:
+        """
+        @summary 批量添加虚线归属关系
+        
+        @param request: BatchAddActingManagerRelationsRequest
+        @return: BatchAddActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchAddActingManagerRelationsHeaders()
+        return self.batch_add_acting_manager_relations_with_options(request, headers, runtime)
+
+    async def batch_add_acting_manager_relations_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchAddActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchAddActingManagerRelationsResponse:
+        """
+        @summary 批量添加虚线归属关系
+        
+        @param request: BatchAddActingManagerRelationsRequest
+        @return: BatchAddActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchAddActingManagerRelationsHeaders()
+        return await self.batch_add_acting_manager_relations_with_options_async(request, headers, runtime)
+
     def batch_approve_union_apply_with_options(
         self,
         request: dingtalkcontact__1__0_models.BatchApproveUnionApplyRequest,
@@ -887,6 +1001,348 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkcontact__1__0_models.BatchApproveUnionApplyHeaders()
         return await self.batch_approve_union_apply_with_options_async(request, headers, runtime)
+
+    def batch_del_acting_manager_relations_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse:
+        """
+        @summary 批量删除虚线归属关系
+        
+        @param request: BatchDelActingManagerRelationsRequest
+        @param headers: BatchDelActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchDelActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchDelActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchDelActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_del_acting_manager_relations_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse:
+        """
+        @summary 批量删除虚线归属关系
+        
+        @param request: BatchDelActingManagerRelationsRequest
+        @param headers: BatchDelActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchDelActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchDelActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchDelActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_del_acting_manager_relations(
+        self,
+        request: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse:
+        """
+        @summary 批量删除虚线归属关系
+        
+        @param request: BatchDelActingManagerRelationsRequest
+        @return: BatchDelActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchDelActingManagerRelationsHeaders()
+        return self.batch_del_acting_manager_relations_with_options(request, headers, runtime)
+
+    async def batch_del_acting_manager_relations_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchDelActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchDelActingManagerRelationsResponse:
+        """
+        @summary 批量删除虚线归属关系
+        
+        @param request: BatchDelActingManagerRelationsRequest
+        @return: BatchDelActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchDelActingManagerRelationsHeaders()
+        return await self.batch_del_acting_manager_relations_with_options_async(request, headers, runtime)
+
+    def batch_get_acting_manager_relations_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse:
+        """
+        @summary 批量查询虚线归属关系（含vOrg数据）
+        
+        @param request: BatchGetActingManagerRelationsRequest
+        @param headers: BatchGetActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_get_acting_manager_relations_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse:
+        """
+        @summary 批量查询虚线归属关系（含vOrg数据）
+        
+        @param request: BatchGetActingManagerRelationsRequest
+        @param headers: BatchGetActingManagerRelationsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetActingManagerRelationsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetActingManagerRelations',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetActingManagerRelations',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_get_acting_manager_relations(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse:
+        """
+        @summary 批量查询虚线归属关系（含vOrg数据）
+        
+        @param request: BatchGetActingManagerRelationsRequest
+        @return: BatchGetActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetActingManagerRelationsHeaders()
+        return self.batch_get_acting_manager_relations_with_options(request, headers, runtime)
+
+    async def batch_get_acting_manager_relations_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetActingManagerRelationsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetActingManagerRelationsResponse:
+        """
+        @summary 批量查询虚线归属关系（含vOrg数据）
+        
+        @param request: BatchGetActingManagerRelationsRequest
+        @return: BatchGetActingManagerRelationsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetActingManagerRelationsHeaders()
+        return await self.batch_get_acting_manager_relations_with_options_async(request, headers, runtime)
+
+    def batch_get_custom_report_lines_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetCustomReportLinesRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetCustomReportLinesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse:
+        """
+        @summary 批量查询自定义汇报线
+        
+        @param request: BatchGetCustomReportLinesRequest
+        @param headers: BatchGetCustomReportLinesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetCustomReportLinesResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetCustomReportLines',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetCustomReportLines',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_get_custom_report_lines_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetCustomReportLinesRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetCustomReportLinesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse:
+        """
+        @summary 批量查询自定义汇报线
+        
+        @param request: BatchGetCustomReportLinesRequest
+        @param headers: BatchGetCustomReportLinesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetCustomReportLinesResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetCustomReportLines',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetCustomReportLines',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_get_custom_report_lines(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetCustomReportLinesRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse:
+        """
+        @summary 批量查询自定义汇报线
+        
+        @param request: BatchGetCustomReportLinesRequest
+        @return: BatchGetCustomReportLinesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetCustomReportLinesHeaders()
+        return self.batch_get_custom_report_lines_with_options(request, headers, runtime)
+
+    async def batch_get_custom_report_lines_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetCustomReportLinesRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetCustomReportLinesResponse:
+        """
+        @summary 批量查询自定义汇报线
+        
+        @param request: BatchGetCustomReportLinesRequest
+        @return: BatchGetCustomReportLinesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetCustomReportLinesHeaders()
+        return await self.batch_get_custom_report_lines_with_options_async(request, headers, runtime)
 
     def batch_get_user_with_options(
         self,
@@ -1013,6 +1469,462 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkcontact__1__0_models.BatchGetUserHeaders()
         return await self.batch_get_user_with_options_async(request, headers, runtime)
+
+    def batch_get_vorg_visible_configs_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量查询vOrg可见性白名单
+        
+        @param request: BatchGetVOrgVisibleConfigsRequest
+        @param headers: BatchGetVOrgVisibleConfigsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetVOrgVisibleConfigsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetVOrgVisibleConfigs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetVOrgVisibleConfigs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_get_vorg_visible_configs_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsRequest,
+        headers: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量查询vOrg可见性白名单
+        
+        @param request: BatchGetVOrgVisibleConfigsRequest
+        @param headers: BatchGetVOrgVisibleConfigsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchGetVOrgVisibleConfigsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.staff_ids):
+            body['staffIds'] = request.staff_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchGetVOrgVisibleConfigs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchGetVOrgVisibleConfigs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_get_vorg_visible_configs(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量查询vOrg可见性白名单
+        
+        @param request: BatchGetVOrgVisibleConfigsRequest
+        @return: BatchGetVOrgVisibleConfigsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsHeaders()
+        return self.batch_get_vorg_visible_configs_with_options(request, headers, runtime)
+
+    async def batch_get_vorg_visible_configs_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量查询vOrg可见性白名单
+        
+        @param request: BatchGetVOrgVisibleConfigsRequest
+        @return: BatchGetVOrgVisibleConfigsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchGetVOrgVisibleConfigsHeaders()
+        return await self.batch_get_vorg_visible_configs_with_options_async(request, headers, runtime)
+
+    def batch_set_acting_manager_relation_vorgs_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse:
+        """
+        @summary 批量设置虚线归属关系vOrg数据
+        
+        @param request: BatchSetActingManagerRelationVOrgsRequest
+        @param headers: BatchSetActingManagerRelationVOrgsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetActingManagerRelationVOrgsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetActingManagerRelationVOrgs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetActingManagerRelationVOrgs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_set_acting_manager_relation_vorgs_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse:
+        """
+        @summary 批量设置虚线归属关系vOrg数据
+        
+        @param request: BatchSetActingManagerRelationVOrgsRequest
+        @param headers: BatchSetActingManagerRelationVOrgsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetActingManagerRelationVOrgsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetActingManagerRelationVOrgs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetActingManagerRelationVOrgs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_set_acting_manager_relation_vorgs(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse:
+        """
+        @summary 批量设置虚线归属关系vOrg数据
+        
+        @param request: BatchSetActingManagerRelationVOrgsRequest
+        @return: BatchSetActingManagerRelationVOrgsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsHeaders()
+        return self.batch_set_acting_manager_relation_vorgs_with_options(request, headers, runtime)
+
+    async def batch_set_acting_manager_relation_vorgs_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsResponse:
+        """
+        @summary 批量设置虚线归属关系vOrg数据
+        
+        @param request: BatchSetActingManagerRelationVOrgsRequest
+        @return: BatchSetActingManagerRelationVOrgsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetActingManagerRelationVOrgsHeaders()
+        return await self.batch_set_acting_manager_relation_vorgs_with_options_async(request, headers, runtime)
+
+    def batch_set_custom_report_lines_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetCustomReportLinesRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetCustomReportLinesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse:
+        """
+        @summary 批量设置自定义汇报线
+        
+        @param request: BatchSetCustomReportLinesRequest
+        @param headers: BatchSetCustomReportLinesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetCustomReportLinesResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetCustomReportLines',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetCustomReportLines',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_set_custom_report_lines_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetCustomReportLinesRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetCustomReportLinesHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse:
+        """
+        @summary 批量设置自定义汇报线
+        
+        @param request: BatchSetCustomReportLinesRequest
+        @param headers: BatchSetCustomReportLinesHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetCustomReportLinesResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetCustomReportLines',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetCustomReportLines',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_set_custom_report_lines(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetCustomReportLinesRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse:
+        """
+        @summary 批量设置自定义汇报线
+        
+        @param request: BatchSetCustomReportLinesRequest
+        @return: BatchSetCustomReportLinesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetCustomReportLinesHeaders()
+        return self.batch_set_custom_report_lines_with_options(request, headers, runtime)
+
+    async def batch_set_custom_report_lines_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetCustomReportLinesRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetCustomReportLinesResponse:
+        """
+        @summary 批量设置自定义汇报线
+        
+        @param request: BatchSetCustomReportLinesRequest
+        @return: BatchSetCustomReportLinesResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetCustomReportLinesHeaders()
+        return await self.batch_set_custom_report_lines_with_options_async(request, headers, runtime)
+
+    def batch_set_vorg_visible_configs_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量设置vOrg可见性白名单
+        
+        @param request: BatchSetVOrgVisibleConfigsRequest
+        @param headers: BatchSetVOrgVisibleConfigsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetVOrgVisibleConfigsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetVOrgVisibleConfigs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetVOrgVisibleConfigs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_set_vorg_visible_configs_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsRequest,
+        headers: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量设置vOrg可见性白名单
+        
+        @param request: BatchSetVOrgVisibleConfigsRequest
+        @param headers: BatchSetVOrgVisibleConfigsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchSetVOrgVisibleConfigsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.items):
+            body['items'] = request.items
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchSetVOrgVisibleConfigs',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/empRelation/batchSetVOrgVisibleConfigs',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_set_vorg_visible_configs(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量设置vOrg可见性白名单
+        
+        @param request: BatchSetVOrgVisibleConfigsRequest
+        @return: BatchSetVOrgVisibleConfigsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsHeaders()
+        return self.batch_set_vorg_visible_configs_with_options(request, headers, runtime)
+
+    async def batch_set_vorg_visible_configs_async(
+        self,
+        request: dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsRequest,
+    ) -> dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsResponse:
+        """
+        @summary 批量设置vOrg可见性白名单
+        
+        @param request: BatchSetVOrgVisibleConfigsRequest
+        @return: BatchSetVOrgVisibleConfigsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.BatchSetVOrgVisibleConfigsHeaders()
+        return await self.batch_set_vorg_visible_configs_with_options_async(request, headers, runtime)
 
     def batch_update_external_title_with_options(
         self,
@@ -6721,6 +7633,132 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkcontact__1__0_models.ListSeniorSettingsHeaders()
         return await self.list_senior_settings_with_options_async(request, headers, runtime)
+
+    def list_simple_by_role_batch_with_options(
+        self,
+        request: dingtalkcontact__1__0_models.ListSimpleByRoleBatchRequest,
+        headers: dingtalkcontact__1__0_models.ListSimpleByRoleBatchHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse:
+        """
+        @summary 获取批量角色下的员工列表
+        
+        @param request: ListSimpleByRoleBatchRequest
+        @param headers: ListSimpleByRoleBatchHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListSimpleByRoleBatchResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.offset):
+            body['offset'] = request.offset
+        if not UtilClient.is_unset(request.permission_code):
+            body['permissionCode'] = request.permission_code
+        if not UtilClient.is_unset(request.role_ids):
+            body['roleIds'] = request.role_ids
+        if not UtilClient.is_unset(request.size):
+            body['size'] = request.size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='ListSimpleByRoleBatch',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/role/listEmpsByRoles',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_simple_by_role_batch_with_options_async(
+        self,
+        request: dingtalkcontact__1__0_models.ListSimpleByRoleBatchRequest,
+        headers: dingtalkcontact__1__0_models.ListSimpleByRoleBatchHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse:
+        """
+        @summary 获取批量角色下的员工列表
+        
+        @param request: ListSimpleByRoleBatchRequest
+        @param headers: ListSimpleByRoleBatchHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListSimpleByRoleBatchResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.offset):
+            body['offset'] = request.offset
+        if not UtilClient.is_unset(request.permission_code):
+            body['permissionCode'] = request.permission_code
+        if not UtilClient.is_unset(request.role_ids):
+            body['roleIds'] = request.role_ids
+        if not UtilClient.is_unset(request.size):
+            body['size'] = request.size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='ListSimpleByRoleBatch',
+            version='contact_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/contact/role/listEmpsByRoles',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_simple_by_role_batch(
+        self,
+        request: dingtalkcontact__1__0_models.ListSimpleByRoleBatchRequest,
+    ) -> dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse:
+        """
+        @summary 获取批量角色下的员工列表
+        
+        @param request: ListSimpleByRoleBatchRequest
+        @return: ListSimpleByRoleBatchResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.ListSimpleByRoleBatchHeaders()
+        return self.list_simple_by_role_batch_with_options(request, headers, runtime)
+
+    async def list_simple_by_role_batch_async(
+        self,
+        request: dingtalkcontact__1__0_models.ListSimpleByRoleBatchRequest,
+    ) -> dingtalkcontact__1__0_models.ListSimpleByRoleBatchResponse:
+        """
+        @summary 获取批量角色下的员工列表
+        
+        @param request: ListSimpleByRoleBatchRequest
+        @return: ListSimpleByRoleBatchResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkcontact__1__0_models.ListSimpleByRoleBatchHeaders()
+        return await self.list_simple_by_role_batch_with_options_async(request, headers, runtime)
 
     def list_user_group_members_with_options(
         self,

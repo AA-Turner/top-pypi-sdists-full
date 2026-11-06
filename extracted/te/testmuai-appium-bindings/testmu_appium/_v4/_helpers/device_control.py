@@ -7,6 +7,7 @@ same registry through :func:`device_control`.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar
@@ -113,7 +114,13 @@ _active_description: ContextVar[str] = ContextVar("device_control_description", 
 
 
 def _set_orientation(driver: Any, value: str) -> None:
-    driver.orientation = value.upper()
+    try:
+        driver.orientation = value.upper()
+    except Exception as exc:
+        # WDA turns the device, then fails if the app kept its screen orientation.
+        if os.getenv("KANE_IGNORE_ORIENTATION_ERROR") != "true" or _config.platform() != "ios":
+            raise
+        _log.warning("device_control: orientation error ignored for %s: %s", value, exc)
 
 
 def _get_orientation(driver: Any) -> str:

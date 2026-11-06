@@ -1,9 +1,9 @@
+# ignore line spacing (E303), mixed case names (N802/N803)
+# ruff: noqa: E303, N802, N803
 from __future__ import annotations
-from typing import (
-    Any, Callable, Dict, Final, Generator, Iterable, Iterator,
-    List, Optional, Sequence, Tuple, Union,
-)
-
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
+from typing import Any, Final, Self
+import ctypes
 
 # SQLSetConnectAttr attributes
 # ref: https://docs.microsoft.com/en-us/sql/odbc/reference/syntax/sqlsetconnectattr-function
@@ -294,6 +294,11 @@ SQL_UNION: int
 SQL_USER_NAME: int
 SQL_XOPEN_CLI_YEAR: int
 
+# driver connect completion modes
+SQL_DRIVER_COMPLETE: int
+SQL_DRIVER_COMPLETE_REQUIRED: int
+SQL_DRIVER_NOPROMPT: int
+SQL_DRIVER_PROMPT: int
 
 # pyodbc-specific constants
 BinaryNull: Any  # to distinguish binary NULL values from char NULL values
@@ -308,6 +313,7 @@ apilevel: Final[str] = '2.0'
 paramstyle: Final[str] = 'qmark'
 threadsafety: Final[int] = 1
 version: Final[str]  # not pep-0249
+henv: Final[ctypes.c_void_p]
 
 # read-write (not pep-0249)
 lowercase: bool = False
@@ -336,7 +342,7 @@ class Connection:
     https://www.python.org/dev/peps/pep-0249/#connection-objects
 
     This class should not be instantiated directly, instead call pyodbc.connect() to
-    create a Connection object.
+    create a Connection object.  Connection objects cannot be pickled.
     """
 
     @property
@@ -356,12 +362,50 @@ class Connection:
         ...
 
     @property
+    def fetch_decimal_as_string(self) -> bool:
+        """If True, DECIMAL and NUMERIC values will be fetched as strings using the
+        legacy local-aware path.  If False (the default), values are fetched using a
+        binary representation that is not affected by the locale.  A column whose
+        driver returns text in place of the binary representation is read as text."""
+        ...
+
+    @fetch_decimal_as_string.setter
+    def fetch_decimal_as_string(self, value: bool) -> None:
+        ...
+
+    @property
+    def hdbc(self) -> ctypes.c_void_p | None:
+        """ODBC handle for the connection."""
+        ...
+
+    @property
+    def compat_diagrec_byte_length(self) -> bool:
+        """Set to True if the driver incorrectly reports byte length instead of
+        character length for diagnostic messages.
+
+        See https://github.com/mkleehammer/pyodbc/issues/489."""
+        ...
+
+    @compat_diagrec_byte_length.setter
+    def compat_diagrec_byte_length(self, value: bool) -> None:
+        ...
+
+    @property
     def maxwrite(self) -> int:
         """The maximum bytes to write before using SQLPutData, default is zero for no maximum."""
         ...
 
     @maxwrite.setter
     def maxwrite(self, value: int) -> None:
+        ...
+
+    @property
+    def readvar_initsize(self) -> int:
+        """The initial buffer size in bytes for reading values from variable-length columns."""
+        ...
+
+    @readvar_initsize.setter
+    def readvar_initsize(self, value: int) -> None:
         ...
 
     @property
@@ -381,15 +425,15 @@ class Connection:
 
 
     # implemented dunder methods
-    def __enter__(self) -> Connection: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_value, traceback) -> None: ...
 
 
     # functions for defining the text encoding used for data, metadata, sql, parameters, etc.
 
     def setencoding(self,
-                    encoding: Optional[str] = None,
-                    ctype: Optional[int] = None) -> None:
+                    encoding: str | None = None,
+                    ctype: int | None = None) -> None:
         """Set the text encoding for SQL statements and textual parameters sent to the database.
 
         Args:
@@ -401,8 +445,8 @@ class Connection:
 
     def setdecoding(self,
                     sqltype: int,
-                    encoding: Optional[str] = None,
-                    ctype: Optional[int] = None) -> None:
+                    encoding: str | None = None,
+                    ctype: int | None = None) -> None:
         """Set the text decoding used when reading SQL_CHAR or SQL_WCHAR data from the database.
 
         Args:
@@ -427,7 +471,7 @@ class Connection:
         """
         ...
 
-    def set_attr(self, attr_id: int, value: int, /) -> None:
+    def set_attr(self, attr_id: int, value: int | str, /) -> None:
         """Set an attribute on the connection, via SQLSetConnectAttr.
 
         Args:
@@ -439,7 +483,7 @@ class Connection:
 
     # functions to handle non-standard database data types
 
-    def add_output_converter(self, sqltype: int, func: Optional[Callable], /) -> None:
+    def add_output_converter(self, sqltype: int, func: Callable | None, /) -> None:
         """Register an output converter function that will be called whenever a value
         with the given SQL type is read from the database.  See the Wiki for details:
         https://github.com/mkleehammer/pyodbc/wiki/Using-an-Output-Converter-function
@@ -450,7 +494,7 @@ class Connection:
         """
         ...
 
-    def get_output_converter(self, sqltype: int, /) -> Optional[Callable]:
+    def get_output_converter(self, sqltype: int, /) -> Callable | None:
         """Retrieve the (previously registered) converter function for the SQL type.
 
         Args:
@@ -518,7 +562,7 @@ class Cursor:
     https://www.python.org/dev/peps/pep-0249/#cursor-objects
 
     This class should not be instantiated directly, instead call cursor() from a Connection
-    object to create a Cursor object.
+    object to create a Cursor object.  Cursor objects cannot be pickled.
     """
 
     @property
@@ -536,7 +580,7 @@ class Cursor:
         ...
 
     @property
-    def description(self) -> Tuple[Tuple[str, Any, int, int, int, int, bool]]:
+    def description(self) -> tuple[tuple[str, Any, int, int, int, int, bool]]:
         """The metadata for the columns returned in the last SQL SELECT statement, in
         the form of a list of tuples.  Each tuple contains seven fields:
 
@@ -568,7 +612,21 @@ class Cursor:
         ...
 
     @property
-    def messages(self) -> Optional[List[Tuple[str, Union[str, bytes]]]]:
+    def rows_as_dicts(self) -> bool:
+        """If True, rows are returned as dicts instead of Row objects."""
+        ...
+
+    @rows_as_dicts.setter
+    def rows_as_dicts(self, value: bool) -> None:
+        ...
+
+    @property
+    def hstmt(self) -> ctypes.c_void_p | None:
+        """ODBC handle for the statement."""
+        ...
+
+    @property
+    def messages(self) -> list[tuple[str, str | bytes]] | None:
         """Any descriptive messages returned by the last call to execute(), e.g. PRINT
         statements, or None."""
         ...
@@ -591,7 +649,7 @@ class Cursor:
 
 
     # implemented dunder methods
-    def __enter__(self) -> Cursor: ...
+    def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_value, traceback) -> None: ...
     def __iter__(self, /) -> Cursor: ...
     def __next__(self, /) -> Row: ...
@@ -599,7 +657,7 @@ class Cursor:
 
     # functions for running SQL queries (in rough order of use)
 
-    def setinputsizes(self, sizes: Optional[Iterable[Tuple[int, int, int]]], /) -> None:
+    def setinputsizes(self, sizes: Iterable[tuple[int, int, int]] | None, /) -> None:
         """Explicitly declare the types and sizes of the parameters in a query.  Set
         to None to clear any previously registered input sizes.
 
@@ -620,18 +678,20 @@ class Cursor:
         ...
 
     def execute(self, sql: str, *params: Any) -> Cursor:
-        """Run a SQL query and return the cursor.
+        """Run a SQL query and return the cursor.  If the query returns multiple result
+        sets (generally because the SQL query contained multiple statements), retrieve
+        them by making multiple calls to the nextset() function.
 
         Args:
             sql: The SQL query.
             *params: Any parameters for the SQL query, as positional arguments or a single iterable.
 
         Returns:
-            The cursor, so that calls on the cursor can be chained.
+            The cursor, hence calls on the cursor can be chained.
         """
         ...
 
-    def executemany(self, sql: str, params: Union[Sequence, Iterator, Generator], /) -> None:
+    def executemany(self, sql: str, params: Sequence | Iterator | Generator, /) -> None:
         """Run the SQL query against an iterable of parameters.  The behavior of this
         function depends heavily on the setting of the fast_executemany cursor property.
         See the Wiki for details.
@@ -644,7 +704,7 @@ class Cursor:
         """
         ...
 
-    def fetchone(self) -> Optional[Row]:
+    def fetchone(self) -> Row | None:
         """Retrieve the next row in the current result set for the query.
 
         Returns:
@@ -652,7 +712,7 @@ class Cursor:
         """
         ...
 
-    def fetchmany(self, size: int, /) -> List[Row]:
+    def fetchmany(self, size: int, /) -> list[Row]:
         """Retrieve the next rows in the current result set for the query, as a list.
 
         Args:
@@ -663,7 +723,7 @@ class Cursor:
         """
         ...
 
-    def fetchall(self) -> List[Row]:
+    def fetchall(self) -> list[Row]:
         """Retrieve all the remaining rows in the current result set for the query, as a list.
 
         Returns:
@@ -689,8 +749,8 @@ class Cursor:
         ...
 
     def nextset(self) -> bool:
-        """Switch to the next result set in the SQL query (e.g. if there are
-        multiple SELECT statements in the SQL script).
+        """Switch to the next result set returned by the SQL query (this happens when
+        there are multiple statements within the SQL query that was just executed).
 
         Returns:
             True if there are more result sets, False otherwise.
@@ -725,10 +785,10 @@ class Cursor:
     # functions to retrieve database metadata
 
     def tables(self,
-               table: Optional[str] = None,
-               catalog: Optional[str] = None,
-               schema: Optional[str] = None,
-               tableType: Optional[str] = None) -> Cursor:
+               table: str | None = None,
+               catalog: str | None = None,
+               schema: str | None = None,
+               tableType: str | None = None) -> Cursor:
         """Return information about tables in the database, typically from the
         INFORMATION_SCHEMA.TABLES metadata view.  Parameter values can include
         wildcard characters.
@@ -744,11 +804,28 @@ class Cursor:
         """
         ...
 
+    def tablePrivileges(self,
+                        table: str | None = None,
+                        catalog: str | None = None,
+                        schema: str | None = None) -> Cursor:
+        """Return information about privileges granted for the tables in the
+        database.
+
+        Args:
+            table: Name of the database table.
+            catalog: Name of the catalog (database).
+            schema: Name of the table schema.
+
+        Returns:
+            The cursor object, containing table privilege info in the result set.
+        """
+        ...
+
     def columns(self,
-                table: Optional[str] = None,
-                catalog: Optional[str] = None,
-                schema: Optional[str] = None,
-                column: Optional[str] = None) -> Cursor:
+                table: str | None = None,
+                catalog: str | None = None,
+                schema: str | None = None,
+                column: str | None = None) -> Cursor:
         """Return information about columns in database tables, typically from the
         INFORMATION_SCHEMA.COLUMNS metadata view.  Parameter values can include
         wildcard characters.
@@ -766,8 +843,8 @@ class Cursor:
 
     def statistics(self,
                    table: str,
-                   catalog: Optional[str] = None,
-                   schema: Optional[str] = None,
+                   catalog: str | None = None,
+                   schema: str | None = None,
                    unique: bool = False,
                    quick: bool = True) -> Cursor:
         """Return statistical information about database tables.  Parameter values
@@ -788,8 +865,8 @@ class Cursor:
 
     def rowIdColumns(self,
                      table: str,
-                     catalog: Optional[str] = None,
-                     schema: Optional[str] = None,
+                     catalog: str | None = None,
+                     schema: str | None = None,
                      nullable: bool = True) -> Cursor:
         """Return the column(s) in a database table that uniquely identify each row
         (e.g. the primary key column).  Parameter values can include wildcard characters.
@@ -807,8 +884,8 @@ class Cursor:
 
     def rowVerColumns(self,
                       table: str,
-                      catalog: Optional[str] = None,
-                      schema: Optional[str] = None,
+                      catalog: str | None = None,
+                      schema: str | None = None,
                       nullable: bool = True) -> Cursor:
         """Return the column(s) in a database table that are updated whenever the row
         is updated.  Parameter values can include wildcard characters.
@@ -826,8 +903,8 @@ class Cursor:
 
     def primaryKeys(self,
                     table: str,
-                    catalog: Optional[str] = None,
-                    schema: Optional[str] = None) -> Cursor:
+                    catalog: str | None = None,
+                    schema: str | None = None) -> Cursor:
         """Return the column(s) in a database table that make up the primary key on
         the table.  Parameter values can include wildcard characters.
 
@@ -842,12 +919,12 @@ class Cursor:
         ...
 
     def foreignKeys(self,
-                    table: Optional[str] = None,
-                    catalog: Optional[str] = None,
-                    schema: Optional[str] = None,
-                    foreignTable: Optional[str] = None,
-                    foreignCatalog: Optional[str] = None,
-                    foreignSchema: Optional[str] = None) -> Cursor:
+                    table: str | None = None,
+                    catalog: str | None = None,
+                    schema: str | None = None,
+                    foreignTable: str | None = None,
+                    foreignCatalog: str | None = None,
+                    foreignSchema: str | None = None) -> Cursor:
         """Return the foreign keys in a database table, i.e. any columns that refer to
         primary key columns on another table.  Parameter values can include wildcard characters.
 
@@ -865,9 +942,9 @@ class Cursor:
         ...
 
     def procedures(self,
-                   procedure: Optional[str] = None,
-                   catalog: Optional[str] = None,
-                   schema: Optional[str] = None) -> Cursor:
+                   procedure: str | None = None,
+                   catalog: str | None = None,
+                   schema: str | None = None) -> Cursor:
         """Return information about stored procedures.  Parameter values can include
         wildcard characters.
 
@@ -882,9 +959,9 @@ class Cursor:
         ...
 
     def procedureColumns(self,
-                         procedure: Optional[str] = None,
-                         catalog: Optional[str] = None,
-                         schema: Optional[str] = None) -> Cursor:
+                         procedure: str | None = None,
+                         catalog: str | None = None,
+                         schema: str | None = None) -> Cursor:
         """Return information about the columns used as input/output parameters in
         stored procedures.  Parameter values can include wildcard characters.
 
@@ -898,7 +975,7 @@ class Cursor:
         """
         ...
 
-    def getTypeInfo(self, sqlType: Optional[int] = None, /) -> Cursor:
+    def getTypeInfo(self, sqlType: int | None = None, /) -> Cursor:
         """Return information about data types supported by the data source.
 
         Args:
@@ -913,11 +990,11 @@ class Cursor:
 class Row:
     """The class representing a single record in the result set from a query.  Objects of
     this class behave somewhat similarly to a NamedTuple.  Column values can be accessed
-    by column name (i.e. using dot notation) or by row index.
+    by column name (i.e. using dot notation) or by row index.  Row objects can be pickled.
     """
 
     @property
-    def cursor_description(self) -> Tuple[Tuple[str, Any, int, int, int, int, bool]]:
+    def cursor_description(self) -> tuple[tuple[str, Any, int, int, int, int, bool]]:
         """The metadata for the columns in this Row, as retrieved from the parent Cursor object."""
         ...
 
@@ -943,16 +1020,19 @@ class Row:
 
 # module functions
 
-def dataSources() -> Dict[str, str]:
+def dataSources(*, scope: str | None = None) -> dict[str, str]:
     """Return all available Data Source Names (DSNs), typically from the odbcinst.ini file
     or the Windows ODBC Data Source Administrator.
+
+    Args:
+        scope: optional filter ("user" or "system") to control which DSNs are returned.
 
     Returns:
         A dictionary of DSNs and their textual descriptions.
     """
     ...
 
-def drivers() -> List[str]:
+def drivers() -> list[str]:
     """Return the names of all available ODBC drivers, typically from the odbc.ini file or the
     Windows ODBC Data Source Administrator.
 
@@ -960,7 +1040,6 @@ def drivers() -> List[str]:
         A list of driver names.
     """
     ...
-
 
 def getDecimalSeparator() -> str:
     """Retrieve the decimal separator character used when parsing NUMERIC/DECIMAL values
@@ -971,7 +1050,6 @@ def getDecimalSeparator() -> str:
     """
     ...
 
-
 def setDecimalSeparator(sep: str, /) -> None:
     """Set the decimal separator character used when parsing NUMERIC/DECIMAL values
     from the database, e.g. the "." in "1,234.56".
@@ -981,14 +1059,13 @@ def setDecimalSeparator(sep: str, /) -> None:
     """
     ...
 
-
-def connect(connstring: Optional[str] = None,
+def connect(connstring: str | None = None,
             /, *,  # only positional parameters before, only named parameters after
             autocommit: bool = False,
             encoding: str = 'utf-16le',
             readonly: bool = False,
             timeout: int = 0,
-            attrs_before: Optional[Dict[int, Union[int, bytes, bytearray, str, Sequence[str]]]] = None,
+            attrs_before: dict[int, int | bytes | bytearray | str | Sequence[str]] | None = None,
             **kwargs: Any) -> Connection:
     """Create a new ODBC connection to a database.  See the Wiki for details:
     https://github.com/mkleehammer/pyodbc/wiki/The-pyodbc-Module#connect
@@ -1000,6 +1077,9 @@ def connect(connstring: Optional[str] = None,
         readonly: To set the connection read-only.  Not all drivers and/or databases support this.
         timeout: Set the connection timeout, in seconds.  This is managed by the driver, not
             pyodbc, and not all drivers support this.
+        driver_completion: One of SQL_DRIVER_PROMPT (only available on Windows),
+            SQL_DRIVER_NO_PROMPT (the default), SQL_DRIVER_COMPLETE, or
+            SQL_DRIVER_COMPLETE_REQUIRED.
         attrs_before: Set low-level connection attributes before a connection is attempted.
         **kwargs: These key/value pairs are used to construct the connection string, or add
             to it (as "key=value;" combinations).

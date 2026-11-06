@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -448,6 +449,12 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
             raise ValueError("history_ticks must count down to 0, oldest first")
         self._ticks = ticks
         self._history: deque = deque(maxlen=ticks[0] + 1)
+        self._sent: deque = deque(maxlen=2 * (ticks[0] + 1))
+
+    def send_frames_ahead(self, send) -> None:
+        """Hand every frame to ``send(key, agent, wrist)`` as it is rendered (a model that sends
+        its window ahead); a request then names the frames ``send`` accepted."""
+        self._send = send
 
     def reset(self) -> dict:
         obs = super().reset()
@@ -463,8 +470,15 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         return obs, done
 
     def _remember(self, obs) -> None:
-        self._history.append((np.ascontiguousarray(self.agent_frame(obs)[::-1, ::-1]),
-                              np.ascontiguousarray(self.wrist_frame(obs)[::-1, ::-1])))
+        agent = np.ascontiguousarray(self.agent_frame(obs)[::-1, ::-1])
+        wrist = np.ascontiguousarray(self.wrist_frame(obs)[::-1, ::-1])
+        key = time.time_ns()
+        if self._history and key <= self._history[-1][2]:
+            key = self._history[-1][2] + 1  # capture keys only ever increase
+        self._history.append((agent, wrist, key))
+        send = getattr(self, "_send", None)
+        if send is not None and send(key, agent, wrist):
+            self._sent.append(key)
 
     def hold_action(self) -> list[float]:
         return [0.0] * 6 + [self._last_gripper]
@@ -474,10 +488,17 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         if not history:
             raise RuntimeError("Reset the simulator before requesting a policy observation")
         sampled = [history[max(0, len(history) - 1 - tick)] for tick in self._ticks]
-        return {"agent_frames": np.stack([agent for agent, _ in sampled]),
-                "wrist_frames": np.stack([wrist for _, wrist in sampled]),
-                "libero_state": self.proprio(obs)}
+        inputs = {"agent_frames": np.stack([agent for agent, _, _ in sampled]),
+                  "wrist_frames": np.stack([wrist for _, wrist, _ in sampled]),
+                  "libero_state": self.proprio(obs)}
+        keys = tuple(key for _, _, key in sampled)
+        # Name the older frames only when each was sent ahead and the window is full (before an
+        # episode has enough steps its oldest frame repeats, and repeats travel in a strip).
+        if (getattr(self, "_send", None) is not None and len(set(keys)) == len(keys)
+                and set(keys[:-1]) <= set(self._sent)):
+            inputs["frame_keys"] = keys
+        return inputs
 
     def policy_preview_frame(self, obs) -> np.ndarray:
-        agent, wrist = self._history[-1]
+        agent, wrist, _ = self._history[-1]
         return np.concatenate((agent, wrist), axis=1)

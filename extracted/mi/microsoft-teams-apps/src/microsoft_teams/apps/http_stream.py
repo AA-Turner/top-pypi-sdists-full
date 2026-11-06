@@ -6,22 +6,25 @@ Licensed under the MIT License.
 import asyncio
 import logging
 from collections import deque
-from typing import Awaitable, Callable, Optional, Union
+from dataclasses import dataclass
+from typing import Awaitable, Callable, NamedTuple, Optional, Union
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import (
     ApiClient,
     ChannelData,
     ConversationReference,
     MessageActivityInput,
+    PlanInfoEntity,
     SentActivity,
     TextFormat,
     TypingActivityInput,
 )
 from microsoft_teams.common import EventEmitter
+from typing_extensions import deprecated
 
 from .plugins.streamer import (
-    StreamCancelledError,
+    PlanConflictStreamError,
     StreamerEvent,
     StreamerProtocol,
     StreamNotAllowedError,
@@ -31,6 +34,36 @@ from .plugins.streamer import (
 from .utils import RetryOptions, retry
 
 logger = logging.getLogger(__name__)
+
+
+class StreamReplyChain(NamedTuple):
+    """Where the first message of a stream is created, as a reply in a reply chain (thread).
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
+
+    chat_or_channel_id: str
+    """The id of the chat or channel the reply chain is in, from `channel_data.chat.id` or `channel_data.channel.id`.
+
+    Only the first message of the stream is created here.
+    The stream's conversation reference must be for the same conversation, because later chunks are sent to it.
+    """
+
+    reply_chain_id: str
+    """The id of the message at the root of the reply chain, from `channel_data.reply_chain.id`."""
+
+
+@dataclass(frozen=True)
+class StreamOptions:
+    """Options for creating a stream.
+
+    This API is in preview and may change in the future.
+    Diagnostic: ExperimentalTeamsThreading
+    """
+
+    reply_chain: Optional[StreamReplyChain] = None
+    """When set, the first message of the stream is created as a reply in this reply chain."""
 
 
 class HttpStream(StreamerProtocol):
@@ -49,16 +82,21 @@ class HttpStream(StreamerProtocol):
     The delays between flushes is to ensure we dont hit API rate limits with Microsoft Teams.
     """
 
-    def __init__(self, client: ApiClient, ref: ConversationReference):
+    def __init__(self, client: ApiClient, ref: ConversationReference, options: Optional[StreamOptions] = None):
         """
         Initialize a new HttpStream instance.
 
         Args:
             client (ApiClient): The API client used to send activities to Microsoft Teams.
             ref (ConversationReference): Reference to the Teams conversation.
+            options (Optional[StreamOptions]): Options for the stream.
+                When `options.reply_chain` is set, the first message of the stream is created as a reply in that
+                reply chain (thread).
+                Later chunks, updates and the final message always use the conversation of `ref`.
         """
         super().__init__()
         self._ref = ref
+        self._reply_chain = options.reply_chain if options else None
         self._client = client.from_service_url(ref.service_url)
         self._events = EventEmitter[StreamerEvent]()
 
@@ -69,12 +107,12 @@ class HttpStream(StreamerProtocol):
         self._total_wait_timeout: float = 30.0
         self._state_changed = asyncio.Event()
 
-        self._canceled = False
         self._timed_out = False
         self._reset_current_stream()
 
     def _reset_current_stream(self) -> None:
         """Reset per-message state for the current stream cycle."""
+        self._retired = False
         self._index = 1
         self._id: Optional[str] = None
         self._text: str = ""
@@ -89,18 +127,16 @@ class HttpStream(StreamerProtocol):
         self._timed_out = False
 
     @property
+    @deprecated("canceled is deprecated. Teams no longer supports stopping a stream.")
     def canceled(self) -> bool:
-        """
-        Whether the stream has been canceled.
-        For example when the user pressed the Stop button.
-        """
-        return self._canceled
+        """Always return False; the SDK no longer sets this deprecated cancellation flag."""
+        return False
 
     @property
     def timed_out(self) -> bool:
         """
         Whether the stream has timed out.
-        For example when the streaming has exceeded two minutes.
+        Teams enforces a ten-minute limit from the first informative or content chunk.
         """
         return self._timed_out
 
@@ -129,15 +165,15 @@ class HttpStream(StreamerProtocol):
         """
         Emit a new activity to the stream.
 
+        An explicit reply_to_id on the final message is preserved. Otherwise,
+        the conversation reference's activity ID is used.
+
         Args:
             activity: The activity to emit.
         """
 
-        if self._canceled:
-            raise StreamCancelledError("Stream has been cancelled.")
-
-        if self.closed:
-            logger.debug("starting a new streamed message after close")
+        if self.closed or self._retired:
+            logger.debug("starting a new streamed message")
             self._reset_stream_for_next_stream()
 
         if isinstance(activity, str):
@@ -184,7 +220,7 @@ class HttpStream(StreamerProtocol):
         """Wait until _id is set, the queue is empty, and no flush is in progress, with a total timeout."""
 
         async def _poll():
-            while (self._queue or not self._id or self._lock.locked()) and not self._canceled:
+            while self._queue or not self._id or self._lock.locked():
                 await self._state_changed.wait()
                 self._state_changed.clear()
 
@@ -201,14 +237,17 @@ class HttpStream(StreamerProtocol):
         Closing is idempotent until the next emit or update. Emitting or
         updating after close starts a new streamed message using the same
         stream instance.
+
+        A Plan timeout or final Plan conflict raises once and retires the failed
+        cycle. Further closes return None until the next emit or update.
         """
         if self.closed:
             logger.debug("stream already closed with result")
             assert self._result is not None
             return self._result
 
-        if self._canceled:
-            logger.debug("stream was cancelled, nothing to close")
+        if self._retired:
+            logger.debug("failed stream cycle already retired, nothing to close")
             return None
 
         if self._index == 1 and not self._queue and not self._lock.locked():
@@ -242,8 +281,13 @@ class HttpStream(StreamerProtocol):
             activity.add_stream_final()
             try:
                 res = await self._send_with_retry(activity)
+            except PlanConflictStreamError:
+                if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+                    self._reset_current_stream()
+                    self._retired = True
+                raise
             except StreamTimedOutError:
-                # The final streamed send tripped the 2-minute limit. Update the original
+                # The final streamed send tripped the ten-minute limit. Update the original
                 # message in place with the buffered content: reuse the id and drop the
                 # streamInfo entity + stream channel data so this routes to update, not create.
                 res = await self._send_final()
@@ -263,21 +307,32 @@ class HttpStream(StreamerProtocol):
         activity: Union[TypingActivityInput, MessageActivityInput],
         options: Optional[RetryOptions] = None,
     ) -> SentActivity:
-        """Send an activity through retry, treating terminal stream errors as non-retryable."""
+        """Send through retry, excluding terminal stream errors and Plan conflicts."""
         return await retry(
             lambda: self._send(activity),
             options=options or RetryOptions(),
-            non_retryable=(TerminalStreamError,),
+            non_retryable=(TerminalStreamError, PlanConflictStreamError),
         )
 
     async def _send_final(self) -> SentActivity:
-        """Send the buffered content as a plain final message.
+        """Finalize the buffered stream content as a plain message update.
 
-        Drops the ``streaminfo`` entity (added by ``add_stream_final()`` on the normal
-        close path) and the stream channel data so ``id`` is kept and the send routes
-        through the update path instead of creating a duplicate message.
+        This fallback is only valid for ordinary streamed content. If the buffered final
+        payload still contains a ``PlanInfoEntity``, we cannot reuse the original streamed
+        message as a PUT update because Plan completion is sent through the Plan lifecycle
+        flow as a POST. In that case, raise ``StreamTimedOutError`` so the caller can recover
+        by completing the Plan via ``Plan.complete()`` instead of retrying the same stream
+        close path.
         """
         activity = self._final_activity or MessageActivityInput()
+        if any(isinstance(entity, PlanInfoEntity) for entity in activity.entities or []):
+            self._reset_current_stream()
+            self._retired = True
+            raise StreamTimedOutError(
+                "The stream timed out before the Plan could be completed. "
+                "Plan completion requires a POST, so the existing streamed message "
+                "cannot be finalized using the PUT update fallback."
+            )
         activity.with_text(self._text)
         activity.id = self._id
         activity.entities = [e for e in (activity.entities or []) if e.type != "streaminfo"]
@@ -378,6 +433,31 @@ class HttpStream(StreamerProtocol):
             self._id = res.id
             self._state_changed.set()  # Notify that _id has been set
 
+    async def _create_in_reply_chain(
+        self, reply_chain: StreamReplyChain, to_send: Union[TypingActivityInput, MessageActivityInput]
+    ) -> SentActivity:
+        """
+        Create the first message of the stream as a reply in the reply chain (thread).
+
+        In a channel, when the service answers HTTP 404 and the reply chain id is a plain non-zero number,
+        the message is created in the conversation of the stream instead, once.
+        Any other error is raised.
+        """
+        try:
+            return await self._client.conversations._create_reply_chain_activity(  # pyright: ignore[reportPrivateUsage]
+                reply_chain.chat_or_channel_id, reply_chain.reply_chain_id, to_send
+            )
+        except HTTPStatusError as e:
+            reply_chain_id = reply_chain.reply_chain_id
+            if (
+                e.response.status_code != 404
+                or self._ref.conversation.conversation_type != "channel"
+                or not (reply_chain_id.isascii() and reply_chain_id.isdigit())
+                or all(c == "0" for c in reply_chain_id)
+            ):
+                raise
+        return await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
+
     async def _send(self, to_send: Union[TypingActivityInput, MessageActivityInput]) -> SentActivity:
         """
         Send or update an activity to the Teams conversation.
@@ -385,24 +465,34 @@ class HttpStream(StreamerProtocol):
         Args:
             activity: The activity to send.
         """
-        if self._canceled:
-            logger.warning("Teams channel stopped the stream.")
-            raise StreamCancelledError("Teams channel stopped the stream.")
-
         to_send.from_ = self._ref.bot
         to_send.conversation = self._ref.conversation
-        to_send.reply_to_id = self._ref.activity_id
+        if to_send.reply_to_id is None:
+            to_send.reply_to_id = self._ref.activity_id
 
         try:
             if to_send.id and not any(e.type == "streaminfo" for e in (to_send.entities or [])):
                 res = await self._client.conversations.update_activity(self._ref.conversation.id, to_send.id, to_send)
+            elif self._reply_chain and not to_send.id:
+                res = await self._create_in_reply_chain(self._reply_chain, to_send)
             else:
                 res = await self._client.conversations.create_activity(self._ref.conversation.id, to_send)
 
+            if to_send.id:
+                res = res.model_copy(update={"id": to_send.id})
+
             return SentActivity.merge(to_send, res)
         except HTTPStatusError as e:
+            if e.response.status_code == 409:
+                try:
+                    code = e.response.json().get("error", {}).get("code")
+                except (ValueError, AttributeError):
+                    code = None
+                if code == "PlanConflict":
+                    raise PlanConflictStreamError(str(e), request=e.request, response=e.response) from e
+
             # Various error codes are used for streaming.
-            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux?tabs=csharp#error-codes
+            # https://learn.microsoft.com/en-us/microsoftteams/platform/bots/streaming-ux#response-codes
             if e.response.status_code == 403:
                 message = ""
                 try:
@@ -416,13 +506,9 @@ class HttpStream(StreamerProtocol):
                 if "exceeded streaming time" in normalized:
                     self._timed_out = True
                     logger.warning(
-                        "The bot failed to complete the streaming process within the strict time limit of two minutes."
+                        "The bot failed to complete the streaming process within the strict time limit of ten minutes."
                     )
                     raise StreamTimedOutError(message) from e
-                elif "cancel" in normalized:
-                    self._canceled = True
-                    logger.warning("The streaming was stopped by the user.")
-                    raise StreamCancelledError(message) from e
                 elif "not allowed" in normalized and "completed streamed message" not in normalized:
                     logger.warning("The streaming API isn't allowed for the user or bot.")
                     raise StreamNotAllowedError(message) from e

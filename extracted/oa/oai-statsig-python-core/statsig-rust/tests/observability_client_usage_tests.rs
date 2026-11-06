@@ -2,8 +2,8 @@ mod utils;
 
 use serial_test::serial;
 use statsig_rust::{
-    ObservabilityClient, OpsStatsEventObserver, Statsig, StatsigOptions, StatsigUser,
-    output_logger::LogLevel,
+    ClientInitResponseOptions, GCIRResponseFormat, ObservabilityClient, OpsStatsEventObserver,
+    SpecsUpdateListener, Statsig, StatsigOptions, StatsigUser, output_logger::LogLevel,
 };
 use std::{
     fs,
@@ -72,11 +72,23 @@ async fn setup_with_sdk_key(
 async fn setup_with_id_lists(
     observability_client: &Arc<MockObservabilityClient>,
 ) -> (MockScrapi, Statsig) {
+    setup_with_id_list_specs(
+        observability_client,
+        load_contents("eval_proj_dcs.json"),
+        StatsigOptions::new(),
+    )
+    .await
+}
+
+async fn setup_with_id_list_specs(
+    observability_client: &Arc<MockObservabilityClient>,
+    specs: String,
+    options: StatsigOptions,
+) -> (MockScrapi, Statsig) {
     std::env::set_var("STATSIG_RUNNING_TESTS", "true");
     let mock_scrapi = MockScrapi::new().await;
 
-    let mut raw_dcs_str = load_contents("eval_proj_dcs.json");
-    raw_dcs_str = raw_dcs_str.replace(
+    let raw_dcs_str = specs.replace(
         r#""checksum":"8506699639233708000""#,
         r#""IGNORED_CHECKSUM_VALUE":"""#,
     );
@@ -130,7 +142,7 @@ async fn setup_with_id_lists(
             id_lists_url: Some(manifest_url.clone()),
             disable_all_logging: Some(true),
             output_log_level: Some(LogLevel::Debug),
-            ..StatsigOptions::new()
+            ..options
         })),
     );
 
@@ -667,6 +679,503 @@ async fn test_network_request_latency_tags_recorded_for_dcs_and_id_lists() {
         found_all_metrics,
         "Expected network_request.latency metrics for DCS, ID list manifest, and individual ID list requests"
     );
+}
+
+fn metrics_options() -> StatsigOptions {
+    StatsigOptions {
+        enable_id_list_access_metrics: Some(true),
+        ..StatsigOptions::new()
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn remote_gate_requires_local_metrics_opt_in() {
+    for local in [None, Some(false)] {
+        let observer = Arc::new(MockObservabilityClient {
+            calls: Mutex::new(Vec::new()),
+        });
+        let (_mock, sdk) = setup_with_id_list_specs(
+            &observer,
+            id_list_access_specs().to_string(),
+            StatsigOptions {
+                enable_id_list_access_metrics: local,
+                ..StatsigOptions::new()
+            },
+        )
+        .await;
+        sdk.initialize().await.unwrap();
+        let member = StatsigUser::with_custom_ids(std::collections::HashMap::from([(
+            "companyID",
+            "marcos_1",
+        )]));
+        assert!(sdk.check_gate(&member, "segment:company_id_list"));
+        sdk.flush_events().await;
+        sdk.shutdown().await.unwrap();
+        assert!(id_list_sizes(&observer).is_empty());
+        assert!(id_list_accesses(&observer).is_empty());
+    }
+}
+
+fn id_list_access_specs() -> serde_json::Value {
+    let mut specs: serde_json::Value =
+        serde_json::from_str(&load_contents("eval_proj_dcs.json")).unwrap();
+    specs.as_object_mut().unwrap().remove("checksum");
+    specs["sdk_configs"]["id_list_access_metrics"] = 1.into();
+    specs
+}
+
+fn id_list_sizes(observer: &MockObservabilityClient) -> Vec<(String, f64)> {
+    let mut sizes = Vec::new();
+    for call in observer.calls.lock().unwrap().iter() {
+        if let RecordedCall::Gauge(name, size, Some(tags)) = call {
+            if name == "statsig.sdk.id_list_size" {
+                assert!(tags.contains_key("sdk_type") && tags.contains_key("sdk_version"));
+                sizes.push((tags["id_list_name"].clone(), *size));
+            }
+        }
+    }
+    sizes.sort_by(|a, b| a.0.cmp(&b.0));
+    sizes
+}
+
+fn id_list_accesses(observer: &MockObservabilityClient) -> Vec<String> {
+    let mut lists = Vec::new();
+    for call in observer.calls.lock().unwrap().iter() {
+        if let RecordedCall::Increment(name, count, Some(tags)) = call {
+            if name == "statsig.sdk.id_list_accessed" {
+                assert_eq!(*count, 1.0);
+                assert!(tags.contains_key("sdk_type") && tags.contains_key("sdk_version"));
+                lists.push(tags["id_list_name"].clone());
+            }
+        }
+    }
+    lists.sort();
+    lists
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_separate_installed_size_from_first_access() {
+    let mut specs = id_list_access_specs();
+    let mut repeated_gate = specs["feature_gates"]["segment:company_id_list"].clone();
+    repeated_gate["rules"][0]["conditions"] = serde_json::json!(vec!["3614985732"; 32]);
+    specs["feature_gates"]["repeated"] = repeated_gate;
+    let mut missing_condition = specs["condition_map"]["3614985732"].clone();
+    missing_condition["targetValue"] = "missing_list".into();
+    specs["condition_map"]["missing"] = missing_condition;
+    let mut missing_gate = specs["feature_gates"]["segment:company_id_list"].clone();
+    missing_gate["rules"][0]["conditions"] = serde_json::json!(["missing"]);
+    specs["feature_gates"]["missing"] = missing_gate;
+
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_mock, sdk) =
+        setup_with_id_list_specs(&observer, specs.to_string(), metrics_options()).await;
+    sdk.initialize().await.unwrap();
+
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    let outsider =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "absent")]));
+    // The file has 27 distinct IDs. The manifest reports bytes.
+    let expected_size = [("company_id_list".to_owned(), 27.0)];
+    assert_eventually_eq!(|| id_list_sizes(&observer), expected_size);
+    assert!(id_list_accesses(&observer).is_empty());
+
+    assert!(!sdk.check_gate(&member, "missing"));
+    assert!(sdk.check_gate(&StatsigUser::with_user_id("1"), "segment:user_id_list"));
+    sdk.flush_events().await;
+    assert!(sdk.check_gate(&member, "repeated"));
+    assert!(!sdk.check_gate(&outsider, "segment:company_id_list"));
+    sdk.flush_events().await;
+    assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+
+    sdk.flush_events().await;
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.flush_events().await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(id_list_accesses(&observer), ["company_id_list"]);
+    assert_eq!(id_list_sizes(&observer), expected_size);
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_report_new_size_after_an_incremental_download() {
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (mock, sdk) = setup_with_id_list_specs(
+        &observer,
+        id_list_access_specs().to_string(),
+        StatsigOptions {
+            id_lists_sync_interval_ms: Some(10),
+            ..metrics_options()
+        },
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    assert_eventually_eq!(
+        || id_list_sizes(&observer),
+        [("company_id_list".to_owned(), 27.0)]
+    );
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.flush_events().await;
+    assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+
+    // Delete this member through an append to the same file and creation time.
+    let body = format!("{}-34jaY4Sb\n", load_contents("company_id_list"));
+    let manifest = serde_json::json!({
+        "company_id_list": {
+            "name": "company_id_list",
+            "size": body.len(),
+            "url": format!("{}/3wHgh0FhoQH0p", mock.url_for_endpoint(Endpoint::DownloadIdListFile)),
+            "creationTime": 1721417546000_i64,
+            "fileID": "4t0BEqak3w1UcidsPcpQXN"
+        }
+    });
+    mock.clear_stubs().await;
+    mock.stub(EndpointStub {
+        method: Method::GET,
+        response: StubData::String(body),
+        ..EndpointStub::with_endpoint(Endpoint::DownloadIdListFile)
+    })
+    .await;
+    mock.stub(EndpointStub {
+        method: Method::POST,
+        response: StubData::String(manifest.to_string()),
+        ..EndpointStub::with_endpoint(Endpoint::GetIdLists)
+    })
+    .await;
+
+    // The install must publish the new size before another lookup or event flush.
+    let expected = [
+        ("company_id_list".to_owned(), 27.0),
+        ("company_id_list".to_owned(), 26.0),
+    ];
+    assert_eventually_eq!(|| id_list_sizes(&observer), expected);
+    assert!(!sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.flush_events().await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(id_list_sizes(&observer), expected);
+    assert_eq!(id_list_accesses(&observer), ["company_id_list"]);
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_require_numeric_one() {
+    for (case, value) in [
+        None,
+        Some(serde_json::json!(0)),
+        Some(serde_json::json!(2)),
+        Some(serde_json::json!(-1)),
+        Some(serde_json::json!(true)),
+        Some(serde_json::json!("1")),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut specs = id_list_access_specs();
+        match value {
+            Some(value) => specs["sdk_configs"]["id_list_access_metrics"] = value,
+            None => {
+                specs["sdk_configs"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("id_list_access_metrics");
+            }
+        }
+        let observer = Arc::new(MockObservabilityClient {
+            calls: Mutex::new(Vec::new()),
+        });
+        let (_mock, sdk) = setup_with_id_list_specs(
+            &observer,
+            specs.to_string(),
+            StatsigOptions {
+                sdk_instance_id: Some(format!("id-list-access-disabled-{case}")),
+                ..metrics_options()
+            },
+        )
+        .await;
+        sdk.initialize().await.unwrap();
+        let member = StatsigUser::with_custom_ids(std::collections::HashMap::from([(
+            "companyID",
+            "marcos_1",
+        )]));
+        assert!(sdk.check_gate(&member, "segment:company_id_list"));
+        sdk.flush_events().await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(id_list_sizes(&observer).is_empty(), "case {case}");
+        assert!(id_list_accesses(&observer).is_empty(), "case {case}");
+        sdk.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_follow_remote_flag_changes_without_recreation() {
+    let mut specs = id_list_access_specs();
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (mock, sdk) = setup_with_id_list_specs(
+        &observer,
+        specs.to_string(),
+        StatsigOptions {
+            sdk_instance_id: Some("id-list-access-remote-toggle".to_owned()),
+            specs_sync_interval_ms: Some(10),
+            ..metrics_options()
+        },
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+    let store = sdk.get_context().spec_store;
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    let expected_size = [("company_id_list".to_owned(), 27.0)];
+    assert_eventually_eq!(|| id_list_sizes(&observer), expected_size);
+    // Queue an access while enabled, then disable before flushing it.
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    for (enabled, check_list, access_reported) in [
+        (Some(0.0), true, false),
+        (Some(1.0), false, false), // Re-enabling alone must not restore the discarded access.
+        (None, true, true),        // An omitted entry retains 1 in the SDK's merged config map.
+        (Some(0.0), true, true),
+        (Some(1.0), true, true), // A flushed access stays reported across flag changes.
+    ] {
+        let next_time = specs["time"].as_u64().unwrap() + 1;
+        specs["time"] = next_time.into();
+        match enabled {
+            Some(enabled) => specs["sdk_configs"]["id_list_access_metrics"] = enabled.into(),
+            None => {
+                specs["sdk_configs"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("id_list_access_metrics");
+            }
+        }
+        mock.clear_stubs().await;
+        mock.stub(EndpointStub {
+            method: Method::GET,
+            response: StubData::String(specs.to_string()),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+        assert_eventually_eq!(|| store.get_current_specs_info().lcut, Some(next_time));
+
+        if check_list {
+            assert!(sdk.check_gate(&member, "segment:company_id_list"));
+        }
+        sdk.flush_events().await;
+        if access_reported {
+            assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+        } else {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(id_list_accesses(&observer).is_empty());
+        }
+    }
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(id_list_accesses(&observer), ["company_id_list"]);
+    assert_eq!(id_list_sizes(&observer), expected_size);
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_cover_object_and_string_client_init() {
+    let mut specs = id_list_access_specs();
+    let mut gate = specs["feature_gates"]["segment:company_id_list"].clone();
+    gate["entity"] = "feature_gate".into();
+    gate["rules"][0]["conditions"] = serde_json::json!(["3614985732", "3614985732"]);
+    specs["feature_gates"] = serde_json::json!({ "membership": gate });
+    specs["dynamic_configs"] = serde_json::json!({});
+    specs["layer_configs"] = serde_json::json!({});
+
+    for use_string in [false, true] {
+        let observer = Arc::new(MockObservabilityClient {
+            calls: Mutex::new(Vec::new()),
+        });
+        let (_mock, sdk) = setup_with_id_list_specs(
+            &observer,
+            specs.to_string(),
+            StatsigOptions {
+                sdk_instance_id: Some(format!("id-list-access-client-init-{use_string}")),
+                ..metrics_options()
+            },
+        )
+        .await;
+        sdk.initialize().await.unwrap();
+        let member = StatsigUser::with_custom_ids(std::collections::HashMap::from([(
+            "companyID",
+            "marcos_1",
+        )]));
+        if use_string {
+            let options = ClientInitResponseOptions {
+                response_format: Some(GCIRResponseFormat::InitializeV2),
+                ..ClientInitResponseOptions::default()
+            };
+            let response = sdk.get_client_init_response_with_options_as_string(&member, &options);
+            let json: serde_json::Value = serde_json::from_str(&response).unwrap();
+            assert_eq!(json["has_updates"], true);
+        } else {
+            assert!(sdk.get_client_init_response(&member).has_updates);
+        }
+        sdk.flush_events().await;
+        assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+        sdk.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_use_the_registered_observer() {
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_mock, mut sdk) = setup_with_id_list_specs(
+        &observer,
+        id_list_access_specs().to_string(),
+        metrics_options(),
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+
+    let options = Arc::make_mut(&mut sdk.options);
+    options.observability_client = None;
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.flush_events().await;
+    assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_stay_local_when_remote_telemetry_is_disabled() {
+    let local_observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let ordinary_observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_local_mock, local) = setup_with_id_list_specs(
+        &local_observer,
+        id_list_access_specs().to_string(),
+        StatsigOptions {
+            disable_remote_telemetry: Some(true),
+            ..metrics_options()
+        },
+    )
+    .await;
+    let (_ordinary_mock, ordinary) = setup_with_id_list_specs(
+        &ordinary_observer,
+        id_list_access_specs().to_string(),
+        metrics_options(),
+    )
+    .await;
+    local.initialize().await.unwrap();
+    ordinary.initialize().await.unwrap();
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+
+    // Both SDKs share an ID. Their distinct remote policies keep samples isolated.
+    for (sdk, checks) in [(&local, 1), (&ordinary, 2), (&local, 1)] {
+        for _ in 0..checks {
+            assert!(sdk.check_gate(&member, "segment:company_id_list"));
+        }
+        sdk.flush_events().await;
+    }
+    let expected_size = [("company_id_list".to_owned(), 27.0)];
+    for observer in [&local_observer, &ordinary_observer] {
+        assert_eventually_eq!(|| id_list_accesses(observer), ["company_id_list"]);
+        assert_eventually_eq!(|| id_list_sizes(observer), expected_size);
+    }
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    for observer in [&local_observer, &ordinary_observer] {
+        assert_eq!(id_list_accesses(observer), ["company_id_list"]);
+        assert_eq!(id_list_sizes(observer), expected_size);
+    }
+    local.shutdown().await.unwrap();
+    ordinary.shutdown().await.unwrap();
+}
+
+#[cfg(feature = "testing")]
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_flush_periodically() {
+    let _tick = EnvVarGuard::set("STATSIG_TEST_OVERRIDE_TICK_INTERVAL_MS", "10".into());
+    let _min = EnvVarGuard::set("STATSIG_TEST_OVERRIDE_MIN_FLUSH_INTERVAL_MS", "10".into());
+    let _max = EnvVarGuard::set("STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS", "20".into());
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_mock, sdk) = setup_with_id_list_specs(
+        &observer,
+        id_list_access_specs().to_string(),
+        metrics_options(),
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    assert_eventually_eq!(|| id_list_accesses(&observer), ["company_id_list"]);
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_respect_silent_client() {
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_mock, sdk) = setup_with_id_list_specs(
+        &observer,
+        id_list_access_specs().to_string(),
+        metrics_options().suppress_diagnostic_output(true),
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.flush_events().await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(id_list_sizes(&observer).is_empty());
+    assert!(id_list_accesses(&observer).is_empty());
+    sdk.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[serial]
+async fn id_list_access_metrics_publish_pending_sample_on_shutdown() {
+    let observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_mock, sdk) = setup_with_id_list_specs(
+        &observer,
+        id_list_access_specs().to_string(),
+        metrics_options(),
+    )
+    .await;
+    sdk.initialize().await.unwrap();
+    let sibling_observer = Arc::new(MockObservabilityClient {
+        calls: Mutex::new(Vec::new()),
+    });
+    let (_sibling_mock, sibling) = setup_with_id_lists(&sibling_observer).await;
+    let member =
+        StatsigUser::with_custom_ids(std::collections::HashMap::from([("companyID", "marcos_1")]));
+    assert!(sdk.check_gate(&member, "segment:company_id_list"));
+    sdk.shutdown().await.unwrap();
+    // Keep a subscriber alive after the evaluating SDK shuts down.
+    assert_eventually_eq!(|| id_list_accesses(&sibling_observer), ["company_id_list"]);
+    sibling.shutdown().await.unwrap();
 }
 
 #[tokio::test]

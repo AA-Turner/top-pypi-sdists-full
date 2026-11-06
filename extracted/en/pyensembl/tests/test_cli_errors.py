@@ -31,7 +31,8 @@ def test_empty_source_is_rejected_before_genome_selection(tmp_path, monkeypatch,
 
     args = shell.parser.parse_args(["install", option, ""])
     monkeypatch.setattr(shell, "all_combinations_of_ensembl_genomes", forbidden)
-    monkeypatch.setattr(shell, "Genome", forbidden)
+    # collect_selected_genomes imports Genome when it runs.
+    monkeypatch.setattr("pyensembl.genome.Genome", forbidden)
     with pytest.raises(ValueError, match=option + " must not be empty"):
         shell.collect_selected_genomes(args)
     result = run_cli(["install", option, ""], tmp_path / "cache")
@@ -156,3 +157,11 @@ def test_corrupt_database_without_overwrite_keeps_traceback(tmp_path, monkeypatc
     assert result.returncode == 1
     assert "Traceback" in result.stderr and "DatabaseError" in result.stderr
     assert snapshot(tmp_path / "cache") == before
+
+
+def test_run_accepts_explicit_argv(monkeypatch, capsys):
+    monkeypatch.setattr(shell, "configure_logging", lambda **kw: None)
+    with pytest.raises(SystemExit) as exit_info:
+        shell.run(["--json", "list"])
+    assert exit_info.value.code == 2
+    assert "--json requires inspect, available, or verify" in capsys.readouterr().err

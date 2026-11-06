@@ -26,7 +26,14 @@ from dreamscale.arm import (
     _pin_connect,
 )
 from dreamscale.config import load_config
-from dreamscale.constants import CHUNK_SIZE, HEARTBEAT_S, MODEL_DREAMZERO_DROID, MODEL_LIBERO
+from dreamscale.constants import (
+    CAMERA_KEY_LIBERO_AGENT,
+    CAMERA_KEY_LIBERO_WRIST,
+    CHUNK_SIZE,
+    HEARTBEAT_S,
+    MODEL_DREAMZERO_DROID,
+    MODEL_LIBERO,
+)
 from dreamscale.control import ControlPlaneClient
 from dreamscale.dreamzero import DREAMZERO_REPLAN_STRIDE
 from dreamscale.model_names import public_model
@@ -985,6 +992,28 @@ class SimArm:
         self.release_status: str | None = None
         self._next_observation_id = 0
         self._dreamzero_generation = -1
+        self._send_window_ahead()
+
+    def _send_window_ahead(self) -> None:
+        """A model that sends its window ahead (``wm_libero.SENDS_AHEAD``), on a server that
+        takes history frames: each frame goes out as it is rendered, and requests name them."""
+        from dreamscale_transport.websocket_client import HISTORY_FRAMES_CAPABILITY
+        from dreamscale_transport.wm_libero import SENDS_AHEAD
+
+        send_ahead = getattr(self._env, "send_frames_ahead", None)
+        if (self.model not in SENDS_AHEAD or send_ahead is None
+                or HISTORY_FRAMES_CAPABILITY not in getattr(self._transport, "capabilities", ())):
+            return
+
+        def send(key: int, agent: Any, wrist: Any) -> bool:
+            frames = {CAMERA_KEY_LIBERO_AGENT: wire.encode_jpeg(agent),
+                      CAMERA_KEY_LIBERO_WRIST: wire.encode_jpeg(wrist)}
+            # Submitted in order with the requests that name it, on the same ordered stream.
+            sent = self._runner.submit(self._transport.send_history_frames(key, frames))
+            sent.add_done_callback(lambda future: future.exception())  # a lost frame repeats
+            return True
+
+        send_ahead(send)
 
     def do(self, max_steps: int = DEFAULT_SIM_MAX_STEPS, *, tui: bool = True,
            real_time: bool = True,

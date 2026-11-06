@@ -30,6 +30,7 @@ PARSE = "parse"
 STREAM = "stream"
 GENERATE_CONTENT = "generate_content"
 GENERATE_CONTENT_STREAM = "generate_content_stream"
+EMBED_CONTENT = "embed_content"
 PATCHED_MARKER = "_bitfab_provider_call_patched"
 CALL_MARKER = "_bitfab_provider_call"
 OPENROUTER_HOSTNAME = "openrouter.ai"
@@ -518,6 +519,36 @@ def _gemini_usage(request: Mapping[str, Any], response: Any) -> dict[str, Any]:
     )
 
 
+def _is_gemini_embedding_response(response: Any) -> bool:
+    return isinstance(_field(response, "embeddings"), (list, tuple))
+
+
+def _gemini_embedding_prompt(request: Mapping[str, Any]) -> str | None:
+    return _encoded(_gemini_turns(request.get("contents")))
+
+
+def _gemini_embedding_token_count(embedding: Any) -> int | float | None:
+    statistics = _field(embedding, "statistics")
+    count = _number(_field(statistics, "token_count"))
+    return count if count is not None else _number(_field(statistics, "tokenCount"))
+
+
+def _gemini_embedding_usage(
+    request: Mapping[str, Any], response: Any
+) -> dict[str, Any]:
+    embeddings = _field(response, "embeddings") or []
+    input_tokens = _sum_tokens(
+        *(_gemini_embedding_token_count(embedding) for embedding in embeddings)
+    )
+    return _present(
+        {
+            "model": _gemini_model(request, response),
+            "inputTokens": input_tokens,
+            "outputTokens": None if input_tokens is None else 0,
+        }
+    )
+
+
 def _gemini_chunk_text(chunk: Any) -> str:
     candidates = _field(chunk, "candidates")
     if not isinstance(candidates, (list, tuple)) or not candidates:
@@ -847,6 +878,15 @@ GEMINI = ProviderCall(
     stream_summary=_gemini_stream_summary,
 )
 
+GEMINI_EMBEDDINGS = dataclasses.replace(
+    GEMINI,
+    is_response=_is_gemini_embedding_response,
+    prompt=_gemini_embedding_prompt,
+    usage=_gemini_embedding_usage,
+    method=EMBED_CONTENT,
+    stream_summary=None,
+)
+
 PROVIDER_CALLS = (
     OPENROUTER,
     OPENAI_CHAT,
@@ -867,6 +907,7 @@ PROVIDER_CALLS = (
     dataclasses.replace(OPENAI_RESPONSES, method=PARSE),
     GEMINI,
     dataclasses.replace(GEMINI, method=GENERATE_CONTENT_STREAM, always_streams=True),
+    GEMINI_EMBEDDINGS,
 )
 _BY_MODULE: dict[str, tuple[ProviderCall, ...]] = {}
 for _call in PROVIDER_CALLS:

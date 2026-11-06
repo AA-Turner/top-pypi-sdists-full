@@ -8,7 +8,6 @@ as the asset service's `get_by_id(ignore_cache=True)` did. Adding, editing and d
 """
 from __future__ import annotations
 
-import json
 from typing import List
 
 from ...models.company.assets.motivo import Motivo
@@ -24,14 +23,10 @@ class CachedReasonRepository(CachedCatalogByIdWithPreviews[Motivo]):
     item_type = Motivo
 
     async def get_fresh(self, reason_id: StrObjectId) -> Motivo:
-        reason = await self.inner.get_fresh(reason_id)
-        try:
-            await self.assets.cache.set(self.assets.item_key(reason_id),
-                                        json.dumps(reason.model_dump(by_alias=True, mode="json")),
-                                        ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return reason
+        return await self.assets.item(reason_id, lambda: self.inner.get_fresh(reason_id), ignore_cache=True)
 
     async def list_fallbacks(self, company_id: StrObjectId) -> List[Motivo]:
         return await self.inner.list_fallbacks(company_id)
+
+    async def has_general_inquiry(self, company_id: StrObjectId, *, max_time_ms: int) -> bool:
+        return await self.inner.has_general_inquiry(company_id, max_time_ms=max_time_ms)

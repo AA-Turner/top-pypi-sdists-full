@@ -4,14 +4,15 @@ import functools
 from typing import Any, cast
 
 import numpy as np
-from albucore import float32_io, sz_lut
+from albucore import apply_uint8_lut, convert_dtype
+from numpy.typing import NDArray
 
 from albumentations.augmentations.pixel._functional_shared import (
     MULTICHANNEL_LUT_LARGE_IMAGE_PIXELS,
     MULTICHANNEL_LUT_MEDIUM_IMAGE_PIXELS,
 )
 from albumentations.augmentations.pixel.functional import to_gray_average, to_gray_weighted_average
-from albumentations.core.type_definitions import ImageFloat32, ImageType, ImageUInt8
+from albumentations.core.type_definitions import ImageFloat32, ImageUInt8
 
 # Error diffusion kernels
 FLOYD_STEINBERG_KERNEL = {
@@ -328,12 +329,11 @@ def random_dither_uint8(
     if n_colors == 2:
         lut_binary = np.zeros(256, dtype=np.uint8)
         lut_binary[128:] = 255
-        return sz_lut(noisy, lut_binary, inplace=False)
+        return apply_uint8_lut(noisy, lut_binary)
 
-    lut = np.round(np.arange(256) * (n_colors - 1) / 255) / (n_colors - 1) * 255
-    lut = lut.astype(np.uint8)
+    lut = (np.round(np.arange(256) * (n_colors - 1) / 255) / (n_colors - 1) * 255).astype(np.uint8)
 
-    return sz_lut(noisy, lut, inplace=False)
+    return apply_uint8_lut(noisy, lut)
 
 
 def random_dither(
@@ -454,7 +454,7 @@ def ordered_dither_uint8(
         dithered = img.astype(np.int16)
         dithered += ((tiled.astype(np.int16) - 128) // n_colors)[:, :, np.newaxis]
         np.clip(dithered, 0, 255, out=dithered)
-        return sz_lut(dithered.astype(np.uint8), lut, inplace=False)
+        return apply_uint8_lut(dithered.astype(np.uint8), lut)
 
     result = np.zeros_like(img)
     for channel_idx in range(img.shape[2]):
@@ -464,7 +464,7 @@ def ordered_dither_uint8(
         np.clip(dithered, 0, 255, out=dithered)
 
         # Reuse the same LUT for all channels
-        result[:, :, channel_idx] = sz_lut(dithered.astype(np.uint8), lut, inplace=False)
+        result[:, :, channel_idx] = apply_uint8_lut(dithered.astype(np.uint8), lut)
 
     return result
 
@@ -510,34 +510,37 @@ def ordered_dither(
     np.clip(dithered, 0, 1, out=dithered)
 
     # Quantize to n_colors levels using vectorized numpy operations
-    # Since @float32_io guarantees float32 input, use direct numpy operations
+    # Float32 working input keeps quantization arithmetic in one dtype.
     quantized = np.floor(dithered * n_colors) / n_colors
     return np.clip(quantized, 0, (n_colors - 1) / n_colors).astype(np.float32)
 
 
-@float32_io
 def error_diffusion_dither(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     n_colors: int,
     algorithm: str = "floyd_steinberg",
     serpentine: bool = False,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Error diffusion dithering (e.g. Floyd-Steinberg): quantize and diffuse error. algorithm,
     serpentine. Per-channel processing.
 
     Args:
-        img (ImageType): Input image in [0, 1] range with shape (H, W, C).
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image in [0, 1] range with shape (H,
+            W, C).
         n_colors (int): Number of colors per channel.
         algorithm (str): Error diffusion algorithm name.
         serpentine (bool): Use serpentine (back-and-forth) scanning.
 
     Returns:
-        ImageType: Dithered image in [0, 1] range.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Dithered image in [0, 1] range.
 
     """
     if algorithm not in ERROR_DIFFUSION_KERNELS:
         msg = f"Unknown error diffusion algorithm: {algorithm}"
         raise ValueError(msg)
+
+    input_dtype = img.dtype
+    img = convert_dtype(img, np.float32)
 
     kernel = ERROR_DIFFUSION_KERNELS[algorithm]
     offsets: list[tuple[int, int]] = cast("list[tuple[int, int]]", kernel["offsets"])
@@ -583,19 +586,18 @@ def error_diffusion_dither(
         np.clip(channel, 0, 1, out=channel)
         result[:, :, channel_idx] = channel
 
-    return result
+    return convert_dtype(result, input_dtype)
 
 
 def _apply_dithering_to_grayscale(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     method: str,
     n_colors: int,
     **kwargs: Any,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Convert to grayscale, apply dithering, then broadcast to original channel count.
     Grayscale path: one channel dithered then expanded.
     """
-    # Store original number of channels
     original_channels = img.shape[2]
 
     if img.shape[2] == 3:
@@ -605,23 +607,19 @@ def _apply_dithering_to_grayscale(
     else:
         gray = to_gray_average(img)
 
-    if gray.ndim == 2:
-        gray = gray[:, :, np.newaxis]
-
     dithered = _apply_single_dithering_method(gray, method, n_colors, **kwargs)
 
-    # Expand back to original number of channels (handle both 2D and 3D cases)
-    if dithered.ndim == 2:
-        dithered = dithered[:, :, np.newaxis]
-    return cast("ImageType", np.repeat(dithered, original_channels, axis=2))
+    return cast(
+        "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", np.repeat(dithered, original_channels, axis=2)
+    )
 
 
 def _apply_single_dithering_method(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     method: str,
     n_colors: int,
     **kwargs: Any,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Dispatch to ordered_dither, random_dither, or error_diffusion_dither by method. Uses uint8
     paths when img is uint8. Called by apply_dithering.
     """
@@ -681,27 +679,35 @@ def _apply_single_dithering_method(
 
 
 def apply_dithering(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     method: str,
     n_colors: int,
     color_mode: str = "per_channel",
     **kwargs: Any,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Apply dithering (ordered, random, or error_diffusion) to image. method, n_colors,
     color_mode, **kwargs. Entry point for Dithering transform.
 
     Args:
-        img (ImageType): Input image in [0, 1] range with shape (H, W, C).
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image in [0, 1] range with shape (H,
+            W, C).
         method (str): Dithering method to use.
         n_colors (int): Number of colors per channel.
         color_mode (str): How to handle colors ("grayscale", "per_channel", "rgb").
         **kwargs (Any): Additional parameters for specific methods.
 
     Returns:
-        ImageType: Dithered image in [0, 1] range with shape (H, W, C).
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Dithered image in [0, 1] range with shape (H, W,
+            C).
+
+    Float16 inputs use float32 working values and return float16.
 
     """
+    input_dtype = img.dtype
+    working_img = convert_dtype(img, np.float32) if input_dtype == np.float16 else img
     if color_mode == "grayscale":
-        return _apply_dithering_to_grayscale(img, method, n_colors, **kwargs)
+        result = _apply_dithering_to_grayscale(working_img, method, n_colors, **kwargs)
+    else:
+        result = _apply_single_dithering_method(working_img, method, n_colors, **kwargs)
 
-    return _apply_single_dithering_method(img, method, n_colors, **kwargs)
+    return convert_dtype(result, np.float16) if input_dtype == np.float16 else result

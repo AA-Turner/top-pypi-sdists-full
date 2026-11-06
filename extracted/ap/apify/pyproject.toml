@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify"
-version = "4.2.0"
+version = "4.2.1"
 description = "Apify SDK for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

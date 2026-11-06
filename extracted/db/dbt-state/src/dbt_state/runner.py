@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 import typing as t
 from copy import deepcopy
 from dataclasses import replace
@@ -137,7 +136,7 @@ class RunnerOverride:
             message = (run_result.adapter_response or {}).get("_message") or ""
             if not message.startswith(NO_OP_STATUS):
                 return run_result
-            reused_status = self._run_cache._cache_hit_run_status()  # noqa: SLF001
+            reused_status = self._run_cache.cache_hit_run_status()
             if reused_status is not RunStatus.Success:
                 run_result.status = reused_status
         except Exception as e:
@@ -386,32 +385,12 @@ class RunnerOverride:
                 run_cache.on_state_request_failed(node)
                 return result
 
-            if isinstance(on_execute_result, RunResult):
-                return on_execute_result
-
-            execute_start_ts = time.perf_counter()
-            result = original(runner, node, manifest)
-
-            run_cache.on_run_result(node, result)
-
-            if isinstance(on_execute_result, NoRunResult) and should_confirm(result):
-                try:
-                    elapsed_ms = int((time.perf_counter() - execute_start_ts) * 1000)
-                    run_cache.confirm_execution(
-                        node,
-                        on_execute_result.request_id,
-                        on_execute_result.failed_to_clone,
-                        execution_runtime_ms=elapsed_ms,
-                    )
-                except Exception as e:
-                    events.fire_warn_event_with_cache_bypass(
-                        "execute: request confirmation failed for node {}:\n{}",
-                        node.unique_id,
-                        str(e),
-                    )
-            else:
-                run_cache.on_state_request_failed(node)
-            return result
+            return run_cache.run_node(
+                node,
+                on_execute_result,
+                lambda: original(runner, node, manifest),
+                should_confirm,
+            )
         finally:
             self.flush_logger(node.name)
 
@@ -449,12 +428,12 @@ class RunnerOverride:
         run_cache = self._run_cache_get_or_create(runner.config, runner.adapter, manifest)
         if run_cache is not None:
             try:
-                run_cache._decision_logger.log_node_start(runner.node)  # noqa: SLF001
+                run_cache.log_node_start(runner.node)
                 run_cache.on_compile(runner.node)
                 for dep_id in getattr(runner.node.depends_on, "nodes", []):
                     dep_node = manifest.nodes.get(dep_id)
                     if dep_node and (defer_rel := getattr(dep_node, "defer_relation", None)):
-                        run_cache._decision_logger.log_deferral(  # noqa: SLF001
+                        run_cache.log_deferral(
                             node_name=runner.node.name,
                             relation_name=dep_node.name,
                             deferred_to_fqn=defer_rel.relation_name,
@@ -547,11 +526,11 @@ class RunnerOverride:
 
         adapter = context["adapter"]._adapter  # noqa: SLF001
         run_cache = self._run_cache_get_or_create(config, adapter, manifest)
-        if run_cache is None or not run_cache.run_cache_config.enable_data_tests:
+        if run_cache is None or not run_cache.enable_data_tests:
             return context
 
         try:
-            run_cache._decision_logger.log_node_start(node)  # noqa: SLF001
+            run_cache.log_node_start(node)
             context["adapter"]._adapter = run_cache.data_test_adapter_proxy(node)  # noqa: SLF001
         except Exception as e:
             events.fire_warn_event_with_cache_bypass(

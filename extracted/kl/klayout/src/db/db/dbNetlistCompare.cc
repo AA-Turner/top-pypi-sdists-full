@@ -1200,12 +1200,16 @@ static void
 analyze_pin_mismatch (const db::Pin *pin1, const db::Circuit *c1, const db::Pin *pin2, const db::Circuit * /*c2*/, db::NetlistCompareLogger *logger)
 {
   if (! pin1) {
-    logger->log_entry (db::Error, tl::sprintf (tl::to_string (tr ("No equivalent pin %s from reference netlist found in netlist.\nThis is an indication that a physical connection is not made to the subcircuit.")), pin2->expanded_name ()));
+    if (logger) {
+      logger->log_entry (db::Error, tl::sprintf (tl::to_string (tr ("No equivalent pin %s from reference netlist found in netlist.\nThis is an indication that a physical connection is not made to the subcircuit.")), pin2->expanded_name ()));
+    }
   }
 
   if (! pin2) {
 
-    logger->log_entry (db::Error, tl::sprintf (tl::to_string (tr ("No equivalent pin %s from netlist found in reference netlist.\nThis is an indication that additional physical connections are made to the subcircuit cell.")), pin1->expanded_name ()));
+    if (logger) {
+      logger->log_entry (db::Error, tl::sprintf (tl::to_string (tr ("No equivalent pin %s from netlist found in reference netlist.\nThis is an indication that additional physical connections are made to the subcircuit cell.")), pin1->expanded_name ()));
+    }
 
     //  attempt to identify pins which are creating invalid connections
     for (auto p = c1->begin_parents (); p != c1->end_parents (); ++p) {
@@ -1214,7 +1218,9 @@ analyze_pin_mismatch (const db::Pin *pin1, const db::Circuit *c1, const db::Pin 
         if (sc.circuit_ref () == c1) {
           const db::Net *net = sc.net_for_pin (pin1->id ());
           if (net && (net->subcircuit_pin_count () > 1 || net->terminal_count () > 0 || net->pin_count () > 0)) {
-            logger->log_entry (db::Info, tl::sprintf (tl::to_string (tr ("Potential invalid connection in circuit %s, subcircuit cell reference at %s")), p->name (), sc.trans ().to_string ()));
+            if (logger) {
+              logger->log_entry (db::Info, tl::sprintf (tl::to_string (tr ("Potential invalid connection in circuit %s, subcircuit cell reference at %s")), p->name (), sc.trans ().to_string ()));
+            }
           }
         }
       }
@@ -1385,7 +1391,7 @@ NetlistComparer::do_pin_assignment (const db::Circuit *c1, const db::NetGraph &g
       continue;
     }
 
-    std::multimap<size_t, const db::Pin *>::iterator np = net2pin2.find (n.other_net_index ());
+    std::multimap<size_t, const db::Pin *>::iterator np = net2pin2.lower_bound (n.other_net_index ());
     for (db::Net::const_pin_iterator pi = net->begin_pins (); pi != net->end_pins (); ++pi) {
 
       if (np != net2pin2.end () && np->first == n.other_net_index ()) {
@@ -1527,7 +1533,7 @@ NetlistComparer::do_device_assignment (const db::Circuit *c1, const db::NetGraph
       bool mapped = true;
       std::vector<std::pair<size_t, size_t> > k = compute_device_key_for_other (*d, g2, device_categorizer.is_strict_device_category (device_cat), mapped);
 
-      auto dm = device_map.find (k);
+      auto dm = device_map.lower_bound (k);
 
       if (! mapped || dm == device_map.end () || dm->first != k) {
 
@@ -1755,7 +1761,7 @@ NetlistComparer::do_subcircuit_assignment (const db::Circuit *c1, const db::NetG
       bool mapped = true, valid = true;
       std::vector<std::pair<size_t, size_t> > k = compute_subcircuit_key_for_other (*sc, g2, &c22_circuit_and_pin_mapping, &circuit_pin_mapper, mapped, valid);
 
-      std::multimap<std::vector<std::pair<size_t, size_t> >, std::pair<const db::SubCircuit *, size_t> >::iterator scm = subcircuit_map.find (k);
+      std::multimap<std::vector<std::pair<size_t, size_t> >, std::pair<const db::SubCircuit *, size_t> >::iterator scm = subcircuit_map.lower_bound (k);
 
       if (! mapped || scm == subcircuit_map.end () || scm->first != k) {
 

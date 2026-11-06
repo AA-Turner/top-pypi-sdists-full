@@ -83,6 +83,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 import numpy as np
 

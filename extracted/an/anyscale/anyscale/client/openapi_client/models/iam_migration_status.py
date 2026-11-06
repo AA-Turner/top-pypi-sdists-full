@@ -174,7 +174,7 @@ class IamMigrationStatus(object):
     def admin_group_id(self):
         """Gets the admin_group_id of this IamMigrationStatus.  # noqa: E501
 
-        The organization admin group, Organization owners: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
+        The organization admin group, Super Admins: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
 
         :return: The admin_group_id of this IamMigrationStatus.  # noqa: E501
         :rtype: str
@@ -185,7 +185,7 @@ class IamMigrationStatus(object):
     def admin_group_id(self, admin_group_id):
         """Sets the admin_group_id of this IamMigrationStatus.
 
-        The organization admin group, Organization owners: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
+        The organization admin group, Super Admins: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
 
         :param admin_group_id: The admin_group_id of this IamMigrationStatus.  # noqa: E501
         :type: str

@@ -1,0 +1,895 @@
+// Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
+
+#[allow(unused_imports)]
+use glide_logger::log_warn;
+use redis::AddressResolver;
+use redis::cache::EvictionPolicy;
+#[allow(unused_imports)]
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+#[cfg(feature = "proto")]
+use crate::compression::CompressionBackendType;
+use crate::compression::CompressionConfig;
+#[cfg(feature = "proto")]
+use crate::connection_request as protobuf;
+use crate::iam::CredentialsProvider;
+use crate::iam::ServiceType;
+use crate::rdma::{IncompatibleSetting, RdmaSetting};
+#[cfg(feature = "proto")]
+#[allow(unused_imports)]
+use ::protobuf::EnumOrUnknown;
+
+#[derive(Default, Clone, Debug)]
+pub struct ConnectionRequest {
+    pub read_from: Option<ReadFrom>,
+    pub client_name: Option<String>,
+    pub lib_name: Option<String>,
+    pub lib_ver: Option<String>,
+    pub authentication_info: Option<AuthenticationInfo>,
+    pub database_id: i64,
+    pub protocol: Option<redis::ProtocolVersion>,
+    pub tls_mode: Option<TlsMode>,
+    pub addresses: Vec<NodeAddress>,
+    pub cluster_mode_enabled: bool,
+    pub request_timeout: Option<u32>,
+    pub connection_timeout: Option<u32>,
+    pub connection_retry_strategy: Option<ConnectionRetryStrategy>,
+    pub periodic_checks: Option<PeriodicCheck>,
+    pub pubsub_subscriptions: Option<redis::PubSubSubscriptionInfo>,
+    pub inflight_requests_limit: Option<u32>,
+    pub recovery_requests_queue_size: Option<u32>,
+    pub lazy_connect: bool,
+    pub refresh_topology_from_initial_nodes: bool,
+    pub root_certs: Vec<Vec<u8>>,
+    pub client_cert: Vec<u8>,
+    pub client_key: Vec<u8>,
+    /// Path to the mTLS client certificate file (PEM). When set together with
+    /// `client_key_path`, the core reads the material from disk and, when
+    /// `cert_reload` is enabled, periodically re-reads it. Mutually exclusive with
+    /// the `client_cert`/`client_key` byte fields.
+    pub client_cert_path: Option<String>,
+    /// Path to the mTLS client private key file (PEM). See `client_cert_path`.
+    pub client_key_path: Option<String>,
+    /// Optional automatic reload configuration for the path-based client cert/key.
+    pub cert_reload: Option<CertReloadConfig>,
+    pub compression_config: Option<CompressionConfig>,
+    /// What the request asked of RDMA. `Absent` means the feature is off.
+    pub rdma: RdmaSetting,
+    pub tcp_nodelay: bool,
+    pub pubsub_reconciliation_interval_ms: Option<u32>,
+    pub read_only: bool,
+    pub client_side_cache: Option<ClientSideCache>,
+    pub node_discovery_mode: NodeDiscoveryMode,
+    pub address_resolver: Option<Arc<dyn AddressResolver>>,
+    pub client_circuit_breaker: Option<ClientCircuitBreakerConfig>,
+}
+
+/// Default connection timeout used when not specified in the request.
+/// Note: If you change this value, make sure to change the documentation in *all* wrappers.
+pub const DEFAULT_CONNECTION_TIMEOUT: Duration = Duration::from_millis(2000);
+
+impl ConnectionRequest {
+    /// Returns the connection timeout from the request, or the default if not specified.
+    /// This centralizes the timeout logic to ensure consistency across all client types.
+    pub fn get_connection_timeout(&self) -> Duration {
+        self.connection_timeout
+            .map(|val| Duration::from_millis(val as u64))
+            .unwrap_or(DEFAULT_CONNECTION_TIMEOUT)
+    }
+
+    /// The setting of this request that cannot be combined with RDMA, if any.
+    ///
+    /// - `None` when RDMA was not requested.
+    /// - `None` when RDMA was requested and no other setting conflicts with it.
+    pub(crate) fn rdma_conflict(&self) -> Option<IncompatibleSetting> {
+        if !self.rdma.is_requested() {
+            return None;
+        }
+        if self
+            .compression_config
+            .as_ref()
+            .is_some_and(|compression| compression.enabled)
+        {
+            return Some(IncompatibleSetting::Compression);
+        }
+        if self.lazy_connect {
+            return Some(IncompatibleSetting::LazyConnect);
+        }
+        if self.read_only {
+            return Some(IncompatibleSetting::ReadOnly);
+        }
+        // `Static` discovery exists mainly for clients that connect through a proxy.
+        if self.node_discovery_mode == NodeDiscoveryMode::Static {
+            return Some(IncompatibleSetting::StaticDiscovery);
+        }
+        None
+    }
+}
+
+/// Configuration for the client-wide circuit breaker.
+#[derive(Debug, Clone)]
+pub struct ClientCircuitBreakerConfig {
+    pub window_size_ms: u32,
+    pub failure_rate_threshold: f32,
+    pub min_errors: u32,
+    pub open_timeout_ms: u32,
+    pub count_timeouts: bool,
+    pub consecutive_successes: u32,
+}
+
+/// Automatic reload configuration for the path-based mTLS client certificate/key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CertReloadConfig {
+    /// Whether periodic reload is enabled.
+    pub enabled: bool,
+    /// Re-read interval in seconds. `None` means the core default (5 minutes).
+    pub interval_seconds: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClientSideCache {
+    pub cache_id: String,
+    pub max_cache_kb: u64,
+    /// Time-to-live for cached entries in milliseconds (0 = no expiration).
+    pub entry_ttl_ms: u64,
+    pub eviction_policy: Option<EvictionPolicy>,
+    pub enable_metrics: bool,
+    pub server_assisted: bool,
+}
+
+/// Authentication information for connecting to Redis/Valkey servers
+///
+/// Supports traditional username/password authentication and AWS IAM authentication.
+/// IAM authentication takes priority when both are configured.
+#[derive(PartialEq, Eq, Clone, Default, Debug)]
+pub struct AuthenticationInfo {
+    /// Username for authentication (required for IAM)
+    pub username: Option<String>,
+
+    /// Password for traditional authentication (fallback when IAM unavailable)
+    pub password: Option<String>,
+
+    /// IAM authentication configuration (takes precedence over password)
+    pub iam_config: Option<IamAuthenticationConfig>,
+}
+
+/// AWS IAM authentication configuration for ElastiCache and MemoryDB
+///
+/// Handles AWS credential resolution, SigV4 token signing, and automatic token refresh.
+/// Tokens are valid for 15 minutes and refreshed every 5 minutes by default.
+#[derive(Clone)]
+pub struct IamAuthenticationConfig {
+    /// AWS ElastiCache or MemoryDB cluster name
+    pub cluster_name: String,
+
+    /// AWS region where the cluster is located
+    pub region: String,
+
+    /// AWS service type (ElastiCache or MemoryDB)
+    pub service_type: ServiceType,
+
+    /// Token refresh interval in seconds (1 second to 12 hours exclusive, default 5 minutes)
+    pub refresh_interval_seconds: Option<u32>,
+
+    /// Optional custom credentials callback.
+    ///
+    /// When `Some`, this closure is invoked to retrieve AWS credentials
+    /// `(access_key_id, secret_access_key, session_token, expires_at)` for SigV4 token signing
+    /// instead of the default AWS credential chain.
+    pub credentials_provider: Option<CredentialsProvider>,
+}
+
+impl PartialEq for IamAuthenticationConfig {
+    fn eq(&self, other: &Self) -> bool {
+        // credentials_provider is not comparable; two configs are equal if all
+        // other fields match and both have (or neither has) a callback.
+        self.cluster_name == other.cluster_name
+            && self.region == other.region
+            && self.service_type == other.service_type
+            && self.refresh_interval_seconds == other.refresh_interval_seconds
+            && match (&self.credentials_provider, &other.credentials_provider) {
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
+    }
+}
+
+impl Eq for IamAuthenticationConfig {}
+
+impl std::fmt::Debug for IamAuthenticationConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IamAuthenticationConfig")
+            .field("cluster_name", &self.cluster_name)
+            .field("region", &self.region)
+            .field("service_type", &self.service_type)
+            .field("refresh_interval_seconds", &self.refresh_interval_seconds)
+            .field(
+                "credentials_provider",
+                &self
+                    .credentials_provider
+                    .as_ref()
+                    .map(|_| "<custom callback>"),
+            )
+            .finish()
+    }
+}
+
+#[derive(Default, Clone, Copy, Debug)]
+pub enum PeriodicCheck {
+    #[default]
+    Enabled,
+    Disabled,
+    ManualInterval(Duration),
+}
+
+#[derive(Clone, Debug)]
+pub struct NodeAddress {
+    pub host: String,
+    pub port: u16,
+    /// Unix domain socket to connect through instead of `host` and `port`, which must be unset.
+    pub unix_socket_path: Option<PathBuf>,
+}
+
+impl NodeAddress {
+    /// Returns `host:port`, or `unix:<path>` for a Unix domain socket address.
+    pub(crate) fn endpoint(&self) -> String {
+        match &self.unix_socket_path {
+            Some(path) => format!("unix:{}", path.display()),
+            None => format!("{}:{}", self.host, self.port),
+        }
+    }
+}
+
+impl ::std::fmt::Display for NodeAddress {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match &self.unix_socket_path {
+            Some(path) => write!(f, "Unix socket: `{}`", path.display()),
+            None => write!(f, "Host: `{}`, Port: {}", self.host, self.port),
+        }
+    }
+}
+
+/// Keeps an empty `unix_socket_path` so client creation rejects it.
+#[cfg(feature = "proto")]
+impl From<&protobuf::NodeAddress> for NodeAddress {
+    fn from(value: &protobuf::NodeAddress) -> Self {
+        NodeAddress {
+            host: value.host.to_string(),
+            port: value.port as u16,
+            unix_socket_path: value
+                .unix_socket_path
+                .as_ref()
+                .map(|path| PathBuf::from(&**path)),
+        }
+    }
+}
+
+/// Initial connection metadata used as default OTel span attributes.
+#[derive(Clone, Debug)]
+pub struct OTelMetadata {
+    /// Host of the first configured address, or its Unix domain socket path.
+    pub server_address: String,
+    /// Port of the first configured address; `None` for a Unix domain socket.
+    pub server_port: Option<u16>,
+    pub db_namespace: String,
+}
+
+#[derive(PartialEq, Eq, Clone, Default, Debug)]
+pub enum ReadFrom {
+    #[default]
+    Primary,
+    PreferReplica,
+    AZAffinity(String),
+    AZAffinityReplicasAndPrimary(String),
+    AllNodes,
+    /// Spread the read requests equally among all nodes (primary and replicas) within the
+    /// client's Availability Zone (AZ) in a round robin manner, falling back to a round robin
+    /// across all nodes if no node in the client's AZ is available.
+    AZAffinityAllNodes(String),
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Default, Debug)]
+#[repr(C)]
+pub enum TlsMode {
+    #[default]
+    NoTls,
+    InsecureTls,
+    SecureTls,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Default, Debug)]
+/// Controls how the client discovers node roles and topology in standalone mode.
+pub enum NodeDiscoveryMode {
+    /// Default: verify node roles via INFO REPLICATION, use only provided addresses.
+    #[default]
+    Standard,
+    /// Skip role detection entirely. Trust provided addresses as-is; first address is primary.
+    /// Suitable for proxies (e.g., Envoy) or known-static topologies.
+    /// Note: Do not set `client_name` when using this mode with a proxy.
+    Static,
+    /// Discover full topology (primary + all replicas) from any starting node.
+    DiscoverAll,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[repr(C)]
+pub struct ConnectionRetryStrategy {
+    pub exponent_base: u32,
+    pub factor: u32,
+    pub number_of_retries: u32,
+    pub jitter_percent: Option<u32>,
+}
+
+#[cfg(feature = "proto")]
+fn chars_to_string_option(chars: &::protobuf::Chars) -> Option<String> {
+    if chars.is_empty() {
+        None
+    } else {
+        Some(chars.to_string())
+    }
+}
+
+#[cfg(feature = "proto")]
+pub(crate) fn none_if_zero(value: u32) -> Option<u32> {
+    if value == 0 { None } else { Some(value) }
+}
+
+/// Convert the protobuf RDMA configuration into what this build can honor.
+#[cfg(all(feature = "proto", not(feature = "rdma")))]
+fn convert_rdma(config: Option<&protobuf::RdmaConfig>) -> RdmaSetting {
+    use crate::rdma::RdmaUnavailable;
+
+    match config {
+        None => RdmaSetting::Absent,
+        Some(_) => RdmaSetting::Rejected(RdmaUnavailable::NotCompiledIn),
+    }
+}
+
+/// Convert the protobuf RDMA configuration into glide-rdma's own `FabricConfig`.
+#[cfg(all(feature = "proto", feature = "rdma"))]
+fn convert_rdma(config: Option<&protobuf::RdmaConfig>) -> RdmaSetting {
+    use crate::rdma::{FabricConfig, Provider, RdmaUnavailable};
+
+    let Some(config) = config else {
+        return RdmaSetting::Absent;
+    };
+    let Some(provider) = config.provider.as_ref() else {
+        return RdmaSetting::Rejected(RdmaUnavailable::NoProviderConfigured);
+    };
+    let fabric = match provider {
+        protobuf::rdma_config::Provider::EfaDirect(_) => FabricConfig::new(Provider::EfaDirect),
+        #[cfg(feature = "rdma-tcp-dev")]
+        protobuf::rdma_config::Provider::Tcp(tcp) => {
+            let fabric = FabricConfig::new(Provider::Tcp);
+            match tcp.bind.as_ref() {
+                Some(bind) => fabric.with_bind(bind.to_string()),
+                None => fabric,
+            }
+        }
+        #[cfg(not(feature = "rdma-tcp-dev"))]
+        protobuf::rdma_config::Provider::Tcp(_) => {
+            return RdmaSetting::Rejected(RdmaUnavailable::TcpProviderNotBuilt);
+        }
+    };
+    let fabric = match config.interface.as_ref() {
+        Some(interface) => fabric.with_interface(interface.to_string()),
+        None => fabric,
+    };
+    RdmaSetting::Configured(fabric)
+}
+
+#[cfg(feature = "proto")]
+impl From<protobuf::ConnectionRequest> for ConnectionRequest {
+    fn from(value: protobuf::ConnectionRequest) -> Self {
+        let read_from = value.read_from.enum_value().ok().map(|val| match val {
+            protobuf::ReadFrom::Primary => ReadFrom::Primary,
+            protobuf::ReadFrom::PreferReplica => ReadFrom::PreferReplica,
+            protobuf::ReadFrom::LowestLatency => todo!(),
+            protobuf::ReadFrom::AllNodes => ReadFrom::AllNodes,
+            protobuf::ReadFrom::AZAffinity => {
+                if let Some(client_az) = chars_to_string_option(&value.client_az) {
+                    ReadFrom::AZAffinity(client_az)
+                } else {
+                    log_warn(
+                        "types",
+                        format!(
+                            "Failed to convert availability zone string: '{:?}'. Falling back to `ReadFrom::PreferReplica`",
+                            value.client_az
+                        ),
+                    );
+                    ReadFrom::PreferReplica
+                }
+            }
+            protobuf::ReadFrom::AZAffinityReplicasAndPrimary => {
+                if let Some(client_az) = chars_to_string_option(&value.client_az) {
+                    ReadFrom::AZAffinityReplicasAndPrimary(client_az)
+                } else {
+                    log_warn(
+                        "types",
+                        format!(
+                            "Failed to convert availability zone string: '{:?}'. Falling back to `ReadFrom::PreferReplica`",
+                            value.client_az
+                        ),
+                    );
+                    ReadFrom::PreferReplica
+                }
+            },
+            protobuf::ReadFrom::AZAffinityAllNodes => {
+                if let Some(client_az) = chars_to_string_option(&value.client_az) {
+                    ReadFrom::AZAffinityAllNodes(client_az)
+                } else {
+                    log_warn(
+                        "types",
+                        format!(
+                            "Failed to convert availability zone string: '{:?}'. Falling back to `ReadFrom::PreferReplica`",
+                            value.client_az
+                        ),
+                    );
+                    ReadFrom::PreferReplica
+                }
+            },
+        });
+
+        let client_name = chars_to_string_option(&value.client_name);
+        let lib_name = chars_to_string_option(&value.lib_name);
+        let authentication_info = value.authentication_info.0.map(|authentication_info| {
+            let password = chars_to_string_option(&authentication_info.password);
+            let username = chars_to_string_option(&authentication_info.username);
+            let iam_config = authentication_info.iam_credentials.0.map(|iam_creds| {
+                let cluster_name =
+                    chars_to_string_option(&iam_creds.cluster_name).unwrap_or_default();
+                let region = chars_to_string_option(&iam_creds.region).unwrap_or_default();
+                let service_type = match iam_creds.service_type.enum_value() {
+                    Ok(protobuf::ServiceType::MEMORYDB) => ServiceType::MemoryDB,
+                    _ => ServiceType::ElastiCache,
+                };
+                let refresh_interval_seconds = iam_creds.refresh_interval_seconds;
+
+                IamAuthenticationConfig {
+                    cluster_name,
+                    region,
+                    service_type,
+                    refresh_interval_seconds,
+                    credentials_provider: None,
+                }
+            });
+
+            AuthenticationInfo {
+                password,
+                username,
+                iam_config,
+            }
+        });
+
+        let database_id = value.database_id as i64;
+        let protocol = value.protocol.enum_value().ok().map(|val| match val {
+            protobuf::ProtocolVersion::RESP3 => redis::ProtocolVersion::RESP3,
+            protobuf::ProtocolVersion::RESP2 => redis::ProtocolVersion::RESP2,
+        });
+
+        let tls_mode = value.tls_mode.enum_value().ok().map(|val| match val {
+            protobuf::TlsMode::NoTls => TlsMode::NoTls,
+            protobuf::TlsMode::SecureTls => TlsMode::SecureTls,
+            protobuf::TlsMode::InsecureTls => TlsMode::InsecureTls,
+        });
+
+        let addresses = value.addresses.iter().map(NodeAddress::from).collect();
+        let cluster_mode_enabled = value.cluster_mode_enabled;
+        let request_timeout = none_if_zero(value.request_timeout);
+        let connection_timeout = none_if_zero(value.connection_timeout);
+        let connection_retry_strategy =
+            value
+                .connection_retry_strategy
+                .0
+                .map(|strategy| ConnectionRetryStrategy {
+                    exponent_base: strategy.exponent_base,
+                    factor: strategy.factor,
+                    number_of_retries: strategy.number_of_retries,
+                    jitter_percent: strategy.jitter_percent,
+                });
+        let periodic_checks = value
+            .periodic_checks
+            .map(|periodic_check| match periodic_check {
+                protobuf::connection_request::Periodic_checks::PeriodicChecksManualInterval(
+                    interval,
+                ) => PeriodicCheck::ManualInterval(Duration::from_secs(
+                    interval.duration_in_sec.into(),
+                )),
+                protobuf::connection_request::Periodic_checks::PeriodicChecksDisabled(_) => {
+                    PeriodicCheck::Disabled
+                }
+            });
+        let mut pubsub_subscriptions: Option<redis::PubSubSubscriptionInfo> = None;
+        if let Some(protobuf_pubsub) = value.pubsub_subscriptions.0 {
+            let mut redis_pubsub = redis::PubSubSubscriptionInfo::new();
+            for (pubsub_type, channels_patterns) in
+                protobuf_pubsub.channels_or_patterns_by_type.iter()
+            {
+                let kind = match *pubsub_type {
+                    0 => redis::PubSubSubscriptionKind::Exact,
+                    1 => redis::PubSubSubscriptionKind::Pattern,
+                    2 => redis::PubSubSubscriptionKind::Sharded,
+                    3_u32..=u32::MAX => {
+                        log_warn(
+                            "client creation",
+                            format!(
+                                "Omitting pubsub subscription on an unknown type: {:?}",
+                                *pubsub_type
+                            ),
+                        );
+                        continue;
+                    }
+                };
+
+                for channel_pattern in channels_patterns.channels_or_patterns.iter() {
+                    redis_pubsub
+                        .entry(kind)
+                        .and_modify(|channels_patterns| {
+                            channels_patterns.insert(channel_pattern.to_vec());
+                        })
+                        .or_insert(HashSet::from([channel_pattern.to_vec()]));
+                }
+            }
+            pubsub_subscriptions = Some(redis_pubsub);
+        }
+
+        let inflight_requests_limit = none_if_zero(value.inflight_requests_limit);
+        let recovery_requests_queue_size = value.recovery_requests_queue_size;
+        let lazy_connect = value.lazy_connect;
+        let refresh_topology_from_initial_nodes = value.refresh_topology_from_initial_nodes;
+        let root_certs = value
+            .root_certs
+            .into_iter()
+            .map(|cert| cert.to_vec())
+            .collect();
+
+        let client_cert = value.client_cert.to_vec();
+        let client_key = value.client_key.to_vec();
+        let client_cert_path = value
+            .client_cert_path
+            .as_ref()
+            .filter(|p| !p.is_empty())
+            .map(|p| p.to_string());
+        let client_key_path = value
+            .client_key_path
+            .as_ref()
+            .filter(|p| !p.is_empty())
+            .map(|p| p.to_string());
+        let cert_reload = value
+            .cert_reload
+            .as_ref()
+            .map(|proto_reload| CertReloadConfig {
+                enabled: proto_reload.enabled,
+                interval_seconds: proto_reload.interval_seconds.filter(|&s| s != 0),
+            });
+
+        // Convert protobuf client-side cache config to internal client-side cache config
+        let client_side_cache = value
+            .client_side_cache
+            .0
+            .map(|proto_cache| ClientSideCache {
+                cache_id: chars_to_string_option(&proto_cache.cache_id).unwrap_or_default(),
+                max_cache_kb: proto_cache.max_cache_kb,
+                entry_ttl_ms: proto_cache.entry_ttl_ms,
+                eviction_policy: proto_cache
+                    .eviction_policy
+                    .and_then(|enum_or_unknown| enum_or_unknown.enum_value().ok())
+                    .map(|val| match val {
+                        protobuf::EvictionPolicy::LRU => EvictionPolicy::Lru,
+                        protobuf::EvictionPolicy::LFU => EvictionPolicy::Lfu,
+                    }),
+                enable_metrics: proto_cache.enable_metrics,
+                server_assisted: proto_cache.server_assisted,
+            });
+
+        // Convert protobuf compression config to internal compression config
+        let compression_config = value.compression_config.as_ref().map(|proto_config| {
+            let backend = match proto_config.backend.enum_value() {
+                Ok(protobuf::CompressionBackend::ZSTD) => CompressionBackendType::Zstd,
+                Ok(protobuf::CompressionBackend::LZ4) => CompressionBackendType::Lz4,
+                Err(_) => {
+                    log_warn(
+                        "types",
+                        format!(
+                            "Unknown compression backend: {:?}. Falling back to Zstd",
+                            proto_config.backend
+                        ),
+                    );
+                    CompressionBackendType::Zstd
+                }
+            };
+
+            CompressionConfig {
+                enabled: proto_config.enabled,
+                backend,
+                compression_level: proto_config.compression_level,
+                min_compression_size: proto_config.min_compression_size as usize,
+                // Handle optional max_decompressed_size:
+                // - None (not set) = use default (512MB)
+                // - Some(n) = use n as the limit
+                max_decompressed_size: proto_config
+                    .max_decompressed_size
+                    .map(|size| size as usize)
+                    .or(Some(crate::compression::DEFAULT_MAX_DECOMPRESSED_SIZE)),
+            }
+        });
+
+        let rdma = convert_rdma(value.rdma_config.as_ref());
+
+        let tcp_nodelay = value.tcp_nodelay.unwrap_or(true);
+        let pubsub_reconciliation_interval_ms =
+            value.pubsub_reconciliation_interval_ms.filter(|&v| v != 0);
+        let read_only = value.read_only.unwrap_or(false);
+
+        let node_discovery_mode = value
+            .node_discovery_mode
+            .enum_value()
+            .ok()
+            .map(|val| match val {
+                protobuf::NodeDiscoveryMode::Standard => NodeDiscoveryMode::Standard,
+                protobuf::NodeDiscoveryMode::Static => NodeDiscoveryMode::Static,
+                protobuf::NodeDiscoveryMode::DiscoverAll => NodeDiscoveryMode::DiscoverAll,
+            })
+            .unwrap_or_default();
+
+        ConnectionRequest {
+            read_from,
+            client_name,
+            lib_name,
+            lib_ver: None, // Protobuf-based clients set library version via `GLIDE_VERSION`.
+            authentication_info,
+            database_id,
+            protocol,
+            tls_mode,
+            addresses,
+            cluster_mode_enabled,
+            request_timeout,
+            connection_timeout,
+            connection_retry_strategy,
+            periodic_checks,
+            pubsub_subscriptions,
+            inflight_requests_limit,
+            recovery_requests_queue_size,
+            lazy_connect,
+            refresh_topology_from_initial_nodes,
+            root_certs,
+            client_side_cache,
+            client_cert,
+            client_key,
+            client_cert_path,
+            client_key_path,
+            cert_reload,
+            compression_config,
+            rdma,
+            tcp_nodelay,
+            pubsub_reconciliation_interval_ms,
+            read_only,
+            node_discovery_mode,
+            // Address resolver is not set from protobuf - it's set programmatically
+            address_resolver: None,
+            client_circuit_breaker: value.client_circuit_breaker.into_option().map(|cb| {
+                ClientCircuitBreakerConfig {
+                    window_size_ms: cb.window_size_ms,
+                    failure_rate_threshold: cb.failure_rate_threshold,
+                    min_errors: cb.min_errors,
+                    open_timeout_ms: cb.open_timeout_ms,
+                    count_timeouts: cb.count_timeouts,
+                    consecutive_successes: cb.consecutive_successes,
+                }
+            }),
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::NodeAddress;
+
+    #[test]
+    fn test_node_address_display_and_endpoint() {
+        let tcp = NodeAddress {
+            host: "10.0.0.1".to_string(),
+            port: 6380,
+            unix_socket_path: None,
+        };
+        assert_eq!(tcp.to_string(), "Host: `10.0.0.1`, Port: 6380");
+        assert_eq!(tcp.endpoint(), "10.0.0.1:6380");
+
+        let unix = NodeAddress {
+            host: String::new(),
+            port: 0,
+            unix_socket_path: Some("/run/valkey/valkey.sock".into()),
+        };
+        assert_eq!(unix.to_string(), "Unix socket: `/run/valkey/valkey.sock`");
+        assert_eq!(unix.endpoint(), "unix:/run/valkey/valkey.sock");
+    }
+
+    mod protobuf_conversion_tests {
+        use crate::ConnectionRequest;
+        use crate::compression::CompressionBackendType;
+        use crate::connection_request as protobuf;
+        use ::protobuf::EnumOrUnknown;
+
+        #[test]
+        fn test_lib_name_and_ver() {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+
+            let name = "LibraryName";
+            proto_request.lib_name = name.into();
+
+            let request: ConnectionRequest = proto_request.into();
+            assert_eq!(request.lib_name.as_deref(), Some(name));
+            assert_eq!(request.lib_ver, None);
+        }
+
+        #[test]
+        fn test_node_address_conversion() {
+            let tcp = protobuf::NodeAddress {
+                host: "10.0.0.1".into(),
+                port: 6380,
+                ..Default::default()
+            };
+            let address = crate::client::NodeAddress::from(&tcp);
+            assert_eq!((address.host.as_str(), address.port), ("10.0.0.1", 6380));
+            assert!(address.unix_socket_path.is_none());
+
+            // An explicitly empty path is kept (not turned into a TCP address) so that
+            // client creation rejects it.
+            for path in ["/tmp/valkey.sock", ""] {
+                let unix = protobuf::NodeAddress {
+                    unix_socket_path: Some(path.into()),
+                    ..Default::default()
+                };
+                let address = crate::client::NodeAddress::from(&unix);
+                assert_eq!(
+                    address.unix_socket_path.as_deref(),
+                    Some(std::path::Path::new(path))
+                );
+            }
+        }
+
+        #[test]
+        fn test_compression_config_conversion_none() {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+            // compression_config is not set (None)
+
+            let request: ConnectionRequest = proto_request.into();
+            assert!(request.compression_config.is_none());
+        }
+
+        #[test]
+        fn test_compression_config_conversion_zstd() {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+
+            let mut compression_config = protobuf::CompressionConfig::new();
+            compression_config.enabled = true;
+            compression_config.backend = protobuf::CompressionBackend::ZSTD.into();
+            compression_config.compression_level = Some(5);
+            compression_config.min_compression_size = 128;
+
+            proto_request.compression_config = ::protobuf::MessageField::some(compression_config);
+
+            let request: ConnectionRequest = proto_request.into();
+            assert!(request.compression_config.is_some());
+
+            let config = request.compression_config.unwrap();
+            assert!(config.enabled);
+            assert_eq!(config.backend, CompressionBackendType::Zstd);
+            assert_eq!(config.compression_level, Some(5));
+            assert_eq!(config.min_compression_size, 128);
+        }
+
+        #[test]
+        fn test_compression_config_conversion_lz4() {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+
+            let mut compression_config = protobuf::CompressionConfig::new();
+            compression_config.enabled = false;
+            compression_config.backend = protobuf::CompressionBackend::LZ4.into();
+            compression_config.compression_level = None;
+            compression_config.min_compression_size = 64;
+
+            proto_request.compression_config = ::protobuf::MessageField::some(compression_config);
+
+            let request: ConnectionRequest = proto_request.into();
+            assert!(request.compression_config.is_some());
+
+            let config = request.compression_config.unwrap();
+            assert!(!config.enabled);
+            assert_eq!(config.backend, CompressionBackendType::Lz4);
+            assert_eq!(config.compression_level, None);
+            assert_eq!(config.min_compression_size, 64);
+        }
+
+        #[test]
+        fn test_compression_config_conversion_unknown_backend() {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+
+            let mut compression_config = protobuf::CompressionConfig::new();
+            compression_config.enabled = true;
+            // Set an invalid backend value that will cause enum_value() to fail
+            compression_config.backend = EnumOrUnknown::from_i32(999);
+            compression_config.min_compression_size = 64;
+
+            proto_request.compression_config = ::protobuf::MessageField::some(compression_config);
+
+            let request: ConnectionRequest = proto_request.into();
+            assert!(request.compression_config.is_some());
+
+            let config = request.compression_config.unwrap();
+            // Should fall back to Zstd for unknown backends
+            assert_eq!(config.backend, CompressionBackendType::Zstd);
+        }
+
+        #[cfg(feature = "rdma")]
+        fn request_with_tcp_rdma() -> ConnectionRequest {
+            let mut proto_request = protobuf::ConnectionRequest::new();
+            proto_request.addresses.push(protobuf::NodeAddress {
+                host: "localhost".into(),
+                port: 6379,
+                ..Default::default()
+            });
+            let mut rdma = protobuf::RdmaConfig::new();
+            rdma.set_tcp(protobuf::TcpProvider {
+                bind: Some("127.0.0.1".into()),
+                ..Default::default()
+            });
+            proto_request.rdma_config = ::protobuf::MessageField::some(rdma);
+            proto_request.into()
+        }
+
+        /// A release build carries only `efa-direct`, so a `tcp` request must name
+        /// the development feature that honors it rather than open an endpoint.
+        #[cfg(all(feature = "rdma", not(feature = "rdma-tcp-dev")))]
+        #[test]
+        fn a_tcp_provider_is_rejected_without_the_development_feature() {
+            use crate::rdma::{RdmaSetting, RdmaUnavailable};
+
+            let RdmaSetting::Rejected(reason) = request_with_tcp_rdma().rdma else {
+                panic!("a tcp request should be rejected without the development feature");
+            };
+            assert_eq!(reason, RdmaUnavailable::TcpProviderNotBuilt);
+            assert!(reason.to_string().contains("rdma-tcp-dev"));
+        }
+
+        #[cfg(feature = "rdma-tcp-dev")]
+        #[test]
+        fn a_tcp_provider_is_configured_with_the_development_feature() {
+            use crate::rdma::{Provider, RdmaSetting};
+
+            let RdmaSetting::Configured(fabric) = request_with_tcp_rdma().rdma else {
+                panic!("a tcp request should configure a fabric in a tcp-dev build");
+            };
+            assert_eq!(fabric.provider(), Provider::Tcp);
+            assert_eq!(fabric.bind(), Some("127.0.0.1"));
+        }
+    }
+}

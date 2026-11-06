@@ -51,7 +51,6 @@ _LOCALS_ATTR = "__seq_image_locals__"
 _IMAGE_DECLARED_ATTR = "__seq_image_declared__"
 
 _MODELS_ATTR = "__seq_models__"
-_REGION_ATTR = "__seq_region__"
 
 _MODEL_PREFIX = "accounts/sequences/models/"
 
@@ -339,7 +338,6 @@ def _assemble_spec(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str] 
     setattr(cls, _CTX_ATTR, image.context if isinstance(image, Image) else None)
     setattr(cls, _LOCALS_ATTR, (image.local_files, image.python_sources) if isinstance(image, Image) else ((), ()))
     setattr(cls, _MODELS_ATTR, _models(kw))
-    setattr(cls, _REGION_ATTR, region_of(kw.get("region"), "region="))
     fields: dict[str, Any] = {
         "name": _name(kw, cls),
         "gpu": gpu,
@@ -529,35 +527,6 @@ def _models(kw: dict[str, Any]) -> tuple[str, ...]:
 def models_declared(cls: type) -> list[str] | None:
     """The full catalogue ids of the models the policy declared it calls, or None when it declared none."""
     return list(getattr(cls, _MODELS_ATTR, ()) or ()) or None
-
-
-
-
-
-
-
-REGIONS = {"us-east": "US East", "us-northwest": "US Northwest", "us-central": "US Central",
-           "us-east-central": "US East Central", "us-southwest": "US Southwest", "us-southeast": "US Southeast",
-           "us-mountain": "US Mountain"}
-
-
-def region_of(value: Any, said: str) -> str | None:
-    """A region as a deployment keeps it: one of REGIONS, or None for "auto" (the default). PolicyDefinitionError,
-    naming them, for any other - `said` is how the caller wrote it (region=, --region)."""
-    if value is None or (isinstance(value, str) and not value.strip()):
-        return None
-    name = str(value).strip().lower().replace("_", "-").replace(" ", "-")
-    if name == "auto":
-        return None
-    if name not in REGIONS:
-        raise PolicyDefinitionError(f"{said}{value!r} is not a region: auto (the default - nearest each robot), "
-                                    f"{', '.join(REGIONS)}")
-    return name
-
-
-def region_declared(cls: type) -> str | None:
-    """The region the policy declared (REGIONS), None for auto."""
-    return getattr(cls, _REGION_ATTR, None)
 
 
 def resources_declared(cls: type) -> dict[str, Any]:

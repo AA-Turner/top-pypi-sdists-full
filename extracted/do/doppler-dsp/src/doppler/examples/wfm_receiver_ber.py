@@ -22,11 +22,16 @@ Run:
 
 from __future__ import annotations
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+require("scipy")
 from scipy.special import erfc
 
 from doppler.wfm import Synth

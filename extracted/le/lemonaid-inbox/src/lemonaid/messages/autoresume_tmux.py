@@ -8,7 +8,7 @@ import re
 import subprocess
 import time
 
-from .. import tmux
+from .. import front_end, tmux
 from ..config import BackendConfig, Config
 from ..inbox import db
 from ..launch import window
@@ -54,6 +54,26 @@ def ready_for_input(screen: str) -> bool:
     return not window.dialog_in(screen) and any(
         _EMPTY_COMPOSER.fullmatch(line) for line in screen.splitlines()
     )
+
+
+def recreate(row: db.Notification, cwd: str) -> tuple[str, str]:
+    """Recreate *row*'s tmux session in *cwd* if it is gone: (what was done, why not).
+
+    Its first window is a shell; the lemon is resumed in a window of its own.
+    """
+    where = front_end.location.of(row.metadata, row.switch_source)
+    name = where.workspace
+    if where.front_end != "tmux" or not name:
+        return "", ""
+
+    if _tmux(row, "has-session", "-t", f"={name}").returncode == 0:
+        return "", ""
+
+    made = _tmux(row, "new-session", "-d", "-s", name, "-c", cwd)
+    if made.returncode != 0:
+        return "", f"could not recreate tmux session {name}: {made.stderr.strip()}"
+
+    return f"recreated tmux session {name}", ""
 
 
 def start(row: db.Notification, config: Config, text: str = wake.PROMPT) -> str:

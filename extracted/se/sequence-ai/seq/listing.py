@@ -446,6 +446,8 @@ def print_benchmarks(out: dict, *, echo: Callable[[str], None] = print) -> None:
     """`seq benchmark ls`: one line per benchmark - the template its code comes from too, its card (and the driver it
     names, card_label), and how many worlds one call of its step takes (— for an env that steps one world at a time) -
     then where this page sits in the whole list."""
+    from seq.errors import state_said
+
     rows = out.get("benchmarks") or []
     if not rows:
         echo("you have no benchmarks yet: register one with `seq deploy <folder>`")
@@ -459,7 +461,7 @@ def print_benchmarks(out: dict, *, echo: Callable[[str], None] = print) -> None:
         last = b.get("last_eval")
         last_text = "—" if not last else f"{last['eval_id'][:8]}  {last.get('policy') or '?'}  {_metric(last)}"
         tpl = template_label(b.get("template"), b.get("edited_from"))
-        echo(f"{b['name']:<24} {_cell(b.get('version')):>3}  {b['status']:<8}  {tpl:<28} "
+        echo(f"{b['name']:<24} {_cell(b.get('version')):>3}  {state_said(b['status'], b.get('error')):<8}  {tpl:<28} "
              f"{card:<{gw}} {_cell(b.get('worlds')):>6}  "
              f"{_day(b.get('created_at')):<10}  {last_text}")
 

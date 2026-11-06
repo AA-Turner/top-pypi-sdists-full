@@ -42,10 +42,10 @@ import os
 import signal
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import typesafe_carla.carla as carla
 import hydra
@@ -70,8 +70,10 @@ from autoware_carla_scenario import (
 import autoware_carla_scenario.hydra_compat  # noqa: F401  (Python 3.14 argparse)
 from autoware_carla_scenario.autoware_stack.launcher import AutowareLauncher
 from autoware_carla_scenario.batch_report import print_summary as _print_summary
+from autoware_carla_scenario.batch_report import write_batch_result_json
 from autoware_carla_scenario.canvas import use_canvas
 from autoware_carla_scenario.conditions import ScenarioResult
+from autoware_carla_scenario.config_flags import check_flag
 from autoware_carla_scenario.constants import DEFAULT_TM_PORT
 from autoware_carla_scenario.maps import resolve_map_paths
 from autoware_carla_scenario.odd.route import PlannedRoute, RouteError
@@ -91,9 +93,17 @@ from autoware_carla_scenario.rerun import (
 )
 from autoware_carla_scenario.rerun import report as rerun_report
 from autoware_carla_scenario.coordinate.snap import check_ray_distances
+from autoware_carla_scenario.run_dirs import (
+    asks_for_no_job,
+    is_multirun_mode_override as _is_multirun_mode_override,
+    multirun_requested_in_argv as _multirun_requested_in_argv,
+    reserve_timestamped_dir,
+    sets_hydra_key as _sets_hydra_key,
+)
+from autoware_carla_scenario.run_outputs import RESULT_SUFFIX
 from autoware_carla_scenario.run_timeout import run_timeout_seconds
 from autoware_carla_scenario.scenario_config import EntityConfig
-from autoware_carla_scenario.seed import DEFAULT_SEED, set_run_seed
+from autoware_carla_scenario.seed import DEFAULT_SEED, MAX_SEED, set_run_seed
 from autoware_carla_scenario.server import fog_density_scale_args
 from autoware_carla_scenario.t4 import T4Recorder, T4Settings, T4UnavailableError
 from autoware_carla_scenario.t4_scene import T4SceneExporter
@@ -123,6 +133,7 @@ from autoware_carla_scenario.registry import (
 )
 from autoware_carla_scenario.scenario_glob import resolve_scenario_glob, scenario_dirs
 from autoware_carla_scenario.scenario_runner import _run_file_stem
+from autoware_carla_scenario.value_text import shown
 
 from .argv import (
     BatchCase,
@@ -148,6 +159,9 @@ from .temporary_stop import TemporaryStopScenario
 from .pedestrian_dart_out import PedestrianDartOutScenario
 from .cut_in import CutInScenario
 from .traffic_light_compliance import TrafficLightComplianceScenario
+
+if TYPE_CHECKING:
+    from autoware_carla_scenario.driver import ControlConfig
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +256,32 @@ def _cap_malloc_arenas() -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _config_float(key: str, value: Any) -> float:
+    """``float(value)`` of the config's *key*; for a value ``float()`` cannot
+    read -- not a number, or an int too big for a float (``10**400``) -- a
+    ``ValueError`` naming the key (#1660).  What ``float()`` reads, a boolean
+    or a numeric string included, is read as before.
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{key} must be a number, got {shown(value)}") from None
+    except OverflowError:
+        raise ValueError(f"{key} must be finite, got {shown(value)}") from None
+
+
+def _config_int(key: str, value: Any) -> int:
+    """``int(value)`` of the config's *key*; for a value ``int()`` cannot read
+    (not a number, an infinity, a string of more digits than
+    ``sys.get_int_max_str_digits()``), a ``ValueError`` naming the key
+    (#1660).  What ``int()`` reads is read as before.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(f"{key} must be a whole number, got {shown(value)}") from None
+
+
 def build_ego_and_spawn(
     cfg: DictConfig,
 ) -> tuple[EgoConfig, Lanelet2Pose, GroundProjectionConfig]:
@@ -266,10 +306,18 @@ def build_ego_and_spawn(
             carla.Transform(carla.Location(x=0.0, y=0.0, z=0.0))
         ),
         vehicle_type=cfg.ego.vehicle_type,
-        initial_speed_kmh=float(cfg.ego.initial_speed_kmh),
-        spawn_retry_max_count=int(cfg.entity.spawn_retry_max_count),
-        spawn_retry_t_step=float(cfg.entity.spawn_retry_t_step),
-        spawn_retry_z_step=float(cfg.entity.spawn_retry_z_step),
+        initial_speed_kmh=_config_float(
+            "ego.initial_speed_kmh", cfg.ego.initial_speed_kmh
+        ),
+        spawn_retry_max_count=_config_int(
+            "entity.spawn_retry_max_count", cfg.entity.spawn_retry_max_count
+        ),
+        spawn_retry_t_step=_config_float(
+            "entity.spawn_retry_t_step", cfg.entity.spawn_retry_t_step
+        ),
+        spawn_retry_z_step=_config_float(
+            "entity.spawn_retry_z_step", cfg.entity.spawn_retry_z_step
+        ),
         goal_pose=build_goal_pose(cfg),
         waypoint_poses=build_waypoint_poses(cfg),
     )
@@ -301,6 +349,11 @@ def build_ground_projection(cfg: DictConfig) -> GroundProjectionConfig:
             distances.append(float(value))
         except (TypeError, ValueError):
             raise ValueError(f"{key} must be a number, got {value!r}") from None
+        except OverflowError:
+            # An int too big for a float (10**400): not finite (#1652).
+            raise ValueError(
+                f"{key} must be non-negative and finite, got {shown(value)}"
+            ) from None
     upper, lower = distances
     check_ray_distances(upper, lower, _RAY_UPPER_KEY, _RAY_LOWER_KEY)
     return GroundProjectionConfig(ray_distance_upper=upper, ray_distance_lower=lower)
@@ -318,9 +371,11 @@ def build_spawn_pose(cfg: DictConfig) -> Lanelet2Pose:
     ego_cfg = cfg.ego
     return Lanelet2Pose(
         lanelet_id=int(ego_cfg.spawn_lanelet_id),
-        s=float(ego_cfg.spawn_s),
-        t=float(ego_cfg.get("spawn_t", 0.0) or 0.0),
-        heading=float(ego_cfg.get("spawn_heading", 0.0) or 0.0),
+        s=_config_float("ego.spawn_s", ego_cfg.spawn_s),
+        t=_config_float("ego.spawn_t", ego_cfg.get("spawn_t", 0.0) or 0.0),
+        heading=_config_float(
+            "ego.spawn_heading", ego_cfg.get("spawn_heading", 0.0) or 0.0
+        ),
     )
 
 
@@ -336,7 +391,7 @@ def build_goal_pose(cfg: DictConfig) -> Lanelet2Pose | None:
         return None
     return Lanelet2Pose(
         lanelet_id=int(goal_lanelet_id),
-        s=float(ego_cfg.get("goal_s", 0.0)),
+        s=_config_float("ego.goal_s", ego_cfg.get("goal_s", 0.0)),
     )
 
 
@@ -377,9 +432,11 @@ def build_planned_route(cfg: DictConfig, name: str = "") -> PlannedRoute:
         raise RouteError("no ego.spawn_lanelet_id: the route has no start")
     start = Lanelet2Pose(
         lanelet_id=int(spawn_lanelet_id),
-        s=float(ego_cfg.get("spawn_s", 0.0)),
-        t=float(ego_cfg.get("spawn_t", 0.0) or 0.0),
-        heading=float(ego_cfg.get("spawn_heading", 0.0) or 0.0),
+        s=_config_float("ego.spawn_s", ego_cfg.get("spawn_s", 0.0)),
+        t=_config_float("ego.spawn_t", ego_cfg.get("spawn_t", 0.0) or 0.0),
+        heading=_config_float(
+            "ego.spawn_heading", ego_cfg.get("spawn_heading", 0.0) or 0.0
+        ),
     )
     goal = build_goal_pose(cfg)
     scenario_cfg = cfg.get("scenario") or {}
@@ -485,6 +542,13 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
         for name in ("mounts", "env"):
             if name in options:
                 options[name] = _launcher_str_mapping(name, options[name])
+        # Read by truthiness by the launcher (it runs rosdep and feeds the
+        # image's hash): strictly here, so "false" is off and a typo refused
+        # (#1761).
+        if "rosdep" in options:
+            options["rosdep"] = check_flag(
+                "autoware.launcher.rosdep", options["rosdep"]
+            )
         options["ros_domain_ids"] = _launcher_ros_domain_ids(settings)
         options["stop_timeout_s"] = stop_timeout_s
         if "bridge_parameters" in options:
@@ -510,6 +574,20 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
     return launcher
 
 
+def _finite_number(value: Any) -> bool:
+    """Whether *value* is a finite number: an int or a float, not a bool.
+
+    An int too big for a float (``10**400``) is not: ``math.isfinite()``
+    raises ``OverflowError`` on it (#1652).
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def _launcher_stop_timeout_s(settings: dict[str, Any]) -> float:
     """``autoware.launcher.stop_timeout_s`` of *settings*, checked: a finite
     number of seconds -- an int or a float, not a bool, a string or null --
@@ -523,15 +601,10 @@ def _launcher_stop_timeout_s(settings: dict[str, Any]) -> float:
         ValueError: naming the key.
     """
     value = settings.get("stop_timeout_s", 20.0)
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value <= 0
-    ):
+    if not _finite_number(value) or value <= 0:
         raise ValueError(
             "autoware.launcher.stop_timeout_s must be a finite number > 0 "
-            f"(got {value!r})"
+            f"(got {shown(value)})"
         )
     return float(value)
 
@@ -706,7 +779,6 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
     if entity == "carla_driver":
         from autoware_carla_scenario import CarlaDriverEntity  # noqa: PLC0415
         from autoware_carla_scenario.driver import (  # noqa: PLC0415
-            ControlConfig,
             DriverClientConfig,
         )
 
@@ -720,7 +792,7 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
 
         driver_dict = _with_fog_density_scale(_to_dict(driver_cfg), cfg)
         # ``driver.control: null`` means the default gains, as ``ros2.control`` does.
-        control = ControlConfig.from_mapping(driver_dict.get("control") or {})
+        control = _control_config(driver_dict, "driver")
         bridge_dict = driver_dict.get("bridge")
         if bridge_dict is None:
             return CarlaDriverEntity(
@@ -757,7 +829,6 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
         # ROS 2 nodes drive the ego over DDS (docs/ros2.md). The DDS binding is
         # imported when the scenario starts, so a missing `ros2` extra fails
         # there, with the install hint, rather than here.
-        from autoware_carla_scenario.driver import ControlConfig  # noqa: PLC0415
         from autoware_carla_scenario.entity.ros2_entity import (  # noqa: PLC0415
             Ros2EgoEntity,
         )
@@ -784,7 +855,7 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
                 "server.max_tick_rate_hz=20 (docs/ros2.md, Timing)"
             )
         ros2_dict = _to_dict(ros2_cfg)
-        control = ControlConfig.from_mapping(ros2_dict.get("control") or {})
+        control = _control_config(ros2_dict, "ros2")
         return Ros2EgoEntity(Ros2EgoConfig.from_mapping(ros2_dict), control)
 
     if entity == "hils":
@@ -1015,14 +1086,9 @@ def _server_number(
     if value is None:
         return None
     bound = "> 0" if positive else ">= 0"
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or (value <= 0 if positive else value < 0)
-    ):
+    if not _finite_number(value) or (value <= 0 if positive else value < 0):
         raise ValueError(
-            f"server.{key} must be a finite number {bound} (got {value!r})"
+            f"server.{key} must be a finite number {bound} (got {shown(value)})"
         )
     return float(value)
 
@@ -1122,10 +1188,28 @@ def _map_source(cfg: DictConfig) -> str | None:
     return None
 
 
+def _switch(cfg: DictConfig, block: str, key: str) -> bool:
+    """The true/false switch ``<block>.<key>`` of *cfg*, off when absent.
+
+    A boolean or its spelling (``"false"``, ``"yes"``, ``0``: what an
+    ``${oc.env:VAR,false}`` or a quoted override gives), not its truthiness:
+    ``bool("false")`` was true, and so was a typo (#1753).
+
+    Raises:
+        ValueError: naming the key, for a value that spells neither
+            (:func:`~autoware_carla_scenario.config_flags.check_flag`).
+    """
+    settings = cfg.get(block) or {}
+    return check_flag(f"{block}.{key}", settings.get(key, False))
+
+
 def _rerun_settings(cfg: DictConfig) -> tuple[bool, bool]:
-    """``rerun.enabled`` and ``rerun.strict`` (both off when absent)."""
-    rerun_cfg = cfg.get("rerun") or {}
-    return bool(rerun_cfg.get("enabled", False)), bool(rerun_cfg.get("strict", False))
+    """``rerun.enabled`` and ``rerun.strict`` (both off when absent).
+
+    Raises:
+        ValueError: Either is not true or false (:func:`_switch`).
+    """
+    return _switch(cfg, "rerun", "enabled"), _switch(cfg, "rerun", "strict")
 
 
 def _rerun_lidar_max_points(cfg: DictConfig) -> int | None:
@@ -1136,11 +1220,12 @@ def _rerun_lidar_max_points(cfg: DictConfig) -> int | None:
     gives) counts as that integer, as ``int()`` read them before (#1226).
 
     Raises:
-        ValueError: It is not a non-negative integer (a bool is not one).
+        ValueError: It is not a non-negative integer (a bool is not one), or
+            ``rerun.lidar`` is not true or false (:func:`_switch`).
     """
-    rerun_cfg = cfg.get("rerun") or {}
-    if not rerun_cfg.get("lidar", False):
+    if not _switch(cfg, "rerun", "lidar"):
         return None
+    rerun_cfg = cfg.get("rerun") or {}
     value = rerun_cfg.get("lidar_max_points", 0)
     if value is None:
         return 0
@@ -1192,7 +1277,7 @@ def build_rerun_converter(*cfgs: DictConfig) -> RerunConverter | None:
     ]
     strict = any(strict for _, strict in settings)
     cameras = any(
-        enabled and bool((cfg.get("rerun") or {}).get("cameras", False))
+        enabled and _switch(cfg, "rerun", "cameras")
         for cfg, (enabled, _) in zip(cfgs, settings)
     )
     sensors: dict[str, Any] = {}
@@ -1229,9 +1314,9 @@ def _t4_settings(*cfgs: DictConfig) -> T4Settings | None:
     from autoware_carla_scenario.driver import DriverClientConfig  # noqa: PLC0415
 
     for cfg in cfgs:
-        t4_cfg = cfg.get("t4") or {}
-        if not t4_cfg.get("enabled", False):
+        if not _switch(cfg, "t4", "enabled"):
             continue
+        t4_cfg = cfg.get("t4") or {}
         driver_cfg = cfg.get("driver")
         if driver_cfg is None:
             raise ValueError(
@@ -1269,9 +1354,9 @@ def build_t4scene_exporter(*cfgs: DictConfig) -> T4SceneExporter | None:
             bool, not a number or not positive and finite.
     """
     for cfg in cfgs:
-        t4scene_cfg = cfg.get("t4scene") or {}
-        if not t4scene_cfg.get("enabled", False):
+        if not _switch(cfg, "t4scene", "enabled"):
             continue
+        t4scene_cfg = cfg.get("t4scene") or {}
         # Handed over as read: the exporter refuses a bool, which float()
         # would turn into a 1 s step or a 1 m distance (#1502, #1231).
         return T4SceneExporter(
@@ -1308,6 +1393,22 @@ def apply_canvas(*cfgs: DictConfig) -> Path | None:
     return use_canvas(canvas_config(*cfgs))
 
 
+def metrics_heavy(cfg: DictConfig) -> bool | None:
+    """*cfg*'s ``metrics.heavy``, read strictly
+    (:func:`~autoware_carla_scenario.config_flags.check_flag`: ``"false"`` is
+    off, a typo refused, #1761); ``None`` when it is unset or null, which
+    leaves the decision to ``$AUTOWARE_CARLA_SCENARIO_HEAVY_METRICS``.
+
+    Raises:
+        ValueError: naming ``metrics.heavy``, for a value that is not a
+            switch.
+    """
+    value = (cfg.get("metrics") or {}).get("heavy")
+    if value is None:
+        return None
+    return check_flag("metrics.heavy", value)
+
+
 def apply_metrics(*cfgs: DictConfig) -> bool:
     """Turn the heavy CommonRoad metrics on or off as the first of *cfgs*
     that sets ``metrics.heavy`` (to ``true`` or ``false``) says; when none
@@ -1329,9 +1430,8 @@ def apply_metrics(*cfgs: DictConfig) -> bool:
 
     heavy: bool | None = None
     for cfg in cfgs:
-        value = (cfg.get("metrics") or {}).get("heavy")
-        if value is not None:
-            heavy = bool(value)
+        heavy = metrics_heavy(cfg)
+        if heavy is not None:
             break
     if heavy is None:
         heavy = _heavy_metrics_from_user()
@@ -1479,27 +1579,6 @@ def _to_dict(cfg_node: DictConfig) -> dict:  # type: ignore[type-arg]
     container = OmegaConf.to_container(cfg_node, resolve=True)
     assert isinstance(container, dict)  # noqa: S101
     return container
-
-
-def _is_multirun_mode_override(arg: str) -> bool:
-    """Return ``True`` for a ``hydra.mode=MULTIRUN`` override.
-
-    Hydra's documented alternative to ``--multirun``.  The value is matched as
-    Hydra matches it, by the enum member's name: Hydra refuses
-    ``hydra.mode=multirun``.
-    """
-    return arg.lstrip("+") == "hydra.mode=MULTIRUN"
-
-
-def _multirun_requested_in_argv(argv: list[str]) -> bool:
-    """Return ``True`` when *argv* asks Hydra for a multirun.
-
-    For use before Hydra composes, so a ``hydra.mode: MULTIRUN`` set only in
-    a config file is not seen here.
-    """
-    return any(
-        arg in ("--multirun", "-m") or _is_multirun_mode_override(arg) for arg in argv
-    )
 
 
 def _is_multirun() -> bool:
@@ -1719,22 +1798,14 @@ def _reserve_output_dir(root: str) -> Path:
     Relative, as Hydra's own ``outputs/...`` and ``multirun/...`` defaults
     are, so it can be handed to Hydra as an override whatever characters the
     working directory's path holds.
+
+    Reads the clock, and reserves the directory with the checked
+    :func:`~autoware_carla_scenario.run_dirs.reserve_timestamped_dir`.
     """
     from datetime import datetime  # noqa: PLC0415
 
     now = datetime.now()  # noqa: DTZ005
-    day = Path(root) / now.strftime("%Y-%m-%d")
-    day.mkdir(parents=True, exist_ok=True)
-    name = now.strftime("%H-%M-%S")
-    suffix = 0
-    while True:
-        output_dir = day / (name if suffix == 0 else f"{name}-{suffix}")
-        try:
-            output_dir.mkdir()
-        except FileExistsError:
-            suffix += 1
-            continue
-        return output_dir
+    return Path(reserve_timestamped_dir(Path("."), root, now))
 
 
 def _make_batch_output_dir() -> Path:
@@ -1749,32 +1820,6 @@ def _make_batch_output_dir() -> Path:
         (e.g. ``outputs/2026-03-13/12-00-00/``).
     """
     return _reserve_output_dir("outputs").resolve()
-
-
-#: Hydra's command-line flags that print something and run no job: a run
-#: directory reserved for them would be left empty.
-_HYDRA_NO_JOB_FLAGS = (
-    "--help",
-    "-h",
-    "--hydra-help",
-    "--version",
-    "--cfg",
-    "-c",
-    "--info",
-    "-i",
-    "--shell-completion",
-    "-sc",
-)
-
-
-def _sets_hydra_key(argv: list[str], key: str) -> bool:
-    """Return ``True`` when an override in *argv* sets *key* (``key=``,
-    ``+key=``, ``++key=`` or ``~key``)."""
-    for arg in argv:
-        name = arg.lstrip("+~").split("=", 1)[0]
-        if name == key:
-            return True
-    return False
 
 
 def _reserve_hydra_output_dir(argv: list[str]) -> tuple[list[str], Path | None]:
@@ -1792,7 +1837,7 @@ def _reserve_hydra_output_dir(argv: list[str]) -> tuple[list[str], Path | None]:
     user's own) or asks Hydra for something other than a job (``--help``,
     ``--cfg``, ...).
     """
-    if any(arg.split("=", 1)[0] in _HYDRA_NO_JOB_FLAGS for arg in argv[1:]):
+    if asks_for_no_job(argv):
         return argv, None
     multirun = _multirun_requested_in_argv(argv)
     key = "hydra.sweep.dir" if multirun else "hydra.run.dir"
@@ -1920,7 +1965,12 @@ def _check_batch_writer_settings(configs: list[DictConfig]) -> None:
     they read them -- ``rerun.lidar_max_points`` of every case asking for
     recordings, the ``t4`` and ``driver`` settings and the ``t4scene``
     settings of the first case enabling each -- without the extras those
-    need, which :func:`check_run_extras` asks for.
+    need, which :func:`check_run_extras` asks for.  And every case's
+    switches (``rerun.enabled``, ``.strict``, ``.lidar`` and ``.cameras``,
+    ``t4.enabled``, ``t4scene.enabled``): true or false, or a spelling of
+    either (:func:`_switch`), so that ``rerun.enabled=ture`` is refused in
+    one line before anything runs, whichever case of the batch sets it
+    (#1753).
 
     Raises:
         ValueError: naming the key of the first value refused.
@@ -1928,6 +1978,10 @@ def _check_batch_writer_settings(configs: list[DictConfig]) -> None:
     for cfg in configs:
         if _rerun_settings(cfg)[0]:
             _rerun_lidar_max_points(cfg)
+        _switch(cfg, "rerun", "lidar")
+        _switch(cfg, "rerun", "cameras")
+        _switch(cfg, "t4", "enabled")
+        _switch(cfg, "t4scene", "enabled")
     _t4_settings(*configs)
     # Holds nothing that starts: built to be checked, and dropped.
     build_t4scene_exporter(*configs)
@@ -2081,7 +2135,8 @@ def check_batch_configs(
     settings of an ``ego.entity=ros2`` case (:func:`_check_ros2_settings`), the
     ``backends`` settings of the backends this package ships
     (:func:`_check_backend_settings`), the ``scenario`` settings its config
-    class refuses (:func:`_check_scenario_config`) and ``odd_case``; and the server, traffic and Autoware launcher settings its
+    class refuses (:func:`_check_scenario_config`), ``odd_case`` and
+    ``metrics.heavy`` (:func:`metrics_heavy`); and the server, traffic and Autoware launcher settings its
     queue is built from (:func:`_batch_queue`, :func:`run_scenario`), once for
     each distinct set of them.  A batch is refused for these before any
     scenario is built or the map is resolved (#1430): a local one would refuse
@@ -2124,6 +2179,8 @@ def check_batch_configs(
             _check_scenario_config(cfg)
             _odd_case(cfg)
             build_ground_projection(cfg)
+            # Every case's, though apply_metrics reads only the first set.
+            metrics_heavy(cfg)
             # Once a distinct setting: a sweep's cases mostly share them.  The
             # ego's entity too: build_autoware_launcher reads the launcher only
             # for an ``ego.entity=autoware`` case.
@@ -2426,13 +2483,43 @@ def run_batch(
 
     logger.info("All %d scenario(s) built. Starting execution...", len(labels))
 
+    # The cases run so far, for batch_results.json: rewritten as each case
+    # ends, so that the viewer lists a batch still running, or cut short
+    # (Ctrl-C, a SIGTERM), as the batch it is, with the cases it ran (#1566).
+    # The summary below writes it once more, whole, when the batch ends.
+    done: list[ScenarioResult] = []
+
+    def write_done() -> None:
+        try:
+            write_batch_result_json(
+                labels,
+                done,
+                output_dir,
+                case_overrides if expand else None,
+                errored=queue.errored_indices(),
+            )
+        except Exception:
+            # The batch goes on: its summary is written again at the end.
+            logger.warning("Could not write the batch's results so far", exc_info=True)
+
+    def case_done(_index: int, result: ScenarioResult) -> None:
+        done.append(result)
+        write_done()
+
+    finished = False
     try:
         with queue:
             # A case that cannot run (a spawn point without ground, say) is
             # recorded as errored, and the rest of the batch still runs.
-            results = queue.run_all(release=True, continue_on_error=True)
+            results = queue.run_all(
+                release=True, continue_on_error=True, on_result=case_done
+            )
             errored = queue.errored_indices()
+        finished = True
     finally:
+        if not finished and done:
+            # Cut short: the cases it ran, as the last case's end wrote them.
+            write_done()
         # Each log was converted as its case ended; wait for the last ones.
         conversions = rerun.close() if rerun is not None else []
 
@@ -2458,7 +2545,8 @@ def config_seed(cfg: DictConfig) -> int | None:
     the key (an exported scenario package's) leaves the scenario its own seed.
 
     Raises:
-        ValueError: When it is not a non-negative whole number
+        ValueError: When it is not a whole number from 0 to
+            :data:`~autoware_carla_scenario.seed.MAX_SEED` (``2**31 - 1``)
             (:func:`~autoware_carla_scenario.odd.sampler.seed_setting`):
             ``1.9`` and ``true`` are not seed 1.
     """
@@ -2467,9 +2555,10 @@ def config_seed(cfg: DictConfig) -> int | None:
 
 def _check_seeds(cfg: DictConfig) -> None:
     """Refuse the run's ``seed`` and its sweep's ``odd_sample`` ``seed`` and
-    ``count`` unless each is a whole number (a seed not negative, a count at
-    least 1), naming the key, as expanding the sweep and building the scenario
-    would refuse them.
+    ``count`` unless each is a whole number (a seed from 0 to ``2**31 - 1``,
+    a count at least 1), and its ``odd_sample`` ``tire_friction`` and
+    ``visibility`` unless each is true or false, naming the key, as expanding
+    the sweep and building the scenario would refuse them.
 
     Raises:
         ValueError: naming the key of the value refused.
@@ -2483,11 +2572,12 @@ def _check_seeds(cfg: DictConfig) -> None:
 def _check_driver_settings(cfg: DictConfig) -> None:
     """Refuse the ``driver`` settings of an ``ego.entity=carla_driver`` case
     as :func:`build_ego_entity` would (``driver.random_seed``, a LiDAR's
-    ``noise_seed``, ...), building only the config: nothing dials a policy.
+    ``noise_seed``, ``driver.control.kp``, ...), building only the configs:
+    nothing dials a policy.
 
     Raises:
         ValueError: When :class:`~autoware_carla_scenario.driver.DriverClientConfig`
-            refuses them.
+            or the trajectory follower's ``driver.control`` refuses them.
     """
     if str((cfg.get("ego") or {}).get("entity", "autopilot")) != "carla_driver":
         return
@@ -2496,7 +2586,39 @@ def _check_driver_settings(cfg: DictConfig) -> None:
         return  # Refused, with its remedy, by build_ego_entity.
     from autoware_carla_scenario.driver import DriverClientConfig  # noqa: PLC0415
 
-    DriverClientConfig.from_mapping(_with_fog_density_scale(_to_dict(driver_cfg), cfg))
+    driver_dict = _with_fog_density_scale(_to_dict(driver_cfg), cfg)
+    _control_config(driver_dict, "driver")
+    DriverClientConfig.from_mapping(driver_dict)
+
+
+def _control_config(section: Mapping[str, Any], name: str) -> "ControlConfig":
+    """The trajectory follower's gains of the ``control`` entry of
+    *section*, the run's *name* (``driver`` or ``ros2``) settings:
+    ``control: null`` (or none) means the default gains; anything else but a
+    mapping is refused (``driver.control must be a mapping, got 'abc'``).
+
+    :meth:`~autoware_carla_scenario.driver.ControlConfig.from_mapping` names
+    the key it refuses, not the section it is read from, as
+    :class:`~autoware_carla_scenario.AutowareBridgeConfig` does: its error is
+    headed with ``<name>.control.`` here (``driver.control.kp must be a
+    number, got '0.5'``).
+
+    Raises:
+        ValueError: naming ``<name>.control.<key>``.
+    """
+    from autoware_carla_scenario.driver import ControlConfig  # noqa: PLC0415
+    from autoware_carla_scenario.value_text import shown  # noqa: PLC0415
+
+    control = section.get("control")
+    if control is None:
+        control = {}
+    if not isinstance(control, Mapping):
+        # from_mapping's errors start with a key; this one is the section's.
+        raise ValueError(f"{name}.control must be a mapping, got {shown(control)}")
+    try:
+        return ControlConfig.from_mapping(control)
+    except ValueError as exc:
+        raise ValueError(f"{name}.control.{exc}") from None
 
 
 def _check_ros2_settings(cfg: DictConfig) -> None:
@@ -2506,8 +2628,9 @@ def _check_ros2_settings(cfg: DictConfig) -> None:
     which the entity first does once the ego has spawned.
 
     Raises:
-        ValueError: When :class:`~autoware_carla_scenario.ros2.Ros2EgoConfig`
-            or the trajectory follower's ``ros2.control`` refuses them, headed
+        ValueError: When the trajectory follower's ``ros2.control`` refuses
+            them, naming ``ros2.control.<key>``, or
+            :class:`~autoware_carla_scenario.ros2.Ros2EgoConfig` does, headed
             ``ros2:``.
     """
     if str((cfg.get("ego") or {}).get("entity", "autopilot")) != "ros2":
@@ -2515,12 +2638,11 @@ def _check_ros2_settings(cfg: DictConfig) -> None:
     ros2_cfg = cfg.get("ros2")
     if ros2_cfg is None:
         return  # Refused, with its remedy, by build_ego_entity.
-    from autoware_carla_scenario.driver import ControlConfig  # noqa: PLC0415
     from autoware_carla_scenario.ros2 import Ros2EgoConfig  # noqa: PLC0415
 
     ros2_dict = _to_dict(ros2_cfg)
+    _control_config(ros2_dict, "ros2")
     try:
-        ControlConfig.from_mapping(ros2_dict.get("control") or {})
         Ros2EgoConfig.from_mapping(ros2_dict)
     except ValueError as exc:
         raise ValueError(f"ros2: {exc}") from None
@@ -2700,7 +2822,13 @@ def environment_settings(cfg: DictConfig) -> dict[str, float]:
         # A bool is an int to Python, and ``float("15")`` would read a string.
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"environment.{key} must be a number, got {value!r}")
-        number = float(value)
+        try:
+            number = float(value)
+        except OverflowError:
+            # An int too big for a float (10**400): not finite (#1652).
+            raise ValueError(
+                f"environment.{key} must be finite, got {shown(value)}"
+            ) from None
         refusal = _refusal(str(key), number)
         if refusal != "":
             raise ValueError(f"environment.{key} {refusal}")
@@ -2762,6 +2890,24 @@ class BackgroundTraffic(NamedTuple):
     min_gap_m: float
 
 
+def _float_of_text(value: Any) -> float:
+    """``float(str(value))``, the way ``background_traffic`` reads a number
+    (``"30"`` reads, ``true`` does not); an int of more digits than
+    ``sys.get_int_max_str_digits()``, which ``str()`` refuses, is infinite,
+    as ``float(str())`` of a shorter one too big for a float is (#1660).
+
+    Raises:
+        ValueError: For a value that is not a number.
+    """
+    try:
+        text = str(value)
+    except ValueError:
+        if isinstance(value, int):
+            return -math.inf if value < 0 else math.inf
+        raise  # A value holding such an int ([10**5000]): not a number.
+    return float(text)
+
+
 def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
     """The numbers of the config's ``background_traffic``, checked; ``None``
     when it is off (``enabled`` false or the block absent), when none is read.
@@ -2781,7 +2927,7 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
         ValueError: naming the key of the first value refused.
     """
     background = cfg.get("background_traffic")
-    if background is None or not background.get("enabled", False):
+    if background is None or not _switch(cfg, "background_traffic", "enabled"):
         return None
     settings = _to_dict(background)
     source = settings.get("source") or {}
@@ -2800,10 +2946,10 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
     # 0 would be traffic that never moves (#967).
     speed_value = source.get("speed_kmh", 30.0)
     try:
-        speed_kmh = check_background_speed(float(str(speed_value)))
+        speed_kmh = check_background_speed(_float_of_text(speed_value))
     except ValueError as exc:
         raise ValueError(
-            f"background_traffic.source.speed_kmh: {speed_value!r} is not a "
+            f"background_traffic.source.speed_kmh: {shown(speed_value)} is not a "
             f"background speed ({exc})"
         ) from exc
 
@@ -2812,14 +2958,14 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
         # dropped without a word, infinity would crash the run (#1321).
         value = source.get(key, default)
         try:
-            amount = float(str(value))
+            amount = _float_of_text(value)
         except ValueError as exc:
             raise ValueError(
-                f"background_traffic.source.{key}: {value!r} is not a number"
+                f"background_traffic.source.{key}: {shown(value)} is not a number"
             ) from exc
         if not math.isfinite(amount) or amount < 0:
             raise ValueError(
-                f"background_traffic.source.{key}: {value!r} must be finite "
+                f"background_traffic.source.{key}: {shown(value)} must be finite "
                 "and not negative"
             )
         return amount
@@ -2857,7 +3003,9 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
 
     Raises:
         ValueError: naming the key, for a value
-            :func:`background_traffic_settings` refuses.
+            :func:`background_traffic_settings` refuses, and for a
+            ``stop_after_seconds`` read that is not a positive, finite number
+            of seconds.
     """
     checked = background_traffic_settings(cfg)
     if checked is None:
@@ -2868,10 +3016,17 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
     # null (the default) follows the run's seed, the scenario's.
     seed = scenario.random_seed if checked.seed is None else checked.seed
 
-    def until(seconds: object, label: str) -> ElapsedTimeCondition | None:
+    def until(seconds: object, key: str, label: str) -> ElapsedTimeCondition | None:
         if seconds is None:
             return None
-        return ElapsedTimeCondition(float(str(seconds)), label=label)
+        try:
+            return ElapsedTimeCondition(_float_of_text(seconds), label=label)
+        except ValueError as exc:
+            # Not a number, or not a positive finite duration (#1660).
+            raise ValueError(
+                f"background_traffic.{key}: {shown(seconds)} is not a "
+                f"duration ({exc})"
+            ) from exc
 
     max_vehicles = checked.max_vehicles
     constraints = source.get("constraints") or []
@@ -2893,7 +3048,11 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             seed=seed,
             label=label,
             until=(
-                until(source.get("stop_after_seconds"), "background_source_ends")
+                until(
+                    source.get("stop_after_seconds"),
+                    "source.stop_after_seconds",
+                    "background_source_ends",
+                )
                 if rate > 0
                 else None
             ),
@@ -2909,7 +3068,12 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
     if constraints and rate > 0:
         scenario.register_pre_tick(
             source_action(
-                initial=0, rate=rate, seed=seed + 1, label="background_source"
+                initial=0,
+                rate=rate,
+                # One past the initial vehicles' seed, wrapped into the seed
+                # range: MAX_SEED's successor is 0, not a seed refused (#1560).
+                seed=(seed + 1) % (MAX_SEED + 1),
+                label="background_source",
             )
         )
     if sink.get("constraints"):
@@ -2917,7 +3081,11 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             TrafficSinkAction(
                 sink["constraints"],
                 label="background_sink",
-                until=until(sink.get("stop_after_seconds"), "background_sink_ends"),
+                until=until(
+                    sink.get("stop_after_seconds"),
+                    "sink.stop_after_seconds",
+                    "background_sink_ends",
+                ),
             )
         )
     logger.info(
@@ -3049,7 +3217,7 @@ def _run_scenario(
 def _result_json_line(output_dir: Path, file_stem: str) -> str:
     """The line naming the result a run named *file_stem* wrote in
     *output_dir*, or saying it wrote none (writing it failed)."""
-    json_path = (output_dir / f"{file_stem}_result.json").resolve()
+    json_path = (output_dir / f"{file_stem}{RESULT_SUFFIX}").resolve()
     if json_path.is_file():
         return f"Result JSON: {json_path}"
     return f"Result JSON: not written ({json_path})"

@@ -1171,6 +1171,17 @@ service_status_checklist:
             )
         return service_status_checklist
 
+    ended_at: Optional[datetime] = field(
+        default=None,
+        metadata={
+            "docstring": "Timestamp when the service was terminated. `None` unless `state` is TERMINATED."
+        },
+    )
+
+    def _validate_ended_at(self, ended_at: Optional[datetime]):
+        if ended_at is not None and not isinstance(ended_at, datetime):
+            raise TypeError("'ended_at' must be a datetime or None.")
+
 
 class ServiceSortField(ModelEnum):
     """Fields available for sorting services."""

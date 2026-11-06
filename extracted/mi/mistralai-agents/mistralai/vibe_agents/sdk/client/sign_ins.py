@@ -39,18 +39,18 @@ def is_sign_in_tool(name: str) -> bool:
 
 @dataclass(frozen=True, slots=True, init=False)
 class SignInAnswer:
-    """The answer to an ``OpenSignIn``: the ids of the sources the user connected, and of those they
+    """The answer to an ``OpenSignIn``: the IDs of the sources the user connected, and of those they
     refused to connect.
 
     Name each source the sign-in asks for in one list: an answer that leaves one out raises
-    ``SdkError`` and sends nothing, and the sign-in stays open. An SDK agent, run locally or
-    deployed, checks each source said to be connected, and tells the agent one that is not is still
-    not connected. The Agent Controller's default runtime, which serves Le Chat's
-    ``ask_enable_connector``, marks each one connected without a check.
+    ``SdkError`` and sends nothing, and the sign-in stays open. The agent checks each source said
+    to be connected, and is told when one is still not connected.
     """
 
     connected: tuple[str, ...]
+    """The IDs of the sources the user connected."""
     denied: tuple[str, ...]
+    """The IDs of the sources the user refused to connect."""
 
     def __init__(self, *, connected: Iterable[str] = (), denied: Iterable[str] = ()) -> None:
         connected_ids = _ids(connected, "connected")

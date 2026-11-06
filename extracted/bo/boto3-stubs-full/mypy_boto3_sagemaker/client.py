@@ -99,6 +99,7 @@ from .paginator import (
     ListPipelinesPaginator,
     ListPipelineVersionsPaginator,
     ListProcessingJobsPaginator,
+    ListProjectsPaginator,
     ListResourceCatalogsPaginator,
     ListSpacesPaginator,
     ListStageDevicesPaginator,
@@ -5834,6 +5835,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_processing_jobs"]
     ) -> ListProcessingJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_projects"]
+    ) -> ListProjectsPaginator:
         """
         Create a paginator for an operation.
 

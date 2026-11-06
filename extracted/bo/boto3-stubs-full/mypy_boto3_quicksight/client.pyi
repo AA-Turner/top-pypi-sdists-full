@@ -345,6 +345,8 @@ from .type_defs import (
     DescribeQuickSightQSearchConfigurationResponseTypeDef,
     DescribeRefreshScheduleRequestTypeDef,
     DescribeRefreshScheduleResponseTypeDef,
+    DescribeResourcePermissionsRequestTypeDef,
+    DescribeResourcePermissionsResponseTypeDef,
     DescribeRoleCustomPermissionRequestTypeDef,
     DescribeRoleCustomPermissionResponseTypeDef,
     DescribeSelfUpgradeConfigurationRequestTypeDef,
@@ -633,6 +635,8 @@ from .type_defs import (
     UpdateQuickSightQSearchConfigurationResponseTypeDef,
     UpdateRefreshScheduleRequestTypeDef,
     UpdateRefreshScheduleResponseTypeDef,
+    UpdateResourcePermissionsRequestTypeDef,
+    UpdateResourcePermissionsResponseTypeDef,
     UpdateRoleCustomPermissionRequestTypeDef,
     UpdateRoleCustomPermissionResponseTypeDef,
     UpdateSelfUpgradeConfigurationRequestTypeDef,
@@ -2104,6 +2108,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_refresh_schedule)
         """
 
+    def describe_resource_permissions(
+        self, **kwargs: Unpack[DescribeResourcePermissionsRequestTypeDef]
+    ) -> DescribeResourcePermissionsResponseTypeDef:
+        """
+        Describes the service role configuration for your Amazon Quick Sight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_resource_permissions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_resource_permissions)
+        """
+
     def describe_role_custom_permission(
         self, **kwargs: Unpack[DescribeRoleCustomPermissionRequestTypeDef]
     ) -> DescribeRoleCustomPermissionResponseTypeDef:
@@ -3551,6 +3565,17 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_refresh_schedule.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_refresh_schedule)
+        """
+
+    def update_resource_permissions(
+        self, **kwargs: Unpack[UpdateResourcePermissionsRequestTypeDef]
+    ) -> UpdateResourcePermissionsResponseTypeDef:
+        """
+        Updates the service role configuration that Amazon Quick Sight uses to access
+        resources in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_resource_permissions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_resource_permissions)
         """
 
     def update_role_custom_permission(

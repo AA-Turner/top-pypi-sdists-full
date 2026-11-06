@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from httpx._types import ProxyTypes
 
@@ -21,6 +21,24 @@ from novita_sandbox.core.exceptions import (
     TemplateException,
     TimeoutException,
     VolumeException,
+)
+from novita_sandbox.core.job import (
+    AliasArg,
+    AsyncJob,
+    CancelTooLateError,
+    Job,
+    JobCancelledError,
+    JobFailedError,
+    JobPage,
+    JobStatus,
+    JobType,
+    MigrationConflictError,
+    MigrationItemStatus,
+    MigrationNotSupportedError,
+    MigrationStatus,
+    ResourceAlreadyMigratingError,
+    SharedDependencyError,
+    TemplateAliasConflictError,
 )
 from novita_sandbox.core.sandbox.commands.command_handle import (
     CommandExitException,
@@ -657,6 +675,143 @@ class _SecretNamespace(_Namespace):
         return Secret.delete(name, **self._secret_connection_opts(opts))
 
 
+class _JobNamespace(_Namespace):
+    """Cross-cluster migration and template distribution.
+
+    The target cluster is chosen by ``domain`` / ``api_url``, not by an argument,
+    so a caller retargets by passing those options per call.
+    """
+
+    Job = Job
+    AsyncJob = AsyncJob
+
+    JobStatus = JobStatus
+    JobType = JobType
+    MigrationStatus = MigrationStatus
+    MigrationItemStatus = MigrationItemStatus
+    JobPage = JobPage
+
+    InvalidArgumentException = InvalidArgumentException
+    NotFoundException = NotFoundException
+    AuthenticationException = AuthenticationException
+    TimeoutException = TimeoutException
+    RateLimitException = RateLimitException
+    MigrationConflictError = MigrationConflictError
+    MigrationNotSupportedError = MigrationNotSupportedError
+    TemplateAliasConflictError = TemplateAliasConflictError
+    ResourceAlreadyMigratingError = ResourceAlreadyMigratingError
+    CancelTooLateError = CancelTooLateError
+    SharedDependencyError = SharedDependencyError
+    JobFailedError = JobFailedError
+    JobCancelledError = JobCancelledError
+
+    def migrate_sandbox(
+        self,
+        sandbox_id: str,
+        *,
+        source_region: str,
+        template_alias: Optional[str] = None,
+        **opts: Any,
+    ) -> str:
+        return Job.migrate_sandbox(
+            sandbox_id,
+            source_region=source_region,
+            template_alias=template_alias,
+            **self._merge(opts),
+        )
+
+    def migrate_sandboxes(
+        self,
+        sandbox_ids: Sequence[str],
+        *,
+        source_region: str,
+        template_alias: Optional[AliasArg] = None,
+        **opts: Any,
+    ) -> str:
+        return Job.migrate_sandboxes(
+            sandbox_ids,
+            source_region=source_region,
+            template_alias=template_alias,
+            **self._merge(opts),
+        )
+
+    def distribute_template(
+        self,
+        template_id: str,
+        *,
+        source_region: str,
+        template_alias: str,
+        **opts: Any,
+    ) -> str:
+        return Job.distribute_template(
+            template_id,
+            source_region=source_region,
+            template_alias=template_alias,
+            **self._merge(opts),
+        )
+
+    def distribute_templates(
+        self,
+        template_ids: Sequence[str],
+        *,
+        source_region: str,
+        template_alias: AliasArg,
+        **opts: Any,
+    ) -> str:
+        return Job.distribute_templates(
+            template_ids,
+            source_region=source_region,
+            template_alias=template_alias,
+            **self._merge(opts),
+        )
+
+    def get(self, job_id: str, **opts: Any) -> MigrationStatus:
+        return Job.get(job_id, **self._merge(opts))
+
+    def list(
+        self,
+        *,
+        resource_id: Optional[str] = None,
+        job_type: Optional[JobType] = None,
+        status: Optional[JobStatus] = None,
+        source_region: Optional[str] = None,
+        target_region: Optional[str] = None,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+        **opts: Any,
+    ) -> JobPage:
+        return Job.list(
+            resource_id=resource_id,
+            job_type=job_type,
+            status=status,
+            source_region=source_region,
+            target_region=target_region,
+            limit=limit,
+            cursor=cursor,
+            **self._merge(opts),
+        )
+
+    def cancel(self, job_id: str, **opts: Any) -> MigrationStatus:
+        return Job.cancel(job_id, **self._merge(opts))
+
+    def wait(
+        self,
+        job_id: str,
+        *,
+        timeout: float = 1800.0,
+        poll_interval: float = 10.0,
+        on_progress: Optional[Callable[[MigrationStatus], None]] = None,
+        **opts: Any,
+    ) -> MigrationStatus:
+        return Job.wait(
+            job_id,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            on_progress=on_progress,
+            **self._merge(opts),
+        )
+
+
 class Novita:
     """
     High-level client facade for Novita Sandbox resources and runtimes.
@@ -706,6 +861,7 @@ class Novita:
         self.template = _TemplateNamespace(self._opts)
         self.volume = _VolumeNamespace(self._opts)
         self.secret = _SecretNamespace(self._opts)
+        self.job = _JobNamespace(self._opts)
 
     def create(self, *args: Any, **opts: ApiParams) -> Sandbox:
         return self.sandbox.create(*args, **opts)

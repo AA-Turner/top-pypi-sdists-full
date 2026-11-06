@@ -1,0 +1,382 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+import logging
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
+from typing import Optional
+from urllib.parse import parse_qs, urlsplit
+
+import httpx2
+import pytest
+from microsoft_teams import apps
+from microsoft_teams.apps import socket_mode
+from microsoft_teams.apps.socket_mode.negotiate import (
+    NegotiateError,
+    assert_secure_url,
+    negotiate_service,
+    negotiate_signalr,
+)
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_authenticates_and_parses_result():
+    seen_request: Optional[httpx2.Request] = None
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal seen_request
+        seen_request = request
+        return httpx2.Response(
+            200,
+            json={"url": "https://signalr.example/hub", "accessToken": "signalr-token", "expiresIn": 120},
+        )
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        result = await negotiate_service(
+            "https://botapi.example/v3/websockets/connect",
+            lambda: _token("bot-token"),
+            http_client=client,
+        )
+
+    assert result.url == "https://signalr.example/hub"
+    assert result.access_token == "signalr-token"
+    assert result.expires_in == 120
+    assert seen_request is not None
+    assert seen_request.headers["authorization"] == "Bearer bot-token"
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_rejects_plaintext_before_sending_token():
+    calls = 0
+
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        nonlocal calls
+        calls += 1
+        return httpx2.Response(200, json={})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(ValueError, match="must use https"):
+            await negotiate_service(
+                "http://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:3978/v3/websockets/connect",
+        "http://127.0.0.1:3978/v3/websockets/connect",
+        "http://[::1]:3978/v3/websockets/connect",
+        "ws://localhost:3978/hub",
+    ],
+)
+def test_url_validation_allows_loopback_plaintext(url: str):
+    assert_secure_url(url, purpose="test", websocket_allowed=url.startswith("ws"))
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost.example/hub",
+        "ws://10.0.0.4/hub",
+        "ftp://signalr.example/hub",
+        "https:///missing-host",
+    ],
+)
+def test_url_validation_rejects_insecure_or_invalid_destinations(url: str):
+    with pytest.raises(ValueError, match="must use"):
+        assert_secure_url(url, purpose="test", websocket_allowed=True)
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_exposes_retry_after():
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(429, text="slow down", headers={"Retry-After": "2.5"})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as raised:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert raised.value.retry_after == 2.5
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_accepts_http_date_retry_after():
+    retry_at = datetime.now(timezone.utc) + timedelta(seconds=30)
+
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            429,
+            text="slow down",
+            headers={"Retry-After": format_datetime(retry_at, usegmt=True)},
+        )
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as raised:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert raised.value.retry_after is not None
+    assert 25 <= raised.value.retry_after <= 30
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_ignores_unparsable_retry_after():
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(429, text="slow down", headers={"Retry-After": "whenever"})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as raised:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert raised.value.retry_after is None
+
+
+@pytest.mark.asyncio
+async def test_service_negotiate_rejects_an_empty_bot_token_before_dialing():
+    """Missing credentials must fail closed, before a request is put on the wire."""
+    calls = 0
+
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        nonlocal calls
+        calls += 1
+        return httpx2.Response(200, json={})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError, match="no bot token"):
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token(""),
+                http_client=client,
+            )
+
+    assert calls == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"accessToken": "signalr-token"},
+        {"url": "https://signalr.example/hub"},
+        {"url": "", "accessToken": "signalr-token"},
+        {"url": "https://signalr.example/hub", "accessToken": ""},
+        {"url": 42, "accessToken": "signalr-token"},
+    ],
+)
+async def test_service_negotiate_rejects_a_response_missing_url_or_token(payload: dict[str, object]):
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=payload)
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError, match="missing url/accessToken"):
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expires_in", [None, "soon", True])
+async def test_service_negotiate_defaults_expires_in_when_absent_or_unusable(expires_in: object):
+    """``expires_in`` schedules the credential refresh, so an unusable value must fall back to 0."""
+    payload: dict[str, object] = {"url": "https://signalr.example/hub", "accessToken": "signalr-token"}
+    if expires_in is not None:
+        payload["expiresIn"] = expires_in
+
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=payload)
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        result = await negotiate_service(
+            "https://botapi.example/v3/websockets/connect",
+            lambda: _token("bot-token"),
+            http_client=client,
+        )
+
+    assert result.expires_in == 0
+
+
+@pytest.mark.asyncio
+async def test_signalr_negotiate_builds_secure_websocket_url():
+    requests: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(
+            200,
+            json={
+                "connectionToken": "connection-token",
+                "availableTransports": [
+                    {"transport": "WebSockets", "transferFormats": ["Text", "Binary"]},
+                ],
+            },
+        )
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        endpoint = await negotiate_signalr(
+            "https://signalr.example/client/?hub=teams",
+            "signalr-token",
+            http_client=client,
+        )
+
+    assert len(requests) == 1
+    assert requests[0].url.path == "/client/negotiate"
+    assert requests[0].url.params["negotiateVersion"] == "1"
+    assert requests[0].headers["authorization"] == "Bearer signalr-token"
+    parsed = urlsplit(endpoint.url)
+    assert parsed.scheme == "wss"
+    assert parse_qs(parsed.query) == {
+        "hub": ["teams"],
+        "id": ["connection-token"],
+        "access_token": ["signalr-token"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_signalr_negotiate_rejects_insecure_redirect_before_following_it():
+    calls = 0
+
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        nonlocal calls
+        calls += 1
+        return httpx2.Response(200, json={"url": "http://attacker.example/hub", "accessToken": "secret"})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(ValueError, match="must use"):
+            await negotiate_signalr("https://signalr.example/hub", "token", http_client=client)
+
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_negotiate_logs_never_contain_tokens(caplog: pytest.LogCaptureFixture):
+    """Negotiate URLs carry credentials in their query string; logs must not echo them."""
+    bot_secret = "bot-secret-do-not-log"
+    service_secret = "service-secret-do-not-log"
+    redirect_secret = "redirect-secret-do-not-log"
+
+    def service_handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
+            200,
+            json={
+                "url": "https://signalr.example/hub?hub=teams",
+                "accessToken": service_secret,
+                "expiresIn": 120,
+            },
+        )
+
+    hops = 0
+
+    def signalr_handler(_: httpx2.Request) -> httpx2.Response:
+        nonlocal hops
+        hops += 1
+        if hops == 1:
+            return httpx2.Response(
+                200,
+                json={"url": "https://signalr-2.example/hub", "accessToken": redirect_secret},
+            )
+        return httpx2.Response(
+            200,
+            json={
+                "connectionToken": "connection-token-secret",
+                "availableTransports": [{"transport": "WebSockets", "transferFormats": ["Text"]}],
+            },
+        )
+
+    with caplog.at_level(logging.DEBUG, logger="microsoft_teams.apps.socket_mode.negotiate"):
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(service_handler)) as client:
+            result = await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token(bot_secret),
+                http_client=client,
+            )
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(signalr_handler)) as client:
+            endpoint = await negotiate_signalr(result.url, result.access_token, http_client=client)
+
+    # The flow really did produce a credential-bearing URL, so the assertions below are meaningful.
+    assert service_secret in result.url or redirect_secret in endpoint.url
+    assert "access_token" in urlsplit(endpoint.url).query
+
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert caplog.records, "expected negotiate to emit debug logs"
+    for secret in (bot_secret, service_secret, redirect_secret, "connection-token-secret"):
+        assert secret not in logged
+    assert "access_token" not in logged
+    # Hosts are still logged, so a failure remains diagnosable.
+    assert "signalr-2.example" in logged
+
+
+async def _token(value: str) -> str:
+    return value
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.asyncio
+async def test_only_service_negotiate_auth_rejections_are_terminal(status: int):
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(status, text="nope")
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as service_error:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+        with pytest.raises(NegotiateError) as signalr_error:
+            await negotiate_signalr("https://signalr.example/hub", "signalr-token", http_client=client)
+
+    assert service_error.value.terminal
+    assert service_error.value.status_code == status
+    hint = "Check the bot credentials" if status == 401 else "Check the bot registration and Socket Mode access"
+    assert str(service_error.value) == f"Socket Mode negotiate failed: HTTP {status}. {hint}"
+    # SignalR uses a short-lived negotiated token; the next cycle can acquire a fresh one.
+    assert not signalr_error.value.terminal
+    assert signalr_error.value.status_code == status
+
+
+@pytest.mark.parametrize("status", [429, 499, 500, 502, 503, 504])
+@pytest.mark.asyncio
+async def test_transient_failures_stay_retryable(status: int):
+    def handler(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(status, text="later")
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(handler)) as client:
+        with pytest.raises(NegotiateError) as error:
+            await negotiate_service(
+                "https://botapi.example/v3/websockets/connect",
+                lambda: _token("bot-token"),
+                http_client=client,
+            )
+
+    assert not error.value.terminal
+    assert error.value.status_code == status
+    assert str(error.value) == f"Socket Mode negotiate failed: HTTP {status}."
+
+
+def test_negotiate_error_is_public_and_preserves_retry_after_argument():
+    assert apps.NegotiateError is NegotiateError
+    assert socket_mode.NegotiateError is NegotiateError
+    error = NegotiateError("throttled", 2.5)
+    assert error.retry_after == 2.5
+    assert error.status_code is None
+    assert not error.terminal

@@ -728,8 +728,7 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
         return adapter_cli.deploy(cls, args)
     snaps: list = []
-    request = _request_of(kind, cls, name=args.name, require_cap=True, snapshots=snaps,
-                          region=getattr(args, "region", None))
+    request = _request_of(kind, cls, name=args.name, require_cap=True, snapshots=snaps)
     if kind == "policy" and not (args.dry_run and args.json):
         from seq import deploy_cli
 

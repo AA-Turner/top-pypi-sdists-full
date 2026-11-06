@@ -1015,7 +1015,7 @@ class VectorQuantize(Module):
 
         self._codebook.embed.copy_(codes)
 
-    def get_codes_from_indices(self, indices):
+    def get_codes_from_indices(self, indices, project_out = False):
         codebook = self.codebook
         is_multiheaded = codebook.ndim > 2
 
@@ -1032,14 +1032,16 @@ class VectorQuantize(Module):
             codes = rearrange(codes, 'b h n d -> b n (h d)')
             codes = unpack_one(codes, 'b * d')
 
+        if project_out:
+            codes = self.project_out(codes)
+
         if not self.channel_last or self.accept_image_fmap or self.accept_3d_fmap:
             codes = rearrange(codes, 'b ... d -> b d ...')
 
         return codes
 
     def get_output_from_indices(self, indices):
-        codes = self.get_codes_from_indices(indices)
-        return self.project_out(codes)
+        return self.get_codes_from_indices(indices, project_out = True)
 
     def update_in_place_optimizer(self):
         if not exists(self.in_place_codebook_optimizer):

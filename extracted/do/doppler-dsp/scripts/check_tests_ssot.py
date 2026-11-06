@@ -121,6 +121,8 @@ import pathlib
 import re
 import subprocess
 import sys
+from collections import Counter
+from typing import TYPE_CHECKING, NamedTuple
 
 from _c_source import strip_comments
 from _gitbase import (
@@ -130,6 +132,9 @@ from _gitbase import (
     show_at,
     show_at_base,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Collection, Mapping
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TESTS = ROOT / "native" / "tests"
@@ -553,22 +558,51 @@ def roundtripped() -> set[str]:
     return found
 
 
-def parse_ratchet(text: str) -> dict[str, str]:
-    """`key | reason` lines of a ratchet file; `#` comments and blanks out."""
-    held: dict[str, str] = {}
+class RatchetEntry(NamedTuple):
+    """One ratchet line: why it is held, and which keys it carries forward."""
+
+    reason: str
+    #: Keys this line takes over, for a rename (`ratchet_added`); empty for
+    #: an ordinary line.
+    replaces: tuple[str, ...] = ()
+
+
+#: The optional last field of a ratchet line: `| replaces: <key> <key> ...`.
+REPLACES = "replaces:"
+
+
+def parse_ratchet(text: str) -> dict[str, RatchetEntry]:
+    """`key | reason [| replaces: <key> ...]` lines; `#` and blanks out.
+
+    The one reader of every `key | reason` ratchet. The last field, when it
+    opens with `replaces:`, names the keys the line takes over when an
+    object is renamed; ratchet_added() decides whether that carry is
+    allowed. Any other `|` stays part of the reason.
+
+    >>> e = parse_ratchet("dp_b | renamed | replaces: dp_a dp_c\\n")["dp_b"]
+    >>> e.reason, e.replaces
+    ('renamed', ('dp_a', 'dp_c'))
+    >>> parse_ratchet("# c\\ndp_x | a | b\\n")["dp_x"]
+    RatchetEntry(reason='a | b', replaces=())
+    """
+    held: dict[str, RatchetEntry] = {}
     for raw in text.splitlines():
         line = raw.strip()
-        if line and not line.startswith("#"):
-            key, _, reason = line.partition("|")
-            held[key.strip()] = reason.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, *fields = (f.strip() for f in line.split("|"))
+        replaces: tuple[str, ...] = ()
+        if len(fields) > 1 and fields[-1].startswith(REPLACES):
+            replaces = tuple(fields.pop()[len(REPLACES) :].split())
+        held[key] = RatchetEntry(" | ".join(fields), replaces)
     return held
 
 
-def read_ratchet(path: pathlib.Path) -> dict[str, str]:
+def read_ratchet(path: pathlib.Path) -> dict[str, RatchetEntry]:
     return parse_ratchet(path.read_text()) if path.exists() else {}
 
 
-def state_ratchet() -> dict[str, str]:
+def state_ratchet() -> dict[str, RatchetEntry]:
     return read_ratchet(STATE_RATCHET)
 
 
@@ -742,6 +776,60 @@ def chunk_invariance() -> list[str]:
     return bad
 
 
+def carry_refusals(
+    before: Collection[str],
+    now: Collection[str],
+    carries: Mapping[str, tuple[str, ...]],
+    live: Callable[[str], bool],
+) -> dict[str, list[str]]:
+    """Why each new key may NOT take over the keys it says it replaces.
+
+    The one statement of the carry rule, for every list that may only
+    shrink (ratchet_added, mutator_list_added). **A rename carries its
+    line; nothing else does.** `carries` maps each key that is on the list
+    now and was not at the base to the keys its line says it replaces. It
+    is carried, with no reasons, only when all four hold:
+
+    1. every replaced key was on the merge base's list (`before`);
+    2. every replaced key is gone at head (`now`);
+    3. no replaced key backs a second new key, so a carry can merge entries
+       but never multiply them, and the list cannot grow by count;
+    4. no replaced key is still `live` at head. Without it, an entry that
+       was fixed could hand its line to a NEW one instead of the list
+       shrinking: a fixed entry traded for a fresh exemption. What "live"
+       means is the list's own (an object, a mutator), so the caller says.
+
+    A key that replaces nothing has the plain reason: a list may only
+    shrink. Every key in `carries` is in the result; an empty reason list
+    is a carry that holds.
+
+    >>> carry_refusals({"a", "b"}, {"ab"}, {"ab": ("a", "b")}, lambda k: False)
+    {'ab': []}
+    >>> carry_refusals({"a"}, {"a", "n"}, {"n": ()}, lambda k: False)
+    {'n': ['the list may only shrink']}
+    """
+    backs = Counter(o for old in carries.values() for o in old)
+    out: dict[str, list[str]] = {}
+    for key, old in carries.items():
+        why: list[str] = []
+        if not old:
+            why.append("the list may only shrink")
+        else:
+            if not_base := [o for o in old if o not in before]:
+                why.append(f"it replaces {not_base}, not on the base's list")
+            if kept := [o for o in old if o in now]:
+                why.append(f"it replaces {kept}, still listed at head")
+            if twice := [o for o in old if backs[o] > 1]:
+                why.append(f"{twice} would back more than one new line")
+            if alive := [o for o in old if live(o)]:
+                why.append(
+                    f"it replaces {alive}, still live at head (a fixed "
+                    "entry is deleted, not traded)"
+                )
+        out[key] = why
+    return out
+
+
 def ratchet_added(path: pathlib.Path, base: str) -> list[str]:
     """Entries on the ratchet at `path` that the merge base with `base` lacked.
 
@@ -750,6 +838,10 @@ def ratchet_added(path: pathlib.Path, base: str) -> list[str]:
     merge base for the reason ratchet() gives; a file that is new on this
     branch has no earlier list to have grown from. One helper for the state and
     chunk-invariance ratchets, so they cannot disagree about what "added" is.
+
+    A new line may carry a rename (`| replaces: <old> ...`) under
+    carry_refusals' four conditions; an object is live when its header still
+    declares `<p>_set_state` (`serializable()`), the set both ratchets judge.
     """
     try:
         rev = resolve_base(ROOT, base)
@@ -762,11 +854,17 @@ def ratchet_added(path: pathlib.Path, base: str) -> list[str]:
     then = show_at(ROOT, rev, rel)
     if then is None:
         return []
-    before = set(parse_ratchet(then))
+    before = parse_ratchet(then)
+    now = read_ratchet(path)
+    carries = {k: now[k].replaces for k in sorted(set(now) - set(before))}
+    objects = serializable() if any(carries.values()) else set()
     return [
-        f"{rel}: '{k}' ADDED -- a ratchet may only shrink; fix the cause "
+        f"{rel}: '{k}' ADDED -- {'; '.join(why)}; fix the cause "
         "(a test, a header) instead of forgiving it"
-        for k in sorted(set(read_ratchet(path)) - before)
+        for k, why in carry_refusals(
+            before, now, carries, objects.__contains__
+        ).items()
+        if why
     ]
 
 
@@ -777,24 +875,61 @@ MUTATOR_LIST = ROOT / "scripts" / ".mutator-state-exempt"
 MUTATOR_GATE = "src/doppler/tests/test_mutator_state.py"
 
 
-def parse_mutator_list(text: str) -> list[tuple[str, str, str]]:
-    """`key verdict reason` lines of the mutator-state list, in file order.
+class MutatorEntry(NamedTuple):
+    """One row of the mutator-state list."""
+
+    key: str  #: `Class.c_function`
+    verdict: str
+    reason: str
+    #: Keys this row takes over, for a rename (mutator_list_added); from a
+    #: trailing `replaces: <key> ...` in the reason column, which is not
+    #: part of `reason`.
+    replaces: tuple[str, ...] = ()
+
+
+#: A trailing `replaces: <key> ...` in a mutator row's reason column.
+MUTATOR_REPLACES = re.compile(r"(?:^|\s)replaces:((?:\s+\S+)+)\s*$")
+
+
+def parse_mutator_list(text: str) -> list[MutatorEntry]:
+    """`key verdict reason [replaces: <key> ...]` rows, in file order.
 
     The one reader of that file's format: the gate imports it, and so does
     the growth check below. A list rather than a dict, so a key written
     twice reaches the gate as two entries and is refused there, instead of
     the second silently winning.
+
+    >>> e = parse_mutator_list("A.b  C_ONLY  why; replaces: A.a\\n")[0]
+    >>> e.key, e.verdict, e.reason, e.replaces
+    ('A.b', 'C_ONLY', 'why;', ('A.a',))
     """
-    out: list[tuple[str, str, str]] = []
+    out: list[MutatorEntry] = []
     for raw in text.splitlines():
         line = raw.strip()
         if line and not line.startswith("#"):
             key, *rest = line.split(None, 2)
             verdict = rest[0] if rest else ""
-            out.append(
-                (key, verdict, rest[1].strip() if len(rest) > 1 else "")
-            )
+            reason = rest[1].strip() if len(rest) > 1 else ""
+            replaces: tuple[str, ...] = ()
+            if m := MUTATOR_REPLACES.search(reason):
+                replaces = tuple(m[1].split())
+                reason = reason[: m.start()].strip()
+            out.append(MutatorEntry(key, verdict, reason, replaces))
     return out
+
+
+def declared_functions() -> set[str]:
+    """Every identifier a public header declares or defines as a function.
+
+    The mutator list's liveness source for a carry: a row keyed
+    `Class.c_function` names a live mutator while its C function is still
+    in `native/inc`, the same headers `serializable()` reads.
+    """
+    call = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+    found: set[str] = set()
+    for h in sorted(INC.rglob("*.h")):
+        found.update(call.findall(strip_comments(h.read_text())))
+    return found
 
 
 #: Verdicts a listed key may not move INTO: each says a value is lost or
@@ -818,10 +953,16 @@ def mutator_list_added(base: str) -> list[str]:
     read: a list absent at the base holds nothing, unless the gate is new
     too. A list absent at HEAD is an error, not an empty list, or moving it
     would disarm this.
+
+    A new key may carry a rename (`replaces: <old key>` ending the reason)
+    under carry_refusals' four conditions; a key is live while its C
+    function is still declared (`declared_functions()`). One more, this
+    list's own: **the verdict is unchanged across the carry**, so a rename
+    cannot move a row into another verdict.
     """
 
     def pairs(text: str) -> list[tuple[str, str]]:
-        return [(k, v) for k, v, _ in parse_mutator_list(text)]
+        return [(e.key, e.verdict) for e in parse_mutator_list(text)]
 
     rel = MUTATOR_LIST.relative_to(ROOT).as_posix()
     if not MUTATOR_LIST.exists():
@@ -844,15 +985,31 @@ def mutator_list_added(base: str) -> list[str]:
             f"base ref {base!r} does not resolve.\n"
             "  A ratchet that cannot read its baseline has not passed."
         ) from None
-    bad = []
+    now = {e.key: e for e in parse_mutator_list(MUTATOR_LIST.read_text())}
+    new = sorted({k for k, _ in added if k not in was})
+    carries = {k: now[k].replaces for k in new}
+    funcs = declared_functions() if any(carries.values()) else set()
+    refused = carry_refusals(
+        was, now, carries, lambda o: o.partition(".")[2] in funcs
+    )
+    for k, old in carries.items():
+        if moved := [o for o in old if o in was and was[o] != now[k].verdict]:
+            refused[k].append(
+                f"it replaces {moved} under another verdict "
+                f"({', '.join(was[o] for o in moved)} -> {now[k].verdict}); "
+                "a rename keeps the verdict"
+            )
+    bad = [
+        f"{rel}: '{k}' ADDED -- {'; '.join(why)}; make the blob carry the "
+        "value instead of forgiving it"
+        for k, why in refused.items()
+        if why
+    ]
     for key, verdict in sorted(set(added)):
         before = was.get(key)
         if before is None:
-            bad.append(
-                f"{rel}: '{key}' ADDED -- the list may only shrink; make "
-                "the blob carry the value instead of forgiving it"
-            )
-        elif (
+            continue  # a new key: judged by the carry above
+        if (
             verdict in MUTATOR_FAILING
             and before not in MUTATOR_UNPROBED_BEFORE
         ):

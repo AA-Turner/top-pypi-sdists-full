@@ -631,6 +631,25 @@ def test_prune_run_keeps_a_stale_registration_that_is_not_the_runs(tmp_path, scr
     assert str(foreign) in L.git(scratch_repo, "worktree", "list", "--porcelain").stdout
 
 
+def test_prune_run_removes_a_worktree_the_arm_registered_under_its_own_home(tmp_path, scratch_repo, skills_repo,
+                                                                          fake_claude_path, monkeypatch):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--dry-run")) == 0
+    own = run_dir / "arms" / "r1-C" / "home" / "wt" / "node-8"
+    assert L.git(scratch_repo, "worktree", "add", "-q", "-b", "node-8", str(own)).returncode == 0
+    foreign = tmp_path / "users-worktree"
+    assert L.git(scratch_repo, "worktree", "add", "-q", "-b", "users-topic", str(foreign)).returncode == 0
+    assert T.main(["prune-run", str(run_dir)]) == 0
+    listed = L.git(scratch_repo, "worktree", "list", "--porcelain").stdout
+    assert str(own) not in listed and not own.exists(), "the arm's own worktree stays registered"
+    assert L.git(scratch_repo, "branch", "--list", "node-8").stdout.strip() == ""
+    assert str(foreign) in listed, "a worktree outside the run's arms dir was touched"
+    assert L.git(scratch_repo, "branch", "--list", "users-topic").stdout.strip() != ""
+
+
 def _exclude_text(repo):
     path = repo / ".git" / "info" / "exclude"
     return path.read_text(encoding="utf-8") if path.is_file() else None
@@ -1211,10 +1230,15 @@ def test_a_bwrap_run_starts_the_session_inside_the_sandbox_argv(tmp_path, scratc
     arm = run_dir / "arms" / "r1-C"
     pairs = list(zip(session, session[1:], session[2:], strict=False))
     rw = [(s, d) for flag, s, d in pairs if flag == "--bind"]
-    assert rw == [(str(p), str(p)) for p in (ws, arm / "home", arm / "cfg", (scratch_repo / ".git").resolve())]
+    common = (scratch_repo / ".git").resolve()
+    own_entry = common / "worktrees" / ws.name
+    assert rw == [(str(p), str(p)) for p in (ws, arm / "home", arm / "cfg", common, own_entry)]
+    registry = str(common / "worktrees")
+    assert session.index(registry) < session.index(str(own_entry)), "the arm's own entry is re-bound last"
     assert ("--tmpfs", str(Path.home())) in list(zip(session, session[1:], strict=False))
     ro = [s for flag, s, _ in pairs if flag == "--ro-bind"]
     assert str(scratch_repo) in ro and any(Path(s).parent == run_dir / "frozen" for s in ro), ro
+    assert registry in ro, "the repo's worktree registry is read-only in the sandbox"
     chdir = session.index("--chdir")
     assert session[chdir + 1] == str(ws) and session[chdir + 2:chdir + 4] == ["claude", "-p"]
     rows = [r for r in L.read_jsonl(run_dir / "journal.jsonl") if r["step"] == "arm"]

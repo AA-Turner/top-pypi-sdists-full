@@ -73,6 +73,9 @@ if typing.TYPE_CHECKING:
 KT = typing.TypeVar('KT')
 #: A type alias for a type that can be used as a value in a dictionary.
 VT = typing.TypeVar('VT')
+GD = typing.TypeVar('GD')
+#: Marks a key that ``LazyCastedDict.get`` did not find.
+_MISSING: typing.Final[object] = object()
 #: A type alias for a dictionary with keys of type KT and values of type VT.
 DT = dict[KT, VT]
 #: A type alias for the casted type of a dictionary key.
@@ -453,6 +456,8 @@ class LazyCastedDict(CastedDictBase[KT, VT]):
     [(1, 2), (3, 4), (5, 6), (7, 8)]
     >>> d[3]
     4
+    >>> d.get('3')
+    4
 
     # Casts are optional and can be disabled by passing None as the cast
     >>> d = LazyCastedDict()
@@ -507,6 +512,40 @@ class LazyCastedDict(CastedDictBase[KT, VT]):
 
         return value
 
+    @typing.overload
+    def get(self, key: typing.Any, default: None = None, /) -> VT | None:
+        """Return a cast value or ``None`` when the key is absent."""
+
+    @typing.overload
+    def get(self, key: typing.Any, default: VT, /) -> VT:
+        """Return a cast value or a default of the same type."""
+
+    @typing.overload
+    def get(self, key: typing.Any, default: GD, /) -> VT | GD:
+        """Return a cast value or an arbitrary default unchanged."""
+
+    def get(
+        self, key: typing.Any, default: typing.Any = None, /
+    ) -> typing.Any:
+        """Read a lazily cast value, returning ``default`` for missing keys.
+
+        Value conversion errors propagate just as they do for indexed reads.
+        A key that the key cast rejects cannot have been stored, so it is
+        missing. A missing default is not converted or stored, and
+        ``__missing__`` is not called, as with ``dict.get``.
+        """
+        if self._key_cast is not None:
+            try:
+                key = self._key_cast(key)
+            except (TypeError, ValueError, ArithmeticError):
+                return super().get(key, default)
+        value = super().get(key, _MISSING)
+        if value is _MISSING:
+            return default
+        if self._value_cast is not None:
+            value = self._value_cast(value)
+        return value
+
     def items(  # type: ignore[override]
         self,
     ) -> collections.abc.Generator[tuple[KT, VT], None, None]:
@@ -553,6 +592,15 @@ class UniqueList(list[HT]):
     >>> l[1] = 10
     >>> l
     [5, 10, 2, 3, 4]
+
+    Assigning an item to itself keeps it, including a NaN that does not
+    compare equal to itself:
+
+    >>> missing = float('nan')
+    >>> samples = UniqueList(missing, on_duplicate='raise')
+    >>> samples[0] = missing
+    >>> len(samples)
+    1
 
     A value that was removed or replaced can be added again:
 
@@ -952,7 +1000,7 @@ class UniqueList(list[HT]):
         """
         old_value: HT = self[index]
         known: bool = value in self._set
-        if known and value != old_value:
+        if known and value is not old_value and value != old_value:
             if self.on_duplicate == 'raise':
                 raise ValueError(f'Duplicate value: {value}')
             else:

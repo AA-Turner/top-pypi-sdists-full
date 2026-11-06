@@ -2,6 +2,8 @@
 
 import argparse
 import contextlib
+import json
+import os
 import subprocess
 import time
 
@@ -9,8 +11,9 @@ import pytest
 
 from lemonaid.brief import attached, identity
 from lemonaid.brief import store as brief_store
+from lemonaid.claude import session_socket
 from lemonaid.inbox import db
-from lemonaid.messages import cli, recipient, store, waiter
+from lemonaid.messages import autoresume, cli, recipient, store, waiter
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +54,7 @@ def _tell(target: str) -> int:
 
 def test_claude_with_an_armed_waiter_is_listening(capsys):
     lemon_id = _attach("claude:listener", {})
-    with waiter.armed(store.inbox_for_id(lemon_id)):
+    with waiter.armed(store.mailbox_for_id(lemon_id)):
         assert _tell("claude:listener") == 0
 
     assert "listening" in capsys.readouterr().err
@@ -84,14 +87,14 @@ def test_idle_codex_with_a_live_harness_and_no_waiter_is_deaf(capsys, monkeypatc
     _attach("codex:idle", {"tty": "/dev/ttys998"})
 
     assert _tell("codex:idle") == 1
-    assert "is deaf (it is idle with no inbox waiter" in capsys.readouterr().err
+    assert "is deaf (it is idle with no mailbox waiter" in capsys.readouterr().err
 
 
 def test_codex_with_a_live_harness_and_armed_waiter_is_listening(capsys, monkeypatch):
     monkeypatch.setattr(recipient, "_tty_commands", lambda tty: ["-fish", "codex"])
     lemon_id = _attach("codex:live", {"tty": "/dev/ttys998"})
 
-    with waiter.armed(store.inbox_for_id(lemon_id)):
+    with waiter.armed(store.mailbox_for_id(lemon_id)):
         assert _tell("codex:live") == 0
 
     assert "listening" in capsys.readouterr().err
@@ -106,7 +109,7 @@ def test_codex_stopped_at_a_question_is_asking_even_with_an_armed_waiter(capsys,
         )
         conn.commit()
 
-    with waiter.armed(store.inbox_for_id(lemon_id)):
+    with waiter.armed(store.mailbox_for_id(lemon_id)):
         assert _tell("codex:asking") == 1
 
     assert "stopped mid-turn to ask its user" in capsys.readouterr().err
@@ -117,7 +120,7 @@ def test_message_is_queued_even_when_it_will_not_be_read(capsys):
 
     _tell("claude:deaf")
 
-    assert store.peek_next(store.inbox_for_id(lemon_id)) is not None
+    assert store.peek_next(store.mailbox_for_id(lemon_id)) is not None
 
 
 @pytest.mark.parametrize(
@@ -212,7 +215,7 @@ def test_an_idle_claude_whose_scout_starts_is_listening(capsys, monkeypatch):
 
     def ensure(session_id: str, recipient_id: str) -> bool:
         started.append((session_id, recipient_id))
-        scout.enter_context(waiter.armed(store.inbox_for_id(recipient_id)))
+        scout.enter_context(waiter.armed(store.mailbox_for_id(recipient_id)))
         return True
 
     monkeypatch.setattr(cli.push_scout, "ensure", ensure)
@@ -221,3 +224,55 @@ def test_an_idle_claude_whose_scout_starts_is_listening(capsys, monkeypatch):
         assert _tell("claude:pushed") == 0
     assert started == [("pushed", lemon_id)]
     assert "listening" in capsys.readouterr().err
+
+
+def _parked(session_id: str, job: str, pid: int = os.getpid()) -> None:
+    """*pid*, listed by Claude Code as *session_id*, parked in background job *job* unless it is ""."""
+    sessions = session_socket.claude_dir() / "sessions"
+    sessions.mkdir(parents=True, exist_ok=True)
+    (sessions / f"{pid}.json").write_text(
+        json.dumps(
+            {
+                "pid": pid,
+                "sessionId": session_id,
+                "cwd": "/work",
+                "messagingSocketPath": "/tmp/cc-socks/unused.sock",
+                **({"parkedJobId": job} if job else {}),
+            }
+        )
+    )
+
+
+def test_a_parked_claude_will_not_read_even_while_its_scout_holds_the_lock(capsys, monkeypatch):
+    lemon_id = _attach("claude:abcd1234", {})
+    _parked("abcd1234-1111-2222-3333-444455556666", "1eb3e867")
+
+    def no_revive(*args, **kwargs):
+        raise AssertionError("tell must not type into a parked pane or start a second copy")
+
+    monkeypatch.setattr(autoresume.revive, "revive", no_revive)
+    with waiter.armed(store.mailbox_for_id(lemon_id)):
+        assert _tell("claude:abcd1234") == 1
+
+    err = capsys.readouterr().err
+    assert f"queued, but {lemon_id} will not read it" in err
+    assert "background job 1eb3e867" in err
+    assert 'see docs/recovery.md, under "A parked Claude lemon"' in err
+    assert store.pending_count(store.mailbox_for_id(lemon_id)) == 1
+
+
+def test_parked_outranks_an_armed_waiter_and_a_listing_without_a_job_does_not():
+    row = db.Notification(id=1, channel="claude:x", message="")
+
+    parked = recipient.classify("claude:x", row, True, True, time.time(), "1eb3e867")
+    listening = recipient.classify("claude:x", row, True, True, time.time(), "")
+
+    assert (parked.state, listening.state) == (recipient.PARKED, recipient.LISTENING)
+    assert "background job 1eb3e867" in parked.detail
+
+
+def test_parked_jobs_are_keyed_by_channel_and_skip_sessions_in_their_pane():
+    _parked("abcd1234-1111-2222-3333-444455556666", "1eb3e867")
+    _parked("ffff0000-1111-2222-3333-444455556666", "", pid=os.getppid())
+
+    assert recipient.parked_jobs() == {"claude:abcd1234": "1eb3e867"}

@@ -22,15 +22,13 @@ from trackers.utils.state_representations import (
 
 
 class ByteTrackTracker(BaseTracker):
-    """ByteTrack operates online by processing all detector outputs, categorizing them
-    by confidence thresholds to enable a two-stage association process. High-score boxes
-    are initially linked to tracklets via Kalman filter predictions and IoU-based
-    Hungarian matching, optionally enhanced with appearance features. Low-score boxes
-    follow in a secondary matching phase using pure motion similarity to revive occluded
-    tracks. Tracks without matches are kept briefly for potential re-association,
-    preventing premature termination. This inclusive approach addresses common pitfalls
-    in detection filtering, establishing ByteTrack as a flexible enhancer for existing
-    tracking frameworks.
+    """ByteTrack operates online by processing all detector outputs, categorizing them by confidence thresholds to
+    enable a two-stage association process. High-score boxes are initially linked to tracklets via Kalman filter
+    predictions and IoU-based Hungarian matching, optionally enhanced with appearance features. Low-score boxes follow
+    in a secondary matching phase using pure motion similarity to revive occluded tracks. Tracks without matches are
+    kept briefly for potential re-association, preventing premature termination. This inclusive approach addresses
+    common pitfalls in detection filtering, establishing ByteTrack as a flexible enhancer for existing tracking
+    frameworks.
 
     ByteTrack excels in dense environments, where its low-score recovery mechanism
     minimizes missed detections and enhances overall trajectory completeness. It
@@ -143,19 +141,23 @@ class ByteTrackTracker(BaseTracker):
             Unmatched detections have tracker_id of -1. Detection order may
             differ from input.
 
+        Raises:
+            ValueError: If ``detections.xyxy`` contains NaN or inf. The check runs
+                before any tracker state is advanced, so a failed call leaves the
+                tracker unchanged.
+
         Warns:
             UserWarning: If ``frame`` is passed but ByteTrack does not perform
                 camera motion compensation (CMC), the frame is ignored.
         """
+        self._validate_detections(detections)
         self._warn_if_frame_unused(frame)
         timing = self._predict_timing(timestamp)
         if timing.skip_update:
             return self._detections_for_skipped_update(detections)
 
         if len(self.tracks) == 0 and len(detections) == 0:
-            result = sv.Detections.empty()
-            result.tracker_id = np.array([], dtype=int)
-            return result
+            return self._empty_result(detections)
 
         out_det_indices: list[int] = []
         out_tracker_ids: list[int] = []
@@ -236,9 +238,7 @@ class ByteTrackTracker(BaseTracker):
 
         # Build final sv.Detections from original by indexing
         if not out_det_indices:
-            result = sv.Detections.empty()
-            result.tracker_id = np.array([], dtype=int)
-            return result
+            return self._empty_result(detections)
 
         idx = np.array(out_det_indices)
         result = detections[idx]
@@ -250,10 +250,8 @@ class ByteTrackTracker(BaseTracker):
         similarity_matrix: np.ndarray,
         min_similarity_thresh: float,
     ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
-        """
-        Associate detections to tracks based on Similarity (IoU) using the
-        Jonker-Volgenant algorithm approach with no initialization instead of the
-        Hungarian algorithm as mentioned in the SORT paper, but it solves the
+        """Associate detections to tracks based on Similarity (IoU) using the Jonker-Volgenant algorithm approach with
+        no initialization instead of the Hungarian algorithm as mentioned in the SORT paper, but it solves the
         assignment problem in an optimal way.
 
         Args:
@@ -310,6 +308,7 @@ class ByteTrackTracker(BaseTracker):
 
     def reset(self) -> None:
         """Reset tracker state by clearing all tracks and resetting ID counter.
+
         Call this method when switching to a new video or scene.
         """
         self.tracks = []

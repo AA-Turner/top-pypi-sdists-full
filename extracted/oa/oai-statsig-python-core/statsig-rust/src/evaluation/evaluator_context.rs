@@ -6,6 +6,7 @@ use ahash::AHashMap;
 use crate::StatsigErr::StackOverflowError;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluator_result::EvaluatorResult;
+use crate::event_logging::id_list_accesses::IdListAccessRecorder;
 use crate::hashing::HashUtil;
 use crate::id_lists_adapter::IdList;
 use crate::interned_string::InternedString;
@@ -46,6 +47,7 @@ pub struct EvaluatorContext<'a> {
     pub user: &'a StatsigUserInternal<'a, 'a>,
     pub specs_data: &'a SpecsResponseFull,
     pub id_list_resolver: IdListResolution<'a>,
+    pub(crate) id_list_access_recorder: &'a dyn IdListAccessRecorder,
     pub hashing: &'a HashUtil,
     pub result: EvaluatorResult,
     pub nested_count: u16,
@@ -81,6 +83,8 @@ impl<'a> EvaluatorContext<'a> {
             user,
             specs_data,
             id_list_resolver,
+            // The ordinary SDK installs its recorder when it creates this context.
+            id_list_access_recorder: &(),
             hashing,
             app_id,
             result,

@@ -227,6 +227,7 @@ class Experimental(TypedDict, total=False):
     permissions: ExperimentalPermissions
     "Per-tool elicitation permission config.\n\nDefault behavior + per-tool always_allow/always_deny overrides. Mutation via\nPATCH."
     fast_mode: NotRequired[bool]
+    disable_plan_search: NotRequired[bool]
     submit_feedback: NotRequired[CurrentExperimentalSubmitFeedback]
     restrict_egress_to_composio: NotRequired[bool]
     no_elicitation_support_fallback: NotRequired[Literal["deny", "allow"]]

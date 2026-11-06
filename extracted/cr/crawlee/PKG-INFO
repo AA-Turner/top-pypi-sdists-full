@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.11.0
+Version: 1.11.1
 Summary: Crawlee for Python
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -61,12 +61,12 @@ Requires-Dist: pydantic-ai-slim[openai]>=2.1.0 ; extra == 'pydantic-ai'
 Requires-Dist: parsel>=1.10.0 ; extra == 'pydantic-ai'
 Requires-Dist: lxml[html-clean]>=5.2.0 ; extra == 'pydantic-ai'
 Requires-Dist: redis[hiredis]>=7.0.0 ; extra == 'redis'
-Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-mysql'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0 ; extra == 'sql-mysql'
 Requires-Dist: aiomysql>=0.3.2 ; extra == 'sql-mysql'
 Requires-Dist: cryptography>=46.0.5 ; extra == 'sql-mysql'
-Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-postgres'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0 ; extra == 'sql-postgres'
 Requires-Dist: asyncpg>=0.24.0 ; extra == 'sql-postgres'
-Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-sqlite'
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0 ; extra == 'sql-sqlite'
 Requires-Dist: aiosqlite>=0.21.0 ; extra == 'sql-sqlite'
 Requires-Dist: stagehand>=3.19.5,<4.0.0 ; extra == 'stagehand'
 Requires-Dist: playwright>=1.27.0 ; extra == 'stagehand'
@@ -267,7 +267,7 @@ if __name__ == '__main__':
 
 ### More examples
 
-Explore our [Examples](https://crawlee.dev/python/docs/examples) page in the Crawlee documentation for a wide range of additional use cases and demonstrations.
+Explore the [Guides](https://crawlee.dev/python/docs/guides) section of the Crawlee documentation for a wide range of additional use cases and demonstrations.
 
 ## Features
 

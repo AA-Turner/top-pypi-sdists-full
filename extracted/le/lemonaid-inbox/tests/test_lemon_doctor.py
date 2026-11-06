@@ -10,7 +10,7 @@ from lemonaid.brief import store as brief_store
 from lemonaid.inbox import db
 from lemonaid.lemon_facts import cli
 from lemonaid.lineage import links
-from lemonaid.messages import recipient, waiter
+from lemonaid.messages import recipient, store, waiter
 from lemonaid.watch import briefs_orphans, registry
 
 
@@ -26,7 +26,7 @@ def _caller(monkeypatch):
 def _attach(name: str, channel: str, status: str, **metadata) -> str:
     path = brief_store.briefs_dir() / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"# {name}\n\n{status}\n\n## Waiters\n\n- `lemonaid inbox watch --self`\n")
+    path.write_text(f"# {name}\n\n{status}\n\n## Waiters\n\n- `lemonaid mailbox watch --self`\n")
     with db.connect() as conn:
         db.add(
             conn, channel, "", metadata={"tty": f"/dev/{name}", **metadata}, switch_source="tmux"
@@ -77,8 +77,9 @@ def test_json_gives_every_lemon_in_scope(capsys, monkeypatch):
     assert _doctor("--children", "--self", "--json") == 0
     (row,) = json.loads(capsys.readouterr().out)["lemons"]
     assert row["state"] == "listening"
-    assert row["inbox_waiter"] is True
-    assert row["waiters_listed"] == ["lemonaid inbox watch --self"]
+    assert row["mailbox_waiter"] is True
+    assert row["inbox_waiter"] is True  # the name before 0.142, for older readers
+    assert row["waiters_listed"] == ["lemonaid mailbox watch --self"]
 
 
 def test_orphans_are_lemons_with_no_live_parent(capsys):
@@ -108,6 +109,18 @@ def test_a_lemon_asking_its_user_is_not_listed(capsys, monkeypatch):
 
     assert _doctor("--children", "--self") == 0
     assert capsys.readouterr().out == "1 lemons, 0 deaf or dead and not done or archived\n"
+
+
+def test_a_parked_child_is_listed_with_its_job_although_its_waiter_is_armed(capsys, monkeypatch):
+    monkeypatch.setattr(recipient, "_tty_commands", lambda tty: ["claude"])
+    monkeypatch.setattr(recipient, "parked_jobs", lambda: {"claude:parked": "1eb3e867"})
+    lemon_id = _child("parked", "claude:parked", "Status: review")
+
+    with waiter.armed(store.mailbox_for_id(lemon_id)):
+        assert _doctor("--children", "--self") == 1
+
+    out = capsys.readouterr().out
+    assert "parked: Claude Code moved its conversation to background job 1eb3e867" in out
 
 
 def test_an_unknown_name_is_skipped_and_the_rest_reported(capsys):

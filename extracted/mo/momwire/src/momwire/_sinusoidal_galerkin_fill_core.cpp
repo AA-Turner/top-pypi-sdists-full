@@ -32,6 +32,7 @@
 #include "_bspline_core.h"
 #include "_bspline_fill_core.h"  // the graded remainder pairs (bs2's)
 #include "_somm_grid_core.h"
+#include "_somm_proj_core.h"  // field_proj_nodes: the lazy grid's census
 #include "_somm_pairs_owned_core.h"
 #include "_somm_remainder_core.h"
 #include "_sinusoidal_series_inline.h"  // `sin_minus_arg`
@@ -1020,6 +1021,93 @@ std::vector<double> taylor_shape_coefs(double k, const std::vector<double> &h) {
     return out;
 }
 
+// `fold_upper_bands_into(G, kernel, rows_basis, scale)` past REMAINDER_Q_BYTES:
+// `G += scale . S Q S^T` one band of wing rows at a time against the columns
+// from the band's first row on (the kernel's rectangular route, `Q[r0:r1,
+// r0:]`), a band ending on a basis's first wing row. A folded band (some basis
+// with two or more wing rows) is `Sr @ (Qb @ Sc)` as scipy's csc / csr
+// matvecs add it: each output from zero plus its entries in ascending order,
+// the column fold first. Then `Qb *= scale` (1.0), the band onto its bases'
+// rows from its own bases on and, transposed, onto the columns past them.
+void fold_upper_bands_into(std::vector<cd> &G, std::size_t n_basis, const somm_proj::GridView &view, double gz,
+                           double k, const std::vector<double> &nodes, const std::vector<double> &tang,
+                           const std::vector<double> &W, std::size_t N, std::size_t qn,
+                           const std::vector<int64_t> &loc, const std::vector<double> &pl,
+                           const std::vector<int64_t> &rows_basis) {
+    const std::size_t R = rows_basis.size();
+    // `np.unique(rows_basis, return_index=True)`, `searchsorted` (sorted rows)
+    std::vector<int64_t> bases;
+    std::vector<std::size_t> first_row, pos(R);
+    for (std::size_t r = 0; r < R; r++) {
+        if (bases.empty() || bases.back() != rows_basis[r]) {
+            bases.push_back(rows_basis[r]);
+            first_row.push_back(r);
+        }
+        pos[r] = bases.size() - 1;
+    }
+    const std::size_t nb = bases.size();
+    const bool whole = nb == n_basis;
+    const bool folded = R != nb;
+    const std::size_t band = std::max<std::size_t>(1, REMAINDER_Q_BYTES / (16 * R));
+    std::size_t r0 = 0;
+    std::vector<cd> Qb, T;
+    while (r0 < R) {
+        std::size_t r1 = std::min(r0 + band, R);
+        if (r1 < R && first_row[pos[r1]] != r1) {
+            const std::size_t b = pos[r1];
+            r1 = first_row[b] > r0 ? first_row[b] : (b + 1 < nb ? first_row[b + 1] : R);
+        }
+        const std::size_t nr = r1 - r0, nc = R - r0;
+        Qb.assign(nr * nc, cd(0.0, 0.0));
+        somm_core::remainder_bspline_Q(view, gz, k, nodes.data(), tang.data(), W.data(),
+                                       static_cast<std::ptrdiff_t>(N), nodes.data(), tang.data(), W.data(),
+                                       static_cast<std::ptrdiff_t>(N), static_cast<std::ptrdiff_t>(qn), 3,
+                                       loc.data() + 3 * r0, pl.data() + 9 * r0, static_cast<std::ptrdiff_t>(nr),
+                                       loc.data() + 3 * r0, pl.data() + 9 * r0, static_cast<std::ptrdiff_t>(nc), false,
+                                       0, Qb.data(), 0);
+        const std::size_t b0 = pos[r0], b1 = pos[r1 - 1] + 1;
+        const std::size_t na = b1 - b0, ncb = nb - b0;
+        std::vector<cd> F;  // (na, ncb), C order
+        if (folded) {
+            // Qb @ Sc: T[r][c] from zero, the band's wing columns j ascending
+            T.assign(nr * ncb, cd(0.0, 0.0));
+            for (std::size_t r = 0; r < nr; r++)
+                for (std::size_t j = 0; j < nc; j++) {
+                    cd &t = T[r * ncb + (pos[r0 + j] - b0)];
+                    t = cadd(t, Qb[r * nc + j]);
+                }
+            // Sr @ T: F[b][c] from zero, the band's wing rows i ascending
+            F.assign(na * ncb, cd(0.0, 0.0));
+            for (std::size_t i = 0; i < nr; i++) {
+                const std::size_t b = pos[r0 + i] - b0;
+                for (std::size_t c = 0; c < ncb; c++) F[b * ncb + c] = cadd(F[b * ncb + c], T[i * ncb + c]);
+            }
+        } else {
+            F.swap(Qb);  // nr == na, nc == ncb
+        }
+        for (cd &x : F) x = cm(x, cd(1.0, 0.0));  // `Qb *= scale`
+        // G[b0:b1, b0:] += Qb; G[b1:, b0:b1] += Qb[:, na:].T (through `bases`
+        // on a class block)
+        for (std::size_t i = 0; i < na; i++) {
+            const std::size_t gi = whole ? b0 + i : static_cast<std::size_t>(bases[b0 + i]);
+            for (std::size_t c = 0; c < ncb; c++) {
+                const std::size_t gc = whole ? b0 + c : static_cast<std::size_t>(bases[b0 + c]);
+                cd &g = G[gi + gc * n_basis];
+                g = cadd(g, F[i * ncb + c]);
+            }
+        }
+        for (std::size_t c = na; c < ncb; c++) {
+            const std::size_t gr = whole ? b0 + c : static_cast<std::size_t>(bases[b0 + c]);
+            for (std::size_t i = 0; i < na; i++) {
+                const std::size_t gc = whole ? b0 + i : static_cast<std::size_t>(bases[b0 + i]);
+                cd &g = G[gr + gc * n_basis];
+                g = cadd(g, F[i * ncb + c]);
+            }
+        }
+        r0 = r1;
+    }
+}
+
 // `_mp_remainder(G, geom, seg_view, k, fg)` at a real k: `remainder_Q_above`
 // with `scale = REMAINDER_SIGN` (1.0), G F order.
 void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const Segs &s, double k, cd eps_t,
@@ -1027,7 +1115,9 @@ void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const
     const std::size_t N = s.n;
     const double gz = 0.0;  // the NEC-4.2 dialect's interface
     const double r1_max = razor::max_image_distance(s.l.data(), s.r.data(), N, gz);
-    const somm_core::Grid &G0 = somm_core::get_grid(eps_t, k, r1_max, omega, SOLVER_MU);
+    // The lazy view (momwire#1512): its nodes are filled below, once the
+    // census of the block's and the grazing pairs' reads has named them.
+    const somm_core::Grid &G0 = somm_core::get_grid_lazy(eps_t, k, r1_max, omega, SOLVER_MU);
     GridHold gh;
     grid_view(G0, gh);
     std::vector<double> t01, w01;
@@ -1065,7 +1155,6 @@ void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const
         for (int64_t r = 0; r < nr; r++) rows_basis.push_back(static_cast<int64_t>(b));
     }
     const std::size_t R = rows_basis.size();
-    if (16 * R * R > REMAINDER_Q_BYTES) decline("a remainder block past REMAINDER_Q_BYTES (its banded fold)");
     std::vector<int64_t> loc(R * 3, 0);
     std::vector<double> pl(R * 9, 0.0);
     {
@@ -1079,6 +1168,42 @@ void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const
             for (int p = 0; p < 3; p++) pl[(row * 3 + slot) * 3 + static_cast<std::size_t>(p)] = csr.coef[3 * e + static_cast<std::size_t>(p)].real();
         }
     }
+    // the grazing pairs, on graded panels (named here for the census; used below)
+    std::vector<int64_t> I, J, Qp;
+    bspline::raised_pairs_on(s.l, s.r, static_cast<int64_t>(N), gz, q, REMAINDER_GRADED_C, REMAINDER_GRADED_EDGE_TOL,
+                             np, I, J, Qp);
+    bspline::Geometry bg;
+    bg.n_segs_total = static_cast<int64_t>(N);
+    bg.seg_l = s.l;
+    bg.seg_r = s.r;
+    bg.tangents = s.t;
+    bg.h_per_seg = s.h;
+    {
+        // Collect, then fill: the block reads every node against every node
+        // (`remainder_bspline_Q`; `remainder_field_proj_owned` below reads a
+        // subset of the same pairs), the grazing pairs their graded panels.
+        const std::size_t n_reg = G0.regions.size();
+        std::vector<std::vector<uint8_t>> need(n_reg);
+        somm_proj::NodeMarks marks;
+        marks.n_reg = n_reg;
+        for (std::size_t r = 0; r < n_reg; r++) {
+            need[r].assign(static_cast<std::size_t>(G0.regions[r].n_r * G0.regions[r].n_th), 0);
+            marks.m[r] = need[r].data();
+            marks.nR[r] = static_cast<std::ptrdiff_t>(G0.regions[r].n_r);
+            marks.nTh[r] = static_cast<std::ptrdiff_t>(G0.regions[r].n_th);
+        }
+        const double n_pairs = static_cast<double>(N * qn) * static_cast<double>(N * qn);
+        if (somm_core::census_pays(n_pairs, somm_core::unfilled_nodes(G0))) {
+            somm_core::field_proj_nodes(gh.view, static_cast<std::ptrdiff_t>(N * qn), static_cast<std::ptrdiff_t>(N * qn),
+                                        nodes.data(), nodes.data(), gz, marks);
+            if (!I.empty()) bspline::debug_pair_census(bg, gz, k, G0, REMAINDER_D1, I, J, marks);
+        } else {
+            need = somm_core::all_nodes_of(G0);  // the census would cost more than it saves
+        }
+        somm_core::ensure_nodes(G0, need);
+    }
+    if (16 * R * R <= REMAINDER_Q_BYTES) {
+    // one call on the dense block's shape: the kernel's symmetric route
     std::vector<cd> Qr(R * R);
     somm_core::remainder_bspline_Q(gh.view, gz, k, nodes.data(), s.t.data(), W.data(), static_cast<std::ptrdiff_t>(N),
                                    nodes.data(), s.t.data(), W.data(), static_cast<std::ptrdiff_t>(N),
@@ -1121,25 +1246,20 @@ void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const
                 gij = cadd(gij, blk);
             }
     }
-    // the grazing pairs, on graded panels
-    std::vector<int64_t> I, J, Qp;
-    bspline::raised_pairs_on(s.l, s.r, static_cast<int64_t>(N), gz, q, REMAINDER_GRADED_C, REMAINDER_GRADED_EDGE_TOL,
-                             np, I, J, Qp);
+    if (somm_core::lazy_check()) somm_core::check_read(Qr.data(), Qr.size(), "sg sommerfeld remainder block");
+    } else {
+        fold_upper_bands_into(G, n_basis, gh.view, gz, k, nodes, s.t, W, N, qn, loc, pl, rows_basis);
+    }
     if (I.empty()) return;
     const std::size_t n = I.size();
     const int D1 = REMAINDER_D1;
-    bspline::Geometry bg;
-    bg.n_segs_total = static_cast<int64_t>(N);
-    bg.seg_l = s.l;
-    bg.seg_r = s.r;
-    bg.tangents = s.t;
-    bg.h_per_seg = s.h;
     // `_remainder_graded.pair_moments(..., D1)` through the bs2 core's exported
     // hook, without the base-order moments it can also return (this route
     // takes them from `remainder_field_proj_owned` below, as Python does):
     // computing them pair by pair was ~90 % of an above-ground screen's fill
     std::vector<cd> dJm, unread;
     bspline::debug_pair_moments(bg, gz, k, G0, D1, I, J, q, dJm, unread, false);
+    if (somm_core::lazy_check()) somm_core::check_read(dJm.data(), dJm.size(), "sg sommerfeld remainder graded");
     const std::vector<double> tau = taylor_shape_coefs(k, s.h);
     // dJ = einsum("pmn,nmM,PMn->npP", tau[:, :, I], dJ_mono, tau[:, :, J])
     std::vector<cd> dJ(n * 9);
@@ -1186,6 +1306,7 @@ void mp_remainder(std::vector<cd> &G, std::size_t n_basis, const Csr &csr, const
     std::vector<cd> F(S);
     somm_core::remainder_field_proj_owned(gh.view, gz, k, obs.data(), t_obs.data(), src.data(), t_src.data(),
                                           owner.data(), static_cast<std::ptrdiff_t>(S), F.data(), 0);
+    if (somm_core::lazy_check()) somm_core::check_read(F.data(), F.size(), "sg sommerfeld remainder owned");
     // lo = einsum("pnq,nqr,Pnr->npP", W[:, I, :], F, W[:, J, :]); dJ -= lo
     for (std::size_t t = 0; t < n; t++) {
         const std::size_t si = static_cast<std::size_t>(I[t]), sj = static_cast<std::size_t>(J[t]);
@@ -1266,6 +1387,35 @@ Csr basis_csr_c(const SegView &v, cd k) {
     return c;
 }
 
+// `_below_interface.BURIED_GRAZING_REFUSAL` (the point-matched front's copy,
+// `_sinusoidal_front_core.cpp`, is that TU's own), raised as `serve_plan`
+// raises it: `theta` the plan's th_min in degrees (`math.degrees`), the
+// depth sum `min(d_b) + min(d_b)`, a ValueError in Python's words.
+const char *const kSgBuriedGrazingRefusal =
+    "this deck's buried wires reach a below/below pair elevation of theta = {th} deg among the "
+    "pairs inside the cap, below the {floor} deg grazing floor the below/below surfaces are tabul"
+    "ated from (the pair's two depths add to {depth} m, and theta = atan2(depth sum, horizontal"
+    " separation)). The floor is asked only of pairs inside the cap \xe2\x80\x94" " image distance "
+    "R1 within 4 in-medium wavelengths, the pairs whose remainder is evaluated; past it the remaind"
+    "er is served as zero (momwire#1053, #1187). Below the floor the surfaces carry the lateral wav"
+    "e's LOGARITHMIC structure \xe2\x80\x94" " measured drift 1.1 to 3.3 of scale between 2 and 0.0"
+    "5 deg \xe2\x80\x94" " which no uniform lattice resolves, and theta = 0 has no node at all beca"
+    "use h = 0 leaves the tail without its exponential decay. Bury the wires deeper, shorten them, "
+    "or wait for the log-spaced grazing band (momwire#553 U2's recorded follow-up)";
+
+[[noreturn]] void refuse_grazing(double th_min, double floor_deg, const std::vector<double> &d) {
+    double dmin = d.empty() ? 0.0 : d[0];
+    for (double v : d) dmin = (v != v || dmin != dmin) ? std::numeric_limits<double>::quiet_NaN() : std::min(dmin, v);
+    char th[64], fl[64], de[64];
+    std::snprintf(th, sizeof th, "%.4g", th_min * (180.0 / M_PI));  // `math.degrees`, `{th:.4g}`
+    std::snprintf(fl, sizeof fl, "%g", floor_deg);
+    std::snprintf(de, sizeof de, "%.4g", dmin + dmin);
+    std::string msg = kSgBuriedGrazingRefusal;
+    const std::pair<const char *, const char *> fields[3] = {{"{th}", th}, {"{floor}", fl}, {"{depth}", de}};
+    for (const auto &f : fields) msg.replace(msg.find(f.first), std::strlen(f.first), f.second);
+    throw SolverRefusal("ValueError", msg);
+}
+
 // `_operating_medium`'s `serve_plan` over the field rule's nodes
 // (`field_nodes`, q = `n_qp_buried_field(3)` = 6) with bspline's
 // `_pair_extents_below`: `r1_below`, or the grazing refusal, which is not
@@ -1313,7 +1463,7 @@ double serve_plan_below(const Front &fr) {
     if (th_min < floor) {
         // past the cap Python asks the floor of the pairs inside it only
         if (r1_max > r1_cap) decline("a grazing below/below pair past the cap (the capped walk is not copied)");
-        decline("a below/below pair under the grazing floor (the refusal's wording is not copied)");
+        refuse_grazing(th_min, floor_deg, d);
     }
     return r1_max;
 }
@@ -1941,8 +2091,9 @@ double serve_plan_crossing(const Front &fr, const std::vector<int64_t> &b_idx) {
                 if (ratio < ratio_min) ratio_min = ratio;
             }
         if (std::atan(ratio_min) >= floor) return r1_max;
+        refuse_grazing(std::atan(ratio_min), floor_deg, d);  // `np.arctan(ratio_min)`
     }
-    if (th_min < floor) decline("a below/below pair under the grazing floor (the refusal's wording is not copied)");
+    if (th_min < floor) refuse_grazing(th_min, floor_deg, d);
     return r1_max;
 }
 

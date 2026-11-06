@@ -74,9 +74,9 @@ use crate::user::StatsigUserInternal;
 use crate::utils::get_loggable_sdk_key;
 use crate::{
     ClientInitResponseOptions, GCIRResponseFormat, IdListsAdapter, InitializeDetails,
-    ObservabilityClient, OpsStatsEventObserver, OverrideAdapter, SpecsAdapter, SpecsInfo,
-    SpecsSource, SpecsUpdateListener, StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter,
-    StatsigUser, dyn_value, log_d, log_e, log_w,
+    OpsStatsEventObserver, OverrideAdapter, SpecsAdapter, SpecsInfo, SpecsSource,
+    SpecsUpdateListener, StatsigHttpIdListsAdapter, StatsigLocalOverrideAdapter, StatsigUser,
+    dyn_value, log_d, log_e, log_w,
 };
 use crate::{
     log_error_to_statsig_and_console,
@@ -94,7 +94,7 @@ use serde_json::json;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Weak, mpsc};
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
 #[cfg(test)]
@@ -276,6 +276,8 @@ impl Statsig {
         let hashing = Arc::new(HashUtil::new());
         let sdk_instance_id = options.get_sdk_instance_id(sdk_key).to_string();
         let _ops_stats_instance_scope = OPS_STATS.enter_instance_scope(&sdk_instance_id, None);
+        // Keep the existing console-capture bus alive until its registry instance owns it.
+        let console_capture_ops_stats = OPS_STATS.get_for_instance(&sdk_instance_id);
 
         let data_store_key =
             get_data_store_key(RequestPath::RulesetsV2, sdk_key, &hashing, &options);
@@ -308,7 +310,8 @@ impl Statsig {
             &error_observer,
             &diagnostics_observer,
             &console_capture_observer,
-            &options.observability_client,
+            &console_capture_ops_stats,
+            &options,
         );
 
         let event_emitter = Arc::new(SdkEventEmitter::with_output_policy(output_policy));
@@ -409,10 +412,12 @@ impl Statsig {
     pub async fn initialize_with_details(&self) -> Result<InitializeDetails, StatsigErr> {
         self.output_policy
             .scope(async {
-                self.ops_stats.add_marker(
-                    Marker::new(KeyType::Overall, ActionType::Start, None),
-                    Some(ContextType::Initialize),
-                );
+                if !self.ops_stats.remote_telemetry_disabled() {
+                    self.ops_stats.add_marker(
+                        Marker::new(KeyType::Overall, ActionType::Start, None),
+                        Some(ContextType::Initialize),
+                    );
+                }
 
                 // Listener registration must survive cancellation of initialization fetches.
                 self.spec_store.set_source(SpecsSource::Loading);
@@ -3843,6 +3848,9 @@ impl Statsig {
             self.should_user_third_party_parser(),
             true,
         );
+        context.id_list_access_recorder = self
+            .event_logger
+            .id_list_access_recorder(self.output_policy);
         context.unresolved_missing_id_lists = unresolved_lazy_id_lists;
         // GCIR v2 hashes the original assembled returnable. Keep its context on that path.
         context.reuse_default_only_layer_values = self.reuse_default_only_layer_values;
@@ -3861,7 +3869,7 @@ impl Statsig {
             _ => None,
         };
 
-        EvaluatorContext::new(
+        let mut context = EvaluatorContext::new(
             user_internal,
             &data.snapshot,
             IdListResolution::MapLookup(data.id_lists.as_ref()),
@@ -3872,7 +3880,11 @@ impl Statsig {
             // GCIR is side-effect free, so it does not retain nested experiment
             // exposures after evaluating them on the pinned snapshot.
             false,
-        )
+        );
+        context.id_list_access_recorder = self
+            .event_logger
+            .id_list_access_recorder(self.output_policy);
+        context
     }
 
     fn evaluate_spec_raw_for_manual_exposure(
@@ -4337,6 +4349,9 @@ impl Statsig {
         );
 
         self.ops_stats.log(event);
+        if self.ops_stats.remote_telemetry_disabled() {
+            return;
+        }
         self.ops_stats.add_marker(
             {
                 let marker = Marker::new(KeyType::Overall, ActionType::End, None)
@@ -4489,22 +4504,27 @@ fn setup_ops_stats(
     error_observer: &Arc<dyn OpsStatsEventObserver>,
     diagnostics_observer: &Arc<dyn OpsStatsEventObserver>,
     console_capture_observer: &Arc<dyn OpsStatsEventObserver>,
-    external_observer: &Option<Weak<dyn ObservabilityClient>>,
+    console_capture_ops_stats: &Arc<OpsStatsForInstance>,
+    options: &StatsigOptions,
 ) -> Arc<OpsStatsForInstance> {
-    let ops_stat = OPS_STATS.get_for_instance(sdk_instance_id);
+    let ops_stat = OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options));
     if crate::output_policy::OutputPolicy::current().is_silent() {
         return ops_stat;
     }
-    ops_stat.subscribe(statsig_runtime.clone(), Arc::downgrade(error_observer));
-    ops_stat.subscribe(
-        statsig_runtime.clone(),
-        Arc::downgrade(diagnostics_observer),
-    );
-    ops_stat.subscribe(
+    if !ops_stat.remote_telemetry_disabled() {
+        ops_stat.subscribe(statsig_runtime.clone(), Arc::downgrade(error_observer));
+        ops_stat.subscribe(
+            statsig_runtime.clone(),
+            Arc::downgrade(diagnostics_observer),
+        );
+    }
+    // Console capture has an existing SDK-key-based registry. Preserve its shared
+    // delivery bus while keeping opted-out errors/metrics on their isolated bus.
+    console_capture_ops_stats.subscribe(
         statsig_runtime.clone(),
         Arc::downgrade(console_capture_observer),
     );
-    if let Some(ob_client) = external_observer {
+    if let Some(ob_client) = &options.observability_client {
         if let Some(client) = ob_client.upgrade() {
             client.init();
             let as_observer = client.to_ops_stats_event_observer();

@@ -182,6 +182,7 @@ class Cursor(BaseCursor, metaclass=ABCMeta):
         query: str,
         parameters: Optional[Sequence[ParameterType]] = None,
         skip_parsing: bool = False,
+        null_output_format: bool = False,
     ) -> int:
         """Execute a database query without maintaining a connection."""
         ...
@@ -195,6 +196,7 @@ class Cursor(BaseCursor, metaclass=ABCMeta):
         async_execution: bool = False,
         streaming: bool = False,
         bulk_insert: bool = False,
+        null_output_format: bool = False,
     ) -> None:
         self._close_rowset_and_reset()
         self._row_set = StreamingRowSet() if streaming else InMemoryRowSet()
@@ -214,11 +216,13 @@ class Cursor(BaseCursor, metaclass=ABCMeta):
                 async_execution,
                 streaming,
                 bulk_insert,
+                null_output_format,
             )
             self._execute_plan(plan, timeout)
             self._state = CursorState.DONE
-        except Exception:
+        except Exception as err:
             self._state = CursorState.ERROR
+            self._failed_query_id = getattr(err, "query_id", None)
             raise
 
     def _execute_plan(
@@ -471,10 +475,10 @@ class Cursor(BaseCursor, metaclass=ABCMeta):
     @check_query_executed
     def nextset(self) -> bool:
         """
-        Skip to the next available set, discarding any remaining rows
-        from the current set. Result sets returned by one response are
-        visited in order, like those of separate statements; for a streamed
-        result the remaining rows are read and discarded on the way.
+        Skip to the next available set, if there is one, discarding any
+        remaining rows from the current set. If there is no next set, the
+        current set and its remaining rows are kept. Result sets returned by
+        one response are visited in order, like those of separate statements.
 
         Returns:
             bool: True if there is a next result set, False otherwise
@@ -562,6 +566,7 @@ class CursorV2(Cursor):
         query: str,
         parameters: Optional[Sequence[ParameterType]] = None,
         skip_parsing: bool = False,
+        null_output_format: bool = False,
     ) -> int:
         """
         Execute a database query without maintating a connection.
@@ -585,6 +590,10 @@ class CursorV2(Cursor):
                 actual values
             skip_parsing (bool): Flag to disable query parsing. This will
                 disable parameterized queries while potentially improving performance
+            null_output_format (bool): Request the NULL output format, so the
+                server does not serialize any results. Required for async
+                SELECT queries, which are accepted from engine version
+                4.32.13 on. Defaults to False.
 
         Returns:
             int: Always returns -1, as async execution does not return row count.
@@ -594,6 +603,7 @@ class CursorV2(Cursor):
             [parameters] if parameters else [],
             skip_parsing,
             async_execution=True,
+            null_output_format=null_output_format,
         )
         return -1
 
@@ -657,6 +667,7 @@ class CursorV1(Cursor):
         query: str,
         parameters: Optional[Sequence[ParameterType]] = None,
         skip_parsing: bool = False,
+        null_output_format: bool = False,
     ) -> int:
         raise V1NotSupportedError("Async execution")
 

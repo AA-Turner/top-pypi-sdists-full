@@ -8,6 +8,7 @@ from celery import Signature, Task, chain, chord, group, shared_task
 from celery.canvas import signature
 from celery.exceptions import Reject, SoftTimeLimitExceeded
 from celery.utils.log import get_task_logger
+from celery.worker.control import add_consumer, cancel_consumer, control_command, inspect_command
 
 LEGACY_TASKS_DISABLED = True
 try:
@@ -22,10 +23,31 @@ def get_redis_connection():
 
     host = os.environ.get("REDIS_HOST", "localhost")
     port = os.environ.get("REDIS_PORT", 6379)
-    return StrictRedis(host=host, port=port)
+    # Callers issue blocking reads that wait far longer than redis-py's
+    # default socket timeout, which would otherwise abort them early.
+    return StrictRedis(host=host, port=port, socket_timeout=None)
 
 
 logger = get_task_logger(__name__)
+
+
+@control_command(visible=False)
+def pidbox_reset_error(state, **kwargs):
+    raise RuntimeError('pidbox reset integration test')
+
+
+@control_command(args=[('queue', str)], visible=False)
+def schedule_add_then_cancel_consumer(state, queue, **kwargs):
+    """Schedule two queue operations in one pidbox callback."""
+    add_consumer(state, queue)
+    cancel_consumer(state, queue)
+    return {"scheduled": queue}
+
+
+@inspect_command(visible=False)
+def pending_operations_count(state, **kwargs):
+    """Return the number of deferred consumer operations."""
+    return len(state.consumer._pending_operations)
 
 
 @shared_task
@@ -65,6 +87,12 @@ def add_not_typed(x, y):
 
 @shared_task(ignore_result=True)
 def add_ignore_result(x, y):
+    """Add two numbers."""
+    return x + y
+
+
+@shared_task(ignore_result=False)
+def add_with_result(x, y):
     """Add two numbers."""
     return x + y
 
@@ -119,9 +147,37 @@ def xsum(nums):
 
 
 @shared_task(bind=True)
+def sum_and_record(self, values, redis_key):
+    """Sum the preceding group's results and record this execution."""
+    result = sum(values)
+    with get_redis_connection() as connection:
+        connection.rpush(redis_key, self.request.id)
+    return result
+
+
+@shared_task(bind=True)
 def add_replaced(self, x, y):
     """Add two numbers (via the add task)."""
     raise self.replace(add.s(x, y))
+
+
+@shared_task(bind=True)
+def record_replaced_task_nesting(self, replacements, nesting=None):
+    """Record the nesting level across successive task replacements."""
+    if nesting is None:
+        nesting = []
+    nesting.append(self.request.replaced_task_nesting)
+    if replacements:
+        replacement = record_replaced_task_nesting.s(replacements - 1, nesting)
+        # Keep the caller's result queue when using the RPC backend.
+        return self.replace(replacement.set(reply_to=self.request.reply_to))
+    return nesting
+
+
+@shared_task(bind=True)
+def add_replaced_with_chain(self, x, y):
+    """Add two numbers (via a chain of the add and identity tasks)."""
+    raise self.replace(chain(add.s(x, y), identity.s()))
 
 
 @shared_task(bind=True)
@@ -151,6 +207,11 @@ def replace_with_chain_which_raises(self, *args, link_msg=None):
 @shared_task(bind=True)
 def replace_with_empty_chain(self, *_):
     return self.replace(chain())
+
+
+@shared_task(bind=True)
+def replace_with_chain_which_contains_a_group(self):
+    return self.replace(chain(add.s(1, 2), group(add.s(1), add.s(1))))
 
 
 @shared_task(bind=True)
@@ -234,6 +295,26 @@ def retry_unpickleable(self, foo, bar, *, retry_kwargs):
     raise self.retry(exc=UnpickleableException(foo, bar), **retry_kwargs)
 
 
+@shared_task(bind=True, max_retries=1)
+def retry_with_args_after_kwargs(self, foo, bar, label=None):
+    if not self.request.retries:
+        raise self.retry(args=(foo + 1, bar + 1), countdown=0)
+    return {
+        'foo': foo, 'bar': bar, 'label': label,
+        'retries': self.request.retries, 'is_eager': self.request.is_eager,
+    }
+
+
+@shared_task(bind=True, max_retries=1)
+def retry_with_kwargs_after_args(self, foo, bar):
+    if not self.request.retries:
+        raise self.retry(kwargs={'foo': foo + 1}, countdown=0)
+    return {
+        'foo': foo, 'bar': bar,
+        'retries': self.request.retries, 'is_eager': self.request.is_eager,
+    }
+
+
 @shared_task(bind=True, expires=120.0, max_retries=1)
 def retry_once(self, *args, expires=None, max_retries=1, countdown=0.1):
     """Task that fails and is retried. Returns the number of retries."""
@@ -242,6 +323,20 @@ def retry_once(self, *args, expires=None, max_retries=1, countdown=0.1):
     raise self.retry(countdown=countdown,
                      expires=expires,
                      max_retries=max_retries)
+
+
+@shared_task(bind=True, ignore_result=True)
+def retry_once_ignore_result(self):
+    if not self.request.retries:
+        raise self.retry(countdown=0)
+    return self.request.retries
+
+
+@shared_task(bind=True, ignore_result=False)
+def retry_once_with_result(self):
+    if not self.request.retries:
+        raise self.retry(countdown=0)
+    return self.request.retries
 
 
 @shared_task(bind=True, max_retries=1)
@@ -381,6 +476,12 @@ def return_priority(self, *_args):
 
 
 @shared_task(bind=True)
+def return_request_eta(self):
+    """Return this task's ETA so countdown/eta forwarding can be asserted."""
+    return self.request.eta
+
+
+@shared_task(bind=True)
 def return_properties(self):
     return self.request.properties
 
@@ -474,6 +575,16 @@ def errback_new_style(request, exc, tb):
 
 
 @shared_task
+def errback_old_style_with_args(request_id, label):
+    redis_echo(label, redis_key=request_id)
+
+
+@shared_task
+def errback_new_style_with_args(request, exc, tb, label):
+    redis_echo(label, redis_key=request.id)
+
+
+@shared_task
 def replaced_with_me():
     return True
 
@@ -543,6 +654,30 @@ def reject_then_succeed(self):
     return 'second-pass'
 
 
+@shared_task
+def reject_without_requeue():
+    """Reject permanently so the worker records a terminal FAILURE."""
+    raise Reject('rejected', requeue=False)
+
+
 @shared_task(soft_time_limit=2, time_limit=1)
 def soft_time_limit_must_exceed_time_limit():
     pass
+
+
+@shared_task(bind=True)
+def return_request_time_limits(self):
+    """Return time_limit and soft_time_limit from the task request context."""
+    return {
+        'time_limit': self.request.time_limit,
+        'soft_time_limit': self.request.soft_time_limit,
+    }
+
+
+@shared_task(bind=True, time_limit=60, soft_time_limit=45)
+def task_with_declared_time_limits(self):
+    """Task with explicitly declared time limits — verifies request fields are set."""
+    return {
+        'time_limit': self.request.time_limit,
+        'soft_time_limit': self.request.soft_time_limit,
+    }

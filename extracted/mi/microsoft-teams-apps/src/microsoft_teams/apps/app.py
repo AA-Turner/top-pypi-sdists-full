@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import logging
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, List, Optional, TypeVar, Union, Unpack, cast, overload
 
 from dependency_injector import providers
@@ -32,6 +33,7 @@ from microsoft_teams.api.auth.cloud_environment import PUBLIC
 from microsoft_teams.api.auth.cloud_environment import from_name as cloud_from_name
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Client, ClientOptions, EventEmitter, LocalStorage
+from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     from msgraph.graph_service_client import GraphServiceClient
@@ -61,11 +63,11 @@ from .options import AppOptions, InternalAppOptions
 from .plugins import PluginBase, PluginStartEvent
 from .routing import ActivityHandlerMixin, ActivityRouter
 from .routing.activity_context import ActivityContext
+from .socket_mode import SocketModeAdapter, SocketModeOptions
 from .state import create_state_loader
 from .token_manager import DEFAULT_TENANT_FOR_GRAPH_TOKEN, TokenManager
 from .token_provider import AppTokenProvider
 from .utils import create_graph_client, derive_graph_base_url
-from .utils.thread import to_threaded_conversation_id
 
 version = importlib.metadata.version("microsoft-teams-apps")
 
@@ -76,6 +78,13 @@ load_dotenv(find_dotenv(usecwd=True))
 USER_AGENT = f"teams.py[apps]/{version}"
 
 logger = logging.getLogger(__name__)
+
+_TWO_ARGUMENT_REPLY_DEPRECATION = (
+    "The two-argument form `reply(conversation_id, activity)` is deprecated "
+    "and will be removed in a future release. "
+    "Use `send(conversation_id, activity)` for a top-level message, "
+    "or `reply(conversation_id, message_id, activity)` to reply in a reply chain (thread)."
+)
 
 
 class App(ActivityHandlerMixin):
@@ -128,7 +137,8 @@ class App(ActivityHandlerMixin):
         plugins: List[PluginBase] = list(self.options.plugins)
 
         # Create HttpServer (not a plugin — owned directly by App)
-        adapter = self.options.http_server_adapter or FastAPIAdapter()
+        self._socket_mode = self._build_socket_mode()
+        adapter = self._socket_mode or self.options.http_server_adapter or FastAPIAdapter()
         self.server = HttpServer(adapter, messaging_endpoint=self.options.messaging_endpoint)
         self.container.set_provider("HttpServer", providers.Object(self.server))
 
@@ -205,6 +215,46 @@ class App(ActivityHandlerMixin):
     def token_provider(self) -> AppTokenProvider:
         """Token source for resources the SDK does not call automatically."""
         return self._token_provider
+
+    @property
+    def socket_mode(self) -> Optional[SocketModeAdapter]:
+        """The experimental Socket Mode adapter when enabled, else ``None``.
+
+        Exposes ``status``, ``geo_statuses``, and ``events`` for observing the connection.
+        Socket Mode is currently only available for new bots.
+        This API is in preview and may change in the future; recommended only for development.
+        Diagnostic: ExperimentalTeamsSocketMode
+        """
+        return self._socket_mode
+
+    def _build_socket_mode(self) -> Optional[SocketModeAdapter]:
+        """Resolve the ``socket_mode`` option into an adapter, or ``None`` when it is off."""
+        option = self.options.socket_mode
+        if option is None or option is False:
+            return None
+
+        if self.options.http_server_adapter is not None:
+            raise ValueError(
+                "socket_mode and http_server_adapter are mutually exclusive: Socket Mode replaces the "
+                "inbound HTTP transport, so a custom server adapter would never receive activities."
+            )
+
+        if self.cloud != PUBLIC:
+            raise ValueError(
+                "Socket Mode is not supported in this cloud environment. Use the HTTP inbound transport instead."
+            )
+
+        return SocketModeAdapter(
+            option if isinstance(option, SocketModeOptions) else SocketModeOptions(),
+            process_activity=self._process_activity_event,
+            get_app_token=self._get_bot_token,
+            messaging_endpoint=self.options.messaging_endpoint,
+            client_id=self.credentials.client_id if self.credentials else None,
+            on_error=self._on_socket_mode_error,
+        )
+
+    def _on_socket_mode_error(self, error: Exception) -> None:
+        self._events.emit("error", ErrorEvent(error, context={"method": "socket_mode"}))
 
     async def initialize(self) -> None:
         """
@@ -319,11 +369,25 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity:
         """Send an activity proactively to a conversation.
 
-        Sends to the exact conversation ID provided. For channel threads,
-        the conversation ID must include ``;messageid=`` - use :func:`to_threaded_conversation_id`
-        to construct it, or use :meth:`reply` which handles this automatically.
+        Sends to the exact conversation ID provided.
+        To reply in a reply chain (thread), use :meth:`reply`.
         """
+        return await self._send_activity(
+            conversation_id,
+            activity,
+            service_url=service_url,
+            agentic_identity=agentic_identity,
+        )
 
+    async def _send_activity(
+        self,
+        conversation_id: str,
+        activity: str | ActivityParams | AdaptiveCard,
+        *,
+        service_url: Optional[str] = None,
+        agentic_identity: Optional[AgenticIdentity] = None,
+        reply_chain_id: Optional[str] = None,
+    ) -> SentActivity:
         if not self._initialized:
             raise ValueError("app not initialized - call app.initialize() or app.start() first")
 
@@ -349,6 +413,7 @@ class App(ActivityHandlerMixin):
             activity,
             conversation_ref,
             agentic_identity=agentic_identity,
+            reply_chain_id=reply_chain_id,
         )
 
     def get_agentic_identity(
@@ -390,6 +455,7 @@ class App(ActivityHandlerMixin):
     ) -> SentActivity: ...
 
     @overload
+    @deprecated(_TWO_ARGUMENT_REPLY_DEPRECATION)
     async def reply(
         self,
         conversation_id: str,
@@ -408,32 +474,48 @@ class App(ActivityHandlerMixin):
         service_url: Optional[str] = None,
         agentic_identity: Optional[AgenticIdentity] = None,
     ) -> SentActivity:
-        """Send an activity proactively to a conversation, optionally as a threaded reply.
+        """Send an activity proactively as a reply in a reply chain (thread).
 
         **3-arg form** ``reply(conversation_id, message_id, activity)``:
-        Constructs a threaded conversation ID via :func:`to_threaded_conversation_id`
-        and sends to that thread. The service determines whether threading is
-        supported for the given conversation type.
+        Posts to the reply chain of the message ``message_id``, in the chat or channel ``conversation_id``.
+        Any error is raised, including HTTP 404 and 400.
+        An activity that has an ``id`` updates that message instead, exactly like :meth:`send`.
+        The SDK does not state where a client shows the message in a group chat.
 
         **2-arg form** ``reply(conversation_id, activity)``:
-        Sends to the exact conversation ID provided - threaded if it contains
-        ``;messageid=``, flat otherwise.
+        Sends to the exact conversation ID provided.
+
+        .. deprecated::
+            The 2-arg form is deprecated and will be removed in a future release.
+            Use ``send(conversation_id, activity)`` for a top-level message,
+            or ``reply(conversation_id, message_id, activity)`` to reply in a reply chain.
 
         Args:
-            conversation_id: The conversation ID
-            message_id: The thread root message ID (3-arg form) or the activity (2-arg form)
+            conversation_id: The id of the chat or channel: ``channel_data.chat.id`` or ``channel_data.channel.id``,
+                **not** ``conversation.id``.
+            message_id: The id of the message at the root of the reply chain (3-arg form), or the activity (2-arg form).
+                Use ``channel_data.reply_chain.id``.
             activity: The activity to send (only in 3-arg form)
+
+        Raises:
+            ValueError: If ``conversation_id`` or ``message_id`` is blank (3-arg form).
         """
         if activity is not None:
             if not isinstance(message_id, str):
                 raise TypeError("message_id must be a string when activity is provided")
-            return await self.send(
-                to_threaded_conversation_id(conversation_id, message_id),
+            if not conversation_id or not conversation_id.strip():
+                raise ValueError("conversation_id must be a non-empty string")
+            if not message_id.strip():
+                raise ValueError("message_id must be a non-empty string")
+            return await self._send_activity(
+                conversation_id,
                 activity,
                 service_url=service_url,
                 agentic_identity=agentic_identity,
+                reply_chain_id=message_id,
             )
 
+        warnings.warn(_TWO_ARGUMENT_REPLY_DEPRECATION, DeprecationWarning, stacklevel=2)
         return await self.send(
             conversation_id,
             message_id,

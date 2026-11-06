@@ -1,7 +1,8 @@
+from ..channels.exceptions import ChannelAccountNotFound
 from ..utils.custom_exceptions.custom_exceptions import CustomException
 
 
-class WhatsAppAccountNotFound(CustomException):
+class WhatsAppAccountNotFound(ChannelAccountNotFound):
     def __init__(self, message="WhatsApp account not found", status_code=404, **context_data):
         super().__init__(message, status_code=status_code, **context_data)
 

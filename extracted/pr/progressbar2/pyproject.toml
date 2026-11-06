@@ -14,7 +14,7 @@ description = 'A Python Progressbar library to provide visual (yet text based) p
 dynamic = ['version']
 authors = [{ name = 'Rick van Hattem (Wolph)', email = 'wolph@wol.ph' }]
 license = { text = 'BSD-3-Clause' }
-readme = 'README.rst'
+readme = 'README.md'
 keywords = [
     'REPL',
     'animated',
@@ -107,15 +107,18 @@ classifiers = [
 ]
 
 requires-python = '>=3.10'
-dependencies = ['python-utils >= 3.8.1']
+dependencies = ['python-utils >= 4.1.4']
 
 [project.urls]
 bugs = 'https://github.com/wolph/python-progressbar/issues'
 documentation = 'https://progressbar-2.readthedocs.io/en/latest/'
 repository = 'https://github.com/wolph/python-progressbar/'
+Funding = 'https://github.com/sponsors/wolph'
 
 [project.scripts]
 progressbar = 'progressbar.__main__:main'
+# Shorthand for pipelines: `bar data.bin -o copy.bin`.
+bar = 'progressbar.__main__:main'
 
 [project.optional-dependencies]
 # Optional native iterator accelerator. When installed it is detected and used
@@ -130,6 +133,7 @@ docs = [
 ]
 tests = [
     'dill>=0.3.6',
+    'markupsafe>=2.0',
     'freezegun>=0.3.11',
     'pytest-cov>=2.6.1',
     'pytest>=4.6.9',
@@ -139,8 +143,14 @@ tests = [
 # test run (tests/console is excluded from pytest.ini's python_files, and
 # `tests[]` above -- what `dev` pulls in -- deliberately omits this group).
 docs-tests = [
+    # freezegun and pytest-cov are not used by tests/console itself, but
+    # the shared tests/conftest.py imports freezegun at module scope and
+    # the workflow passes --no-cov, so both must be importable.
+    'freezegun>=0.3.11',
     'playwright>=1.48.0',
+    'pytest-cov>=2.6.1',
     'pytest>=4.6.9',
+    'sphinx>=1.8.5',
 ]
 
 [dependency-groups]

@@ -8,12 +8,14 @@ widget implements.
 
 from __future__ import annotations
 
+import _string  # type: ignore[import-not-found]
 import abc
 import collections.abc
 import contextlib
 import datetime
 import functools
 import logging
+import string
 import typing
 from typing import ClassVar
 
@@ -26,6 +28,136 @@ if typing.TYPE_CHECKING:
     from .bar import NumberT, ProgressBarMixinBase
 
 logger = logging.getLogger(__name__)
+
+
+class _SafeFormatter(string.Formatter):
+    """`str.format` over widget data that refuses dunder attribute walks.
+
+    Format templates may come from text the application did not write
+    (a `prefix`, a `Variable` format). A field such as
+    `{variables.__class__.__init__.__globals__}` would otherwise reach
+    module globals, so any attribute segment starting with `__` raises
+    `ValueError` before it is looked up. A single leading underscore is
+    allowed: `{variables._my_var}` is a documented way to reach a
+    variable, and a user object's own `_private` attribute is the
+    user's business.
+    """
+
+    #: Non-dunder attributes that also lead from an object stored as a
+    #: bar variable (a generator, coroutine, traceback or frame) to a
+    #: frame and its globals.
+    blocked_attributes: frozenset[str] = frozenset(
+        {
+            'f_back',
+            'f_builtins',
+            'f_globals',
+            'f_locals',
+            'gi_frame',
+            'cr_frame',
+            'ag_frame',
+            'tb_frame',
+        }
+    )
+
+    def validate_field(self, field_name: str) -> None:
+        """Check every attribute before any value is looked up.
+
+        A positional field (`{}` or `{0}`) has no value to look up:
+        the templates render from keyword data only, so it raises the
+        `IndexError` that `str.format` raised for it in 4.6.0.
+        """
+        first: typing.Any
+        rest: typing.Iterable[tuple[bool, typing.Any]]
+        first, rest = _string.formatter_field_name_split(field_name)
+        if not isinstance(first, str) or not first:
+            raise IndexError(
+                f'Replacement index {first or 0} out of range for '
+                'positional args tuple'
+            )
+        for is_attr, name in rest:
+            if is_attr and (
+                str(name).startswith('__') or name in self.blocked_attributes
+            ):
+                raise ValueError(
+                    f'attribute {name!r} is not allowed in a format template',
+                )
+
+    def validate(self, template: str, depth: int = 2) -> None:
+        """Check every field, conversion and nested spec of a template.
+
+        The depth limit mirrors the two levels of nesting `str.format`
+        accepts, so a template that passes here renders through the
+        built-in formatter without further checks.
+        """
+        if depth < 0:
+            raise ValueError('Max string recursion exceeded')
+        for _, field, spec, conversion in self.parse(template):
+            if field is not None:
+                self.validate_field(field)
+                if conversion is not None and conversion not in (
+                    's',
+                    'r',
+                    'a',
+                ):
+                    raise ValueError(
+                        f'Unknown conversion specifier {conversion}'
+                    )
+                self.validate(spec or '', depth - 1)
+
+
+_SAFE_FORMATTER: _SafeFormatter = _SafeFormatter()
+
+#: Template texts that passed `_SafeFormatter.validate`. Validation is a
+#: property of the text, not of the data, so each distinct template is
+#: checked once and then rendered by the built-in formatter at
+#: `str.format` speed. Membership tests and insertions on a dict are
+#: atomic under the GIL, so the cache needs no lock. It is cleared when
+#: it grows past `_SAFE_TEMPLATE_LIMIT` entries, which only costs the
+#: next render of each template one more validation.
+_SAFE_TEMPLATES: dict[str, None] = {}
+_SAFE_TEMPLATE_LIMIT: int = 1024
+
+
+def _validate_once(text: str) -> None:
+    """Validate `text` unless an identical template passed before."""
+    if text in _SAFE_TEMPLATES:
+        return
+    _SAFE_FORMATTER.validate(text)
+    if len(_SAFE_TEMPLATES) >= _SAFE_TEMPLATE_LIMIT:
+        _SAFE_TEMPLATES.clear()
+    _SAFE_TEMPLATES[text] = None
+
+
+def _safe_format(
+    template: object,
+    data: typing.Mapping[str, typing.Any],
+) -> str:
+    """Render safe field paths while preserving specialised formatting.
+
+    A plain `str` is validated once per distinct text and then rendered
+    with `str.format_map`, which takes the mapping as it is (a
+    non-`str` key stays a `KeyError` on the missing field, not a
+    `TypeError` from keyword expansion). A specialised template (a
+    `Markup`, a translation proxy) keeps its own `format` method, so it
+    retains its escaping and result type. Its text is read again on
+    every call: a proxy may switch language between renders, and the
+    cache is keyed by the text that is about to render, never by the
+    object. Application code in format methods and proxies remains
+    trusted.
+    """
+    if type(template) is str:
+        _validate_once(template)
+        return template.format_map(data)
+    formatter: typing.Any = getattr(template, 'format', None)
+    if not callable(formatter):
+        raise TypeError(
+            f'format template must be a str, got {type(template).__name__}',
+        )
+    _validate_once(
+        str.__str__(template) if isinstance(template, str) else str(template)
+    )
+    return typing.cast(str, formatter(**data))
+
 
 MAX_DATE = datetime.date.max
 MAX_TIME = datetime.time.max
@@ -198,14 +330,14 @@ class FormatWidgetMixin:
         format_ = self.get_format(progress, data, format)
         try:
             if self.new_style:
-                return format_.format(**data)
+                return _safe_format(format_, data)
             else:
                 return format_ % data
-        except (TypeError, KeyError):
+        except (TypeError, KeyError, IndexError, ValueError):
             logger.exception(
-                'Error while formatting %r with data: %r',
+                'Error while formatting %r with data keys: %r',
                 format_,
-                data,
+                list(data),
             )
             raise
 
@@ -362,11 +494,15 @@ class WidgetBase(WidthWidgetMixin, metaclass=abc.ABCMeta):
     def _apply_colors(self, text: str, data: Data) -> str:
         """Wrap `text` in the configured fixed/gradient colors, if any."""
         if self.uses_colors:
+            gradient = self._gradient_colors
+            fixed = self._fixed_colors
             return terminal.apply_colors(
                 text,
                 data.get('percentage'),
-                **self._gradient_colors,
-                **self._fixed_colors,
+                fg=gradient['fg'],
+                bg=gradient['bg'],
+                fg_none=fixed['fg_none'],
+                bg_none=fixed['bg_none'],
             )
         else:
             return text
@@ -459,14 +595,28 @@ class TimeSensitiveWidgetBase(WidgetBase, metaclass=abc.ABCMeta):
     INTERVAL = datetime.timedelta(milliseconds=100)
 
 
-class FormatLabel(FormatWidgetMixin, WidgetBase):
+class ColoredMixin:
+    """Yellow and progress-gradient defaults for numeric and label widgets."""
+
+    # See ``WidgetBase``: class-level defaults, overridable per instance.
+    _fixed_colors: TFixedColors = TFixedColors(
+        fg_none=colors.yellow,
+        bg_none=None,
+    )
+    _gradient_colors: TGradientColors = TGradientColors(
+        fg=colors.gradient,
+        bg=None,
+    )
+
+
+class FormatLabel(FormatWidgetMixin, ColoredMixin, WidgetBase):
     """Displays a formatted label.
 
     >>> label = FormatLabel('%(value)s', min_width=5, max_width=10)
     >>> class Progress:
     ...     pass
     >>> label = FormatLabel('{value} :: {value:^6}', new_style=True)
-    >>> str(label(Progress, dict(value='test')))
+    >>> utils.no_color(label(Progress, dict(value='test')))
     'test ::  test '
 
     """
@@ -504,10 +654,14 @@ class FormatLabel(FormatWidgetMixin, WidgetBase):
             if transform is None:
                 data[name] = data[key]
             else:
-                with contextlib.suppress(ValueError, IndexError):
-                    data[name] = transform(data[key])
+                try:
+                    value = transform(data[key])
+                except (ValueError, IndexError):
+                    continue
+                data[name] = value
 
-        return FormatWidgetMixin.__call__(self, progress, data, format)
+        output: str = FormatWidgetMixin.__call__(self, progress, data, format)
+        return self._apply_colors(output, data)
 
 
 class Timer(FormatLabel, TimeSensitiveWidgetBase):
@@ -1107,7 +1261,27 @@ class AdaptiveTransferSpeed(FileTransferSpeed, SamplesMixin):
 
 
 class AnimatedMarker(TimeSensitiveWidgetBase):
-    """An animated marker that defaults to appearing as if it were rotating."""
+    """An animated marker that cycles through frames and colours by default.
+
+    Every redraw advances the frame by one character and the colour by
+    one step around `colors.rainbow`, taking `color_cycle` redraws for
+    a full lap. The colour follows the redraw count, not progress, so
+    it keeps moving on indeterminate bars too.
+    """
+
+    _gradient_colors: TGradientColors = TGradientColors(
+        fg=colors.rainbow,
+        bg=None,
+    )
+    #: Redraws per full lap around the colour gradient.
+    color_cycle: int = 30
+
+    def _apply_colors(self, text: str, data: Data) -> str:
+        """Colour by redraw count instead of by progress."""
+        percentage: float = (
+            data['updates'] % self.color_cycle / self.color_cycle * 100
+        )
+        return super()._apply_colors(text, dict(data, percentage=percentage))
 
     def __init__(
         self,
@@ -1116,6 +1290,7 @@ class AnimatedMarker(TimeSensitiveWidgetBase):
         fill: str = '',
         marker_wrap: str | tuple[str | None, str | None] | None = None,
         fill_wrap: str | tuple[str | None, str | None] | None = None,
+        color_cycle: int | None = None,
         **kwargs: typing.Any,
     ):
         """Create an `AnimatedMarker`.
@@ -1130,12 +1305,21 @@ class AnimatedMarker(TimeSensitiveWidgetBase):
             marker_wrap: Begin/end strings or template wrapped around
                 the marker frame (see `create_wrapper`).
             fill_wrap: Same as `marker_wrap`, for the fill.
+            color_cycle: Redraws per full lap around the colour
+                gradient. Defaults to the class-level `color_cycle`
+                (30, twelve degrees of hue per redraw).
             **kwargs: Forwarded to the next class in the cooperative
                 `__init__` chain.
         """
-        self.markers = markers
+        if color_cycle is not None:
+            self.color_cycle = color_cycle
+        if self.color_cycle < 1:
+            raise ValueError(
+                f'color_cycle must be at least 1, got {self.color_cycle!r}'
+            )
+        self.markers: str = converters.to_unicode(markers)
         self.marker_wrap = create_wrapper(marker_wrap)
-        self.default = default or markers[0]
+        self.default = default or self.markers[0]
         self.fill_wrap = create_wrapper(fill_wrap)
         self.fill = create_marker(fill, self.fill_wrap) if fill else None
         super().__init__(**kwargs)
@@ -1147,8 +1331,10 @@ class AnimatedMarker(TimeSensitiveWidgetBase):
             # collapsing to a single character. A plain marker has no fill
             # so it falls back to its default character.
             if self.fill:
-                return self.fill(progress, data, width)
-            return self.default
+                return self._apply_colors(
+                    self.fill(progress, data, width), data
+                )
+            return self._apply_colors(self.default, data)
 
         marker = self.markers[data['updates'] % len(self.markers)]
         if self.marker_wrap:
@@ -1164,15 +1350,7 @@ class AnimatedMarker(TimeSensitiveWidgetBase):
         else:
             fill = ''
 
-        # Python 3 returns an int when indexing bytes
-        if isinstance(marker, int):  # pragma: no cover
-            marker = bytes(marker)
-            fill = fill.encode()
-        else:
-            # cast fill to the same type as marker
-            fill = type(marker)(fill)
-
-        return fill + marker  # type: ignore
+        return self._apply_colors(converters.to_unicode(fill) + marker, data)
 
 
 # Legacy alias for `AnimatedMarker`, kept for backwards compatibility. Kept as
@@ -1180,7 +1358,7 @@ class AnimatedMarker(TimeSensitiveWidgetBase):
 RotatingMarker = AnimatedMarker
 
 
-class Counter(FormatWidgetMixin, WidgetBase):
+class Counter(FormatWidgetMixin, ColoredMixin, WidgetBase):
     """Displays the current count."""
 
     def __init__(self, format='%(value)d', **kwargs: typing.Any):
@@ -1196,21 +1374,8 @@ class Counter(FormatWidgetMixin, WidgetBase):
         format=None,
     ):
         """Render `self.format` (or `format`, if given) against `data`."""
-        return FormatWidgetMixin.__call__(self, progress, data, format)
-
-
-class ColoredMixin:
-    """Yellow/gradient color defaults for `Percentage`/`SimpleProgress`."""
-
-    # See ``WidgetBase``: class-level defaults, overridable per instance.
-    _fixed_colors: TFixedColors = TFixedColors(
-        fg_none=colors.yellow,
-        bg_none=None,
-    )
-    _gradient_colors: TGradientColors = TGradientColors(
-        fg=colors.gradient,
-        bg=None,
-    )
+        output: str = FormatWidgetMixin.__call__(self, progress, data, format)
+        return self._apply_colors(output, data)
 
 
 class Percentage(FormatWidgetMixin, ColoredMixin, WidgetBase):
@@ -1279,7 +1444,7 @@ def format_unit_value(
     return f'{value} {unit}'
 
 
-class UnitProgress(WidgetBase):
+class UnitProgress(ColoredMixin, WidgetBase):
     """Displays progress as a count with an optional unit and 1024 scaling."""
 
     def __init__(
@@ -1319,7 +1484,7 @@ class UnitProgress(WidgetBase):
             unit_scale = self.unit_scale
         value = format_unit_value(data.get('value'), unit, unit_scale)
         max_value = format_unit_value(data.get('max_value'), unit, unit_scale)
-        return f'{value} of {max_value}'
+        return self._apply_colors(f'{value} of {max_value}', data)
 
 
 class SimpleProgress(FormatWidgetMixin, ColoredMixin, WidgetBase):
@@ -1412,8 +1577,16 @@ class SimpleProgress(FormatWidgetMixin, ColoredMixin, WidgetBase):
 class Bar(AutoWidthWidgetBase):
     """A progress bar which stretches to fill the line."""
 
-    fg: terminal.OptionalColor = colors.gradient
-    bg: terminal.OptionalColor = None
+    # Default look: the fill sweeps the red->green gradient as progress
+    # grows, matching ColoredMixin's percentage/count defaults. These
+    # must be the `_gradient_colors` dict `_apply_colors` actually
+    # reads: an earlier revision declared plain `fg`/`bg` attributes
+    # here that nothing consumed, which silently left the default fill
+    # colorless (see test_default_bar_fill_uses_the_progress_gradient).
+    _gradient_colors: TGradientColors = TGradientColors(
+        fg=colors.gradient,
+        bg=None,
+    )
 
     def __init__(
         self,
@@ -1533,6 +1706,11 @@ class ReverseBar(Bar):
 class BouncingBar(Bar, TimeSensitiveWidgetBase):
     """A bar which has a marker which bounces from side to side."""
 
+    _fixed_colors: TFixedColors = TFixedColors(
+        fg_none=colors.cyan1,
+        bg_none=None,
+    )
+
     INTERVAL = datetime.timedelta(milliseconds=100)
 
     def __call__(
@@ -1548,7 +1726,8 @@ class BouncingBar(Bar, TimeSensitiveWidgetBase):
 
         fill = converters.to_unicode(self.fill(progress, data, width))
 
-        if width:  # pragma: no branch
+        width = max(0, width - progress.custom_len(marker) + 1)
+        if width:
             value = int(
                 data['total_seconds_elapsed'] / self.INTERVAL.total_seconds(),
             )
@@ -1563,6 +1742,8 @@ class BouncingBar(Bar, TimeSensitiveWidgetBase):
             else:
                 marker = b * fill + marker + a * fill
 
+        if color:
+            marker = self._apply_colors(marker, data)
         return left + marker + right
 
 
@@ -2064,7 +2245,7 @@ class Variable(FormatWidgetMixin, VariableMixin, WidgetBase):
             else:
                 context['formatted_value'] = '-' * self.width
 
-        return self.format.format(**context)
+        return _safe_format(self.format, context)
 
 
 class DynamicMessage(Variable):

@@ -84,6 +84,7 @@ Usage::
         ListPipelineVersionsPaginator,
         ListPipelinesPaginator,
         ListProcessingJobsPaginator,
+        ListProjectsPaginator,
         ListResourceCatalogsPaginator,
         ListSpacesPaginator,
         ListStageDevicesPaginator,
@@ -179,6 +180,7 @@ Usage::
     list_pipeline_versions_paginator: ListPipelineVersionsPaginator = client.get_paginator("list_pipeline_versions")
     list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
     list_processing_jobs_paginator: ListProcessingJobsPaginator = client.get_paginator("list_processing_jobs")
+    list_projects_paginator: ListProjectsPaginator = client.get_paginator("list_projects")
     list_resource_catalogs_paginator: ListResourceCatalogsPaginator = client.get_paginator("list_resource_catalogs")
     list_spaces_paginator: ListSpacesPaginator = client.get_paginator("list_spaces")
     list_stage_devices_paginator: ListStageDevicesPaginator = client.get_paginator("list_stage_devices")
@@ -352,6 +354,8 @@ from .type_defs import (
     ListPipelineVersionsResponseTypeDef,
     ListProcessingJobsRequestPaginateTypeDef,
     ListProcessingJobsResponseTypeDef,
+    ListProjectsInputPaginateTypeDef,
+    ListProjectsOutputTypeDef,
     ListResourceCatalogsRequestPaginateTypeDef,
     ListResourceCatalogsResponseTypeDef,
     ListSpacesRequestPaginateTypeDef,
@@ -468,6 +472,7 @@ __all__ = (
     "ListPipelineVersionsPaginator",
     "ListPipelinesPaginator",
     "ListProcessingJobsPaginator",
+    "ListProjectsPaginator",
     "ListResourceCatalogsPaginator",
     "ListSpacesPaginator",
     "ListStageDevicesPaginator",
@@ -1816,6 +1821,24 @@ class ListProcessingJobsPaginator(_ListProcessingJobsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListProcessingJobs.html#SageMaker.Paginator.ListProcessingJobs.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listprocessingjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListProjectsPaginatorBase = Paginator[ListProjectsOutputTypeDef]
+else:
+    _ListProjectsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListProjectsPaginator(_ListProjectsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListProjects.html#SageMaker.Paginator.ListProjects)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listprojectspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProjectsInputPaginateTypeDef]
+    ) -> PageIterator[ListProjectsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListProjects.html#SageMaker.Paginator.ListProjects.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listprojectspaginator)
         """
 
 if TYPE_CHECKING:

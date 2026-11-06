@@ -55,7 +55,7 @@ _EXACT_MATCH_LIMIT = 500 ** 2
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '1.42'
+__version__ = '1.43'
 __website__ = 'https://github.com/stefankoegl/python-json-patch'
 __license__ = 'BSD-3-Clause'
 
@@ -869,6 +869,9 @@ class JsonPatch(object):
         one. The resulting patch transforms `src` into `dst`, so it has to be
         applied to `src` (or to a document equal to it).
 
+        Values in the patch are copied, so changing either input document
+        afterwards does not change the generated patch.
+
         :param src: Source JSON document, including arrays and scalar values.
         :type src: object
 
@@ -906,7 +909,7 @@ class JsonPatch(object):
                               optimization=optimization,
                               generate_test_ops=generate_test_ops)
         builder._compare_values((), None, src, dst)
-        ops = list(builder.execute())
+        ops = copy.deepcopy(list(builder.execute()))
         return cls(ops, pointer_cls=pointer_cls)
 
     def to_string(self, dumps=None):

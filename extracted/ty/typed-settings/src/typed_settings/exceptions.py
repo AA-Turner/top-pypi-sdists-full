@@ -2,12 +2,6 @@
 Exceptions raised by Typed Settings.
 """
 
-from ._compat import PY_311
-
-
-if not PY_311:
-    from exceptiongroup import ExceptionGroup
-
 
 class TsError(Exception):
     """

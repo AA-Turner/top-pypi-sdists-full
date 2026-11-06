@@ -4652,20 +4652,26 @@ class CloudController(BaseController):
                     state=CloudState.DELETING,
                 )
 
-            if cloud_provider == CloudProviders.AWS:
-                if not (cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S):
-                    # Delete services resources
-                    self.delete_aws_lb_cfn_stack(cloud=cloud)
-                    with self.log.spinner("Deleting load balancing resources..."):
-                        wait_for_lb_resource_termination(
-                            api_client=self.api_client, cloud_id=cloud_id
-                        )
-                    self.delete_aws_tls_certificates(cloud=cloud)
+            # The cloud's load balancers and their TLS certificates live in the
+            # customer's AWS account (not for AIOA clouds or the K8S stack).
+            delete_aws_lb_resources = cloud_provider == CloudProviders.AWS and not (
+                cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S
+            )
+            if delete_aws_lb_resources:
+                # Delete services resources
+                self.delete_aws_lb_cfn_stack(cloud=cloud)
+                with self.log.spinner("Deleting load balancing resources..."):
+                    wait_for_lb_resource_termination(api_client=self.api_client, cloud_id=cloud_id)
             elif cloud_provider == CloudProviders.GCP:
                 with self.log.spinner("Deleting load balancing resources..."):
                     wait_for_lb_resource_termination(api_client=self.api_client, cloud_id=cloud_id)
 
             self.delete_all_managed_aws_resources(cloud, cloud_resources)
+            # TLS certificates don't block deleting the VPC stack, so they go after
+            # it: if their cleanup fails, the VPC is already gone. They still go
+            # before GCP cleanup, which fails without the optional GCP packages.
+            if delete_aws_lb_resources:
+                self.delete_aws_tls_certificates(cloud=cloud)
             self.delete_all_managed_gcp_resources(cloud, cloud_resources)
         except Exception as e:  # noqa: BLE001
             # confirm() prints nothing when skip_confirmation is set, so log the

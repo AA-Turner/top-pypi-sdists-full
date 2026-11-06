@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: phonic
-Version: 0.33.0
+Version: 0.33.1
 Summary: 
 License: MIT
 Requires-Python: >=3.8,<4.0
@@ -118,6 +118,7 @@ client.agents.create(
     ],
     min_words_to_interrupt=1,
     turn_taking="standard",
+    max_conversation_duration_sec=7200,
     configuration_endpoint=CreateAgentRequestConfigurationEndpoint(
         url="https://api.example.com/config",
         headers={
@@ -187,6 +188,7 @@ async def main() -> None:
         ],
         min_words_to_interrupt=1,
         turn_taking="standard",
+        max_conversation_duration_sec=7200,
         configuration_endpoint=CreateAgentRequestConfigurationEndpoint(
             url="https://api.example.com/config",
             headers={

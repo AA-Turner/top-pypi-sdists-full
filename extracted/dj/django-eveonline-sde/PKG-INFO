@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-eveonline-sde
-Version: 0.2.0
+Version: 1.0.0
 Summary: Eve Online SDE Export in Django Model form
 Project-URL: Issue / Bug Reports, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/issues
 Project-URL: Changelog, https://github.com/Solar-Helix-Independent-Transport/django-eveonline-sde/releases
@@ -701,7 +701,7 @@ Requires-Dist: celery-once<4,>=3
 Requires-Dist: celery<6,>=5
 Requires-Dist: django-modeltranslation==0.19.17
 Requires-Dist: django-solo<3,>=2
-Requires-Dist: httpx<1,>=0.28
+Requires-Dist: httpx2<3,>=2.13
 Description-Content-Type: text/markdown
 
 # Django Models from EVE SDE
@@ -765,6 +765,10 @@ See `eve_sde/sde_types.txt` for an idea of the top level fields that are availab
   - Types
   - Groups
   - Categories
+- Certificates
+  - Skills
+  - Recommended Types
+- Masteries
 
 ## Setup
 

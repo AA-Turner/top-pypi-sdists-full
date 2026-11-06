@@ -70,7 +70,7 @@ from anyscale.compute_config.models import (
     PhysicalResources,
     WorkerNodeGroupConfig,
 )
-from anyscale.events.models import Event, EventsFilter
+from anyscale.events.models import Event, EventsFilter, EventsPage
 from anyscale.gpus.models import (
     Gpu,
     GpuPlacement,
@@ -634,8 +634,8 @@ ALL_MODULES = [
             events_commands.cluster_events: "cluster",
         },
         sdk_prefix="anyscale.events",
-        sdk_commands=[anyscale.events.list],
-        models=[EventsFilter, Event],
+        sdk_commands=[anyscale.events.list, anyscale.events.list_page],
+        models=[EventsFilter, Event, EventsPage],
         # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
         # importable and callable; see the note in commands/events_commands.py.
         hidden=True,

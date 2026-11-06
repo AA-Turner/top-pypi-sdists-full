@@ -49,6 +49,7 @@ class PageProfile(_message.Message):
     SERVER_MODE_FIELD_NUMBER: _builtins.int
     INSTALLED_SKILLS_FIELD_NUMBER: _builtins.int
     INSTALLED_AGENTS_FIELD_NUMBER: _builtins.int
+    AGENT_API_USAGE_FIELD_NUMBER: _builtins.int
     exec_time: _builtins.int
     prep_time: _builtins.int
     uncaught_exception: _builtins.str
@@ -93,6 +94,10 @@ class PageProfile(_message.Message):
         installed in any of them. Empty when no harnesses are detected.
         """
 
+    @_builtins.property
+    def agent_api_usage(self) -> Global___AgentApiUsage:
+        """Agent API activity in this server process. Unset while every count is zero."""
+
     def __init__(
         self,
         *,
@@ -109,14 +114,58 @@ class PageProfile(_message.Message):
         server_mode: _builtins.str = ...,
         installed_skills: _abc.Iterable[_builtins.str] | None = ...,
         installed_agents: _abc.Iterable[_builtins.str] | None = ...,
+        agent_api_usage: Global___AgentApiUsage | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["agent_api_usage", b"agent_api_usage"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["attributions", b"attributions", "commands", b"commands", "config", b"config", "exec_time", b"exec_time", "headless", b"headless", "installed_agents", b"installed_agents", "installed_skills", b"installed_skills", "is_fragment_run", b"is_fragment_run", "os", b"os", "prep_time", b"prep_time", "server_mode", b"server_mode", "timezone", b"timezone", "uncaught_exception", b"uncaught_exception"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["agent_api_usage", b"agent_api_usage", "attributions", b"attributions", "commands", b"commands", "config", b"config", "exec_time", b"exec_time", "headless", b"headless", "installed_agents", b"installed_agents", "installed_skills", b"installed_skills", "is_fragment_run", b"is_fragment_run", "os", b"os", "prep_time", b"prep_time", "server_mode", b"server_mode", "timezone", b"timezone", "uncaught_exception", b"uncaught_exception"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___PageProfile: _TypeAlias = PageProfile  # noqa: Y015
+
+@_typing.final
+class AgentApiUsage(_message.Message):
+    """Agent API activity in one server process. Cumulative since this process
+    started, so a later page profile still includes activity from when no
+    browser was connected.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    INSTANCE_ID_FIELD_NUMBER: _builtins.int
+    HTTP_INTERACTIONS_FIELD_NUMBER: _builtins.int
+    MCP_INTERACTIONS_FIELD_NUMBER: _builtins.int
+    SESSIONS_FIELD_NUMBER: _builtins.int
+    instance_id: _builtins.str
+    """Random id of the server process, so that counts from different processes
+    (restarts, replicas, forked workers) are never mixed.
+    """
+    http_interactions: _builtins.int
+    """Calls to the interact operation over HTTP, refused ones included. With the
+    API off, POSTs that pass the Host, Origin, and content-type checks.
+    """
+    mcp_interactions: _builtins.int
+    """Calls to the interact operation over MCP, refused ones included. With the
+    API off, requests that pass the same checks as the HTTP route.
+    """
+    sessions: _builtins.int
+    """Agent sessions created."""
+    def __init__(
+        self,
+        *,
+        instance_id: _builtins.str = ...,
+        http_interactions: _builtins.int = ...,
+        mcp_interactions: _builtins.int = ...,
+        sessions: _builtins.int = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["http_interactions", b"http_interactions", "instance_id", b"instance_id", "mcp_interactions", b"mcp_interactions", "sessions", b"sessions"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___AgentApiUsage: _TypeAlias = AgentApiUsage  # noqa: Y015
 
 @_typing.final
 class Argument(_message.Message):

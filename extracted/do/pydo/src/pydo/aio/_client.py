@@ -33,6 +33,8 @@ from .operations import (
     DomainsOperations,
     DropletActionsOperations,
     DropletsOperations,
+    EndpointVersionsOperations,
+    EndpointsOperations,
     FirewallsOperations,
     FunctionsAccessKeyOperations,
     FunctionsOperations,
@@ -61,6 +63,7 @@ from .operations import (
     PrepaymentConfigOperations,
     PrepaymentStatusOperations,
     ProjectsOperations,
+    ProviderCredentialsOperations,
     RegionsOperations,
     RegistriesOperations,
     RegistryOperations,
@@ -102,12 +105,18 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
 
     :ivar actor_limits: ActorLimitsOperations operations
     :vartype actor_limits: pydo.aio.operations.ActorLimitsOperations
+    :ivar provider_credentials: ProviderCredentialsOperations operations
+    :vartype provider_credentials: pydo.aio.operations.ProviderCredentialsOperations
     :ivar connections: ConnectionsOperations operations
     :vartype connections: pydo.aio.operations.ConnectionsOperations
     :ivar mcp_servers: McpServersOperations operations
     :vartype mcp_servers: pydo.aio.operations.McpServersOperations
     :ivar output_views: OutputViewsOperations operations
     :vartype output_views: pydo.aio.operations.OutputViewsOperations
+    :ivar endpoints: EndpointsOperations operations
+    :vartype endpoints: pydo.aio.operations.EndpointsOperations
+    :ivar endpoint_versions: EndpointVersionsOperations operations
+    :vartype endpoint_versions: pydo.aio.operations.EndpointVersionsOperations
     :ivar sessions: SessionsOperations operations
     :vartype sessions: pydo.aio.operations.SessionsOperations
     :ivar toolbelts: ToolbeltsOperations operations
@@ -297,6 +306,9 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
         self.actor_limits = ActorLimitsOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
+        self.provider_credentials = ProviderCredentialsOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
         self.connections = ConnectionsOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
@@ -304,6 +316,12 @@ class GeneratedClient:  # pylint: disable=client-accepts-api-version-keyword,too
             self._client, self._config, self._serialize, self._deserialize
         )
         self.output_views = OutputViewsOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.endpoints = EndpointsOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.endpoint_versions = EndpointVersionsOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
         self.sessions = SessionsOperations(

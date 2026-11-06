@@ -82,6 +82,7 @@ from .models import (
     DeleteSandboxCheckpointsResponse,
     EgressPolicyStatus,
     FileUploadResponse,
+    HeaderRule,
     LanNetwork,
     LanNetworkMember,
     LanRule,
@@ -94,6 +95,7 @@ from .models import (
     SandboxStatusSnapshot,
     SSHSession,
     validate_egress_lists,
+    validate_header_rules,
 )
 from .process import AsyncSandboxProcess
 from .rpc_command_session import (
@@ -444,27 +446,40 @@ def _lease_command_client(
 
 
 def _network_update_payload(
-    allow: Optional[List[str]], deny: Optional[List[str]]
-) -> Dict[str, Optional[List[str]]]:
+    allow: Optional[List[str]],
+    deny: Optional[List[str]],
+    rules: Optional[Dict[str, HeaderRule]] = None,
+) -> Dict[str, Any]:
+    """Build the full-replacement egress policy payload.
+
+    The caller supplies the allow/deny selection and the header rules together;
+    rules left as None are part of the replacement and clear any stored rules.
+    """
     if (allow is None) == (deny is None):
         raise ValueError("exactly one of allow or deny must be provided")
 
     entries = list(allow if allow is not None else deny or [])
     if not entries:
         raise ValueError("allow or deny must contain at least one destination")
+    payload: Dict[str, Any]
     if "*" in entries:
         if entries != ["*"]:
             raise ValueError("'*' must be the only destination")
-        return (
+        payload = (
             {"allowlist": None, "denylist": []}
             if allow is not None
             else {"allowlist": [], "denylist": None}
         )
+    else:
+        allowlist = entries if allow is not None else None
+        denylist = entries if deny is not None else None
+        validate_egress_lists(allowlist, denylist)
+        payload = {"allowlist": allowlist, "denylist": denylist}
 
-    allowlist = entries if allow is not None else None
-    denylist = entries if deny is not None else None
-    validate_egress_lists(allowlist, denylist)
-    return {"allowlist": allowlist, "denylist": denylist}
+    canonical_rules = validate_header_rules(rules)
+    if canonical_rules is not None:
+        payload["rules"] = {host: rule.model_dump() for host, rule in canonical_rules.items()}
+    return payload
 
 
 # Response-read failures: the server may have already processed the request
@@ -2463,17 +2478,19 @@ class SandboxClient:
         team_id: Optional[str] = None,
         status: Optional[str] = None,
         labels: Optional[List[str]] = None,
-        page: int = 1,
         per_page: int = 50,
         exclude_terminated: Optional[bool] = None,
         user_id: Optional[str] = None,
+        cursor: Optional[str] = None,
     ) -> SandboxListResponse:
         """List sandboxes"""
         # Auto-populate team_id from config if not specified
         if team_id is None:
             team_id = self.client.config.team_id
 
-        params: Dict[str, Any] = {"page": page, "per_page": per_page}
+        params: Dict[str, Any] = {"per_page": per_page}
+        if cursor is not None:
+            params["cursor"] = cursor
         if team_id:
             params["team_id"] = team_id
         if user_id:
@@ -2816,15 +2833,18 @@ class SandboxClient:
         *,
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
+        rules: Optional[Dict[str, HeaderRule]] = None,
     ) -> EgressPolicyStatus:
         """Replace the network rules of a running VM sandbox.
 
         Exactly one of ``allow`` or ``deny`` must be provided. Each call is a
         complete replacement, never a merge; use ``["*"]`` to allow or deny
-        all destinations. New connections follow the replacement once
-        ``applied`` is true; established flows are not revoked.
+        all destinations. ``rules`` (per-host HTTPS header substitution rules)
+        joins the same complete replacement: pass the full set or None to
+        clear them. New connections follow the replacement once ``applied``
+        is true; established flows are not revoked.
         """
-        payload = _network_update_payload(allow, deny)
+        payload = _network_update_payload(allow, deny, rules)
 
         response = self.client.request(
             "PUT",
@@ -3086,9 +3106,10 @@ class SandboxClient:
         # The job records its PID (for liveness checks while it has no exit file), acknowledges
         # the launch, then releases the launch output streams. Wrap command in subshell so 'exit'
         # terminates the subshell, not the outer shell, and 'echo $?' always runs.
+        # The newline before ')' lets a caller command ending in a heredoc delimiter terminate.
         sh_command = (
             f"echo $$ > {shlex.quote(pid_file)} || exit 1; echo started; exec > /dev/null 2>&1; "
-            f"({command_body}) > {stdout_log_file_quoted} 2> {stderr_log_file_quoted}; "
+            f"({command_body}\n) > {stdout_log_file_quoted} 2> {stderr_log_file_quoted}; "
             f"echo $? > {exit_file_quoted}"
         )
         quoted_sh_command = shlex.quote(sh_command)
@@ -4175,16 +4196,18 @@ class AsyncSandboxClient:
         team_id: Optional[str] = None,
         status: Optional[str] = None,
         labels: Optional[List[str]] = None,
-        page: int = 1,
         per_page: int = 50,
         exclude_terminated: Optional[bool] = None,
         user_id: Optional[str] = None,
+        cursor: Optional[str] = None,
     ) -> SandboxListResponse:
         """List sandboxes"""
         if team_id is None:
             team_id = self.client.config.team_id
 
-        params: Dict[str, Any] = {"page": page, "per_page": per_page}
+        params: Dict[str, Any] = {"per_page": per_page}
+        if cursor is not None:
+            params["cursor"] = cursor
         if team_id:
             params["team_id"] = team_id
         if user_id:
@@ -4543,15 +4566,18 @@ class AsyncSandboxClient:
         *,
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
+        rules: Optional[Dict[str, HeaderRule]] = None,
     ) -> EgressPolicyStatus:
         """Replace the network rules of a running VM sandbox.
 
         Exactly one of ``allow`` or ``deny`` must be provided. Each call is a
         complete replacement, never a merge; use ``["*"]`` to allow or deny
-        all destinations. New connections follow the replacement once
-        ``applied`` is true; established flows are not revoked.
+        all destinations. ``rules`` (per-host HTTPS header substitution rules)
+        joins the same complete replacement: pass the full set or None to
+        clear them. New connections follow the replacement once ``applied``
+        is true; established flows are not revoked.
         """
-        payload = _network_update_payload(allow, deny)
+        payload = _network_update_payload(allow, deny, rules)
 
         response = await self.client.request(
             "PUT",
@@ -5027,9 +5053,10 @@ class AsyncSandboxClient:
         # The job records its PID (for liveness checks while it has no exit file), acknowledges
         # the launch, then releases the launch output streams. Wrap command in subshell so 'exit'
         # terminates the subshell, not the outer shell, and 'echo $?' always runs.
+        # The newline before ')' lets a caller command ending in a heredoc delimiter terminate.
         sh_command = (
             f"echo $$ > {shlex.quote(pid_file)} || exit 1; echo started; exec > /dev/null 2>&1; "
-            f"({command_body}) > {stdout_log_file_quoted} 2> {stderr_log_file_quoted}; "
+            f"({command_body}\n) > {stdout_log_file_quoted} 2> {stderr_log_file_quoted}; "
             f"echo $? > {exit_file_quoted}"
         )
         quoted_sh_command = shlex.quote(sh_command)

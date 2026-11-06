@@ -20,7 +20,14 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.circuit import CircuitInstruction, ClassicalRegister, Instruction, Parameter
+from qiskit.circuit import (
+    BoxOp,
+    CircuitInstruction,
+    ClassicalRegister,
+    Gate,
+    Instruction,
+    Parameter,
+)
 from qiskit.primitives import PubResult
 from qiskit.primitives.containers.bindings_array import BindingsArray
 from qiskit.primitives.containers.observables_array import ObservablesArray
@@ -29,6 +36,9 @@ from qiskit_mitigation.mitigation_task import MitigationTask
 from qiskit_mitigation.trex import TREX
 from samplomatic import build
 from samplomatic.quantum_program import QuantumProgram, QuantumProgramResult
+from samplomatic.utils import find_unique_box_instructions
+
+from .trim_helpers import TrimMeasurementsTestsMixin, eigenstate_circuit, prepare_task
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -472,6 +482,24 @@ class TestComputeExpectationValue(unittest.TestCase):
             meas_bases=[Pauli("ZZ")],
         )
         self.assertIsInstance(pub_result, PubResult)
+
+    def test_non_broadcast_measurement_flips_applied_exactly_once(self):
+        """Flipping one qubit of all-zero data turns the ``ZZ`` expectation value into ``-1``."""
+        data = np.zeros((2, 1, 4, 2), dtype=bool)
+        flips = np.zeros_like(data)
+        flips[..., 0] = True
+        for meas_qubits, num_qubits in [(None, None), ([0, 2], 3)]:
+            with self.subTest(meas_qubits=meas_qubits):
+                result = {"_meas": data.copy(), "measurement_flips._meas": flips}
+                pub_result = MitigationTask.compute_expectation_value(
+                    result,
+                    self._obs("ZZ" if meas_qubits is None else "ZIZ"),
+                    broadcast_obs_and_params=False,
+                    meas_bases=[Pauli("ZZ" if meas_qubits is None else "ZIZ")],
+                    meas_qubits=meas_qubits,
+                    circuit_num_qubits=num_qubits,
+                )
+                np.testing.assert_allclose(pub_result.data.evs, -1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -927,6 +955,106 @@ class TestFindUniqueLayers(unittest.TestCase):
         self.assertIsInstance(layers, list)
         self.assertTrue(len(layers) > 0)
 
+    def test_trex_true_adds_trex_boxing_options(self):
+        """``trex=True`` boxes the measurements as ``prepare`` does for a task with TREX."""
+        qc = _simple_circuit()
+        qc.measure_all()
+        task = MitigationTask()
+        default = task.find_unique_layers(qc)
+        with_trex = task.find_unique_layers(qc, trex=True)
+        self.assertNotEqual(default, with_trex)
+        self.assertEqual(default, task.find_unique_layers(qc, trex=False))
+
+    def test_trex_none_follows_the_task_trex(self):
+        """``trex=None`` adds the TREX boxing options if and only if the task has a TREX."""
+        qc = _simple_circuit()
+        qc.measure_all()
+        task = MitigationTask()
+        without_trex = task.find_unique_layers(qc)
+        task.trex = TREX()
+        self.assertEqual(task.find_unique_layers(qc), task.find_unique_layers(qc, trex=True))
+        self.assertEqual(without_trex, task.find_unique_layers(qc, trex=False))
+
+    def test_box_types_filter(self):
+        """``box_types`` must filter the returned layers by their type."""
+        task = MitigationTask()
+        qc = _simple_circuit()
+        qc.measure_all()
+        all_layers = task.find_unique_layers(qc, box_types="all")
+        gate_layers = task.find_unique_layers(qc, box_types="gates")
+        meas_layers = task.find_unique_layers(qc, box_types="measurement")
+        self.assertTrue(len(gate_layers) > 0)
+        self.assertTrue(len(meas_layers) > 0)
+        self.assertEqual(len(all_layers), len(gate_layers) + len(meas_layers))
+        for layer in gate_layers:
+            self.assertEqual(MitigationTask._find_box_type(layer), "gates")
+        for layer in meas_layers:
+            self.assertEqual(MitigationTask._find_box_type(layer), "measurement")
+
+
+# ---------------------------------------------------------------------------
+# MitigationTask._find_box_type
+# ---------------------------------------------------------------------------
+
+
+class TestFindBoxType(unittest.TestCase):
+    """Tests for :meth:`MitigationTask._find_box_type` using real boxed circuits."""
+
+    def setUp(self):
+        self.circuit = _simple_circuit()
+        self.circuit.measure_all()
+
+    def _get_all_boxes(self, circuit: QuantumCircuit) -> list[CircuitInstruction]:
+        """Box a circuit with MitigationTask and return all CircuitInstructions."""
+        boxed = MitigationTask._box_circuit(circuit, None)
+        return [instr for instr in boxed if instr.operation.name == "box"]
+
+    def test_find_box_type_raises_for_non_box_instruction(self):
+        """_find_box_type must raise ValueError when passed a non-box instruction."""
+        plain = QuantumCircuit(2)
+        plain.h(0)
+        instr = next(iter(plain))
+        with self.assertRaises(ValueError):
+            MitigationTask._find_box_type(instr)
+
+    def test_measurement_box_has_type_measurement(self):
+        """A box that contains measurement operations must return 'measurement'."""
+        boxes = self._get_all_boxes(self.circuit)
+        measurement_boxes = [b for b in boxes if len(b.clbits) > 0]
+        self.assertTrue(len(measurement_boxes) > 0, "Expected at least one measurement box")
+        for box in measurement_boxes:
+            self.assertEqual(MitigationTask._find_box_type(box), "measurement")
+
+    def test_gate_box_has_type_gates(self):
+        """A box that contains only standard gates must return 'gates'."""
+        boxes = self._get_all_boxes(self.circuit)
+        gate_boxes = [b for b in boxes if len(b.clbits) == 0]
+        self.assertTrue(len(gate_boxes) > 0, "Expected at least one gate-only box")
+        for box in gate_boxes:
+            self.assertEqual(MitigationTask._find_box_type(box), "gates")
+
+    def test_return_value_is_known_type(self):
+        """_find_box_type must return one of the recognised type strings."""
+        known_types = {"gates", "measurement"}
+        boxes = self._get_all_boxes(self.circuit)
+        for box in boxes:
+            self.assertIn(MitigationTask._find_box_type(box), known_types)
+
+    def test_empty_body_box_returns_gates(self):
+        """A box with zero body instructions must return ``'gates'``."""
+        empty_box = BoxOp(QuantumCircuit(1))
+        instr = CircuitInstruction(operation=empty_box, qubits=[], clbits=[])
+        self.assertEqual(MitigationTask._find_box_type(instr), "gates")
+
+    def test_gate_only_body_returns_gates(self):
+        """A box whose body contains only gates (no measurements) must return ``'gates'``."""
+        custom = Gate("mygate", 1, [])
+        inner = QuantumCircuit(1)
+        inner.append(custom, [0])
+        box = BoxOp(inner)
+        instr = CircuitInstruction(operation=box, qubits=[], clbits=[])
+        self.assertEqual(MitigationTask._find_box_type(instr), "gates")
+
 
 class TestMakeSamplexArguments(unittest.TestCase):
     """Tests for :meth:`MitigationTask._make_samplex_arguments`."""
@@ -1201,6 +1329,110 @@ class TestHasProjectionOperators(unittest.TestCase):
         """A mix of standard Pauli observables must return ``False``."""
         obs = ObservablesArray([SparsePauliOp("ZI"), SparsePauliOp("IZ"), SparsePauliOp("XX")])
         self.assertFalse(MitigationTask._has_projection_operators(obs))
+
+
+# ---------------------------------------------------------------------------
+# MitigationTask  -  trim_measurements
+# ---------------------------------------------------------------------------
+
+
+class TestMitigationTaskTrimMeasurements(TrimMeasurementsTestsMixin, unittest.TestCase):
+    """Tests for ``trim_measurements`` in :meth:`MitigationTask.prepare`."""
+
+    task_cls = MitigationTask
+
+    def test_boxed_circuit_is_the_untrimmed_boxing_by_default(self):
+        circuit = eigenstate_circuit()
+        task, _ = prepare_task(MitigationTask, circuit, [SparsePauliOp("IIIZ")], trim=False)
+        untrimmed = MitigationTask()._box_circuit(circuit, {})
+        self.assertEqual(task.boxed_circuit.num_clbits, untrimmed.num_clbits)
+        self.assertEqual(task.boxed_circuit.num_clbits, circuit.num_qubits)
+
+
+class TestParametrizedTrimMeasurements(unittest.TestCase):
+    """Parametrized circuits measured on a subset of the qubits, with and without broadcasting."""
+
+    def setUp(self):
+        theta = Parameter("theta")
+        self.circuit = QuantumCircuit(5)
+        self.circuit.rx(theta, 1)
+        self.circuit.x(3)
+        self.observables = [
+            SparsePauliOp.from_sparse_list([("Z", [1], 1.0)], num_qubits=5),
+            SparsePauliOp.from_sparse_list([("Z", [3], 1.0)], num_qubits=5),
+        ]
+
+    def _evs(self, parameters, broadcast):
+        task = MitigationTask()
+        program = task.prepare(
+            self.circuit,
+            self.observables,
+            parameters,
+            shots_per_randomization=4,
+            num_randomizations=2,
+            broadcast_obs_and_params=broadcast,
+            trim_measurements=True,
+        )
+        self.assertEqual(task.meas_qubits, [1, 3])
+        # compressed column 0 is circuit qubit 1 (always 0), column 1 is circuit qubit 3 (always 1)
+        data = np.zeros((*program.items[0].shape, 4, 2), dtype=bool)
+        data[..., 1] = True
+        return task.postprocess({"_meas": data}).data.evs
+
+    def test_every_parameter_is_executed_for_each_observable(self):
+        evs = self._evs(np.array([[0.1], [0.2], [0.3]]), broadcast=False)
+        np.testing.assert_allclose(evs, [[1.0, 1.0, 1.0], [-1.0, -1.0, -1.0]], atol=1e-10)
+
+    def test_broadcast_pairs_each_observable_with_its_parameter(self):
+        evs = self._evs(np.array([[0.1], [0.2]]), broadcast=True)
+        np.testing.assert_allclose(evs, [1.0, -1.0], atol=1e-10)
+
+
+class TestFindUniqueLayersWithObservables(unittest.TestCase):
+    """Tests for the ``observables`` argument of :meth:`MitigationTask.find_unique_layers`."""
+
+    def setUp(self):
+        self.circuit = eigenstate_circuit()
+        self.observables = [SparsePauliOp("IIIZ")]
+
+    def test_trimming_changes_the_layers(self):
+        task = MitigationTask()
+        full = task.find_unique_layers(self.circuit)
+        trimmed = task.find_unique_layers(self.circuit, observables=self.observables)
+        self.assertNotEqual(full, trimmed)
+
+    def test_matches_the_boxing_used_by_prepare(self):
+        task, _ = prepare_task(MitigationTask, self.circuit, self.observables, trim=True)
+        layers = MitigationTask().find_unique_layers(self.circuit, observables=self.observables)
+        self.assertEqual(
+            layers,
+            find_unique_box_instructions(
+                instructions=iter(task.boxed_circuit),
+                normalize_annotations=None,
+                undress_boxes=True,
+            ),
+        )
+
+    def test_empty_measured_set_raises(self):
+        with self.assertRaisesRegex(ValueError, "no qubit is active"):
+            MitigationTask().find_unique_layers(
+                QuantumCircuit(3), observables=[SparsePauliOp("III")]
+            )
+
+    def test_twirling_strategy_all_warns(self):
+        with self.assertWarns(UserWarning):
+            MitigationTask().find_unique_layers(
+                self.circuit,
+                custom_boxing_options={"twirling_strategy": "all"},
+                observables=self.observables,
+            )
+
+    def test_boxing_options_are_not_modified(self):
+        options = {"twirling_strategy": "active"}
+        MitigationTask().find_unique_layers(
+            self.circuit, custom_boxing_options=options, observables=self.observables
+        )
+        self.assertEqual(options, {"twirling_strategy": "active"})
 
 
 if __name__ == "__main__":

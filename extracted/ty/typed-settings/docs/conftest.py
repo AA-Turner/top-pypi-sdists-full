@@ -5,22 +5,19 @@ Examples need to have a :file:`test.console` file that contains shell commands
 and their output similarly to Python doctests.
 """
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Optional,
-)
+from typing import TYPE_CHECKING, Any
 
 import click
 import click.testing
 import pytest
 from _pytest._code.code import TerminalRepr
-from _pytest.assertion.util import _diff_text
+from _pytest.assertion import pytest_assertrepr_compare
 
 
 if TYPE_CHECKING:
@@ -80,7 +77,7 @@ def is_relative_to(path: Path, other: Path) -> bool:
         return False
 
 
-def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool:
+def pytest_ignore_collect(collection_path: Path, config: Config) -> bool:
     """
     Do not collect Python files from the examples.
     """
@@ -90,7 +87,7 @@ def pytest_ignore_collect(collection_path: Path, config: "Config") -> bool:
     )
 
 
-def pytest_collect_file(file_path: Path, parent: "Session") -> Optional["ExampleFile"]:
+def pytest_collect_file(file_path: Path, parent: Session) -> ExampleFile | None:
     """
     Checks if the file is a rst file and creates an.  :class:`ExampleFile` instance.
     """
@@ -102,10 +99,8 @@ def pytest_collect_file(file_path: Path, parent: "Session") -> Optional["Example
 class ExampleFile(pytest.File):
     """Represents an example ``.py`` and its output ``.out``."""
 
-    def collect(self) -> Generator["ExampleItem", None, None]:
-        name = f"Example.{self.path.parent.name}"
-        name = "console_session"
-        yield ExampleItem.from_parent(self, name=name)
+    def collect(self) -> Generator[ExampleItem, None, None]:
+        yield ExampleItem.from_parent(self, name="console_session")
 
 
 class ExampleItem(pytest.Item):
@@ -142,15 +137,15 @@ class ExampleItem(pytest.Item):
 
     def repr_failure(
         self,
-        excinfo: "ExceptionInfo[BaseException]",
-        style: "TracebackStyle | None" = None,
+        excinfo: ExceptionInfo[BaseException],
+        style: TracebackStyle | None = None,
     ) -> TerminalRepr | str:
         if excinfo.errisinstance(ValueError):
-            # Output is mismatching. Create a nice diff as failure description.
-            highlighter = self.config.get_terminal_writer()._highlight
             cmd, output, expected = excinfo.value.args
-            diff_text = _diff_text(output, expected, highlighter, verbose=2)
-            return ReprFailExample(self, cmd, diff_text)
+            # Output is mismatching. Create a nice diff as failure description.
+            diff_lines = pytest_assertrepr_compare(self.config, "==", output, expected)
+            assert diff_lines
+            return ReprFailExample(self, cmd, diff_lines)
 
         elif excinfo.errisinstance(subprocess.CalledProcessError):
             # Something went wrong while executing the example.
@@ -163,26 +158,18 @@ class ExampleItem(pytest.Item):
 class ReprFailExample(TerminalRepr):
     """Reports output mismatches in a nice and informative representation."""
 
-    markup: ClassVar[dict[str, dict[str, bool]]] = {
-        "+": {"green": True},
-        "-": {"red": True},
-        "?": {"bold": True},
-    }
-    """Colorization codes for the diff markup."""
-
-    def __init__(self, item: ExampleItem, cmd: str, diff_text: list[str]) -> None:
+    def __init__(self, item: ExampleItem, cmd: str, diff_lines: list[str]) -> None:
         self.item = item
         self.cmd = cmd
-        self.diff_text = diff_text
+        self.diff_lines = diff_lines
 
-    def toterminal(self, tw: "TerminalWriter") -> None:
+    def toterminal(self, tw: TerminalWriter) -> None:
         tw.line()
         tw.line("Got unexpected output while running the console session:")
         tw.line()
         tw.line(f"$ {self.cmd}", bold=True)
-        for line in self.diff_text:
-            markup = self.markup.get(line[0], {})
-            tw.line(line, **markup)
+        for line in self.diff_lines:
+            tw.line(line)
         tw.line()
 
 
@@ -192,12 +179,12 @@ class ReprErrorExample(TerminalRepr):
     def __init__(
         self,
         item: ExampleItem,
-        exc_info: "ExceptionInfo[subprocess.CalledProcessError]",
+        exc_info: ExceptionInfo[subprocess.CalledProcessError],
     ) -> None:
         self.item = item
         self.exc_info = exc_info
 
-    def toterminal(self, tw: "TerminalWriter") -> None:
+    def toterminal(self, tw: TerminalWriter) -> None:
         exc = self.exc_info.value
         tw.line()
         tw.line("An error occurred while running the console session:")

@@ -109,6 +109,7 @@ from mistralai.vibe_agents import session_workflow as wire
 from mistralai.vibe_agents.sdk.app.worker import (
     active_turn,
     activities,
+    child_definition,
     continuation,
     customer_metadata,
     events,
@@ -137,7 +138,7 @@ from mistralai.vibe_agents.sdk.authoring import contracts
 from mistralai.vibe_agents.sdk.authoring.errors import (
     UnsupportedAgentFeatureError,
 )
-from mistralai.vibe_agents.sdk.sandbox.koyeb import open_borrowed_koyeb_sandbox
+from mistralai.vibe_agents.sdk.sandbox.koyeb import koyeb_files_root, open_borrowed_koyeb_sandbox
 from mistralai.vibe_agents.sdk.sandbox.refusal import sandbox_create_refusal
 from mistralai.vibe_agents.session_workflow import session_v1_wire
 from mistralai.vibe_agents.session_workflow.command_ids import message_command_id
@@ -351,6 +352,10 @@ class WorkflowSessionBinding:
         telemetry_enabled: bool = True,
     ) -> "WorkflowSessionBinding":
         definition = definition.for_session(session_id)
+        affinity_id = str(child_session.root_session_id) if child_session is not None else session_id
+        definition = definition.model_copy(
+            update={"agent_config": assemble.with_completion_affinity(definition.agent_config, affinity_id)}
+        )
         # Rebuilt from the start input on every run, so a continue-as-new keeps attributing to the same Session.
         attribution = usage_telemetry.completion_attribution(
             session_id=session_id,
@@ -2137,6 +2142,16 @@ def _definition_children_inherit(definition: WorkflowHarnessDefinition) -> Workf
     )
 
 
+def _skill_files_root(sandbox: contracts.Sandbox) -> child_definition.FilesRoot | None:
+    """Where this worker's sandbox writes a Session's skill folders, which its children's catalogs name.
+
+    Children borrow their root's Sandbox, and only a MistralSandbox can be borrowed
+    (`contracts.subagents_can_share_sandbox`). It writes each folder under a folder of its own.
+    """
+
+    return koyeb_files_root if isinstance(sandbox, contracts.MistralSandbox) else None
+
+
 async def _serve(
     workflow: _UnifiedHarnessControlPlaneWorkflow,
     definition: WorkflowHarnessDefinition,
@@ -2208,6 +2223,7 @@ async def _serve(
             static_subagent_policy=subagent_policy,
             bound=control_plane_binding_id is not None,
             skill_files=skills,
+            files_root=_skill_files_root(sandbox),
         )
         definition, child_session, subagent_policy = (
             accepted.definition,

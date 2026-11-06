@@ -570,7 +570,7 @@ class Annotator:
         mask = np.asarray(mask)
         mask = mask if mask.dtype.kind in "iu" else mask.astype(int)  # class IDs index the palette directly
         overlay = np.array([colors(i, True) for i in range(int(mask.max(initial=0)) + 1)], self.im.dtype)[mask]
-        overlay[mask == ignore_index] = 0
+        overlay[mask == ignore_index] = self.im[mask == ignore_index]
         self.im = cv2.addWeighted(self.im, 1 - alpha, overlay, alpha, 0)
 
     def depth_map(
@@ -666,7 +666,7 @@ class Annotator:
         """Add text to an image using PIL or cv2.
 
         Args:
-            xy (list[int]): Top-left coordinates for text placement.
+            xy (tuple | list): Top-left (x, y) coordinates for text placement.
             text (str): Text to be drawn.
             txt_color (tuple, optional): Text color.
             anchor (str, optional): Text anchor position ('top' or 'bottom'), used by PIL drawing only.
@@ -675,14 +675,15 @@ class Annotator:
         self._to_numpy()
         if self.pil:
             masks = [_text_mask(self.font, line) for line in text.split("\n")]  # per line, raqm rejects newlines
+            x, y = xy
             if anchor == "bottom":  # start y from font bottom
-                xy[1] += 1 - max(m.shape[0] for m in masks)
+                y += 1 - max(m.shape[0] for m in masks)
             for m in masks:
                 if box_color:  # background box per line, alpha from an RGBA color
                     a = box_color[3] / 255 if len(box_color) > 3 else 1.0
-                    self._draw(xy[0], xy[1], box_color, np.full((m.shape[0] + 2, m.shape[1] + 2), a, np.float32))
-                self._draw(xy[0], xy[1], txt_color, m)
-                xy[1] += m.shape[0]
+                    self._draw(x, y, box_color, np.full((m.shape[0] + 2, m.shape[1] + 2), a, np.float32))
+                self._draw(x, y, txt_color, m)
+                y += m.shape[0]
         else:
             if box_color:
                 w, h = cv2.getTextSize(text, 0, fontScale=self.sf, thickness=self.tf)[0]
@@ -1051,6 +1052,7 @@ def plot_images(
             # to BGR for the overlay, then back to RGB for the mosaic.
             sub_bgr = cv2.cvtColor(np.ascontiguousarray(im[y : y + h, x : x + w]), cv2.COLOR_RGB2BGR)
             sub_annotator = Annotator(sub_bgr, line_width=1, pil=False)
+            mask = np.where(mask == 1, 0, 255) if names and len(names) == 1 else mask
             sub_annotator.semantic_mask(mask, alpha=0.4)
             im[y : y + h, x : x + w] = cv2.cvtColor(sub_annotator.im, cv2.COLOR_BGR2RGB)
 

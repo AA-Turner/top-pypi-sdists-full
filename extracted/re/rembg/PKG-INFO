@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rembg
-Version: 2.0.86
+Version: 2.0.87
 Summary: Remove image background
 License: MIT
 License-File: LICENSE.txt
@@ -29,15 +29,15 @@ Provides-Extra: dev
 Provides-Extra: fp16
 Provides-Extra: gpu
 Provides-Extra: rocm
-Requires-Dist: aiohttp (>=3.13.2,<4.0.0) ; extra == "cli"
+Requires-Dist: aiohttp (>=3.14.4,<4.0.0) ; extra == "cli"
 Requires-Dist: asyncer (>=0.0.12,<0.0.13) ; extra == "cli"
 Requires-Dist: bandit (>=1.9.2,<2.0.0) ; extra == "dev"
-Requires-Dist: black (>=26.3.1,<27.0.0) ; extra == "dev"
+Requires-Dist: black (>=26.10.1,<27.0.0) ; extra == "dev"
 Requires-Dist: click (>=8.3.1,<9.0.0) ; extra == "cli"
-Requires-Dist: fastapi (>=0.128.0,<0.129.0) ; extra == "cli"
+Requires-Dist: fastapi (>=0.128.0,<1.0.0) ; extra == "cli"
 Requires-Dist: filetype (>=1.2.0,<2.0.0) ; extra == "cli"
 Requires-Dist: flake8 (>=7.3.0,<8.0.0) ; extra == "dev"
-Requires-Dist: gradio (>=6.2.0,<7.0.0) ; extra == "cli"
+Requires-Dist: gradio (>=6.16.0,<7.0.0) ; extra == "cli"
 Requires-Dist: imagehash (>=4.3.2,<5.0.0) ; extra == "dev"
 Requires-Dist: isort (>=7.0.0,<8.0.0) ; extra == "dev"
 Requires-Dist: jsonschema (>=4.25.1,<5.0.0)
@@ -48,14 +48,15 @@ Requires-Dist: onnxconverter-common (>=1.14.0,<2.0.0) ; extra == "fp16"
 Requires-Dist: onnxruntime (>=1.23.2,<2.0.0) ; extra == "cpu"
 Requires-Dist: onnxruntime-gpu (>=1.23.2,<2.0.0) ; (sys_platform != "darwin") and (extra == "gpu")
 Requires-Dist: onnxruntime-rocm (>=1.22.0,<2.0.0) ; (sys_platform == "linux") and (extra == "rocm")
-Requires-Dist: pillow (>=12.1.0,<14.0.0)
+Requires-Dist: pillow (>=12.3.0,<14.0.0)
 Requires-Dist: pooch (>=1.8.2,<2.0.0)
 Requires-Dist: pymatting (>=1.1.14,<2.0.0)
 Requires-Dist: pytest (>=9.0.2,<10.0.0) ; extra == "dev"
-Requires-Dist: python-multipart (>=0.0.21,<0.0.22) ; extra == "cli"
+Requires-Dist: python-multipart (>=0.0.31,<0.1.0) ; extra == "cli"
 Requires-Dist: scikit-image (>=0.26.0,<0.27.0)
 Requires-Dist: scipy (>=1.16.3,<2.0.0)
 Requires-Dist: sniffio (>=1.3.1,<2.0.0) ; extra == "cli"
+Requires-Dist: starlette (>=1.3.1,<2.0.0) ; extra == "cli"
 Requires-Dist: tqdm (>=4.67.1,<5.0.0)
 Requires-Dist: uvicorn (>=0.40.0,<0.41.0) ; extra == "cli"
 Requires-Dist: watchdog (>=6.0.0,<7.0.0) ; extra == "cli"
@@ -297,6 +298,22 @@ For complete API documentation, visit: `http://localhost:7000/api`
 ```shell
 rembg s --no-ui
 ```
+
+**Serve cloud models (atlascloud, withoutbg):**
+
+They are off by default, because a request without its own `api_key` is billed to the API key set in the server's environment.
+
+```shell
+rembg s --allow-remote-models
+```
+
+**Limit how many models stay loaded in memory (default 8):**
+
+```shell
+rembg s --max-sessions 4
+```
+
+The `extras` parameter only accepts `model_path`, `sam_model`, `sam_quant`, `sam_prompt`, `cc`, `cloth_category`, `vitmatte_model`, `putalpha`, `api_key`, `model`, `timeout` and `poll_timeout`.
 
 **Remove background from an image URL:**
 

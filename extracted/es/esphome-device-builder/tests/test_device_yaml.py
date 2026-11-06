@@ -25,6 +25,7 @@ from esphome.core import CORE, EsphomeError
 from esphome_device_builder.definitions import (
     load_board_body_from_disk,
     load_board_index,
+    load_platform_capabilities_index,
 )
 from esphome_device_builder.helpers import device_yaml
 from esphome_device_builder.helpers.atomic_io import read_text_with_stat
@@ -32,6 +33,7 @@ from esphome_device_builder.helpers.device_yaml import (
     LoadBatch,
     _has_native_wifi,
     _parse_inline_value,
+    _parsing,
     board_provides_network,
     board_requires_wifi,
     compute_has_pending_changes,
@@ -68,6 +70,7 @@ from esphome_device_builder.helpers.device_yaml._parsing import (
     extract_logger_interface,
     extract_ota_partition_access,
     resolve_esp32_variant,
+    resolve_nrf52_variant,
     safe_stat_key,
     yaml_has_name_add_mac_suffix,
 )
@@ -1094,6 +1097,36 @@ def test_resolve_esp32_variant_unresolved_yaml_variant_falls_back_to_storage() -
 def test_extract_logger_interface_board_snapshot_fallback() -> None:
     config = {"logger": {}, "esp32": {"board": "esp32-s3-devkitc-1"}}
     assert extract_logger_interface(config, "esp32") == "USB_SERIAL_JTAG"
+
+
+@pytest.fixture
+def nrf54l15_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch in an nRF54L15 board and its own logger default."""
+    caps = load_platform_capabilities_index()
+    patched = caps._replace(
+        nrf52_board_variants={"nrf54l15dk": "NRF54L15", "xiao_ble": "NRF52840"},
+        logger_interface_defaults={**caps.logger_interface_defaults, "nrf54l15": "UART0"},
+    )
+    monkeypatch.setattr(_parsing, "load_platform_capabilities_index", lambda: patched)
+
+
+@pytest.mark.usefixtures("nrf54l15_caps")
+def test_extract_logger_interface_nrf52_variant_from_board() -> None:
+    """An nRF52 chip with its own default wins; the rest take the platform default."""
+    for board, expected in (
+        ("nrf54l15dk", "UART0"),
+        ("xiao_ble", "USB_CDC"),
+        ("custom", "USB_CDC"),
+    ):
+        config = {"logger": {}, "nrf52": {"board": board}}
+        assert extract_logger_interface(config, "nrf52") == expected
+
+
+@pytest.mark.usefixtures("nrf54l15_caps")
+def test_resolve_nrf52_variant() -> None:
+    assert resolve_nrf52_variant({"nrf52": {"board": "${b}"}}, {"b": "nrf54l15dk"}) == "nrf54l15"
+    assert resolve_nrf52_variant({"nrf52": {"board": "custom"}}) is None
+    assert resolve_nrf52_variant({}) is None
 
 
 @pytest.mark.parametrize(
@@ -2243,6 +2276,19 @@ def test_generate_yaml_no_wifi_board_emits_network_todo_comment() -> None:
     yaml = generate_device_yaml("kitchen", "Kitchen", board, ssid="", psk="")
     assert "no native Wi-Fi" in yaml
     assert "network" in yaml
+
+
+def test_generate_yaml_nrf52_emits_mcumgr_ota_todo_comment() -> None:
+    """nRF52 gets the ``zephyr_mcumgr`` OTA hint, not the ESP32 network options."""
+    board = _make_board(platform=Platform.NRF52, pio_board="xiao_ble")
+    yaml = generate_device_yaml("kitchen", "Kitchen", board, ssid="", psk="")
+    lines = yaml.splitlines()
+    assert "api:" not in lines
+    assert "ota:" not in lines
+    assert "#   - platform: zephyr_mcumgr" in lines
+    assert "openthread:" in yaml
+    assert "esp32_hosted" not in yaml
+    assert "no native Wi-Fi" not in yaml
 
 
 def test_generate_yaml_keeps_api_and_ota_for_wifi_board() -> None:
@@ -3615,9 +3661,7 @@ def test_board_provides_network_for_package_boards() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_component(
-    entry_id: str, category: ComponentCategory = ComponentCategory.CORE
-) -> ComponentCatalogEntry:
+def _make_component(entry_id: str, category: str = ComponentCategory.CORE) -> ComponentCatalogEntry:
     """Minimal ``ComponentCatalogEntry`` for the network-default tests."""
     return ComponentCatalogEntry(id=entry_id, name=entry_id, description="", category=category)
 
@@ -4036,7 +4080,12 @@ def test_load_device_ota_partition_access_unreadable_cache(tmp_path: Path) -> No
         ),
         pytest.param("packages:\n  v: github://x/y.yaml\n", True, id="unmerged_package"),
         pytest.param("api: !include api.yaml\n", True, id="include_marker"),
-        pytest.param("packages:\n  v:\n    api: {}\napi: !remove\n", True, id="remove_marker"),
+        pytest.param("packages:\n  v:\n    api: {}\napi: !remove\n", False, id="removed_key"),
+        pytest.param(
+            "packages:\n  v:\n    sensor:\n      - id: a\nsensor:\n  - id: !remove a\n",
+            True,
+            id="removed_list_item",
+        ),
         pytest.param("logger: !extend\n", True, id="extend_marker"),
         pytest.param(
             "ota:\n  - platform: esphome\n    encryption: !include api.yaml\n",
@@ -4495,3 +4544,16 @@ def test_load_device_from_storage_pending_changes_sees_a_newer_package(tmp_path:
 
     os.utime(package, (3000, 3000))
     assert load_device_from_storage(yaml_file).has_pending_changes is True
+
+
+def test_load_device_yaml_drops_removed_keys(tmp_path: Path) -> None:
+    """A ``!remove`` over a package key leaves no key behind, at the top level or nested."""
+    (tmp_path / "k.yaml").write_text(
+        "packages:\n  v:\n    api:\n      encryption:\n        key: x\n    mqtt:\n"
+        "      broker: b\n\napi:\n  encryption: !remove\nmqtt: !remove\n",
+        encoding="utf-8",
+    )
+    config = device_yaml.load_device_yaml(tmp_path / "k.yaml")
+    assert config is not None
+    assert "mqtt" not in config
+    assert config["api"] == {}

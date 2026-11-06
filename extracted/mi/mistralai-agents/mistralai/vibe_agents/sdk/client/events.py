@@ -83,8 +83,12 @@ class Event:
     """
 
     id: str
+    """The event's position in the session's log."""
     session_id: str
+    """The ID of the session."""
     turn_id: str | None
+    """The ID of the turn the event happened in, or ``None`` when it happened between turns or the turn is
+    not known."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -94,16 +98,15 @@ class TurnStarted(Event):
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class TurnEnded(Event):
-    """A turn ended. ``state`` is its record.
+    """A turn ended. Sent once, when the turn ends; ``state`` is the final turn record.
 
-    When the session's end ends the turn, ``TurnEnded`` comes first, with the ``id`` of the session's
-    end: after that ``id``, the session's end is not read again. To read on, use ``after=`` its
-    ``id``: ``state.cursor`` is where the turn was read, which can be later.
+    To read the events after it, pass ``after=`` its ``id``, not ``state.cursor``, which can be later.
     """
 
     __match_args__ = ("state",)
 
     state: Completed[str] | Interrupted | Failed | UnknownOutcome
+    """The turn's record."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -113,19 +116,21 @@ class CallbackOpened(Event):
     __match_args__ = ("callback",)
 
     callback: OpenCallback
+    """The callback that the turn waits on."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class CallbackResolved(Event):
     """A callback was answered or closed.
 
-    ``turn_id`` is the turn that opened the callback, as the host names it on the resolution:
-    ``None`` from a host that does not name it.
+    ``turn_id`` is the turn that opened the callback, or ``None`` when the resolution does not name
+    its turn.
     """
 
     __match_args__ = ("callback_id",)
 
     callback_id: str
+    """The ID of the callback."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -134,20 +139,31 @@ class Notice(Event):
 
     For example, a connector or an MCP server whose tools cannot be used now, or a guessed context
     window. ``level`` is ``"info"``, ``"warning"`` or ``"error"``, or an :class:`UnknownValue` for a
-    level a newer host added. ``source`` names what the notice is about, such as
+    level added after your SDK version. ``source`` names what the notice is about, such as
     ``"mistral_connectors:notion"`` for one connector, or is ``None``.
-    ``details`` is the host's data for it, such as ``{"source_id": "mistral_connectors:notion",
+    ``details`` is its data, such as ``{"source_id": "mistral_connectors:notion",
     "connector": "notion", "status": "unavailable", "reason": "..."}`` for a connector; do not
-    change it, copy it first. ``turn_id`` is the turn its writer put on it, or ``None``: the same
-    in every read.
+    change it, copy it first. For an MCP server that cannot be used, ``source`` is the server's ID
+    and ``details["reason"]`` says why: ``"credential_rejected"`` (HTTP 401 or 403),
+    ``"credential_unavailable"``, ``"unreachable"``, ``"timeout"``, ``"invalid_catalog"`` or
+    ``"request_failed"``. A failure of another kind has no ``reason``. ``turn_id`` is the turn this
+    notice belongs to, or ``None``: the same in every read.
     """
 
     __match_args__ = ("message",)
 
     message: str
+    """The notice's text."""
     level: Literal["info", "warning", "error"] | UnknownValue
+    """How serious the notice is: ``"info"``, ``"warning"`` or ``"error"``, or an :class:`UnknownValue`
+    for a level added after your SDK version."""
     source: str | None
+    """What the notice is about, such as ``"mistral_connectors:notion"`` for one connector, or
+    ``None``."""
     details: JsonValue = field(default=None, repr=False, compare=False)
+    """The notice's data, such as ``{"source_id": "mistral_connectors:notion",
+    "connector": "notion", "status": "unavailable", "reason": "..."}`` for a connector. Do not change
+    it, copy it first."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -155,27 +171,28 @@ class EntryAdded(Event):
     """An entry was added to the session's history: a message, a tool call, a tool's result, or
     another entry.
 
-    ``entry`` is the entry as the host first wrote it: a :class:`MessageEntry` (the user's input,
+    ``entry`` is the entry as it was first added: a :class:`MessageEntry` (the user's input,
     the model's text, a :class:`ContextMessage` the model got with the input), a
     :class:`ToolCallEntry`, a :class:`ToolResultEntry` (its ``tool_call_id`` is the call's, a
-    client tool's too), or an :class:`UnknownEntry` for an entry this SDK does not type, such as
-    the model's reasoning. It can be incomplete: a message the model is writing has
-    its first text, a tool's result added while the tool runs has no content yet. The whole entry
-    comes as :class:`EntryCompleted`, after it. ``turn_id`` is the entry's, the same in every read.
+    client tool's too), or an :class:`UnknownEntry` for an entry of a type added after your SDK
+    version, or one this version reads only as raw data, such as a checkpoint. It can be
+    incomplete: a message the model is writing has its first text, a tool's result added while the
+    tool runs has no content yet. The whole entry comes as :class:`EntryCompleted`, after it.
+    ``turn_id`` is the entry's, the same in every read.
     """
 
     __match_args__ = ("entry",)
 
     entry: Entry
+    """The entry as it was first added, possibly incomplete."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class EntryCompleted(Event):
     """An entry of the session's history is complete: ``entry`` is the whole entry, final.
 
-    Every message, tool call and tool result entry, and every entry this SDK does not type, comes
-    as :class:`EntryAdded` first, then once as ``EntryCompleted``, also one the host added
-    complete, such as the user's message or a tool call. ``entry`` and ``turn_id`` are as in
+    Every entry comes as :class:`EntryAdded` first, then once as ``EntryCompleted``, also one
+    added complete, such as the user's message or a tool call. ``entry`` and ``turn_id`` are as in
     :class:`EntryAdded`. A reader that starts after an entry's ``EntryAdded`` gets only its
     ``EntryCompleted``.
     """
@@ -183,42 +200,50 @@ class EntryCompleted(Event):
     __match_args__ = ("entry",)
 
     entry: Entry
+    """The whole entry, final."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class TextDelta(Event):
     """Text the model just wrote, while it writes a message.
 
-    ``entry_id`` is the id of the message's entry: the deltas come after its :class:`EntryAdded`
-    and before its :class:`EntryCompleted`, which has all the text. The first text the host wrote
-    with the entry comes right after its ``EntryAdded``, with the same ``id``. ``text`` is the new text: the
-    deltas of one entry, joined, are its text so far, when none was missed. The completed entry's
-    text is the one to keep: a host that retries the model's call can write the message again from
-    its start, under the same id. Deltas are live only: a reader that joins late or reads again
-    after a cursor can miss some, or all, of a message's deltas, never its entry events. Read
-    again once the turn ended, a host gives at most a message's first delta; while the turn runs,
-    a local one gives them all.
+    ``entry_id`` is the ID of the message's entry: the deltas come after its :class:`EntryAdded`
+    and before its :class:`EntryCompleted`, which has all the text. The text the message was
+    added with comes right after its ``EntryAdded``, with the same ``entry_id``. ``text`` is the new text:
+    the deltas of one entry, joined, are its text so far, when none was missed. Keep the completed
+    entry's text: when the model's call is retried, the message can be written again from its
+    start, under the same ID. Deltas are live only: a reader that joins late or reads again after
+    a cursor can miss some, or all, of a message's deltas, never its entry events. Once the turn
+    ends, read the message's entry, not its deltas.
     """
 
     __match_args__ = ("text",)
 
     entry_id: str
+    """The ID of the message's entry."""
     text: str
+    """The new text."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class TurnUpdated(Event):
-    """A turn's status changed while it runs: ``"blocked"`` when it waits on a callback, such as an
-    approval, ``"running"`` when it runs again, and an :class:`UnknownValue` for a status a newer
-    host added, with which the turn still runs. ``turn_id`` is always that turn's id.
+    """A turn's status changed: ``"blocked"`` when it waits on a callback, such as an approval,
+    ``"running"`` when it runs again, ``"terminated"`` once it has ended, and an :class:`UnknownValue`
+    for a status added after your SDK version, with which the turn still runs. ``turn_id`` is always that turn's ID.
 
-    The turn's end is :class:`TurnEnded`, which has its record.
+    An open callback comes as :class:`CallbackOpened`, and the turn's end as :class:`TurnEnded`, which has
+    its record.
     """
 
     __match_args__ = ("turn_id", "status")
 
     turn_id: str
+    """The ID of the turn, always set."""
     status: Literal["running", "blocked", "terminated"] | UnknownValue
+    """``"blocked"`` when the turn waits on a callback, such as an approval, ``"running"`` when it runs
+    again, ``"terminated"`` once it has ended (:class:`TurnEnded` has its record), or an
+    :class:`UnknownValue` for a status added after your SDK version, such as ``"paused"``, with which the
+    turn still runs."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -226,8 +251,8 @@ class SessionUpdated(Event):
     """The session changed: its status, or its title, or it was archived.
 
     ``status`` is ``"running"`` while a turn is active, ``"waiting"`` when no turn is, and
-    ``"terminated"`` once the session has ended, and an :class:`UnknownValue` for a status a newer
-    host added. ``title`` is the session's title, or ``None`` when it has none yet. ``archived`` is
+    ``"terminated"`` once the session has ended, and an :class:`UnknownValue` for a status added
+    after your SDK version. ``title`` is the session's title, or ``None`` when it has none yet. ``archived`` is
     whether the session is archived. ``turn_id`` is always ``None``: a change of the session belongs
     to no turn, even one made while a turn runs.
     """
@@ -235,23 +260,29 @@ class SessionUpdated(Event):
     __match_args__ = ("status",)
 
     status: Literal["running", "waiting", "terminated"] | UnknownValue
+    """``"running"`` while a turn is active, ``"waiting"`` when no turn is, ``"terminated"`` once the
+    session has ended, or an :class:`UnknownValue` for a status added after your SDK version, such as
+    ``"paused"``."""
     title: str | None
+    """The session's title, or ``None`` when it has none yet."""
     archived: bool
+    """Whether the session is archived."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class UnknownEvent(Event):
-    """An event with no type of its own here. ``type`` is the host's name for it, ``raw`` its data.
+    """An event type added after your SDK version. ``type`` names it, and ``raw`` holds its data.
 
     New event types are added in minor versions. Ignore the event types that you do not know.
-    ``turn_id`` is always ``None``: this SDK does not know the type's fields, so not its turn
-    either. A turn the event names is in ``raw``.
+    ``turn_id`` is always ``None``; read ``raw`` for the event's data.
     """
 
     __match_args__ = ("type",)
 
     type: str
+    """The event's type."""
     raw: dict[str, JsonValue] = field(default_factory=dict, repr=False, compare=False)
+    """The event's data, unparsed."""
 
 
 type EventHandler = Callable[[Event], Awaitable[None] | None]
@@ -345,7 +376,7 @@ async def follow(
     session's last turn is read (one more request): it ended with the session if it has no end of
     its own. A turn that ended before ``after`` thus gets no second end. Without ``reconnect``, a
     deployment's stream that drops raises at once instead of reconnecting. ``tools`` are the
-    agent's tool objects by tool id, for the requests of approvals. ``confirmed`` says that the host
+    agent's tool objects by tool ID, for the requests of approvals. ``confirmed`` says that the host
     confirmed ``turn_id`` (see ``read_turn_and_start``): its end reads it so too, since the session
     can end before the host lists the turn.
 
@@ -618,7 +649,7 @@ def _other_event(
     streams: Mapping[str, str | None],
 ) -> Event | None:
     """The typed event for ``event``, not an entry's addition or completion, or ``None``.
-    ``streams`` has the ids of the messages the model is writing: a patch of one of them is a
+    ``streams`` has the IDs of the messages the model is writing: a patch of one of them is a
     :class:`TextDelta`."""
     base = {"id": event.event_id, "session_id": event.session_id, "turn_id": turn_id}
     match payload := event.payload:

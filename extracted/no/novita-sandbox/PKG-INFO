@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: novita-sandbox
-Version: 2.1.2
+Version: 2.1.3
 Summary: Novita Agent Sandbox SDK - Python library for Novita Agent Sandbox
 Project-URL: Homepage, https://novita.ai
 Project-URL: Documentation, https://novita.ai/docs/guides/sandbox-overview
@@ -190,3 +190,9 @@ template.set_envs({"PATH": "/app/bin:$PATH", "APP_MODE": "worker"}, runtime=True
 Mutable image tags are refreshed for each serialization/build. Only successful
 digest-pinned registry reads are cached; failed reads can be retried on the same
 builder. Explicit caller commands and settings take precedence over image defaults.
+
+`Job.wait(..., timeout=...)` and `AsyncJob.wait` check the remaining budget before
+polling and before accepting completion. The remaining budget caps request
+timeouts; async waits also bound the overall request await. Synchronous HTTP
+transport timeouts apply per phase, so they cannot forcibly interrupt every
+blocking operation at an exact wall-clock deadline.

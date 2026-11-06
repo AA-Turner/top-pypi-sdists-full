@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fast-agent-mcp
-Version: 0.10.52
+Version: 0.10.53
 Summary: Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP/A2A Support
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -240,6 +240,7 @@ Requires-Dist: opentelemetry-instrumentation-google-genai==1.2b0
 Requires-Dist: opentelemetry-instrumentation-openai==0.62.4; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: pillow>=13.0.0
 Requires-Dist: prompt-toolkit==3.0.53
+Requires-Dist: pydantic-monty==1.4.0
 Requires-Dist: pydantic-settings==2.16.1
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyperclip==1.11.0
@@ -276,7 +277,6 @@ Requires-Dist: numpy>=2; extra == 'privacy-gpu'
 Requires-Dist: onnxruntime-gpu[cuda,cudnn]>=1.27; extra == 'privacy-gpu'
 Requires-Dist: tokenizers>=0.22; extra == 'privacy-gpu'
 Provides-Extra: ptc
-Requires-Dist: pydantic-monty>=1.4.0; extra == 'ptc'
 Provides-Extra: tensorzero
 Requires-Dist: tensorzero>=2026.6.0; extra == 'tensorzero'
 Provides-Extra: textual

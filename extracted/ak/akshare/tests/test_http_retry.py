@@ -223,17 +223,17 @@ def test_requests_link_raises_after_retries(script):
 
 
 def test_get_shfe_daily_status_handling(script):
-    from akshare.futures.futures_daily_bar import get_shfe_daily
+    from akshare.futures.futures_daily_bar import futures_daily_shfe
 
     script(404)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        assert get_shfe_daily(date="20261028").empty
+        assert futures_daily_shfe(date="20261028").empty
     assert not caught
     script(403)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        assert get_shfe_daily(date="20261028").empty
+        assert futures_daily_shfe(date="20261028").empty
     assert any("403" in str(w.message) for w in caught)
 
 
@@ -255,3 +255,86 @@ def test_dce_contract_list_no_longer_loops_forever(script):
     with pytest.raises(requests.exceptions.ConnectTimeout):
         _get_dce_contract_list(datetime.date(2026, 10, 28), "V")
     assert len(calls) == 3
+
+
+DCE_URL = "http://www.dce.com.cn/dcereport/publicweb/dailystat/dayQuotes"
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: http.get(DCE_URL),
+        lambda: http.post(DCE_URL, json={"tradeDate": "20261104"}),
+        lambda: http.Session().post(DCE_URL, json={}),
+        lambda: http.request_with_retry("POST", DCE_URL, json={}),
+        lambda: http.request_with_retry("POST", DCE_URL, fresh_session=True),
+    ],
+    ids=["get", "post", "session", "retry", "retry-fresh-session"],
+)
+def test_dce_412_raises_clear_error_without_retry(script, call):
+    calls, _ = script(412, 412, 412)
+    with pytest.raises(http.DceBlockedError, match="反爬虫验证") as info:
+        call()
+    assert isinstance(info.value, APIError)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://portal.dce.com.cn/x", "https://dce.com.cn/x"],
+)
+def test_dce_subdomains_are_detected(script, url):
+    script(412)
+    with pytest.raises(http.DceBlockedError):
+        http.get(url)
+
+
+@pytest.mark.parametrize(
+    "url, status",
+    [
+        ("https://www.shfe.com.cn/data", 412),
+        ("http://notdce.com.cn/data", 412),
+        (DCE_URL, 200),
+        (DCE_URL, 404),
+    ],
+)
+def test_other_hosts_and_statuses_unaffected(script, url, status):
+    script(status)
+    assert http.get(url).status_code == status
+
+
+def test_get_roll_yield_bar_reraises_dce_block(monkeypatch):
+    from akshare.futures import futures_roll_yield
+
+    def blocked(*args, **kwargs):
+        raise http.DceBlockedError("blocked", status_code=412)
+
+    monkeypatch.setattr(futures_roll_yield, "futures_roll_yield", blocked)
+    with pytest.raises(http.DceBlockedError):
+        futures_roll_yield.futures_roll_yield_bar(
+            type_method="date", var="M", start_day="20261103", end_day="20261104"
+        )
+
+
+def test_retry_if_retries_successful_status_with_bad_body(script):
+    calls, sleeps = script({"__ERROR": "HY000"}, {"__ERROR": "HY000"}, {"data": [1]})
+    r = http.request_with_retry(
+        "GET", DATACENTER_URL, retry_if=lambda resp: "__ERROR" in resp.text
+    )
+    assert r.json() == {"data": [1]}
+    assert len(calls) == 3 and len(sleeps) == 2
+
+
+def test_retry_if_exhausted_returns_last_response(script):
+    calls, _ = script(*[{"__ERROR": "HY000"}] * 3)
+    r = http.request_with_retry(
+        "GET", DATACENTER_URL, retry_if=lambda resp: "__ERROR" in resp.text
+    )
+    assert r.json() == {"__ERROR": "HY000"}
+    assert len(calls) == 3
+
+
+def test_retry_if_not_given_keeps_old_behaviour(script):
+    calls, _ = script({"__ERROR": "HY000"})
+    assert http.request_with_retry("GET", DATACENTER_URL).json() == {"__ERROR": "HY000"}
+    assert len(calls) == 1

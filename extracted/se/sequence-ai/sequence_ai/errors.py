@@ -134,6 +134,16 @@ class Conflict(SequencesError):
     default_code = "conflict"
 
 
+class NewVersion(Conflict):
+    """409. A new version of the policy went live, or a rollback made another serve: that ended this connection, whatever
+    it was doing, and it does not go on on the version that serves by itself. Every call on it raises this. connect()
+    again reaches that version. `.version` names it. {the user 11-05: "we dont route it", "user should jsut reconnect"}"""
+
+    @property
+    def version(self) -> Optional[int]:
+        return self.details.get("version")
+
+
 
 
 PLANNERS_GONE = ('@seq.planner is gone: planning is part of the policy now. Put a @seq.plan method in your @seq.policy '
@@ -312,6 +322,8 @@ def from_response(status: int, body: Any = None, *, text: Optional[str] = None,
     if code == "policy_error":
         return _policy_exception(message, common)
     cls = _CLASSES.get(CODES[code].sdk_class, SequencesError)
+    if cls is Conflict and details.get("reason") == "new_version":
+        return NewVersion(message, **common)
     if cls is Unavailable:
         return Unavailable(message, warming=code == "warming", job_id=details.get("job_id"), **common)
     return cls(message, **common)

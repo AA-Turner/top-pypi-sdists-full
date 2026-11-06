@@ -39,7 +39,12 @@ impl fmt::Display for ContextType {
 const TAG: &str = stringify!(Diagnostics);
 const DEFAULT_SAMPLING_RATE: f64 = 100.0;
 
+/// Statsig-side diagnostics retain no state when remote telemetry is suppressed.
 pub struct Diagnostics {
+    state: Option<DiagnosticsState>,
+}
+
+struct DiagnosticsState {
     marker_map: Mutex<HashMap<ContextType, Vec<Marker>>>,
     event_logger: Arc<EventLogger>,
     global_configs: Arc<GlobalConfigs>,
@@ -47,6 +52,53 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
+    pub fn new(event_logger: Arc<EventLogger>, sdk_instance_id: &str) -> Self {
+        let disabled = event_logger.remote_telemetry_disabled();
+        Self {
+            state: (!disabled).then(|| DiagnosticsState::new(event_logger, sdk_instance_id)),
+        }
+    }
+
+    pub fn set_context(&self, context: &ContextType) {
+        if let Some(state) = &self.state {
+            state.set_context(context);
+        }
+    }
+
+    pub fn get_markers(&self, context_type: &ContextType) -> Option<Vec<Marker>> {
+        self.state.as_ref()?.get_markers(context_type)
+    }
+
+    pub fn add_marker(&self, context_type: Option<&ContextType>, marker: Marker) {
+        if let Some(state) = &self.state {
+            state.add_marker(context_type, marker);
+        }
+    }
+
+    pub fn clear_markers(&self, context_type: &ContextType) {
+        if let Some(state) = &self.state {
+            state.clear_markers(context_type);
+        }
+    }
+
+    pub fn enqueue_diagnostics_event(
+        &self,
+        context_type: Option<&ContextType>,
+        key: Option<KeyType>,
+    ) {
+        if let Some(state) = &self.state {
+            state.enqueue_diagnostics_event(context_type, key);
+        }
+    }
+
+    pub fn should_sample(&self, context: &ContextType, key: Option<KeyType>) -> bool {
+        self.state
+            .as_ref()
+            .is_some_and(|state| state.should_sample(context, key))
+    }
+}
+
+impl DiagnosticsState {
     pub fn new(event_logger: Arc<EventLogger>, sdk_instance_id: &str) -> Self {
         Self {
             event_logger,
@@ -195,3 +247,7 @@ impl Diagnostics {
             .unwrap_or(ContextType::Unknown)
     }
 }
+
+#[cfg(test)]
+#[path = "diagnostics_tests.rs"]
+mod tests;

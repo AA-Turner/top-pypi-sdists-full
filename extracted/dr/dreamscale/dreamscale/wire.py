@@ -332,16 +332,27 @@ def build_rldx_libero_observation(*, session_id: str, observation_id: int,
 def build_libero_history_observation(*, session_id: str, observation_id: int,
                                      agent_frames: np.ndarray, wrist_frames: np.ndarray,
                                      libero_state: list[float], instruction: str,
-                                     chunk_size: int = 16, now_ns: int | None = None
-                                     ) -> Observation:
-    """A LIBERO window: each camera's oriented 256px frames, oldest first, as one JPEG strip."""
+                                     chunk_size: int = 16, now_ns: int | None = None,
+                                     frame_keys: tuple[int, ...] | None = None) -> Observation:
+    """A LIBERO window: each camera's oriented 256px frames, oldest first, as one JPEG strip;
+    or, with ``frame_keys`` (each frame's capture key, the older ones already sent ahead as
+    ``history_frame`` messages), only the newest frame, naming the older ones."""
     cameras, payloads = [], {}
     keys = (CAMERA_KEY_LIBERO_AGENT, CAMERA_KEY_LIBERO_WRIST)
     for key, frames in zip(keys, (agent_frames, wrist_frames), strict=True):
         if frames.ndim != 4 or frames.shape[1:] != (256, 256, 3) or frames.dtype != np.uint8:
             raise ValueError("a LIBERO window needs 256x256 RGB uint8 frames per camera")
-        # 256px frames tile JPEG's 16px blocks exactly, so frames never blur into each other.
-        camera, payload = _camera_frame(key, np.ascontiguousarray(np.concatenate(frames, axis=1)))
+        if frame_keys is not None:
+            if len(frame_keys) != len(frames):
+                raise ValueError("a named LIBERO window needs one capture key per frame")
+            payload = encode_jpeg(np.ascontiguousarray(frames[-1]))
+            camera = CameraFrame(camera_id=key, width=256, height=256, encoding="jpeg",
+                                 payload_bytes=len(payload), frames=len(frames),
+                                 history_ns=list(frame_keys[:-1]))
+        else:
+            # 256px frames tile JPEG's 16px blocks exactly, so frames never blur into each other.
+            camera, payload = _camera_frame(
+                key, np.ascontiguousarray(np.concatenate(frames, axis=1)))
         cameras.append(camera)
         payloads[key] = payload
     now = time.time_ns() if now_ns is None else now_ns

@@ -7543,7 +7543,7 @@ def test_route_async_failure_unknown_target_logs_and_returns():
 # ──────────────────── RIE result → function_error classification ────────────
 
 def test_lambda_strict_hard_fails_when_docker_unavailable(monkeypatch):
-    """LAMBDA_STRICT=1 + no Docker → Runtime.DockerUnavailable, NO fallback to warm/local."""
+    """LAMBDA_STRICT=1 + no Docker → ServiceException (the service failed), NO fallback to warm/local."""
     monkeypatch.setattr(lsvc, "LAMBDA_STRICT", True)
     monkeypatch.setattr(lsvc, "_docker_available", False)
     func = {"config": {
@@ -7556,7 +7556,8 @@ def test_lambda_strict_hard_fails_when_docker_unavailable(monkeypatch):
     }, "code_zip": b"\x00"}
     result = lsvc._execute_function_docker(func, {"k": "v"}, request_id="request-1")
     assert result.get("error") is True
-    assert result["body"]["errorType"] == "Runtime.DockerUnavailable"
+    assert result.get("service_error") is True
+    assert result["body"]["__type"] == "ServiceException"
 
 
 def test_lambda_permissive_falls_back_to_warm_without_docker(monkeypatch):
@@ -8656,7 +8657,7 @@ def _run_nodejs_worker(handler_js, event_payload=None, env_extra=None):
             f"Worker init failed: {init_resp}; stderr: {proc.stderr.read(2048)}"
         )
 
-        event = json.dumps({**(event_payload or {}), "_request_id": "test-req-1"})
+        event = json.dumps({"event": event_payload or {}, "ctx": {"request_id": "test-req-1"}})
         proc.stdin.write(event + "\n")
         proc.stdin.flush()
 
@@ -8758,7 +8759,7 @@ def test_nodejs_worker_aws_sdk_v3_stub_resolves():
     stub backed by Ministack's own service implementations.
     """
     handler_js = """\
-const { Lambda, LambdaClient, InvokeCommand, waitUntilFunctionActiveV2 } = require("@aws-sdk/client-lambda");
+const { Lambda, LambdaClient, InvokeCommand, ListTagsCommand, waitUntilFunctionActiveV2 } = require("@aws-sdk/client-lambda");
 const { OpenSearch, OpenSearchClient, UpdateDomainConfigCommand } = require("@aws-sdk/client-opensearch");
 const { SFN, SFNClient } = require("@aws-sdk/client-sfn");
 const { SSM, SSMClient, PutParameterCommand, GetParameterCommand } = require("@aws-sdk/client-ssm");
@@ -8766,6 +8767,8 @@ exports.handler = async (_event, _ctx) => ({
   hasLambda: typeof Lambda === "function",
   hasLambdaClient: typeof LambdaClient === "function",
   hasInvokeCommand: typeof InvokeCommand === "function",
+  hasListTagsCommand: typeof ListTagsCommand === "function",
+  hasLambdaSend: typeof new Lambda().send === "function",
   hasWaiter: typeof waitUntilFunctionActiveV2 === "function",
   hasOpenSearch: typeof OpenSearch === "function",
   hasOpenSearchClient: typeof OpenSearchClient === "function",
@@ -8784,6 +8787,8 @@ exports.handler = async (_event, _ctx) => ({
     assert r["hasLambda"] is True
     assert r["hasLambdaClient"] is True
     assert r["hasInvokeCommand"] is True
+    assert r["hasListTagsCommand"] is True
+    assert r["hasLambdaSend"] is True
     assert r["hasWaiter"] is True
     assert r["hasOpenSearch"] is True
     assert r["hasOpenSearchClient"] is True
@@ -8794,6 +8799,39 @@ exports.handler = async (_event, _ctx) => ({
     assert r["hasSSMClient"] is True
     assert r["hasPutParameterCommand"] is True
     assert r["hasGetParameterCommand"] is True
+
+
+def test_nodejs_worker_lambda_send_list_tags_command(lam):
+    """Lambda.send(new ListTagsCommand(...)) round-trips real tags.
+
+    This is the call shape Amplify's AmplifyTableManager custom resource uses
+    (new Lambda(), then .send(new ListTagsCommand({ Resource: arn }))), which
+    needs both the ListTagsCommand class and Lambda.send to exist.
+    """
+    name = f"lambda-list-tags-send-{_uuid_mod.uuid4().hex[:8]}"
+    created = lam.create_function(
+        FunctionName=name, Runtime="python3.12", Role=_LAMBDA_ROLE,
+        Handler="index.handler", Code={"ZipFile": _region_marker_code("one")},
+    )
+    arn = created["FunctionArn"]
+    try:
+        lam.tag_resource(Resource=arn, Tags={"env": "test", "team": "backend"})
+
+        handler_js = """\
+const { Lambda, ListTagsCommand } = require("@aws-sdk/client-lambda");
+exports.handler = async (event) => {
+  const client = new Lambda();
+  const command = new ListTagsCommand({ Resource: event.arn });
+  const resp = await client.send(command);
+  return { tags: resp.Tags };
+};
+"""
+        result = _run_nodejs_worker(handler_js, event_payload={"arn": arn})
+        assert result.get("status") == "ok", f"Invocation failed: {result}"
+        assert result["result"]["tags"]["env"] == "test"
+        assert result["result"]["tags"]["team"] == "backend"
+    finally:
+        lam.delete_function(FunctionName=name)
 
 
 def test_nodejs_worker_opensearch_sdk_v3_stub_uses_rest_json():
@@ -9390,15 +9428,15 @@ def test_lambda_durable_function_config_round_trip(lam):
         "Role": _LAMBDA_ROLE,
         "Handler": "index.handler",
         "Code": {"ZipFile": zip_b64},
-        "DurableConfig": {"Enabled": True},
+        "DurableConfig": {"ExecutionTimeout": 900},
     })
     try:
         assert code in (200, 201), body
-        assert body.get("DurableConfig") == {"Enabled": True}
+        assert body.get("DurableConfig") == {"ExecutionTimeout": 900}
         # Boto3 strips unknown fields, so verify the round-trip via raw HTTP.
         code, gf = _raw_durable("GET", f"/2015-03-31/functions/{fname}")
         assert code == 200
-        assert gf["Configuration"].get("DurableConfig") == {"Enabled": True}
+        assert gf["Configuration"].get("DurableConfig") == {"ExecutionTimeout": 900}
     finally:
         try:
             lam.delete_function(FunctionName=fname)
@@ -10913,14 +10951,14 @@ def test_lambda_durable_create_function_durable_config_round_trip_with_update(la
     code, _ = _raw_durable("POST", "/2015-03-31/functions", body={
         "FunctionName": fname, "Runtime": "python3.12", "Role": _LAMBDA_ROLE,
         "Handler": "index.handler", "Code": {"ZipFile": zip_b64},
-        "DurableConfig": {"Enabled": True},
+        "DurableConfig": {"ExecutionTimeout": 900},
     })
     assert code == 201
     try:
         # Touch unrelated config.
         lam.update_function_configuration(FunctionName=fname, Timeout=60, MemorySize=256)
         code, body = _raw_durable("GET", f"/2015-03-31/functions/{fname}")
-        assert body["Configuration"].get("DurableConfig") == {"Enabled": True}, \
+        assert body["Configuration"].get("DurableConfig") == {"ExecutionTimeout": 900}, \
             f"DurableConfig lost after Update: {body['Configuration'].get('DurableConfig')}"
     finally:
         try:
@@ -14253,7 +14291,7 @@ def test_bootstrap_that_exits_immediately_fails_fast(worker_factory):
     worker = worker_factory(INSTANT_EXIT_BOOTSTRAP)
 
     started = time.monotonic()
-    with pytest.raises(RuntimeError, match="exited during init with code 3"):
+    with pytest.raises(RuntimeError, match="^Runtime exited with error: exit status 3$"):
         worker.invoke({}, "req-1")
     elapsed = time.monotonic() - started
 
@@ -14291,6 +14329,7 @@ def test_a_missing_bootstrap_is_runtime_invalid_entrypoint(worker_factory):
     with pytest.raises(lambda_runtime.ProvidedRuntimeError) as excinfo:
         worker.invoke({}, "req-1")
     assert excinfo.value.error_type == "Runtime.InvalidEntrypoint"
+    assert str(excinfo.value) == "Couldn't find valid bootstrap(s): [/var/task/bootstrap /opt/bootstrap]"
 
 
 # ---------------------------------------------------------------------------
@@ -14739,7 +14778,9 @@ def test_provided_failure_is_scoped_and_not_retried(monkeypatch, isolated_pool):
     monkeypatch.setattr(lambda_svc, "_execute_function_provided", fallback)
     result = lambda_svc._execute_function_provided_warm({"config": config, "code_zip": b"zip"}, {}, request_id="request-1")
     assert result["error"] is True
-    assert result["body"]["errorMessage"] == "bootstrap crashed"
+    assert result["service_error"] is True
+    assert result["body"] == {"__type": "ServiceException",
+                              "message": "MiniStack could not run the function's bootstrap: bootstrap crashed"}
     assert fail.call_count == 1
     fallback.assert_not_called()
     remaining = [w for entries in lambda_runtime._workers.values() for w in entries]

@@ -28,7 +28,13 @@ from uuid import UUID, uuid4
 
 import pydantic_core
 import pytest
-from pydantic_core import CoreSchema, PydanticOmit, PydanticUndefined, core_schema
+from pydantic_core import (
+    CoreSchema,
+    PydanticOmit,
+    PydanticSerializationError,
+    PydanticUndefined,
+    core_schema,
+)
 
 from pydantic import (
     AfterValidator,
@@ -3139,9 +3145,12 @@ def test_recursion_loop_error_validate_strings_cyclic() -> None:
     platform.python_implementation() == 'PyPy' and pydantic_core._pydantic_core.build_profile == 'debug',
     reason='PyPy does not have enough stack space for Rust debug builds to recurse very deep',
 )
-def test_recursion_loop_error_validate_strings_deep() -> None:
+@pytest.mark.parametrize('method', ['model_validate', 'model_validate_strings'])
+def test_recursion_depth_exceeded_error(method: str) -> None:
+    """Deeply nested but acyclic input should not be reported as a cyclic reference."""
+
     class Model(BaseModel):
-        x: Optional['Model'] = None
+        x: 'Model | None' = None
 
     # deeper than the recursion guard limit (at most 255), but not too deep as freeing
     # deeply nested dicts can exhaust the stack on Pyodide:
@@ -3149,8 +3158,86 @@ def test_recursion_loop_error_validate_strings_deep() -> None:
     for _ in range(1_000):
         data = {'x': data}
 
-    with pytest.raises(ValidationError, check=lambda v: v.errors()[0]['type'] == 'recursion_loop'):
-        Model.model_validate_strings(data)
+    with pytest.raises(ValidationError) as exc_info:
+        getattr(Model, method)(data)
+
+    errors = exc_info.value.errors(include_url=False)
+    assert len(errors) == 1
+    assert errors[0]['type'] == 'recursion_depth_exceeded'
+    assert errors[0]['msg'] == 'Recursion error - maximum validation depth exceeded'
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() == 'PyPy' and pydantic_core._pydantic_core.build_profile == 'debug',
+    reason='PyPy does not have enough stack space for Rust debug builds to recurse very deep',
+)
+def test_serialization_depth_exceeded_error() -> None:
+    class Model(BaseModel):
+        x: 'Model | None' = None
+
+    m = Model()
+    for _ in range(1_000):
+        m = Model(x=m)
+
+    with pytest.raises(ValueError, match='Maximum serialization depth exceeded'):
+        m.model_dump()
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() == 'PyPy' and pydantic_core._pydantic_core.build_profile == 'debug',
+    reason='PyPy does not have enough stack space for Rust debug builds to recurse very deep',
+)
+def test_serialization_depth_exceeded_error_discriminated_union() -> None:
+    """In Python mode, the union serializer catches the depth error, warns and falls back to inferring the type."""
+
+    class Leaf(BaseModel):
+        type: Literal['leaf'] = 'leaf'
+
+    class Node(BaseModel):
+        type: Literal['node'] = 'node'
+        child: Annotated['Node | Leaf', Field(discriminator='type')]
+
+    m = Leaf()
+    for _ in range(1_000):
+        m = Node(child=m)
+
+    with pytest.warns(UserWarning, match='Maximum serialization depth exceeded'):
+        m.model_dump()
+
+    with pytest.raises(ValueError, match='Maximum serialization depth exceeded'):
+        m.model_dump(mode='json')
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() == 'PyPy' and pydantic_core._pydantic_core.build_profile == 'debug',
+    reason='PyPy does not have enough stack space for Rust debug builds to recurse very deep',
+)
+@pytest.mark.parametrize('leaf', [1, 'a', True, None])
+def test_serialization_depth_exceeded_error_leaf_value(leaf: Any) -> None:
+    """Values that can't contain other values are subject to the depth limit as well when inferring types."""
+
+    limit = pydantic_core._pydantic_core._recursion_limit
+    ta = TypeAdapter(Any)
+
+    def nest(depth: int) -> Any:
+        data = leaf
+        for _ in range(depth):
+            data = [data]
+        return data
+
+    # the leaf is right at the limit:
+    data = nest(limit - 1)
+    assert ta.dump_python(data, mode='json') == data
+    assert json.loads(ta.dump_json(data)) == data
+
+    # the leaf is one level too deep:
+    data = nest(limit)
+    assert ta.dump_python(data) == data
+    with pytest.raises(ValueError, match='Maximum serialization depth exceeded'):
+        ta.dump_python(data, mode='json')
+    with pytest.raises(PydanticSerializationError, match='Maximum serialization depth exceeded'):
+        ta.dump_json(data)
+    assert b'"..."' in pydantic_core.to_json(data, serialize_unknown=True)
 
 
 def test_protected_namespace_default():
@@ -3516,18 +3603,20 @@ def test_extra_validator_keys(py_and_json) -> None:
     assert exc_info.value.errors()[0]['type'] == 'string_too_long'
 
 
-def test_extra_validator_keys_strict() -> None:
-    """Extra keys are validated like `dict` keys: JSON object keys are strings, and can be parsed even in strict mode."""
+def test_extra_validator_keys_non_str() -> None:
+    """Extra keys can only be strings.
+
+    See also https://github.com/pydantic/pydantic/issues/14134.
+    """
 
     class Model(BaseModel, extra='allow'):
-        __pydantic_extra__: dict[Annotated[int, Field(strict=True)], int]
+        __pydantic_extra__: dict[int, int]
 
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(TypeError, match='Extra keys must be strings, got `int`'):
         Model.model_validate({'123': 1})
 
-    assert exc_info.value.errors()[0]['type'] == 'int_type'
-
-    assert Model.model_validate_json('{"123": 1}').__pydantic_extra__ == {123: 1}
+    with pytest.raises(TypeError, match='Extra keys must be strings, got `int`'):
+        Model.model_validate_json('{"123": 1}')
 
 
 def test_extra_validator_field(py_and_json) -> None:

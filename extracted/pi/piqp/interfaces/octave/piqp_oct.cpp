@@ -15,7 +15,7 @@
 #define PIQP_MEX_SIGNATURE 0x271C1A7A
 
 #ifndef PIQP_VERSION
-#define PIQP_VERSION 0.6.4
+#define PIQP_VERSION 0.7.0
 #endif
 
 using Vec = Eigen::Matrix<double, Eigen::Dynamic, 1>;
@@ -85,6 +85,7 @@ piqp::KKTSolver kkt_solver_from_string(const std::string& kkt_solver, bool is_de
     if (kkt_solver == "sparse_ldlt_ineq_cond") return piqp::KKTSolver::sparse_ldlt_ineq_cond;
     if (kkt_solver == "sparse_ldlt_cond") return piqp::KKTSolver::sparse_ldlt_cond;
     if (kkt_solver == "sparse_multistage") return piqp::KKTSolver::sparse_multistage;
+    if (kkt_solver == "sparse_multistage_parallel") return piqp::KKTSolver::sparse_multistage_parallel;
     if (is_dense) {
         warning("Unknown kkt_solver, using dense_cholesky as a fallback.");
         return piqp::KKTSolver::dense_cholesky;
@@ -105,6 +106,8 @@ octave_value settings_to_ov_struct(const piqp::Settings<double>& settings)
     ov_struct.assign("eps_duality_gap_abs", octave_value(settings.eps_duality_gap_abs));
     ov_struct.assign("eps_duality_gap_rel", octave_value(settings.eps_duality_gap_rel));
     ov_struct.assign("infeasibility_threshold", octave_value(settings.infeasibility_threshold));
+    ov_struct.assign("eps_primal_inf", octave_value(settings.eps_primal_inf));
+    ov_struct.assign("eps_dual_inf", octave_value(settings.eps_dual_inf));
     ov_struct.assign("reg_lower_limit", octave_value(settings.reg_lower_limit));
     ov_struct.assign("reg_finetune_lower_limit", octave_value(settings.reg_finetune_lower_limit));
     ov_struct.assign("reg_finetune_primal_update_threshold", octave_value(settings.reg_finetune_primal_update_threshold));
@@ -116,6 +119,7 @@ octave_value settings_to_ov_struct(const piqp::Settings<double>& settings)
     ov_struct.assign("preconditioner_iter", octave_value(settings.preconditioner_iter));
     ov_struct.assign("tau", octave_value(settings.tau));
     ov_struct.assign("kkt_solver", octave_value(piqp::kkt_solver_to_string(settings.kkt_solver)));
+    ov_struct.assign("num_threads", octave_value(settings.num_threads));
     ov_struct.assign("iterative_refinement_always_enabled", octave_value(settings.iterative_refinement_always_enabled));
     ov_struct.assign("iterative_refinement_eps_abs", octave_value(settings.iterative_refinement_eps_abs));
     ov_struct.assign("iterative_refinement_eps_rel", octave_value(settings.iterative_refinement_eps_rel));
@@ -139,6 +143,8 @@ void copy_ov_struct_to_settings(const octave_scalar_map& ov_struct, piqp::Settin
     settings.eps_duality_gap_abs = ov_struct.getfield("eps_duality_gap_abs").double_value();
     settings.eps_duality_gap_rel = ov_struct.getfield("eps_duality_gap_rel").double_value();
     settings.infeasibility_threshold = ov_struct.getfield("infeasibility_threshold").double_value();
+    settings.eps_primal_inf = ov_struct.getfield("eps_primal_inf").double_value();
+    settings.eps_dual_inf = ov_struct.getfield("eps_dual_inf").double_value();
     settings.reg_lower_limit = ov_struct.getfield("reg_lower_limit").double_value();
     settings.reg_finetune_lower_limit = ov_struct.getfield("reg_finetune_lower_limit").double_value();
     settings.reg_finetune_primal_update_threshold = ov_struct.getfield("check_duality_gap").int_value();
@@ -150,6 +156,7 @@ void copy_ov_struct_to_settings(const octave_scalar_map& ov_struct, piqp::Settin
     settings.preconditioner_iter = ov_struct.getfield("preconditioner_iter").int_value();
     settings.tau = ov_struct.getfield("tau").double_value();
     settings.kkt_solver = kkt_solver_from_string(ov_struct.getfield("kkt_solver").string_value(), is_dense);
+    settings.num_threads = ov_struct.getfield("num_threads").int_value();
     settings.iterative_refinement_always_enabled = ov_struct.getfield("iterative_refinement_always_enabled").bool_value();
     settings.iterative_refinement_eps_abs = ov_struct.getfield("iterative_refinement_eps_abs").double_value();
     settings.iterative_refinement_eps_rel = ov_struct.getfield("iterative_refinement_eps_rel").double_value();

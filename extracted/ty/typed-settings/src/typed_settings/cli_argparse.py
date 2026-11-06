@@ -20,11 +20,11 @@ from typing import (
     get_origin,
 )
 
-from ._compat import PY_311
-
 
 if TYPE_CHECKING:
     from argparse import FileType
+
+from enum import IntEnum, StrEnum
 
 from . import _core, converters
 from .cli_utils import (
@@ -49,12 +49,6 @@ from .types import (
     OptionInfo,
     Secret,
 )
-
-
-if PY_311:
-    from enum import IntEnum, StrEnum
-else:
-    IntEnum = StrEnum = None  # type: ignore
 
 
 __all__ = [
@@ -229,14 +223,8 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
     datetime: handle_datetime,
     date: handle_date,
     timedelta: handle_timedelta,
-    **(
-        {
-            IntEnum: handle_enum_by_value,
-            StrEnum: handle_enum_by_value,
-        }
-        if PY_311
-        else {}
-    ),
+    IntEnum: handle_enum_by_value,
+    StrEnum: handle_enum_by_value,
     Enum: handle_enum_by_name,
     Path: handle_path,
     re.Pattern: handle_pattern,

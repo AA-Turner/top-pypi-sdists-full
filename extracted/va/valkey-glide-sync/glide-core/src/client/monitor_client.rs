@@ -1,10 +1,18 @@
 // Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+};
 
-use super::{NodeAddress, TlsMode};
+use super::{
+    NodeAddress, TlsMode, validate_effective_lib_name, validate_effective_lib_ver,
+    validate_unix_socket_address,
+};
 use futures::StreamExt;
-use redis::{ConnectionAddr, ConnectionInfo, RedisConnectionInfo, RedisResult};
+use redis::{
+    ConnectionAddr, ConnectionInfo, ErrorKind, RedisConnectionInfo, RedisError, RedisResult,
+};
 use tokio::sync::oneshot;
 
 #[derive(Debug)]
@@ -68,22 +76,83 @@ fn parse_quoted_tokens(s: &str) -> Vec<String> {
 
 pub type MonitorLineCallback = Arc<dyn Fn(MonitorLine) + Send + Sync>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MonitorDiagnostics {
+    pub received_lines: usize,
+    pub parsed_lines: usize,
+    pub discarded_lines: usize,
+    pub stream_ended: bool,
+}
+
+#[derive(Default)]
+struct MonitorDiagnosticsState {
+    received_lines: AtomicUsize,
+    parsed_lines: AtomicUsize,
+    discarded_lines: AtomicUsize,
+    stream_ended: AtomicBool,
+}
+
 pub struct MonitorClient {
     task: Option<tokio::task::JoinHandle<()>>,
     stop_tx: Option<oneshot::Sender<()>>,
+    diagnostics: Arc<MonitorDiagnosticsState>,
 }
 
 impl MonitorClient {
+    /// Checks the request before any connection is attempted: library name and version, and the
+    /// Unix domain socket address. [`MonitorClient::new`] runs this first. Errors are
+    /// [`ErrorKind::InvalidClientConfig`]; callers that need to tell request validation apart from
+    /// connection setup (which can also fail with that kind, e.g. TLS) can call this on its own.
+    pub fn validate(
+        address: &NodeAddress,
+        redis_connection_info: &RedisConnectionInfo,
+        tls_mode: TlsMode,
+    ) -> RedisResult<()> {
+        // Validate library name and version.
+        if let Some(lib_name) = redis_connection_info.lib_name.as_deref() {
+            validate_effective_lib_name(lib_name).map_err(|message| {
+                RedisError::from((
+                    ErrorKind::InvalidClientConfig,
+                    "Invalid library name",
+                    message,
+                ))
+            })?;
+        }
+        if let Some(lib_ver) = redis_connection_info.lib_ver.as_deref() {
+            validate_effective_lib_ver(lib_ver).map_err(|message| {
+                RedisError::from((
+                    ErrorKind::InvalidClientConfig,
+                    "Invalid library version",
+                    message,
+                ))
+            })?;
+        }
+
+        validate_unix_socket_address(address, tls_mode != TlsMode::NoTls).map_err(|message| {
+            RedisError::from((
+                ErrorKind::InvalidClientConfig,
+                "Invalid Unix domain socket address",
+                message,
+            ))
+        })?;
+        Ok(())
+    }
+
     pub async fn new(
         address: &NodeAddress,
         redis_connection_info: RedisConnectionInfo,
         tls_mode: TlsMode,
         on_line: MonitorLineCallback,
     ) -> RedisResult<Self> {
-        let conn_addr = match tls_mode {
-            TlsMode::NoTls => ConnectionAddr::Tcp(address.host.clone(), address.port),
-            _ => ConnectionAddr::TcpTls {
-                host: address.host.clone(),
+        Self::validate(address, &redis_connection_info, tls_mode)?;
+
+        // MonitorClient bypasses `get_connection_info`, so trim the IPv6 host here too.
+        let host = crate::scope::strip_host_brackets(&address.host).to_string();
+        let conn_addr = match (&address.unix_socket_path, tls_mode) {
+            (Some(path), _) => ConnectionAddr::Unix(path.clone()),
+            (None, TlsMode::NoTls) => ConnectionAddr::Tcp(host, address.port),
+            (None, _) => ConnectionAddr::TcpTls {
+                host,
                 port: address.port,
                 insecure: matches!(tls_mode, TlsMode::InsecureTls),
                 tls_params: None,
@@ -106,6 +175,8 @@ impl MonitorClient {
 
         let (stop_tx, mut stop_rx) = oneshot::channel::<()>();
         let (ready_tx, ready_rx) = oneshot::channel::<()>();
+        let diagnostics = Arc::new(MonitorDiagnosticsState::default());
+        let task_diagnostics = diagnostics.clone();
         let task = tokio::spawn(async move {
             let mut stream = monitor.into_on_message::<String>();
             let _ = ready_tx.send(());
@@ -115,11 +186,26 @@ impl MonitorClient {
                     _ = &mut stop_rx => break,
                     item = stream.next() => match item {
                         Some(line) => {
+                            task_diagnostics.received_lines.fetch_add(1, Ordering::Relaxed);
                             if let Some(parsed) = MonitorLine::parse(&line) {
+                                task_diagnostics.parsed_lines.fetch_add(1, Ordering::Relaxed);
                                 on_line(parsed);
+                            } else {
+                                task_diagnostics.discarded_lines.fetch_add(1, Ordering::Relaxed);
+                                glide_logger::log_warn(
+                                    "MonitorClient",
+                                    format!("discarded an unparseable MONITOR line (length={})", line.len()),
+                                );
                             }
                         }
-                        None => break,
+                        None => {
+                            task_diagnostics.stream_ended.store(true, Ordering::Relaxed);
+                            glide_logger::log_warn(
+                                "MonitorClient",
+                                "MONITOR stream ended unexpectedly",
+                            );
+                            break;
+                        }
                     },
                 }
             }
@@ -129,7 +215,17 @@ impl MonitorClient {
         Ok(Self {
             task: Some(task),
             stop_tx: Some(stop_tx),
+            diagnostics,
         })
+    }
+
+    pub fn diagnostics(&self) -> MonitorDiagnostics {
+        MonitorDiagnostics {
+            received_lines: self.diagnostics.received_lines.load(Ordering::Relaxed),
+            parsed_lines: self.diagnostics.parsed_lines.load(Ordering::Relaxed),
+            discarded_lines: self.diagnostics.discarded_lines.load(Ordering::Relaxed),
+            stream_ended: self.diagnostics.stream_ended.load(Ordering::Relaxed),
+        }
     }
 
     pub async fn stop_async(mut self) {
@@ -157,6 +253,86 @@ impl Drop for MonitorClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn test_new_rejects_invalid_lib_name_before_network_setup() {
+        let address = NodeAddress {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            unix_socket_path: None,
+        };
+        let redis_connection_info = RedisConnectionInfo {
+            lib_name: Some("invalid name".to_string()),
+            ..Default::default()
+        };
+
+        let error = match MonitorClient::new(
+            &address,
+            redis_connection_info,
+            TlsMode::NoTls,
+            Arc::new(|_| {}),
+        )
+        .await
+        {
+            Ok(_) => panic!("invalid library name should fail monitor creation"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidClientConfig);
+        assert!(error.to_string().contains("library name"));
+    }
+
+    #[tokio::test]
+    async fn test_new_rejects_invalid_lib_ver_before_network_setup() {
+        let address = NodeAddress {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            unix_socket_path: None,
+        };
+        let redis_connection_info = RedisConnectionInfo {
+            lib_ver: Some("invalid version".to_string()),
+            ..Default::default()
+        };
+
+        let error = match MonitorClient::new(
+            &address,
+            redis_connection_info,
+            TlsMode::NoTls,
+            Arc::new(|_| {}),
+        )
+        .await
+        {
+            Ok(_) => panic!("invalid library version should fail monitor creation"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind(), ErrorKind::InvalidClientConfig);
+        assert!(error.to_string().contains("library version"));
+    }
+
+    #[test]
+    fn test_validate_accepts_valid_request_and_rejects_unix_socket_with_tls() {
+        let tcp = NodeAddress {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            unix_socket_path: None,
+        };
+        let redis_connection_info = RedisConnectionInfo {
+            lib_name: Some("GlideTest".to_string()),
+            ..Default::default()
+        };
+        MonitorClient::validate(&tcp, &redis_connection_info, TlsMode::SecureTls)
+            .expect("a valid TCP request over TLS should pass validation");
+
+        let unix = NodeAddress {
+            unix_socket_path: Some("/tmp/glide-monitor.sock".into()),
+            ..tcp
+        };
+        let error = MonitorClient::validate(&unix, &redis_connection_info, TlsMode::SecureTls)
+            .expect_err("TLS over a Unix domain socket should fail validation");
+        assert_eq!(error.kind(), ErrorKind::InvalidClientConfig);
+        assert!(error.to_string().contains("Unix domain socket"), "{error}");
+    }
 
     #[test]
     fn test_parse_basic_set() {

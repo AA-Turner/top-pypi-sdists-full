@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: kaldi_native_fbank
-Version: 1.22.5
+Version: 1.23.0
 Home-page: https://github.com/csukuangfj/kaldi-native-fbank
 Author: Fangjun Kuang
 Author-email: csukuangfj@gmail.com
@@ -12,6 +12,15 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
 
 # Introduction
 

@@ -79,7 +79,7 @@ pub(crate) struct IdListPropagationState {
 }
 
 impl IdListPropagationState {
-    // Called only after the list snapshot has been published, under the store update lock.
+    // Called only after the list snapshot has been published, under the ID-list propagation lock.
     pub(crate) fn apply(
         &mut self,
         update: IdListPropagationUpdate,

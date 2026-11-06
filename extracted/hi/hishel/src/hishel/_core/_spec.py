@@ -10,19 +10,17 @@ from typing import (
     Any,
     Dict,
     Optional,
-    TypeVar,
+    TypedDict,
     Union,
 )
 
-from hishel._core._headers import Headers, Range, Vary, parse_cache_control
-from hishel._core.models import ResponseMetadata
+from hishel._core._headers import Headers, Vary, parse_cache_control
 from hishel._utils import parse_date, partition
 
 if TYPE_CHECKING:
     from hishel import Entry, Request, Response
 
 
-TState = TypeVar("TState", bound="State")
 HEURISTICALLY_CACHEABLE_STATUS_CODES = (
     200,
     203,
@@ -39,8 +37,7 @@ HEURISTICALLY_CACHEABLE_STATUS_CODES = (
 logger = logging.getLogger("hishel.core.spec")
 
 
-@dataclass
-class CacheOptions:
+class CacheOptions(TypedDict, total=False):
     """
     Configuration options for HTTP cache behavior.
 
@@ -87,8 +84,6 @@ class CacheOptions:
         --------
         >>> # Default: cache GET and HEAD only
         >>> options = CacheOptions()
-        >>> options.supported_methods
-        ['GET', 'HEAD']
 
         >>> # Cache POST responses (advanced use case)
         >>> options = CacheOptions(supported_methods=["GET", "HEAD", "POST"])
@@ -120,22 +115,34 @@ class CacheOptions:
         >>> options = CacheOptions(allow_stale=True)
     """
 
-    shared: bool = True
+    shared: bool
     """
     When True, the cache operates as a shared cache (proxy/CDN).
     When False, as a private cache (browser).
     """
 
-    supported_methods: list[str] = field(default_factory=lambda: ["GET", "HEAD"])
+    supported_methods: list[str]
     """HTTP methods that are allowed to be cached."""
 
-    allow_stale: bool = False
+    allow_stale: bool
     """When True, stale responses can be served without revalidation."""
 
 
 @dataclass
 class State(ABC):
     options: CacheOptions
+
+    @property
+    def shared(self) -> bool:
+        return self.options.get("shared", True)
+
+    @property
+    def supported_methods(self) -> list[str]:
+        return self.options.get("supported_methods", ["GET", "HEAD"])
+
+    @property
+    def allow_stale(self) -> bool:
+        return self.options.get("allow_stale", False)
 
     @abstractmethod
     def next(self, *args: Any, **kwargs: Any) -> Union["State", None]:
@@ -840,6 +847,14 @@ def make_conditional_request(request: Request, response: Response) -> Request:
     )
 
 
+def _header_lists(headers: Headers) -> dict[str, list[str]]:
+    """
+    The headers with repeated values kept apart. Iterating ``Headers`` as a
+    mapping joins them with commas, which breaks ``Set-Cookie``.
+    """
+    return {key: headers.get_list(key) or [] for key in headers}
+
+
 def exclude_unstorable_headers(response: Response, is_cache_shared: bool) -> Response:
     """
     Removes headers that must not be stored in the cache.
@@ -976,7 +991,7 @@ def exclude_unstorable_headers(response: Response, is_cache_shared: bool) -> Res
     # Filter out the excluded headers
     # Create new Headers dict with only the headers we want to keep
     new_headers = Headers(
-        {key: value for key, value in response.headers.items() if key.lower() not in need_to_be_excluded}
+        {key: value for key, value in _header_lists(response.headers).items() if key.lower() not in need_to_be_excluded}
     )
 
     # Return a new response with filtered headers
@@ -1079,6 +1094,7 @@ def refresh_response_headers(
             "content-encoding",  # How the body is encoded (gzip, br, etc.)
             "content-type",  # MIME type of the body
             "content-range",  # For partial content (206 responses)
+            "content-length",  # Describes the stored body, which a 304 does not replace
         ]
     )
 
@@ -1086,10 +1102,10 @@ def refresh_response_headers(
     # Headers from revalidation_response override stored_response
     # EXCEPT for excluded headers (content metadata)
     new_headers = {
-        **stored_response.headers,  # Base: original cached headers
+        **_header_lists(stored_response.headers),  # Base: original cached headers
         **{
             key: value
-            for key, value in revalidation_response.headers.items()
+            for key, value in _header_lists(revalidation_response.headers).items()
             if key.lower() not in excluded_headers  # Skip content metadata
         },
     }
@@ -1151,15 +1167,19 @@ class IdleClient(State):
         every entry (§5.2.1.4).
         """
 
+        # §4: unsafe methods must be written through to the origin, and §4.4
+        # invalidates the target URI's entries if the origin accepts them.
+        if request.method.upper() not in SAFE_METHODS:
+            return CacheMiss(
+                request=request,
+                options=self.options,
+                entries_to_invalidate=[entry for entry in associated_entries if entry.request.url == request.url],
+            )
+
         # Range requests are punted to the origin — see §3.3 for the full rules
         # we'd otherwise need to implement.
-        request_range = Range.try_from_str(request.headers["range"]) if "range" in request.headers else None
-        if request_range is not None:
+        if "range" in request.headers:
             return CacheMiss(options=self.options, request=request)
-
-        # §4: unsafe methods must be written through to the origin.
-        if request.method.upper() not in SAFE_METHODS:
-            return CacheMiss(request=request, options=self.options)
 
         # Parsed once — applies uniformly to every candidate.
         request_cache_control = parse_cache_control(request.headers.get("cache-control"))
@@ -1181,10 +1201,10 @@ class IdleClient(State):
             response_cc = parse_cache_control(pair.response.headers.get("cache-control"))
             has_no_cache = response_cc.no_cache is True
 
-            freshness_lifetime = get_freshness_lifetime(pair.response, self.options.shared)
+            freshness_lifetime = get_freshness_lifetime(pair.response, self.shared)
             age = get_age(pair.response)
             is_fresh = freshness_lifetime is not None and age < freshness_lifetime
-            fresh_or_stale_ok = is_fresh or allowed_stale(pair.response, allow_stale_option=self.options.allow_stale)
+            fresh_or_stale_ok = is_fresh or allowed_stale(pair.response, allow_stale_option=self.allow_stale)
 
             if not has_no_cache and vary_ok and fresh_or_stale_ok and not request_forces_revalidation:
                 ready_to_use.append(pair)
@@ -1213,7 +1233,7 @@ class IdleClient(State):
                         selected_pair.response,
                         headers=Headers(
                             {
-                                **selected_pair.response.headers,
+                                **_header_lists(selected_pair.response.headers),
                                 "age": str(current_age),
                             }
                         ),
@@ -1252,6 +1272,8 @@ class CacheMiss(State):
     -----------------
     - StoreAndUse: Response meets all RFC 9111 storage requirements and will be cached
     - CouldNotBeStored: Response fails one or more storage requirements and cannot be cached
+    - InvalidateEntries: An unsafe request got a non-error response, so its entries are removed
+      before moving to one of the states above
 
     RFC 9111 References:
     -------------------
@@ -1259,6 +1281,8 @@ class CacheMiss(State):
       https://www.rfc-editor.org/rfc/rfc9111.html#section-3
     - Section 3.5: Authenticated Responses
       https://www.rfc-editor.org/rfc/rfc9111.html#section-3.5
+    - Section 4.4: Invalidating Stored Responses
+      https://www.rfc-editor.org/rfc/rfc9111.html#section-4.4
 
     Attributes:
     ----------
@@ -1266,9 +1290,6 @@ class CacheMiss(State):
         The request that caused the cache miss. Note this is a Request object,
         not an IncompletePair, because this state can be reached from NeedRevalidation
         where we don't have an incomplete pair.
-    after_revalidation : bool
-        Flag indicating if this cache miss occurred after a revalidation attempt.
-        When True, the response will be marked with hishel_revalidated metadata.
     options : CacheOptions
         Configuration options for cache behavior (inherited from State)
     """
@@ -1281,12 +1302,26 @@ class CacheMiss(State):
     when moving to this state from `NeedRevalidation` we don't have incomplete pair
     """
 
-    after_revalidation: bool = False
+    entries_to_invalidate: list[Entry] = field(default_factory=list)
     """
-    Indicates whether the cache miss occurred after a revalidation attempt.
+    The entries to remove if the response isn't an error (RFC 9111 §4.4).
+
+    This waits for the response, because a failed unsafe request changes nothing,
+    so its entries are still valid.
     """
 
-    def next(self, response: Response) -> Union["StoreAndUse", "CouldNotBeStored"]:
+    def _invalidating_entries(
+        self, response: Response, next_state: Union["StoreAndUse", "CouldNotBeStored"]
+    ) -> Union["StoreAndUse", "CouldNotBeStored", "InvalidateEntries"]:
+        if self.entries_to_invalidate and response.status_code < 400:
+            return InvalidateEntries(
+                options=self.options,
+                entry_ids=[entry.id for entry in self.entries_to_invalidate],
+                next_state=next_state,
+            )
+        return next_state
+
+    def next(self, response: Response) -> Union["StoreAndUse", "CouldNotBeStored", "InvalidateEntries"]:
         """
         Evaluates whether a response can be stored in the cache.
 
@@ -1310,9 +1345,10 @@ class CacheMiss(State):
 
         Returns:
         -------
-        Union[StoreAndUse, CouldNotBeStored]
+        Union[StoreAndUse, CouldNotBeStored, InvalidateEntries]
             - StoreAndUse: Response can and will be stored in cache
             - CouldNotBeStored: Response cannot be stored (fails one or more requirements)
+            - InvalidateEntries: Wraps one of the above when `entries_to_invalidate` must be removed
 
         RFC 9111 Compliance:
         -------------------
@@ -1380,7 +1416,7 @@ class CacheMiss(State):
         # The cache must recognize and support caching for this HTTP method.
         # Typically, only safe methods (GET, HEAD) are cacheable.
         # This prevents caching of methods with side effects (POST, PUT, DELETE).
-        method_understood_by_cache = request.method.upper() in self.options.supported_methods
+        method_understood_by_cache = request.method.upper() in self.supported_methods
 
         # CONDITION 2: Response Status Code is Final
         # RFC 9111 Section 3, paragraph 2.2:
@@ -1439,7 +1475,7 @@ class CacheMiss(State):
         #
         # Logic: If cache is shared AND response is private, storing is NOT allowed
         # Therefore: we check (shared cache) AND (private is NOT True)
-        private_directive_allows_storing = not (self.options.shared and response_cache_control.private is True)
+        private_directive_allows_storing = not (self.shared and response_cache_control.private is True)
 
         # CONDITION 6: Authorization Header Handling (Shared Cache Only)
         # RFC 9111 Section 3.5: Caching Authenticated Responses
@@ -1456,9 +1492,7 @@ class CacheMiss(State):
             or response_cache_control.s_maxage is not None
             or response_cache_control.must_revalidate
         )
-        can_cache_auth_request = (
-            not self.options.shared or "authorization" not in request.headers or has_explicit_directive
-        )
+        can_cache_auth_request = not self.shared or "authorization" not in request.headers or has_explicit_directive
 
         # CONDITION 7: Response Contains Required Caching Information
         # RFC 9111 Section 3, paragraph 2.7:
@@ -1480,7 +1514,7 @@ class CacheMiss(State):
             # https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.7
             # "private... indicates that... a private cache MAY store the response"
             # For private caches only (not shared caches)
-            or (not self.options.shared and response_cache_control.private)
+            or (not self.shared and response_cache_control.private)
             # OPTION C: Expires Header
             # RFC 9111 Section 5.3: Expires
             # https://www.rfc-editor.org/rfc/rfc9111.html#section-5.3
@@ -1502,7 +1536,7 @@ class CacheMiss(State):
             # the maximum age specified by this directive overrides the maximum age
             # specified by either the max-age directive or the Expires header field"
             # Specific to shared caches (proxies, CDNs)
-            or (self.options.shared and response_cache_control.s_maxage is not None)
+            or (self.shared and response_cache_control.s_maxage is not None)
             # OPTION F: Heuristically Cacheable Status Code
             # RFC 9111 Section 4.2.2: Calculating Heuristic Freshness
             # https://www.rfc-editor.org/rfc/rfc9111.html#section-4.2.2
@@ -1576,10 +1610,12 @@ class CacheMiss(State):
                         "See: https://www.rfc-editor.org/rfc/rfc9111.html#section-3-2.7.1"
                     )
 
-            return CouldNotBeStored(
-                response=response,
-                options=self.options,
-                after_revalidation=self.after_revalidation,
+            return self._invalidating_entries(
+                response,
+                CouldNotBeStored(
+                    response=response,
+                    options=self.options,
+                ),
             )
 
         # --------------------------------------------------------------------
@@ -1593,12 +1629,14 @@ class CacheMiss(State):
         # RFC 9111 Section 3.1: Storing Header and Trailer Fields
         # https://www.rfc-editor.org/rfc/rfc9111.html#section-3.1
         # Certain headers (Connection, hop-by-hop headers, etc.) must be excluded
-        cleaned_response = exclude_unstorable_headers(response, self.options.shared)
+        cleaned_response = exclude_unstorable_headers(response, self.shared)
 
-        return StoreAndUse(
-            response=cleaned_response,
-            options=self.options,
-            after_revalidation=self.after_revalidation,
+        return self._invalidating_entries(
+            response,
+            StoreAndUse(
+                response=cleaned_response,
+                options=self.options,
+            ),
         )
 
 
@@ -1777,7 +1815,6 @@ class NeedRevalidation(State):
                 next_state=CacheMiss(
                     request=self.original_request,
                     options=self.options,
-                    after_revalidation=True,  # Mark that this occurred during revalidation
                 ).next(
                     revalidation_response,
                 ),
@@ -1815,7 +1852,6 @@ class NeedRevalidation(State):
                 next_state=CacheMiss(
                     request=self.original_request,
                     options=self.options,
-                    after_revalidation=True,
                 ).next(
                     revalidation_response,
                 ),
@@ -1827,9 +1863,8 @@ class NeedRevalidation(State):
             # RFC 9111 does not define behavior for other status codes in this context.
             # In practice, we need to forward any unexpected responses to the client.
             return CacheMiss(
-                request=self.revalidating_entries[-1].request,
+                request=self.original_request,
                 options=self.options,
-                after_revalidation=True,
             ).next(revalidation_response)
 
     def _opaque_tag(self, etag: str) -> str:
@@ -1953,11 +1988,10 @@ class NeedRevalidation(State):
                 updating_entries=[
                     replace(
                         pair,
-                        response=refresh_response_headers(pair.response, revalidation_response, self.options.shared),
+                        response=refresh_response_headers(pair.response, revalidation_response, self.shared),
                     )
                     for pair in identified_for_revalidation
                 ],
-                original_request=self.original_request,
                 options=self.options,
             )
         else:
@@ -1966,7 +2000,6 @@ class NeedRevalidation(State):
             next_state = CacheMiss(
                 options=self.options,
                 request=self.original_request,
-                after_revalidation=True,
             )
 
         # ============================================================================
@@ -1990,43 +2023,18 @@ class StoreAndUse(State):
     ----------
     response : Response
         The HTTP response to be stored in the cache.
-    after_revalidation : bool
-        Indicates if the storage is occurring after a revalidation process.
     """
 
     def __init__(
         self,
         response: Response,
         options: CacheOptions,
-        after_revalidation: bool = False,
     ) -> None:
         super().__init__(options)
         self.response = response
-        self.after_revalidation = after_revalidation
-        response_meta = ResponseMetadata(
-            hishel_created_at=time.time(),
-            hishel_from_cache=False,
-            hishel_revalidated=after_revalidation,
-            hishel_stored=True,
-        )
-        self.response.metadata.update(response_meta)  # type: ignore
 
     def next(self) -> None:
         return None
-
-
-# @dataclass
-# class CouldNotBeStored(State):
-#     """
-#     The state that indicates that the response could not be stored in the cache.
-#     """
-
-#     response: Response
-
-#     pair_id: uuid.UUID
-
-#     def next(self) -> None:
-#         return None
 
 
 class CouldNotBeStored(State):
@@ -2037,27 +2045,15 @@ class CouldNotBeStored(State):
     ----------
     response : Response
         The HTTP response that could not be stored.
-    pair_id : uuid.UUID
-        The unique identifier for the cache pair.
-    after_revalidation : bool
-        Indicates if the storage attempt occurred after a revalidation process.
     """
 
     def __init__(
         self,
         response: Response,
         options: CacheOptions,
-        after_revalidation: bool = False,
     ) -> None:
         super().__init__(options)
         self.response = response
-        response_meta = ResponseMetadata(
-            hishel_created_at=time.time(),
-            hishel_from_cache=False,
-            hishel_revalidated=after_revalidation,
-            hishel_stored=False,
-        )
-        self.response.metadata.update(response_meta)  # type: ignore
 
     def next(self) -> None:
         return None
@@ -2082,18 +2078,9 @@ class FromCache(State):
         self,
         entry: Entry,
         options: CacheOptions,
-        after_revalidation: bool = False,
     ) -> None:
         super().__init__(options)
         self.entry = entry
-        self.after_revalidation = after_revalidation
-        response_meta = ResponseMetadata(
-            hishel_created_at=entry.meta.created_at,
-            hishel_from_cache=True,
-            hishel_revalidated=after_revalidation,
-            hishel_stored=False,
-        )
-        self.entry.response.metadata.update(response_meta)  # type: ignore
 
     def next(self) -> None:
         return None
@@ -2102,7 +2089,6 @@ class FromCache(State):
 @dataclass
 class NeedToBeUpdated(State):
     updating_entries: list[Entry]
-    original_request: Request
 
     def next(self) -> FromCache:
-        return FromCache(entry=self.updating_entries[-1], options=self.options, after_revalidation=True)
+        return FromCache(entry=self.updating_entries[-1], options=self.options)

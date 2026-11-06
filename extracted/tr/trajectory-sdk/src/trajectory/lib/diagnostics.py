@@ -23,6 +23,12 @@ def start_task_diagnostic(
 ) -> StartBenchmarkDiagnosticsResponse:
   """Upload one task, wait for its runtime build, and start its diagnostic run.
 
+  Returns once the diagnostic is started. Poll
+  ``client.diagnostics.get_status(result.benchmark_diagnostic_id)`` until its
+  ``status`` is ``completed``, ``failed``, or ``cancelled``, then fetch the report
+  with ``client.diagnostics.get_diagnostics(result.benchmark_diagnostic_id)``.
+  Fetching the report before the diagnostic finishes returns HTTP 409.
+
   ``timeout_seconds`` limits the image-build wait, not the managed task's execution.
   ``options`` takes evaluation settings, as for ``client.evals.create()``.
   """

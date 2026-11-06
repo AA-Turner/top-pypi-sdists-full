@@ -1,0 +1,1271 @@
+#![cfg(feature = "cluster")]
+#![allow(dead_code)]
+
+use std::cell::RefCell;
+use std::convert::identity;
+use std::env;
+use std::process;
+use std::rc::Rc;
+use std::thread::sleep;
+use std::time::Duration;
+
+use rand::Rng;
+use redis::cluster_routing::MultipleNodeRoutingInfo;
+use redis::cluster_routing::{RoutingInfo, SingleNodeRoutingInfo};
+use redis::cmd;
+use redis::from_redis_value;
+
+#[cfg(feature = "cluster-async")]
+use redis::aio::ConnectionLike;
+#[cfg(feature = "cluster-async")]
+use redis::cluster_async::Connect;
+use redis::ConnectionInfo;
+use redis::ProtocolVersion;
+use redis::PushInfo;
+use redis::RedisResult;
+use redis::Value;
+use tempfile::TempDir;
+
+use crate::support::{build_keys_and_certs_for_tls, Module};
+
+use super::{
+    build_single_client, get_random_available_port, load_certs_from_file,
+    ports::PortReservation,
+    readiness::{wait_for_server, STARTUP_TIMEOUT},
+};
+
+use super::use_protocol;
+use super::RedisServer;
+use super::TlsFilePaths;
+use tokio::sync::mpsc;
+
+const LOCALHOST: &str = "127.0.0.1";
+
+/// Slot distribution across cluster nodes.
+///
+/// Each entry describes one node as `(node_id, host, port, slot_ranges)`,
+/// where `slot_ranges` is a list of `[start, end]` inclusive slot ranges.
+type SlotDistribution = Vec<(String, String, String, Vec<Vec<u16>>)>;
+
+enum ClusterType {
+    Tcp,
+    TcpTls,
+}
+
+impl ClusterType {
+    fn get_intended() -> ClusterType {
+        match env::var("REDISRS_SERVER_TYPE")
+            .ok()
+            .as_ref()
+            .map(|x| &x[..])
+        {
+            Some("tcp") => ClusterType::Tcp,
+            Some("tcp+tls") => ClusterType::TcpTls,
+            Some(val) => {
+                panic!("Unknown server type {val:?}");
+            }
+            None => ClusterType::Tcp,
+        }
+    }
+
+    fn build_addr(port: u16) -> redis::ConnectionAddr {
+        match ClusterType::get_intended() {
+            ClusterType::Tcp => redis::ConnectionAddr::Tcp("127.0.0.1".into(), port),
+            ClusterType::TcpTls => redis::ConnectionAddr::TcpTls {
+                host: "127.0.0.1".into(),
+                port,
+                insecure: true,
+                tls_params: None,
+            },
+        }
+    }
+}
+
+fn port_in_use(addr: &str) -> bool {
+    let socket_addr: std::net::SocketAddr = addr.parse().expect("Invalid address");
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(socket_addr),
+        socket2::Type::STREAM,
+        None,
+    )
+    .expect("Failed to create socket");
+
+    socket.connect(&socket_addr.into()).is_ok()
+}
+
+/// The two TCP ports a cluster node listens on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NodePorts {
+    /// Client-facing port.
+    pub client: u16,
+    /// Cluster bus port (`--cluster-port`).
+    pub bus: u16,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum PortPolicy {
+    /// New fixtures have no clients depending on the originally chosen addresses.
+    Fresh,
+    /// Retained clients cannot reconnect if every node moves to a new address.
+    Fixed,
+}
+
+pub struct RestartPorts {
+    ports: Vec<NodePorts>,
+    reservation: PortReservation,
+}
+
+pub struct RedisCluster {
+    pub servers: Vec<RedisServer>,
+    pub folders: Vec<TempDir>,
+    pub tls_paths: Option<TlsFilePaths>,
+    ports: Vec<NodePorts>,
+}
+
+impl RedisCluster {
+    pub fn username() -> &'static str {
+        "hello"
+    }
+
+    pub fn password() -> &'static str {
+        "world"
+    }
+
+    pub fn client_name() -> &'static str {
+        "test_cluster_client"
+    }
+
+    pub fn new(nodes: u16, replicas: u16) -> RedisCluster {
+        RedisCluster::with_modules(nodes, replicas, &[], false)
+    }
+
+    pub fn new_with_mtls(nodes: u16, replicas: u16) -> RedisCluster {
+        RedisCluster::with_modules(nodes, replicas, &[], true)
+    }
+
+    pub fn with_modules(
+        nodes: u16,
+        replicas: u16,
+        modules: &[Module],
+        mtls_enabled: bool,
+    ) -> RedisCluster {
+        let ports = (0..nodes).map(|_| Self::fresh_node_ports()).collect();
+        Self::start(ports, replicas, modules, mtls_enabled, PortPolicy::Fresh)
+    }
+
+    /// Existing clients cannot discover replacement nodes at unrelated addresses.
+    pub fn with_modules_on_ports(
+        ports: RestartPorts,
+        replicas: u16,
+        modules: &[Module],
+        mtls_enabled: bool,
+    ) -> RedisCluster {
+        let RestartPorts { ports, reservation } = ports;
+        let cluster = Self::start(ports, replicas, modules, mtls_enabled, PortPolicy::Fixed);
+        drop(reservation);
+        cluster
+    }
+
+    fn fresh_node_ports() -> NodePorts {
+        NodePorts {
+            client: get_random_available_port(),
+            // Picked explicitly: valkey's default is `port + 10000`, which it
+            // rejects for any client port above 55535 and which could collide
+            // with another node's client port.
+            bus: get_random_available_port(),
+        }
+    }
+
+    fn start(
+        requested_ports: Vec<NodePorts>,
+        replicas: u16,
+        modules: &[Module],
+        mtls_enabled: bool,
+        port_policy: PortPolicy,
+    ) -> RedisCluster {
+        let mut tls_paths = None;
+        // Kept apart from the node tempdirs so a node restart does not delete the certs.
+        let mut tls_folder = None;
+
+        let mut is_tls = false;
+
+        if let ClusterType::TcpTls = ClusterType::get_intended() {
+            // Create a shared set of keys in cluster mode
+            let tempdir = tempfile::Builder::new()
+                .prefix("redis")
+                .tempdir()
+                .expect("failed to create tempdir");
+            let files = build_keys_and_certs_for_tls(&tempdir);
+            tls_folder = Some(tempdir);
+            tls_paths = Some(files);
+            is_tls = true;
+        }
+
+        let max_attempts = 5;
+        let mut requested_ports = requested_ports;
+        let mut cur_attempts = 0;
+
+        let cluster = loop {
+            let (servers, folders, ports) = Self::start_nodes(
+                &requested_ports,
+                replicas,
+                modules,
+                mtls_enabled,
+                &tls_paths,
+                is_tls,
+                port_policy,
+                max_attempts,
+            );
+
+            match Self::create_cluster(&ports, replicas, mtls_enabled, &tls_paths, is_tls) {
+                Ok(()) => {
+                    let mut folders = folders;
+                    folders.extend(tls_folder);
+                    break RedisCluster {
+                        servers,
+                        folders,
+                        tls_paths,
+                        ports,
+                    };
+                }
+                Err(err) => {
+                    if cur_attempts == max_attempts {
+                        panic!("{err}");
+                    }
+                    cur_attempts += 1;
+                    drop(servers);
+                    drop(folders);
+                    match port_policy {
+                        PortPolicy::Fresh => {
+                            requested_ports = requested_ports
+                                .iter()
+                                .map(|_| Self::fresh_node_ports())
+                                .collect();
+                        }
+                        PortPolicy::Fixed => sleep(Duration::from_millis(100)),
+                    }
+                    eprintln!("Retrying with new nodes on {requested_ports:?}: {err}");
+                }
+            }
+        };
+
+        if replicas > 0 {
+            cluster.wait_for_replicas(replicas, mtls_enabled);
+        }
+
+        wait_for_status_ok(&cluster);
+        cluster
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn start_nodes(
+        requested_ports: &[NodePorts],
+        replicas: u16,
+        modules: &[Module],
+        mtls_enabled: bool,
+        tls_paths: &Option<TlsFilePaths>,
+        is_tls: bool,
+        port_policy: PortPolicy,
+        max_attempts: usize,
+    ) -> (Vec<RedisServer>, Vec<TempDir>, Vec<NodePorts>) {
+        let mut servers = vec![];
+        let mut folders = vec![];
+        let mut ports = vec![];
+
+        for &requested in requested_ports {
+            let mut node_ports = requested;
+            let mut cur_attempts = 0;
+            let server = loop {
+                match Self::start_node(
+                    node_ports,
+                    replicas,
+                    modules,
+                    mtls_enabled,
+                    tls_paths.clone(),
+                    is_tls,
+                    &mut folders,
+                ) {
+                    Ok(server) => break server,
+                    Err(err) => {
+                        if cur_attempts == max_attempts {
+                            panic!(
+                                "failed to start node on {node_ports:?} after {} attempts: {err}",
+                                cur_attempts + 1
+                            );
+                        }
+                        cur_attempts += 1;
+                        match port_policy {
+                            // `get_random_available_port` releases its probe socket before the
+                            // server binds, so a concurrently starting test can take the port.
+                            PortPolicy::Fresh => {
+                                let next = Self::fresh_node_ports();
+                                eprintln!(
+                                    "Retrying on fresh ports {next:?} (was {node_ports:?}): {err}"
+                                );
+                                node_ports = next;
+                            }
+                            PortPolicy::Fixed => {
+                                eprintln!("Retrying on {node_ports:?}: {err}");
+                                sleep(Duration::from_millis(100));
+                            }
+                        }
+                    }
+                }
+            };
+            ports.push(node_ports);
+            servers.push(server);
+        }
+
+        (servers, folders, ports)
+    }
+
+    fn create_cluster(
+        ports: &[NodePorts],
+        replicas: u16,
+        mtls_enabled: bool,
+        tls_paths: &Option<TlsFilePaths>,
+        is_tls: bool,
+    ) -> Result<(), String> {
+        let cli_command = ["valkey-cli", "redis-cli"]
+            .iter()
+            .find(|cmd| which::which(cmd).is_ok())
+            .copied()
+            .unwrap_or_else(|| panic!("Neither valkey-cli nor redis-cli exists in the system."));
+
+        let mut cmd = process::Command::new(cli_command);
+        cmd.arg("--cluster").arg("create");
+        for p in ports {
+            cmd.arg(format!("{LOCALHOST}:{}", p.client));
+        }
+        if replicas > 0 {
+            cmd.arg("--cluster-replicas").arg(replicas.to_string());
+        }
+        cmd.arg("--cluster-yes");
+
+        if is_tls {
+            if mtls_enabled {
+                if let Some(TlsFilePaths {
+                    redis_crt,
+                    redis_key,
+                    ca_crt,
+                }) = tls_paths
+                {
+                    cmd.arg("--cert");
+                    cmd.arg(redis_crt);
+                    cmd.arg("--key");
+                    cmd.arg(redis_key);
+                    cmd.arg("--cacert");
+                    cmd.arg(ca_crt);
+                    cmd.arg("--tls");
+                }
+            } else {
+                cmd.arg("--tls").arg("--insecure");
+            }
+        }
+
+        // redis-cli reports cluster-manager errors on stdout, so keep both streams.
+        let output = cmd.output().unwrap();
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Cluster creation failed: {:?}\nstdout: {}\nstderr: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout).trim(),
+                String::from_utf8_lossy(&output.stderr).trim()
+            ))
+        }
+    }
+
+    /// Make one attempt to start a cluster node on `node_ports`. Returns `Err`
+    /// (with the process already reaped) if the server exited early, e.g. because
+    /// the port was taken, or never opened its client port.
+    fn start_node(
+        node_ports: NodePorts,
+        replicas: u16,
+        modules: &[Module],
+        mtls_enabled: bool,
+        tls_paths: Option<TlsFilePaths>,
+        is_tls: bool,
+        folders: &mut Vec<TempDir>,
+    ) -> Result<RedisServer, String> {
+        let NodePorts {
+            client: port,
+            bus: cluster_port,
+        } = node_ports;
+        let failure: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
+        let failure_slot = failure.clone();
+        let tls_paths_for_probe = tls_paths.clone();
+
+        let server = RedisServer::new_with_addr_tls_modules_and_spawner(
+            ClusterType::build_addr(port),
+            None,
+            tls_paths,
+            mtls_enabled,
+            modules,
+            |cmd| {
+                let tempdir = tempfile::Builder::new()
+                    .prefix("redis")
+                    .tempdir()
+                    .expect("failed to create tempdir");
+                let acl_path = tempdir.path().join("users.acl");
+                let acl_content = format!(
+                    "user {} on allcommands allkeys >{}",
+                    Self::username(),
+                    Self::password()
+                );
+                std::fs::write(&acl_path, acl_content).expect("failed to write acl file");
+                cmd.arg("--cluster-enabled")
+                    .arg("yes")
+                    .arg("--cluster-port")
+                    .arg(cluster_port.to_string())
+                    .arg("--cluster-config-file")
+                    .arg(tempdir.path().join("nodes.conf"))
+                    .arg("--cluster-node-timeout")
+                    .arg("5000")
+                    .arg("--appendonly")
+                    .arg("yes")
+                    .arg("--aclfile")
+                    .arg(&acl_path);
+                if is_tls {
+                    cmd.arg("--tls-cluster").arg("yes");
+                    if replicas > 0 {
+                        cmd.arg("--tls-replication").arg("yes");
+                    }
+                }
+                let addr = format!("127.0.0.1:{port}");
+                cmd.current_dir(tempdir.path());
+                folders.push(tempdir);
+
+                let mut process = cmd.spawn().unwrap();
+                sleep(Duration::from_millis(100));
+
+                match process.try_wait() {
+                    Ok(Some(status)) => {
+                        *failure_slot.borrow_mut() = Some(format!(
+                            "redis server creation failed with status {status:?} on port {port}"
+                        ));
+                    }
+                    Ok(None) => {
+                        let max_attempts = 20;
+                        let mut cur_attempts = 0;
+                        loop {
+                            if port_in_use(&addr) {
+                                break;
+                            }
+                            if cur_attempts == max_attempts {
+                                let _ = process.kill();
+                                let _ = process.wait();
+                                *failure_slot.borrow_mut() = Some(format!(
+                                    "redis server creation failed: Port {port} closed"
+                                ));
+                                break;
+                            }
+                            eprintln!("Waiting for redis process to initialize");
+                            sleep(Duration::from_millis(50));
+                            cur_attempts += 1;
+                        }
+                    }
+                    Err(e) => {
+                        panic!("Unexpected error in redis server creation {e}");
+                    }
+                }
+                process
+            },
+        );
+
+        if let Some(err) = failure.borrow_mut().take() {
+            return Err(err);
+        }
+        let mut server = server;
+        Self::verify_owner(&mut server, &tls_paths_for_probe, mtls_enabled)?;
+        Ok(server)
+    }
+
+    /// A bare connect can reach another process that grabbed the port after
+    /// `get_random_available_port` released it, so it cannot establish ownership.
+    fn verify_owner(
+        server: &mut RedisServer,
+        tls_paths: &Option<TlsFilePaths>,
+        mtls_enabled: bool,
+    ) -> Result<(), String> {
+        let client = build_single_client(server.connection_info(), tls_paths, mtls_enabled)
+            .map_err(|err| format!("building ownership probe: {err}"))?;
+        wait_for_server(&mut server.process, &client, false, STARTUP_TIMEOUT)
+            .map_err(|err| err.to_string())
+    }
+
+    // parameter `_mtls_enabled` can only be used if `feature = tls-rustls` is active
+    #[allow(dead_code)]
+    fn wait_for_replicas(&self, replicas: u16, _mtls_enabled: bool) {
+        'server: for server in &self.servers {
+            let conn_info = server.connection_info();
+            eprintln!(
+                "waiting until {:?} knows required number of replicas",
+                conn_info.addr
+            );
+
+            let client =
+                build_single_client(server.connection_info(), &self.tls_paths, _mtls_enabled)
+                    .unwrap();
+
+            let mut con = client.get_connection(None).unwrap();
+
+            // retry 500 times
+            for _ in 1..500 {
+                let value = redis::cmd("CLUSTER").arg("SLOTS").query(&mut con).unwrap();
+                let slots: Vec<Vec<redis::Value>> = redis::from_owned_redis_value(value).unwrap();
+
+                // all slots should have following items:
+                // [start slot range, end slot range, master's IP, replica1's IP, replica2's IP,... ]
+                if slots.iter().all(|slot| slot.len() >= 3 + replicas as usize) {
+                    continue 'server;
+                }
+
+                sleep(Duration::from_millis(100));
+            }
+
+            panic!("failed to create enough replicas");
+        }
+    }
+
+    pub fn stop(&mut self) {
+        for server in &mut self.servers {
+            server.stop();
+        }
+    }
+
+    pub fn iter_servers(&self) -> impl Iterator<Item = &RedisServer> {
+        self.servers.iter()
+    }
+
+    /// The allocator's probe would itself race a restart if these ports were
+    /// eligible while the original listeners are down.
+    pub fn reserve_ports_for_restart(&self) -> RestartPorts {
+        RestartPorts {
+            ports: self.ports.clone(),
+            reservation: PortReservation::new(self.ports.iter().flat_map(|p| [p.client, p.bus])),
+        }
+    }
+
+    pub fn ports(&self) -> Vec<NodePorts> {
+        self.ports.clone()
+    }
+}
+
+fn wait_for_status_ok(cluster: &RedisCluster) {
+    'server: for server in &cluster.servers {
+        let log_file = RedisServer::log_file(&server.tempdir);
+
+        for _ in 1..1000 {
+            let contents =
+                std::fs::read_to_string(&log_file).expect("Should have been able to read the file");
+
+            if contents.contains("Cluster state changed: ok") {
+                continue 'server;
+            }
+            sleep(Duration::from_millis(20));
+        }
+        panic!("failed to reach state change: OK");
+    }
+}
+
+impl Drop for RedisCluster {
+    fn drop(&mut self) {
+        self.stop()
+    }
+}
+
+pub struct TestClusterContext {
+    pub cluster: RedisCluster,
+    pub client: redis::cluster::ClusterClient,
+    pub mtls_enabled: bool,
+    pub nodes: Vec<ConnectionInfo>,
+    pub protocol: ProtocolVersion,
+}
+
+impl TestClusterContext {
+    pub fn new(nodes: u16, replicas: u16) -> TestClusterContext {
+        Self::new_with_cluster_client_builder(nodes, replicas, identity, false)
+    }
+
+    pub fn new_with_mtls(nodes: u16, replicas: u16) -> TestClusterContext {
+        Self::new_with_cluster_client_builder(nodes, replicas, identity, true)
+    }
+
+    pub fn new_with_cluster_client_builder<F>(
+        nodes: u16,
+        replicas: u16,
+        initializer: F,
+        mtls_enabled: bool,
+    ) -> TestClusterContext
+    where
+        F: FnOnce(redis::cluster::ClusterClientBuilder) -> redis::cluster::ClusterClientBuilder,
+    {
+        let cluster = RedisCluster::new(nodes, replicas);
+        Self::from_cluster(cluster, initializer, mtls_enabled)
+    }
+
+    /// The retained client still needs the old addresses after the outage.
+    pub fn restart_on_ports<F>(
+        ports: RestartPorts,
+        replicas: u16,
+        initializer: F,
+        mtls_enabled: bool,
+    ) -> TestClusterContext
+    where
+        F: FnOnce(redis::cluster::ClusterClientBuilder) -> redis::cluster::ClusterClientBuilder,
+    {
+        let cluster = RedisCluster::with_modules_on_ports(ports, replicas, &[], mtls_enabled);
+        Self::from_cluster(cluster, initializer, mtls_enabled)
+    }
+
+    fn from_cluster<F>(
+        cluster: RedisCluster,
+        initializer: F,
+        mtls_enabled: bool,
+    ) -> TestClusterContext
+    where
+        F: FnOnce(redis::cluster::ClusterClientBuilder) -> redis::cluster::ClusterClientBuilder,
+    {
+        let initial_nodes: Vec<ConnectionInfo> = cluster
+            .iter_servers()
+            .map(RedisServer::connection_info)
+            .collect();
+        let mut builder = redis::cluster::ClusterClientBuilder::new(initial_nodes.clone())
+            .use_protocol(use_protocol());
+
+        if mtls_enabled {
+            if let Some(tls_file_paths) = &cluster.tls_paths {
+                builder = builder.certs(load_certs_from_file(tls_file_paths));
+            }
+        }
+
+        builder = initializer(builder);
+
+        let client = builder.build().unwrap();
+
+        TestClusterContext {
+            cluster,
+            client,
+            mtls_enabled,
+            nodes: initial_nodes,
+            protocol: use_protocol(),
+        }
+    }
+
+    pub fn connection(&self) -> redis::cluster::ClusterConnection {
+        self.client.get_connection(None).unwrap()
+    }
+
+    #[cfg(feature = "cluster-async")]
+    pub async fn async_connection(
+        &self,
+        push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
+    ) -> redis::cluster_async::ClusterConnection {
+        self.client
+            .get_async_connection(push_sender, None, None, None)
+            .await
+            .unwrap()
+    }
+
+    #[cfg(feature = "cluster-async")]
+    pub async fn async_generic_connection<
+        C: ConnectionLike + Connect + Clone + Send + Sync + Unpin + 'static,
+    >(
+        &self,
+    ) -> redis::cluster_async::ClusterConnection<C> {
+        self.client
+            .get_async_generic_connection::<C>()
+            .await
+            .unwrap()
+    }
+
+    pub fn wait_for_cluster_up(&self) {
+        let mut con = self.connection();
+        let mut c = redis::cmd("CLUSTER");
+        c.arg("INFO");
+
+        for _ in 0..100 {
+            let r: String = c.query::<String>(&mut con).unwrap();
+            if r.starts_with("cluster_state:ok") {
+                return;
+            }
+
+            sleep(Duration::from_millis(25));
+        }
+
+        panic!("failed waiting for cluster to be ready");
+    }
+
+    pub fn disable_default_user(&self) {
+        for server in &self.cluster.servers {
+            let client = build_single_client(
+                server.connection_info(),
+                &self.cluster.tls_paths,
+                self.mtls_enabled,
+            )
+            .unwrap();
+
+            let mut con = client.get_connection(None).unwrap();
+            let _: () = redis::cmd("ACL")
+                .arg("SETUSER")
+                .arg("default")
+                .arg("off")
+                .query(&mut con)
+                .unwrap();
+
+            // subsequent unauthenticated command should fail:
+            if let Ok(mut con) = client.get_connection(None) {
+                assert!(redis::cmd("PING").query::<()>(&mut con).is_err());
+            }
+        }
+    }
+
+    pub fn get_version(&self) -> super::Version {
+        let mut conn = self.connection();
+        super::get_version(&mut conn)
+    }
+
+    pub fn get_node_ids(&self) -> Vec<String> {
+        let mut conn = self.connection();
+        let nodes: Vec<String> = redis::cmd("CLUSTER")
+            .arg("NODES")
+            .query::<String>(&mut conn)
+            .unwrap()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect();
+        let node_ids: Vec<String> = nodes
+            .iter()
+            .map(|node| node.split(' ').next().unwrap().to_string())
+            .collect();
+        node_ids
+            .iter()
+            .filter(|id| !id.is_empty())
+            .cloned()
+            .collect()
+    }
+
+    // Migrate half the slots from one node to another
+    pub async fn migrate_slots_from_node_to_another(&self, slot_distribution: SlotDistribution) {
+        let slots_ranges_of_node_id = slot_distribution[0].3.clone();
+
+        let mut conn = self.async_connection(None).await;
+
+        let from = slot_distribution[0].clone();
+        let target = slot_distribution[1].clone();
+
+        let from_node_id = from.0.clone();
+        let target_node_id = target.0.clone();
+
+        let from_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: from.1.clone(),
+            port: from.2.clone().parse::<u16>().unwrap(),
+        });
+        let target_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: target.1.clone(),
+            port: target.2.clone().parse::<u16>().unwrap(),
+        });
+
+        // Migrate the slots
+        for range in slots_ranges_of_node_id {
+            let mut slots_of_nodes: std::ops::Range<u16> = range[0]..range[1];
+            let number_of_slots = range[1] - range[0] + 1;
+            // Migrate half the slots
+            for _i in 0..(number_of_slots as f64 / 2.0).floor() as usize {
+                let slot = slots_of_nodes.next().unwrap();
+                // Set the nodes to MIGRATING and IMPORTING
+                let mut set_cmd = redis::cmd("CLUSTER");
+                set_cmd
+                    .arg("SETSLOT")
+                    .arg(slot)
+                    .arg("IMPORTING")
+                    .arg(from_node_id.clone());
+                let result: RedisResult<Value> =
+                    conn.route_command(&set_cmd, target_route.clone()).await;
+                match result {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Failed to set slot {slot} to IMPORTING with error {err}");
+                    }
+                }
+                let mut set_cmd = redis::cmd("CLUSTER");
+                set_cmd
+                    .arg("SETSLOT")
+                    .arg(slot)
+                    .arg("MIGRATING")
+                    .arg(target_node_id.clone());
+                let result: RedisResult<Value> =
+                    conn.route_command(&set_cmd, from_route.clone()).await;
+                match result {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Failed to set slot {slot} to MIGRATING with error {err}");
+                    }
+                }
+                // Get a key from the slot
+                let mut get_key_cmd = redis::cmd("CLUSTER");
+                get_key_cmd.arg("GETKEYSINSLOT").arg(slot).arg(1);
+                let result: RedisResult<Value> =
+                    conn.route_command(&get_key_cmd, from_route.clone()).await;
+                let vec_string_result: Vec<String> = match result {
+                    Ok(val) => {
+                        let val: Vec<String> = from_redis_value(&val).unwrap();
+                        val
+                    }
+                    Err(err) => {
+                        println!("Failed to get keys in slot {slot}: {err:?}");
+                        continue;
+                    }
+                };
+                if vec_string_result.is_empty() {
+                    continue;
+                }
+                let key = vec_string_result[0].clone();
+                // Migrate the key, which will make the whole slot to move
+                let mut migrate_cmd = redis::cmd("MIGRATE");
+                migrate_cmd
+                    .arg(target.1.clone())
+                    .arg(target.2.clone())
+                    .arg(key.clone())
+                    .arg(0)
+                    .arg(5000);
+                let result: RedisResult<Value> =
+                    conn.route_command(&migrate_cmd, from_route.clone()).await;
+
+                match result {
+                    Ok(Value::Okay) => {}
+                    Ok(Value::SimpleString(str)) => {
+                        if str != "NOKEY" {
+                            println!(
+                                "Failed to migrate key {key} to target node with status {str}"
+                            );
+                        } else {
+                            println!("Key {key} does not exist");
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Failed to migrate key {key} to target node with error {err}");
+                    }
+                }
+                // Tell the source and target nodes to propagate the slot change to the cluster
+                let mut setslot_cmd = redis::cmd("CLUSTER");
+                setslot_cmd
+                    .arg("SETSLOT")
+                    .arg(slot)
+                    .arg("NODE")
+                    .arg(target_node_id.clone());
+                let result: RedisResult<Value> =
+                    conn.route_command(&setslot_cmd, target_route.clone()).await;
+                match result {
+                    Ok(_) => {}
+                    Err(err) => {
+                        println!("Failed to set slot {slot} to target NODE with error {err}");
+                    }
+                };
+                self.wait_for_connection_is_ready(&from_route)
+                    .await
+                    .unwrap();
+                self.wait_for_connection_is_ready(&target_route)
+                    .await
+                    .unwrap();
+                self.wait_for_cluster_up();
+            }
+        }
+    }
+
+    // Return the slots distribution of the cluster as a vector of tuples
+    // where the first element is the node id, second is host, third is port and the last element is a vector of slots ranges
+    pub fn get_slots_ranges_distribution(&self, cluster_nodes: &str) -> SlotDistribution {
+        let nodes_string: Vec<String> = cluster_nodes
+            .split('\n')
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let mut nodes: Vec<Vec<String>> = vec![];
+        for node in nodes_string {
+            let node_vec: Vec<String> = node.split(' ').map(|s| s.to_string()).collect();
+            if node_vec.last().unwrap() == "connected" || node_vec.last().unwrap() == "disconnected"
+            {
+                continue;
+            } else {
+                nodes.push(node_vec);
+            }
+        }
+        let mut slot_distribution = vec![];
+        for node in &nodes {
+            let mut slots_ranges: Vec<Vec<u16>> = vec![];
+            let mut slots_ranges_vec: Vec<u16> = vec![];
+            let node_id = node[0].clone();
+            let host_and_port: Vec<String> = node[1].split(':').map(|s| s.to_string()).collect();
+            let host = host_and_port[0].clone();
+            let port = host_and_port[1].split('@').next().unwrap().to_string();
+            let slots = node[8..].to_vec();
+            for slot in slots {
+                if slot.contains("->") || slot.contains("<-") {
+                    continue;
+                }
+                if slot.contains('-') {
+                    let range: Vec<u16> =
+                        slot.split('-').map(|s| s.parse::<u16>().unwrap()).collect();
+                    slots_ranges_vec.push(range[0]);
+                    slots_ranges_vec.push(range[1]);
+                    slots_ranges.push(slots_ranges_vec.clone());
+                    slots_ranges_vec.clear();
+                } else {
+                    let slot: u16 = slot.parse::<u16>().unwrap();
+                    slots_ranges_vec.push(slot);
+                    slots_ranges_vec.push(slot);
+                    slots_ranges.push(slots_ranges_vec.clone());
+                    slots_ranges_vec.clear();
+                }
+            }
+            let parsed_node: (String, String, String, Vec<Vec<u16>>) =
+                (node_id, host, port, slots_ranges);
+            slot_distribution.push(parsed_node);
+        }
+        slot_distribution
+    }
+
+    pub async fn kill_one_node(
+        &self,
+        slot_distribution: SlotDistribution,
+        slot: Option<u16>,
+    ) -> RoutingInfo {
+        let mut cluster_conn = self.async_connection(None).await;
+        let distribution_clone = slot_distribution.clone();
+
+        let node_to_kill = if let Some(slot) = slot {
+            // Find the node currently responsible for the slot
+            distribution_clone
+                .iter()
+                .find(|&(_, _, _, slots)| {
+                    slots
+                        .iter()
+                        .any(|nodes_slot| nodes_slot[0] <= slot && slot <= nodes_slot[1])
+                })
+                .expect("No matching node found for the given slot")
+        } else {
+            let index_of_random_node = rand::rng().random_range(0..slot_distribution.len());
+            distribution_clone
+                .get(index_of_random_node)
+                .expect("Slot distribution is empty")
+        };
+
+        let node_to_kill_route_info = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: node_to_kill.1.clone(),
+            port: node_to_kill.2.parse::<u16>().expect("Invalid port format"),
+        });
+        let node_to_kill_id = &node_to_kill.0;
+        // Create connections to all nodes
+        for node in &distribution_clone {
+            if node_to_kill_id == &node.0 {
+                continue;
+            }
+            let node_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+                host: node.1.clone(),
+                port: node.2.parse::<u16>().expect("Invalid port format"),
+            });
+
+            let mut forget_cmd = cmd("CLUSTER");
+            forget_cmd.arg("FORGET").arg(node_to_kill_id);
+            let _: RedisResult<Value> = cluster_conn
+                .route_command(&forget_cmd, node_route.clone())
+                .await;
+        }
+
+        let mut shutdown_cmd = cmd("SHUTDOWN");
+        shutdown_cmd.arg("NOSAVE");
+        let _: RedisResult<Value> = cluster_conn
+            .route_command(&shutdown_cmd, node_to_kill_route_info.clone())
+            .await;
+
+        node_to_kill_route_info
+    }
+
+    /// Moves a specific slot from its current node to a different node in a the cluster.
+    ///
+    /// This function assumes that the slot is already present in the cluster and that we are
+    /// selecting a new node to move the slot to.
+    pub async fn move_specific_slot(
+        &self,
+        slot_to_move: u16,
+        slot_distribution: SlotDistribution,
+    ) -> RoutingInfo {
+        let mut cluster_conn = self.async_connection(None).await;
+        // Use a reference to the slot distribution so we don't have to clone it.
+        let distribution = &slot_distribution;
+
+        // Find the node currently responsible for the slot.
+        let current_node = distribution
+            .iter()
+            .find(|&(_, _, _, slots)| {
+                slots.iter().any(|slot_range| {
+                    slot_range[0] <= slot_to_move && slot_to_move <= slot_range[1]
+                })
+            })
+            .expect("No node found owning the given slot");
+        let current_node_id = &current_node.0;
+
+        // Select a destination node (different from the current node).
+        let destination_node = distribution
+            .iter()
+            .find(|node| node.0 != *current_node_id)
+            .expect("No destination node found in the distribution");
+
+        // Parse the destination node's port and construct its RoutingInfo.
+        let dest_port: u16 = destination_node
+            .2
+            .parse()
+            .expect("Invalid port format for destination node");
+        let dest_host = destination_node.1.clone();
+        let destination_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: dest_host,
+            port: dest_port,
+        });
+
+        // Issue the CLUSTER SETSLOT command to move the slot to the destination node.
+        let mut move_cmd = cmd("CLUSTER");
+        move_cmd
+            .arg("SETSLOT")
+            .arg(slot_to_move)
+            .arg("NODE")
+            .arg(destination_node.0.clone());
+        let all_nodes = RoutingInfo::MultiNode((MultipleNodeRoutingInfo::AllNodes, None));
+        if let Err(e) = cluster_conn.route_command(&move_cmd, all_nodes).await {
+            panic!("Failed to move slot: {e}");
+        }
+
+        // Return the RoutingInfo for the destination node.
+        destination_route
+    }
+
+    /// Deletes a specific slot from its current node in the cluster.
+    ///
+    /// This function assumes that the slot is already present in the cluster and removes
+    /// it from the node currently responsible for it.
+    pub async fn delete_specific_slot(
+        &self,
+        slot_to_delete: u16,
+        slot_distribution: Option<SlotDistribution>,
+    ) -> RoutingInfo {
+        let mut cluster_conn = self.async_connection(None).await;
+
+        // Get or discover slot distribution
+        let distribution = match slot_distribution {
+            Some(dist) => dist,
+            None => {
+                let cluster_nodes = self.get_cluster_nodes().await;
+                self.get_slots_ranges_distribution(&cluster_nodes)
+            }
+        };
+
+        // Find the node currently responsible for the slot.
+        let current_node = distribution
+            .iter()
+            .find(|&(_, _, _, slots)| {
+                slots.iter().any(|slot_range| {
+                    slot_range[0] <= slot_to_delete && slot_to_delete <= slot_range[1]
+                })
+            })
+            .expect("No node found owning the given slot");
+
+        // Parse the current node's port and construct its RoutingInfo.
+        let current_port: u16 = current_node
+            .2
+            .parse()
+            .expect("Invalid port format for current node");
+        let current_host = current_node.1.clone();
+        let current_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: current_host,
+            port: current_port,
+        });
+
+        // Issue the CLUSTER DELSLOTS command to delete the slot from the current node.
+        let mut delete_cmd = cmd("CLUSTER");
+        delete_cmd.arg("DELSLOTS").arg(slot_to_delete);
+
+        if let Err(e) = cluster_conn
+            .route_command(&delete_cmd, current_route.clone())
+            .await
+        {
+            panic!("Failed to delete slot: {e}");
+        }
+
+        // Return the RoutingInfo for the node that had the slot.
+        current_route
+    }
+
+    /// Migrates a specific slot from its current node to a new destination node in the cluster.
+    ///
+    /// This function identifies the current owner of the slot, selects a new node as the destination,
+    /// and updates the slot state accordingly by setting it to `MIGRATING` on the source node
+    /// and `IMPORTING` on the destination node.
+    ///
+    /// This is helpful for testing `ASK` error.
+    pub async fn migrate_slot(
+        &self,
+        slot_to_migrate: u16,
+        slot_distribution: SlotDistribution,
+    ) -> String {
+        let mut cluster_conn = self.async_connection(None).await;
+
+        // Identify the current node responsible for the slot.
+        let current_node = slot_distribution
+            .iter()
+            .find(|&(_, _, _, slots)| {
+                slots.iter().any(|slot_range| {
+                    slot_range[0] <= slot_to_migrate && slot_to_migrate <= slot_range[1]
+                })
+            })
+            .expect("No node found owning the given slot");
+
+        let current_node_id = &current_node.0;
+        let current_host = &current_node.1;
+        let current_port: u16 = current_node.2.parse().expect("Invalid port format");
+
+        // Select a different node as the destination.
+        let destination_node = slot_distribution
+            .iter()
+            .find(|node| node.0 != *current_node_id)
+            .expect("No destination node found in the distribution");
+
+        let dest_port: u16 = destination_node.2.parse().expect("Invalid port format");
+        let dest_host = destination_node.1.clone();
+        let dest_node_id = &destination_node.0;
+
+        // Set slot to MIGRATING on the source node.
+        let mut migrating_cmd = cmd("CLUSTER");
+        migrating_cmd
+            .arg("SETSLOT")
+            .arg(slot_to_migrate)
+            .arg("MIGRATING")
+            .arg(dest_node_id.clone());
+
+        let current_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: current_host.clone(),
+            port: current_port,
+        });
+
+        if let Err(e) = cluster_conn
+            .route_command(&migrating_cmd, current_route)
+            .await
+        {
+            panic!("Failed to set slot to MIGRATING: {e}");
+        }
+
+        // Set slot to IMPORTING on the destination node.
+        let mut importing_cmd = cmd("CLUSTER");
+        importing_cmd
+            .arg("SETSLOT")
+            .arg(slot_to_migrate)
+            .arg("IMPORTING")
+            .arg(current_node_id.clone());
+
+        let dest_route = RoutingInfo::SingleNode(SingleNodeRoutingInfo::ByAddress {
+            host: dest_host.clone(),
+            port: dest_port,
+        });
+
+        if let Err(e) = cluster_conn.route_command(&importing_cmd, dest_route).await {
+            panic!("Failed to set slot to IMPORTING: {e}");
+        }
+
+        dest_node_id.to_string()
+    }
+
+    pub async fn get_masters(&self, cluster_nodes: &str) -> Vec<Vec<String>> {
+        let mut masters = vec![];
+        for line in cluster_nodes.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 3 {
+                continue;
+            }
+            if parts[2] == "master" || parts[2] == "myself,master" {
+                let id = parts[0];
+                let host_and_port = parts[1].split(':');
+                let host = host_and_port.clone().next().unwrap();
+                let port = host_and_port
+                    .clone()
+                    .next_back()
+                    .unwrap()
+                    .split('@')
+                    .next()
+                    .unwrap();
+                masters.push(vec![id.to_string(), host.to_string(), port.to_string()]);
+            }
+        }
+        masters
+    }
+
+    pub async fn get_replicas(&self, cluster_nodes: &str) -> Vec<Vec<String>> {
+        let mut replicas = vec![];
+        for line in cluster_nodes.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 3 {
+                continue;
+            }
+            if parts[2] == "slave" || parts[2] == "myself,slave" {
+                let id = parts[0];
+                let host_and_port = parts[1].split(':');
+                let host = host_and_port.clone().next().unwrap();
+                let port = host_and_port
+                    .clone()
+                    .next_back()
+                    .unwrap()
+                    .split('@')
+                    .next()
+                    .unwrap();
+                replicas.push(vec![id.to_string(), host.to_string(), port.to_string()]);
+            }
+        }
+        replicas
+    }
+
+    pub async fn get_cluster_nodes(&self) -> String {
+        let mut conn = self.async_connection(None).await;
+        let mut cmd = redis::cmd("CLUSTER");
+        cmd.arg("NODES");
+        let res: RedisResult<Value> = conn
+            .route_command(&cmd, RoutingInfo::SingleNode(SingleNodeRoutingInfo::Random))
+            .await;
+        let res: String = from_redis_value(&res.unwrap()).unwrap();
+        res
+    }
+
+    pub async fn wait_for_fail_to_finish(&self, route: &RoutingInfo) -> RedisResult<()> {
+        for _ in 0..500 {
+            let mut conn = self.async_connection(None).await;
+            let cmd = redis::cmd("PING");
+            let res: RedisResult<Value> = conn.route_command(&cmd, route.clone()).await;
+            if res.is_err() {
+                return Ok(());
+            }
+            sleep(Duration::from_millis(50));
+        }
+        Err(redis::RedisError::from((
+            redis::ErrorKind::IoError,
+            "Failed to get connection",
+        )))
+    }
+
+    pub async fn wait_for_connection_is_ready(&self, route: &RoutingInfo) -> RedisResult<()> {
+        let mut i = 1;
+        while i < 1000 {
+            let mut conn = self.async_connection(None).await;
+            let cmd = redis::cmd("PING");
+            let res: RedisResult<Value> = conn.route_command(&cmd, route.clone()).await;
+            if res.is_ok() {
+                return Ok(());
+            }
+            sleep(Duration::from_millis(i * 10));
+            i += 10;
+        }
+        Err(redis::RedisError::from((
+            redis::ErrorKind::IoError,
+            "Failed to get connection",
+        )))
+    }
+}

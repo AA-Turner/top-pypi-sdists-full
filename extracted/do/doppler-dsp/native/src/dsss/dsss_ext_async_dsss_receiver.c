@@ -958,6 +958,17 @@ AsyncDsssReceiverObj_set_telemetry (AsyncDsssReceiverObject *self,
                                                   decim);
   if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_MEMORY:
+          PyErr_SetString (PyExc_MemoryError,
+                           "set_telemetry: the attach could not allocate (its "
+                           "scratch context, "
+                           "or a loop's own); the receiver is unchanged");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_telemetry failed",
                     (long long)_rc);
       return NULL;
@@ -2154,9 +2165,14 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "\n"
     "Raises\n"
     "------\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``set_telemetry: the attach could not allocate (its scratch\n"
+    "    context, or a loop's own); the receiver is unchanged``.\n"
     "ValueError\n"
-    "    If the C call returns a non-zero status. The exception message is\n"
-    "    ``set_telemetry failed``, with the return code appended (gh-869).\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is ``set_telemetry failed``, with the return code appended\n"
+    "    (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -2191,10 +2207,11 @@ static PyMethodDef AsyncDsssReceiverObj_methods[] = {
     "call and nothing about its output. A pool that steps its receivers in\n"
     "parallel sets each one to 1. A mutator's value, so it travels in the\n"
     "state blob (#2022). The blob carries the count that RAN, not the\n"
-    "request: set_threads(0) on a 20-core writer restores as 20 workers on\n"
-    "any reader, by design -- a resumed receiver runs as the one that was\n"
-    "checkpointed, and a pool's 1 is 1 everywhere. Setup path; not while\n"
-    "another thread is inside steps().\n"
+    "request: set_threads(0) on a writer restores as the count the writer\n"
+    "ran (its online cores, at most one worker a tile) on any reader, by\n"
+    "design -- a resumed receiver runs as the one that was checkpointed, and\n"
+    "a pool's 1 is 1 everywhere. Setup path; not while another thread is\n"
+    "inside steps().\n"
     "\n"
     "Parameters\n"
     "----------\n"

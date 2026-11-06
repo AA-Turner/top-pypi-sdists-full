@@ -2811,7 +2811,7 @@ class PostV31CustomToolkitsBody(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     name: Annotated[str, Field(min_length=1, max_length=200)] = Field(..., description="Display name of the toolkit")
-    app_url: str = Field(..., description="MCP server URL. Must use https.")
+    mcp_url: str = Field(..., description="MCP server URL. Must use https.")
     logo_file: Optional[PostV31CustomToolkitsLogoFile] = Field(default=None, description="Square PNG or JPEG logo, 256-1024px, max 3MB. Defaults to the Model Context Protocol logo.")
     auth_schemes: Annotated[list[Union[PostV31CustomToolkitsAuthSchemes, PostV31CustomToolkitsAuthSchemes_, PostV31CustomToolkitsAuthSchemes_2]], Field(min_length=1)] = Field(..., description="How users authenticate to the MCP server")
     user_id: Union[PostV31CustomToolkitsUserId, Annotated[str, Field(min_length=1, max_length=256)]] = Field(..., description='"all" to share the toolkit with every user in the project, or a user ID to make it private to that user. "default" and other spellings of "all" (such as "ALL" or " all") are rejected. Cannot be changed after create.')
@@ -3313,6 +3313,7 @@ class PostV31ToolRouterSessionExperimental(BaseModel):
     permissions: Optional[PostV31ToolRouterSessionExperimentalPermissions] = Field(default=None, description="Per-tool elicitation permission config. Default behavior + per-tool always_allow/always_deny overrides. Mutation via PATCH.")
     link_url_overwrite: Optional[str] = Field(default=None, description="Experimental base URL override for connection link redirects created from this tool-router session. When set, link creation returns `${link_url_overwrite}/link/{link_token}` instead of the default Composio Connect base URL. Use only when your integration needs links to open through a custom Connect host.")
     fast_mode: Optional[bool] = Field(default=None, description="Fast mode reduces search latency. It is experimental, so tool search quality may be affected.")
+    disable_plan_search: Optional[bool] = Field(default=None, description="Set to true to stop tool search from returning cached plans (recommended_plan_steps, known_pitfalls, reference_workbench_snippets) in this session. Unlike fast_mode, tool search quality is unaffected. Defaults to false.")
     submit_feedback: Optional[PostV31ToolRouterSessionExperimentalSubmitFeedback] = Field(default=None, description="Exposes the COMPOSIO_SUBMIT_FEEDBACK helper tool in this session so the agent can report tool executions with empty, incorrect, or failed results. Defaults to false.")
     restrict_egress_to_composio: Optional[bool] = Field(default=False, description="Set to true to confine the workbench sandbox to Composio: code running in it can reach the Composio API and its own storage volume, and no other network destination. Defaults to false. Set at session creation only.")
     no_elicitation_support_fallback: Optional[PostV31ToolRouterSessionExperimentalNoElicitationSupportFallback] = Field(default=None, description="What session MCP does with a tool call that needs approval when the MCP client can't ask the user. deny (default) rejects the call; allow runs it without approval.")
@@ -4659,6 +4660,7 @@ class PatchV31ToolRouterSessionBySessionIdExperimental_(BaseModel):
     permissions: Optional[PatchV31ToolRouterSessionBySessionIdExperimentalPermissions] = Field(default=None, description="Per-tool elicitation permission config. Replaces the stored block when provided.")
     link_url_overwrite: Optional[str] = Field(default=None, description="Experimental base URL override for connection link redirects created from this tool-router session. When set, link creation returns `${link_url_overwrite}/link/{link_token}` instead of the default Composio Connect base URL. Use only when your integration needs links to open through a custom Connect host.")
     fast_mode: Optional[bool] = Field(default=None, description="Fast mode reduces search latency. It is experimental, so tool search quality may be affected.")
+    disable_plan_search: Optional[bool] = Field(default=None, description="Set to true to stop tool search from returning cached plans (recommended_plan_steps, known_pitfalls, reference_workbench_snippets) in this session, false to return them again. Unlike fast_mode, tool search quality is unaffected.")
     submit_feedback: Optional[PatchV31ToolRouterSessionBySessionIdExperimentalSubmitFeedback] = Field(default=None, description="Exposes the COMPOSIO_SUBMIT_FEEDBACK helper tool in this session so the agent can report tool executions with empty, incorrect, or failed results. Replaces the stored block when provided; `enable` is required when the block is sent.")
     no_elicitation_support_fallback: Optional[PatchV31ToolRouterSessionBySessionIdExperimentalNoElicitationSupportFallback_] = Field(default=None, description="What session MCP does with a tool call that needs approval when the MCP client can't ask the user. deny (default) rejects the call; allow runs it without approval.")
     session_config_id: Optional[str] = Field(default=None, description="Apply the latest active Session config from this project to this Session. Replaces toolkit, tool, and tag access; preserves other settings. Cannot be combined with inline toolkits, tools, or tags. Later config edits do not update this Session automatically.")
@@ -23587,7 +23589,7 @@ class PostV31CustomToolkitsUpsertToolkitConfigAuthSchemes_2(BaseModel):
 class PostV31CustomToolkitsUpsertToolkitConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
     name: Annotated[str, Field(min_length=1, max_length=200)] = Field(..., description="Display name of the toolkit")
-    app_url: str = Field(..., description="MCP server URL. Must use https.")
+    mcp_url: str = Field(..., description="MCP server URL. Must use https.")
     logo_file: Optional[PostV31CustomToolkitsUpsertToolkitConfigLogoFile] = Field(default=None, description="Square PNG or JPEG logo, 256-1024px, max 3MB. Defaults to the Model Context Protocol logo.")
     auth_schemes: Annotated[list[Union[PostV31CustomToolkitsUpsertToolkitConfigAuthSchemes, PostV31CustomToolkitsUpsertToolkitConfigAuthSchemes_, PostV31CustomToolkitsUpsertToolkitConfigAuthSchemes_2]], Field(min_length=1)] = Field(..., description="How users authenticate to the MCP server")
 

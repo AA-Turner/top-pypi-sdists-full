@@ -9,7 +9,7 @@ use crate::types::AddressResolver;
 use crate::{cluster::TlsMode, ErrorKind, RedisError, RedisResult, Value};
 #[cfg(all(feature = "cluster-async", not(feature = "tokio-comp")))]
 use async_std::sync::RwLock;
-use logger_core::log_warn;
+use glide_logger::log_warn;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
@@ -429,7 +429,7 @@ mod tests {
             .iter()
             .map(|(host, port)| {
                 Value::Array(vec![
-                    Value::BulkString(host.as_bytes().to_vec()),
+                    Value::BulkString(host.as_bytes().to_vec().into()),
                     Value::Int(*port as i64),
                 ])
             })
@@ -458,9 +458,9 @@ mod tests {
             .iter()
             .map(|(host, port, metadata)| {
                 let mut node_vec = vec![
-                    Value::BulkString(host.as_bytes().to_vec()),
+                    Value::BulkString(host.as_bytes().to_vec().into()),
                     Value::Int(*port as i64),
-                    Value::BulkString(b"node-id-placeholder".to_vec()), // node ID
+                    Value::BulkString(b"node-id-placeholder".to_vec().into()), // node ID
                 ];
 
                 if let Some(meta) = metadata {
@@ -470,8 +470,8 @@ mod tests {
                                 .iter()
                                 .flat_map(|(k, v)| {
                                     vec![
-                                        Value::BulkString(k.as_bytes().to_vec()),
-                                        Value::BulkString(v.as_bytes().to_vec()),
+                                        Value::BulkString(k.as_bytes().to_vec().into()),
+                                        Value::BulkString(v.as_bytes().to_vec().into()),
                                     ]
                                 })
                                 .collect();
@@ -482,8 +482,8 @@ mod tests {
                                 .iter()
                                 .map(|(k, v)| {
                                     (
-                                        Value::BulkString(k.as_bytes().to_vec()),
-                                        Value::BulkString(v.as_bytes().to_vec()),
+                                        Value::BulkString(k.as_bytes().to_vec().into()),
+                                        Value::BulkString(v.as_bytes().to_vec().into()),
                                     )
                                 })
                                 .collect();

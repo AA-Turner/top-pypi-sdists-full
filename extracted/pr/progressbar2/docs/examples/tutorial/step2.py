@@ -6,8 +6,6 @@ new value wherever your own loop happens to be, instead of handing the
 loop itself to a wrapper.
 """
 
-from __future__ import annotations
-
 import time
 
 import progressbar
@@ -15,7 +13,7 @@ import progressbar
 
 def main() -> None:
     with progressbar.ProgressBar() as bar:
-        for i in range(100):
+        for i in range(1000):
             time.sleep(0.01)
             bar.update(i + 1)
 

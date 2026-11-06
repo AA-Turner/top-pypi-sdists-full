@@ -281,9 +281,6 @@ def _machines_said(machines: list[dict]) -> list[str]:
     out = ["machines:"]
     for m in shown:
         said = [f"started {clock.stamp(m.get('started_ms'), unit='second', ms=True)}"]
-
-        if m.get("resumed_ms") is not None:
-            said.append(f"resumed {clock.stamp(m['resumed_ms'], unit='second', ms=True)}")
         if m.get("ready_ms") is not None:
             said.append(f"ready {clock.stamp(m['ready_ms'], unit='second', ms=True)}")
         if m.get("load_s") is not None:

@@ -1,67 +1,18 @@
-import hashlib
 import os
-from collections.abc import Hashable, Iterator, Sequence
-from typing import Any, Union
+from collections.abc import Hashable, Sequence
+from typing import Any, Self
 
 import base58
-from coincurve import PrivateKey as CoincurvePrivateKey
-from coincurve import PublicKey as CoincurvePublicKey
 from Crypto.Hash import keccak
 
 from tronpy.exceptions import BadAddress, BadKey, BadSignature
+from tronpy.keys import _secp256k1
 
-SECPK1_N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 TRON_MESSAGE_PREFIX = "\x19TRON Signed Message:\n"
-
-
-def coerce_low_s(value: int) -> int:
-    """Coerce the s component of an ECDSA signature into its low-s form.
-    See https://bitcoin.stackexchange.com/questions/83408/in-ecdsa-why-is-r-%E2%88%92s-mod-n-complementary-to-r-s
-    """
-    return min(value, -value % SECPK1_N)
-
-
-def two_int_sequence_encoder(signature_r: int, signature_s: int) -> Iterator[int]:
-    # Sequence tag
-    yield 0x30
-
-    encoded1 = bytes(_encode_int(signature_r))
-    encoded2 = bytes(_encode_int(signature_s))
-
-    # Sequence length
-    yield len(encoded1) + len(encoded2)
-
-    yield from encoded1
-    yield from encoded2
-
-
-def int_to_big_endian(value: int) -> bytes:
-    return value.to_bytes((value.bit_length() + 7) // 8 or 1, "big")
-
-
-def _encode_int(primitive: int) -> Iterator[int]:
-    # Integer tag
-    yield 0x02
-
-    encoded = int_to_big_endian(primitive)
-    if encoded[0] >= 128:
-        # Indicate that integer is positive (it always is, but doesn't always need the flag)
-        yield len(encoded) + 1
-        yield 0x00
-    else:
-        yield len(encoded)
-
-    yield from encoded
 
 
 def keccak256(data: bytes) -> bytes:
     hasher = keccak.new(digest_bits=256)
-    hasher.update(data)
-    return hasher.digest()
-
-
-def sha256(data: bytes) -> bytes:
-    hasher = hashlib.sha256()
     hasher.update(data)
     return hasher.digest()
 
@@ -76,7 +27,7 @@ def public_key_to_addr(pub_key: bytes) -> bytes:
     return b"\x41" + keccak256(pub_key)[-20:]
 
 
-def to_base58check_address(raw_addr: Union[str, bytes]) -> str:
+def to_base58check_address(raw_addr: str | bytes) -> str:
     """Convert hex address or base58check address to base58check address(and verify it)."""
     if isinstance(raw_addr, (str,)):
         if raw_addr[0] == "T" and len(raw_addr) == 34:
@@ -101,17 +52,17 @@ def to_base58check_address(raw_addr: Union[str, bytes]) -> str:
     raise BadAddress(repr(raw_addr))
 
 
-def to_hex_address(raw_addr: Union[str, bytes]) -> str:
+def to_hex_address(raw_addr: str | bytes) -> str:
     addr = to_base58check_address(raw_addr)
     return base58.b58decode_check(addr).hex()
 
 
-def to_raw_address(raw_addr: Union[str, bytes]) -> bytes:
+def to_raw_address(raw_addr: str | bytes) -> bytes:
     addr = to_base58check_address(raw_addr)
     return base58.b58decode_check(addr)
 
 
-def to_tvm_address(raw_addr: Union[str, bytes]) -> bytes:
+def to_tvm_address(raw_addr: str | bytes) -> bytes:
     return to_raw_address(raw_addr)[1:]
 
 
@@ -147,7 +98,7 @@ class BaseKey(Sequence, Hashable):
         return self._raw_key.hex()
 
     @classmethod
-    def fromhex(cls, hex_str: str) -> "BaseKey":
+    def fromhex(cls, hex_str: str) -> Self:
         """
         Construct a key from a hex str.
 
@@ -257,8 +208,7 @@ class PrivateKey(BaseKey):
 
         self._raw_key = private_key_bytes
 
-        priv_key = CoincurvePrivateKey(self._raw_key)
-        self.public_key = PublicKey(priv_key.public_key.format(compressed=False)[1:])
+        self.public_key = PublicKey(_secp256k1.public_key_bytes(self._raw_key))
 
         super().__init__()
 
@@ -269,22 +219,12 @@ class PrivateKey(BaseKey):
 
     def sign_msg_hash(self, message_hash: bytes) -> "Signature":
         """Sign a message hash."""
-        private_key_bytes = self.to_bytes()
-        signature_bytes = CoincurvePrivateKey(private_key_bytes).sign_recoverable(
-            message_hash,
-            hasher=None,
-        )
-        return Signature(signature_bytes)
+        return Signature(_secp256k1.sign_recoverable(self.to_bytes(), message_hash))
 
     @classmethod
     def random(cls) -> "PrivateKey":
         """Generate a random private key."""
         return cls(os.urandom(32))
-
-    @classmethod
-    def from_passphrase(cls, passphrase: bytes) -> "PrivateKey":
-        """Get a private key from sha256 of a passphrase."""
-        return cls(sha256(passphrase))
 
 
 class Signature(Sequence):
@@ -321,18 +261,10 @@ class Signature(Sequence):
 
     def recover_public_key_from_msg_hash(self, message_hash: bytes) -> PublicKey:
         """Recover public key(address) from message hash and signature."""
-        signature_bytes = self.to_bytes()
         try:
-            public_key_bytes = CoincurvePublicKey.from_signature_and_message(
-                signature_bytes,
-                message_hash,
-                hasher=None,
-            ).format(compressed=False)[1:]
-        except (ValueError, Exception) as err:
-            # `coincurve` can raise `ValueError` or `Exception` dependending on
-            # how the signature is invalid.
+            return PublicKey(_secp256k1.recover(self.to_bytes(), message_hash))
+        except (TypeError, ValueError) as err:
             raise BadSignature(str(err)) from err
-        return PublicKey(public_key_bytes)
 
     def verify_msg(self, message: bytes, public_key: PublicKey) -> bool:
         """Verify message and signature."""
@@ -341,15 +273,7 @@ class Signature(Sequence):
 
     def verify_msg_hash(self, message_hash: bytes, public_key: PublicKey) -> bool:
         """Verify message hash and signature."""
-        # coincurve rejects signatures with a high s, so convert to the equivalent low s form
-        low_s = coerce_low_s(self.s)
-        der_encoded_signature = bytes(two_int_sequence_encoder(self.r, low_s))
-        coincurve_public_key = CoincurvePublicKey(b"\x04" + public_key.to_bytes())
-        return coincurve_public_key.verify(
-            der_encoded_signature,
-            message_hash,
-            hasher=None,
-        )
+        return _secp256k1.verify(self.r, self.s, message_hash, public_key.to_bytes())
 
     @property
     def r(self) -> int:
@@ -429,6 +353,5 @@ __all__ = [
     "is_base58check_address",
     "is_hex_address",
     "hash_message",
-    "sha256",
     "keccak256",
 ]

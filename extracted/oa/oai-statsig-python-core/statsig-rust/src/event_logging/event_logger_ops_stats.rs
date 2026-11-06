@@ -12,6 +12,15 @@ use crate::{
 use super::{event_queue::queue::EventQueue, flush_interval::FlushInterval, flush_type::FlushType};
 
 impl OpsStatsForInstance {
+    pub(super) fn log_id_list_accessed(&self, list_name: String) {
+        self.log(OpsStatsEvent::Observability(ObservabilityEvent {
+            metric_type: MetricType::Increment,
+            metric_name: "id_list_accessed".to_string(),
+            value: 1.0,
+            tags: Some(HashMap::from([("id_list_name".to_string(), list_name)])),
+        }));
+    }
+
     pub fn log_event_request_failure(&self, event_count: u64, flush_type: FlushType) {
         let error = StatsigErr::LogEventError("Log event failed".to_string());
         self.log_error(ErrorBoundaryEvent {

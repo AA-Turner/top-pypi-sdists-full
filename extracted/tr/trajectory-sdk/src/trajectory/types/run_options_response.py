@@ -15,7 +15,7 @@ class RunOptionMetadata(BaseModel):
 
   max: float | None = None
 
-  default: bool | float | str | None
+  default: bool | int | float | str | None
 
   choices: list[str] | None = None
 

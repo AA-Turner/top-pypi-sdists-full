@@ -31,6 +31,8 @@ static piqp_kkt_solver cpp_to_c_kkt_solver(piqp::KKTSolver cpp_kkt_solver)
             return PIQP_SPARSE_LDLT_COND;
         case piqp::KKTSolver::sparse_multistage:
             return PIQP_SPARSE_MULTISTAGE;
+        case piqp::KKTSolver::sparse_multistage_parallel:
+            return PIQP_SPARSE_MULTISTAGE_PARALLEL;
     }
     return PIQP_DENSE_CHOLESKY;
 }
@@ -50,6 +52,8 @@ static piqp::KKTSolver c_to_cpp_kkt_solver(piqp_kkt_solver c_kkt_solver)
             return piqp::KKTSolver::sparse_ldlt_cond;
         case PIQP_SPARSE_MULTISTAGE:
             return piqp::KKTSolver::sparse_multistage;
+        case PIQP_SPARSE_MULTISTAGE_PARALLEL:
+            return piqp::KKTSolver::sparse_multistage_parallel;
     }
     return piqp::KKTSolver::dense_cholesky;
 }
@@ -130,6 +134,8 @@ static void piqp_set_default_settings(piqp_settings* settings, Solver&& solver)
     settings->eps_duality_gap_abs = solver.settings().eps_duality_gap_abs;
     settings->eps_duality_gap_rel = solver.settings().eps_duality_gap_rel;
     settings->infeasibility_threshold = solver.settings().infeasibility_threshold;
+    settings->eps_primal_inf = solver.settings().eps_primal_inf;
+    settings->eps_dual_inf = solver.settings().eps_dual_inf;
     settings->reg_lower_limit = solver.settings().reg_lower_limit;
     settings->reg_finetune_lower_limit = solver.settings().reg_finetune_lower_limit;
     settings->reg_finetune_primal_update_threshold = (piqp_int)  solver.settings().reg_finetune_primal_update_threshold;
@@ -141,6 +147,7 @@ static void piqp_set_default_settings(piqp_settings* settings, Solver&& solver)
     settings->preconditioner_iter = (piqp_int) solver.settings().preconditioner_iter;
     settings->tau = solver.settings().tau;
     settings->kkt_solver = cpp_to_c_kkt_solver(solver.settings().kkt_solver);
+    settings->num_threads = (piqp_int) solver.settings().num_threads;
     settings->iterative_refinement_always_enabled = (piqp_int) solver.settings().iterative_refinement_always_enabled;
     settings->iterative_refinement_eps_abs = solver.settings().iterative_refinement_eps_abs;
     settings->iterative_refinement_eps_rel = solver.settings().iterative_refinement_eps_rel;
@@ -272,6 +279,8 @@ void piqp_update_settings(piqp_workspace* workspace, const piqp_settings* settin
         solver->settings().eps_duality_gap_abs = settings->eps_duality_gap_abs;
         solver->settings().eps_duality_gap_rel = settings->eps_duality_gap_rel;
         solver->settings().infeasibility_threshold = settings->infeasibility_threshold;
+        solver->settings().eps_primal_inf = settings->eps_primal_inf;
+        solver->settings().eps_dual_inf = settings->eps_dual_inf;
         solver->settings().reg_lower_limit = settings->reg_lower_limit;
         solver->settings().reg_finetune_lower_limit = settings->reg_finetune_lower_limit;
         solver->settings().reg_finetune_primal_update_threshold = settings->reg_finetune_primal_update_threshold;
@@ -283,6 +292,7 @@ void piqp_update_settings(piqp_workspace* workspace, const piqp_settings* settin
         solver->settings().preconditioner_iter = settings->preconditioner_iter;
         solver->settings().tau = settings->tau;
         solver->settings().kkt_solver = c_to_cpp_kkt_solver(settings->kkt_solver);
+        solver->settings().num_threads = settings->num_threads;
         solver->settings().iterative_refinement_always_enabled = settings->iterative_refinement_always_enabled;
         solver->settings().iterative_refinement_eps_abs = settings->iterative_refinement_eps_abs;
         solver->settings().iterative_refinement_eps_rel = settings->iterative_refinement_eps_rel;
@@ -305,6 +315,8 @@ void piqp_update_settings(piqp_workspace* workspace, const piqp_settings* settin
         solver->settings().eps_duality_gap_abs = settings->eps_duality_gap_abs;
         solver->settings().eps_duality_gap_rel = settings->eps_duality_gap_rel;
         solver->settings().infeasibility_threshold = settings->infeasibility_threshold;
+        solver->settings().eps_primal_inf = settings->eps_primal_inf;
+        solver->settings().eps_dual_inf = settings->eps_dual_inf;
         solver->settings().reg_lower_limit = settings->reg_lower_limit;
         solver->settings().reg_finetune_lower_limit = settings->reg_finetune_lower_limit;
         solver->settings().reg_finetune_primal_update_threshold = settings->reg_finetune_primal_update_threshold;
@@ -316,6 +328,7 @@ void piqp_update_settings(piqp_workspace* workspace, const piqp_settings* settin
         solver->settings().preconditioner_iter = settings->preconditioner_iter;
         solver->settings().tau = settings->tau;
         solver->settings().kkt_solver = c_to_cpp_kkt_solver(settings->kkt_solver);
+        solver->settings().num_threads = settings->num_threads;
         solver->settings().iterative_refinement_always_enabled = settings->iterative_refinement_always_enabled;
         solver->settings().iterative_refinement_eps_abs = settings->iterative_refinement_eps_abs;
         solver->settings().iterative_refinement_eps_rel = settings->iterative_refinement_eps_rel;

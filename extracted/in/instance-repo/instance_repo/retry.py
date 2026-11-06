@@ -63,14 +63,38 @@ def retry_transient(
     jitter: bool = True,
     sleep: Callable[[float], None] = _DEFAULT_SLEEP,
     rand: Callable[[], float] = random.random,
+    deadline_monotonic: float | None = None,
 ) -> T:
     """执行 ``fn``，对瞬时故障最多尝试 ``attempts`` 次（含首次）。
 
     退避 = min(cap, base * 2**(i-1))，jitter=True 时乘 [0.5,1.5) 抖动后再夹到 cap。
     非瞬时故障或耗尽次数后原样抛出最后一次异常。
+
+    ``deadline_monotonic``（additive，默认 None=完全现行策略）：**绝对**
+    单调时刻（``time.monotonic()`` 口径）——整个重试序列共享一个总预算：
+
+    - 每次 attempt **前** guard（耗尽即零新 IO——含首次，无 firstattempt
+      豁免）；
+    - 退避 sleep 夹到剩余量（不睡超预算）；
+    - 剩余量耗尽后不再发起后续 attempt（原样抛最后一次异常——**不**用
+      deadline 异常覆盖传输/鉴权原错误）；
+    - 成功即返回（不做成功后 postcheck——调用方（Transport.request）
+      在外层做，职责分层）。
+
+    注意：``fn`` 内部自己的 IO 超时不受本参数控制（调用方应把剩余量
+    作为 per-attempt timeout 传入 fn——见 Transport.request 接线）。
     """
     last: BaseException | None = None
     for i in range(1, attempts + 1):
+        if deadline_monotonic is not None and time.monotonic() >= \
+                deadline_monotonic:
+            # 总预算耗尽：不再发起新 attempt。原样抛最后一次异常（无
+            # last=首次即耗尽且从未执行时，抛本地 deadline 信号语义
+            # 由调用方处理——这里 last 为 None 意味着零 IO 发生）。
+            if last is not None:
+                raise last
+            raise TimeoutError(
+                "retry budget exhausted before first attempt")
         try:
             return fn()
         except BaseException as exc:  # noqa: BLE001 — 由 is_transient 精确筛选
@@ -80,6 +104,12 @@ def retry_transient(
             delay = min(cap, base * (2 ** (i - 1)))
             if jitter:
                 delay = min(cap, delay * (0.5 + rand()))
+            if deadline_monotonic is not None:
+                remaining = deadline_monotonic - time.monotonic()
+                if remaining <= 0:
+                    # 退避期间耗尽：不再发后续 attempt，抛最后一次异常。
+                    raise last
+                delay = min(delay, remaining)
             sleep(delay)
     assert last is not None  # pragma: no cover — 循环保证已 return 或 raise
     raise last  # pragma: no cover

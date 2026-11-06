@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/ts-pack-core-py"]
 
 [workspace.package]
-version = "1.23.1"
+version = "1.24.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/xberg-io/tree-sitter-language-pack"
@@ -32,7 +32,7 @@ memchr = "2"
 napi = { version = "3", features = ["napi4", "serde-json"] }
 napi-build = "2"
 napi-derive = "3"
-pyo3 = { version = "0.30", features = ["abi3-py310"] }
+pyo3 = { version = "0.30", features = ["abi3-py311"] }
 rayon = "1"
 rb-sys = "0.9"
 regex = "1"

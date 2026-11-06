@@ -606,16 +606,17 @@ class Acquisition:
         """Couple the code clock to the carrier: the chip rate dilates by
         doppler_hz / carrier_freq_hz, and the engine accounts for it -- every
         window tile's epochs are shifted along the code axis by the drift the
-        tile's own frequency implies before the slow-time transform (inside a
+        tile's own frequency implies, aligned to the block's middle (inside a
         coherent block of D epochs), and the hand-off advances the hit's code
         phase by the drift over half the dwell
-        (docs/design/async-dsss-receiver-measurements.md §12.11, §12.12).
-        Config, not running state: not in the state blob, so a resumed engine
-        wants it set again. 0.0 (the default) = uncoupled, the engine as it ran
-        without it. Raises ValueError for a carrier that is neither 0 nor
-        finite and above half the sample rate (fs / 2): every Doppler the
-        engine can report is below fs / 2, so above it |doppler / carrier| < 1
-        and the dilation stays finite.
+        (docs/design/async-dsss-receiver-measurements.md §12.11, §12.12). It
+        rides in the state blob, so a resumed engine carries it on, and setting
+        it rebuilds the one delay-Doppler map's ramp tables
+        (docs/design/acq-surface.md §18.2). 0.0 (the default) = uncoupled, the
+        engine as it ran without it. Raises ValueError for a carrier that is
+        neither 0 nor finite and above half the sample rate (fs / 2): every
+        Doppler the engine can report is below fs / 2, so above it |doppler /
+        carrier| < 1 and the dilation stays finite.
 
         A physically-coupled Doppler moves the code as well as the carrier --
         100 chips/s at 20 ppm of 5 Mcps -- and the engine's two long
@@ -624,20 +625,27 @@ class Acquisition:
         - **Inside a coherent block** of D epochs every tile's epoch
           correlations are shifted along the code axis by the drift the tile's
           own frequency implies, `f_tile / carrier` chips per chip, aligned to
-          the block's middle, before the slow-time transform (a linear phase on
-          each epoch's product, exact to a fraction of a sample). Measured at
-          the specification's 20 ppm with D = 154 (3.1 chips of drift across
-          the block): without it the block's peak is 13 dB down and 3 chips
-          wide and the depth detects nothing at 34 dB-Hz; with it the block
-          reads as a still one.
+          the block's middle (a linear phase on each epoch's product). The one
+          delay-Doppler map applies it at the block's end, read on a slow-time
+          grid 4 times finer and rounded. The bound is 0.09 dB, the worst over
+          33 tones and three dilations (docs/design/acq-surface.md §18.1); the
+          engine measures 0.020-0.026 dB on its equivalence test's carrier
+          scenes. dp_acq_block_prompt() applies it exactly. A change of carrier
+          mid-block applies to the whole block. Measured at the specification's
+          20 ppm with D = 154 (3.1 chips of drift across the block): without it
+          the block's peak is 13 dB down and 3 chips wide and the depth detects
+          nothing at 34 dB-Hz; with it the block reads as a still one.
         - **The hand-off** (dp_acq_build_handoff()) advances the hit's code
           phase by the drift over half the dwell -- the non-coherent sum's peak
           is the phase at the dwell's middle, the seed is wanted at its end:
           0.9 chip at the 40 dB-Hz floor, past a refine loop's pull-in.
 
-        Config, not running state: it is not in the state blob, so a resumed
-        engine wants it set again by its holder, as at create. Default 0.0
-        (uncoupled) is the engine exactly as it ran without it.
+        A mutator's value (#2022): it rides in the state blob (v8), and a
+        restore takes it through this setter's rebuild, so a resumed engine
+        carries it on. Setting it rebuilds the map's fine grid and every tile's
+        ramp tables when they move (the regrid that re-applies the thread
+        request). Default 0.0 (uncoupled) is the engine exactly as it ran
+        without it.
 
         Parameters
         ----------
@@ -646,10 +654,14 @@ class Acquisition:
 
         Raises
         ------
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``set_carrier_freq_hz: rebuilding the delay-Doppler map for the new
+            carrier could not allocate; the engine is unchanged``.
         ValueError
-            If the C call returns a non-zero status. The exception message is
-            ``set_carrier_freq_hz failed``, with the return code appended
-            (gh-869).
+            If the C call returns any other non-zero status. The exception
+            message is ``set_carrier_freq_hz failed``, with the return code
+            appended (gh-869).
 
         Examples
         --------
@@ -678,12 +690,14 @@ class Acquisition:
         count, 1 runs everything on the calling thread, n runs on n workers
         (the caller included) -- but never more than `window_bins`: every fan
         hands out one tile a task, so a worker past that only wakes and waits.
-        The workers are created here, once, and parked between pushes; nothing
-        is created per push. The surface is bit-identical at every count -- the
-        tiles are independent after the one forward transform and each writes
-        its own rows -- so this changes the cost of a push and nothing about
-        its result. Setup path, never hot; not while another thread is inside
-        push().
+        The request is kept, and every regrid re-applies it, so an engine
+        narrowed to one tile and widened again runs on min(n, tiles), not on
+        the 1 the narrow grid ran on. The workers are created here, once, and
+        parked between pushes; nothing is created per push. The surface is
+        bit-identical at every count -- the tiles are independent after the one
+        forward transform and each writes its own rows -- so this changes the
+        cost of a push and nothing about its result. Setup path, never hot; not
+        while another thread is inside push().
 
         Parameters
         ----------
@@ -705,7 +719,7 @@ class Acquisition:
         ...     PN(poly=mls_poly(9), seed=1, length=9).generate(511), np.uint8)
         >>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, cn0_dbhz=50.0,
         ...                 doppler_uncertainty=4000.0)
-        >>> a.threads >= 1               # a pool, sized to the machine
+        >>> a.threads >= 1               # at most one worker a tile
         True
         >>> a.set_threads(1)
         >>> a.threads
@@ -1098,13 +1112,25 @@ class Acquisition:
         a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
-        length differs from `state_bytes()` or the core rejects it, and
-        ``RuntimeError`` if the Acquisition has already been destroyed.
+        length differs from `state_bytes()`, the exception listed under Raises
+        if the core rejects it, and ``RuntimeError`` if the Acquisition has
+        already been destroyed.
 
         Parameters
         ----------
         blob : bytes
             A `get_state()` blob from this type, exactly `state_bytes()` long.
+
+        Raises
+        ------
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``set_state: the blob's carrier needs the delay-Doppler map
+            rebuilt, and the rebuild could not allocate; the engine is
+            unchanged``.
+        ValueError
+            If the C core rejects the blob with any other non-zero status. The
+            exception message is ``set_state rejected the blob``.
         """
 
     @property
@@ -2372,13 +2398,25 @@ class BurstCapture:
         a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
-        length differs from `state_bytes()` or the core rejects it, and
-        ``RuntimeError`` if the BurstCapture has already been destroyed.
+        length differs from `state_bytes()`, the exception listed under Raises
+        if the core rejects it, and ``RuntimeError`` if the BurstCapture has
+        already been destroyed.
 
         Parameters
         ----------
         blob : bytes
             A `get_state()` blob from this type, exactly `state_bytes()` long.
+
+        Raises
+        ------
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``set_state: the acquisition child's carrier needs its
+            delay-Doppler map rebuilt, and the rebuild could not allocate; the
+            capture is unchanged``.
+        ValueError
+            If the C core rejects the blob with any other non-zero status. The
+            exception message is ``set_state rejected the blob``.
         """
 
     @property
@@ -2716,15 +2754,6 @@ class PersistentBurstCapture:
         >= 1, fs > 0, burst_len >= 1, cn0_dbhz finite or NaN, doppler_rate >=
         0, 0 <= rate_hypotheses <= 64 (0 = auto; doppler_rate nonzero unless
         1), 0 < pfa < 1, 0 < pd < 1)``.
-
-    Warns
-    -----
-    UserWarning
-        Emitted after construction when ``underpowered`` holds: ``BurstCapture:
-        the search cannot meet the requested pd at this cn0_dbhz and geometry
-        (pd_burst < pd). It still builds a best-effort grid, so the symptom is
-        bursts that are never captured rather than an error. Lower pd, raise
-        cn0_dbhz, or give the preamble more repetitions.``.
 
     Examples
     --------
@@ -3131,14 +3160,25 @@ class PersistentBurstCapture:
         a blob built differently.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
-        length differs from `state_bytes()` or the core rejects it, and
-        ``RuntimeError`` if the PersistentBurstCapture has already been
-        destroyed.
+        length differs from `state_bytes()`, the exception listed under Raises
+        if the core rejects it, and ``RuntimeError`` if the
+        PersistentBurstCapture has already been destroyed.
 
         Parameters
         ----------
         blob : bytes
             A `get_state()` blob from this type, exactly `state_bytes()` long.
+
+        Raises
+        ------
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``set_state: the acquisition child's carrier needs its
+            delay-Doppler map rebuilt, and the rebuild could not allocate; the
+            capture is unchanged``.
+        ValueError
+            If the C core rejects the blob with any other non-zero status. The
+            exception message is ``set_state rejected the blob``.
         """
 
     @property

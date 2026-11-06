@@ -54,6 +54,10 @@ from omegaconf import DictConfig, OmegaConf
 
 from ..seed import DEFAULT_SEED
 from .bindings import Binding, parse_binding
+
+# The lanelet key a walk-back moves is the checked bindings's (#1697); the
+# name it had here stays importable from here.
+from .bindings import _walk_back_lanelet_key as _walk_back_lanelet_key
 from .case_choice import case_lanelet as _case_lanelet
 from .case_choice import choose_cases as _choose_cases
 from .case_choice import fits as _fits
@@ -302,6 +306,7 @@ def _with_odd_samples(
     from ..odd.sampler import (  # noqa: PLC0415
         ODD_CASE_KEY,
         encode_case,
+        sample_draws,
         sample_seed,
         search_from_config,
         with_tire_friction,
@@ -309,6 +314,10 @@ def _with_odd_samples(
     )
 
     raw = {str(k): v for k, v in odd_sample.items()}
+    # Read before anything is drawn, and strictly (check_sample_settings()):
+    # "false" turns a draw off, "ture" is refused (#1756).
+    draws_grip = sample_draws(raw, "tire_friction")
+    draws_visibility = sample_draws(raw, "visibility")
     readings: list[dict[str, tuple[str, Any]]] = []
     buckets: list[dict[str, str]] = []
     map_attributes: list[str] = []
@@ -354,10 +363,10 @@ def _with_odd_samples(
     # in), as the int it names: 4.0, "4" and " 4 " draw the grip and the
     # visibility seed 4 does, as they draw its cases (#1442).
     draw_seed = sample_seed(raw)
-    if raw.get("tire_friction", True):
+    if draws_grip:
         # After the draws are recorded: the grip is no attribute of the ODD.
         samples = with_tire_friction(samples, draw_seed)
-    if raw.get("visibility", True):
+    if draws_visibility:
         # Nor is how far drivers see.
         samples = with_visibility(samples, draw_seed)
     logger.info(
@@ -417,38 +426,6 @@ def check_constraint_keys(sweep: Mapping[Any, Any]) -> None:
             f"{keys}. Keep the constraints of one key and derive the others "
             "from its lanelet with sweep.bindings."
         )
-
-
-def _walk_back_lanelet_key(s_key: str, lanelet_id: int) -> str:
-    """The lanelet key of the spawn whose ``s`` a walk-back moved, by *s_key*.
-
-    A ``stop_line_offset`` binding that walks back off the pick puts its spawn
-    on a predecessor: that spawn's lanelet key has to say so, and no other.
-    The spawn keys come in pairs, so the lanelet key is the ``s`` key's
-    sibling: ``<prefix>.s`` -> ``<prefix>.lanelet_id`` (an entity's
-    ``scenario.spawn_overrides.<entity>``), ``<prefix>.spawn_s`` ->
-    ``<prefix>.spawn_lanelet_id`` and ``<prefix>.goal_s`` ->
-    ``<prefix>.goal_lanelet_id`` (the ego's).
-
-    Raises:
-        ValueError: If *s_key* is none of those, so there is no lanelet key
-            to move to *lanelet_id*.
-    """
-    prefix, _, leaf = s_key.rpartition(".")
-    sibling = {
-        "s": "lanelet_id",
-        "spawn_s": "spawn_lanelet_id",
-        "goal_s": "goal_lanelet_id",
-    }.get(leaf)
-    if sibling is None:
-        raise ValueError(
-            f"sweep.bindings: {s_key} walks back to lanelet {lanelet_id}, but "
-            "is not a spawn's s (<prefix>.s, <prefix>.spawn_s or "
-            "<prefix>.goal_s), so there is no lanelet key to move with it. "
-            "Bind stop_line_offset to a spawn's s, or use an offset that fits "
-            "on the pick."
-        )
-    return f"{prefix}.{sibling}" if prefix else sibling
 
 
 def _write_override(
@@ -581,8 +558,10 @@ def expand_route(
     returns them: the ego's spawn (``ego.spawn_lanelet_id`` / ``ego.spawn_s``,
     ``ego_spawn_s`` along the route), its goal (``ego.goal_lanelet_id`` /
     ``ego.goal_s``, the route's end less ``ego_goal_margin``) when
-    ``ego_goal`` is set, and the match as the ``scenario.route.*`` keys.  A
-    match the ego cannot be placed on is skipped (and logged).
+    ``ego_goal`` is set, the match as the ``scenario.route.*`` keys, and how
+    many cases the search expanded to (``scenario.route.case_count``).  A
+    match the ego cannot be placed on is skipped (and logged), and not
+    counted.
 
     Raises:
         ValueError: If ``route`` is not a well-formed route search.
@@ -625,8 +604,11 @@ def expand_route(
             f"scenario.route.{key}={_override_value(value)}"
             for key, value in match.to_config().items()
         ]
-        cases.append([*overrides, *arguments])
-    return cases
+        cases.append(overrides)
+    # Every case says how many there are on this map: what a logical
+    # scenario's gate counts its case coverage against (docs/gate.md).
+    count = f"scenario.route.case_count={len(cases)}"
+    return [[*overrides, count, *arguments] for overrides in cases]
 
 
 #: Why a sweep that expands to no case is refused -- by the lanelet sweeper,

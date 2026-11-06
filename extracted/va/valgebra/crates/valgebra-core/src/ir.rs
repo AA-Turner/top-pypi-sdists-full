@@ -33,7 +33,9 @@ use std::cell::RefCell;
 use std::sync::{Arc, OnceLock};
 
 use crate::codes;
-use crate::oracle::{Connective, NoLeafRelations, has_complementary_pair_within};
+use crate::oracle::{
+    Connective, NoLeafRelations, complemented_members, has_complementary_pair_within,
+};
 
 mod intern;
 mod transform;
@@ -385,7 +387,41 @@ fn clauses_for(open: Openness) -> Clauses {
 /// its unclaimed region is the whole key space -- which is why a bare catch-all
 /// is what openness reads as there.
 fn unclaimed_region(defaults: &[MapClause]) -> Schema {
-    Schema::union(defaults.iter().map(|clause| clause.key.clone())).complement()
+    keys_joined(defaults.iter().map(|clause| clause.key.clone())).complement()
+}
+
+/// The join of keys a rewrite writes, where a set beside its complement is every
+/// key [FCB08, Def. 4.1].
+///
+/// The constructor folds that pair only over an atom known to be a set, since a
+/// term `==` and the deciders read is built on the fold, and it has no bindings
+/// to ask. A rewrite asks nothing: over an atom answering one way for a key the
+/// pair is every key, and an atom answering two ways gives the list no set for
+/// `open` to widen or `close` to narrow. So a class reads as a kind does here,
+/// and the two maps `dict[K, anything]` and `dict[complement(K), anything]`, which
+/// open to one term, each close to no more than their own closing.
+fn keys_joined(keys: impl IntoIterator<Item = Schema>) -> Schema {
+    let joined = Schema::union(keys);
+    let every_key = match &joined {
+        Schema::Union(parts) => complemented_members(parts, Connective::Join, |wanted| {
+            parts.binary_search(wanted).is_ok()
+        })
+        .next()
+        .is_some(),
+        _ => false,
+    };
+    if every_key { Schema::ANYTHING } else { joined }
+}
+
+/// A key as a rewrite reads it: each join in it read by [`keys_joined`], and the
+/// complement of what stands, every key's being none [FCB08, Def. 4.1], so what
+/// stands of a class is what stands of a kind, whose join the constructor folds.
+fn key_read(key: &Schema) -> Schema {
+    match key {
+        Schema::Union(parts) => keys_joined(parts.iter().map(key_read)),
+        Schema::Complement(inner) => key_read(inner).complement(),
+        other => other.clone(),
+    }
 }
 
 /// What of `clause` stands once the default of the unclaimed region is taken
@@ -405,11 +441,11 @@ fn unclaimed_region(defaults: &[MapClause]) -> Schema {
 /// and the claimed keys stand, which is the paper's reading of openness as the
 /// default of the key-types a record does not name [Cas23, §4.4], the named
 /// ones untouched either way. Read as the whole clause, closing an opened
-/// mapping over a class, or beside a clause with another value, would keep the
-/// freed region and admit every key. Where the complement law has folded the
-/// key to the top, the clause's own claim is not in the term to keep: what
-/// stays is the clause over the keys the other clauses claim, at which it
-/// admits every value, since closing touches no claimed region.
+/// mapping beside a clause with another value would keep the freed region and
+/// admit every key. Where the key is every key ([`keys_joined`]), the clause's
+/// own claim is not in the term to keep: what stays is the clause over the keys
+/// the other clauses claim, at which it admits every value, since closing
+/// touches no claimed region.
 fn claimed_beside_the_region(
     clause: &MapClause,
     defaults: &[MapClause],
@@ -425,13 +461,14 @@ fn claimed_beside_the_region(
             .filter(move |(at, _)| *at != index)
             .map(|(_, other)| other.key.clone())
     };
-    let claimed_by_others = Schema::union(others());
-    if clause.key == claimed_by_others.clone().complement() {
+    let claimed_by_others = keys_joined(others());
+    let unclaimed = claimed_by_others.clone().complement();
+    if clause.key == unclaimed {
         return None;
     }
-    // Every key: the region and what the clause claimed, folded by the
-    // complement law, so its own claim is not in the term to read back. What
-    // the other clauses claim it admits every value at too, and that stays.
+    // Every key: the region and what the clause claimed, so its own claim is
+    // not in the term to read back. What the other clauses claim it admits every
+    // value at too, and that stays.
     if clause.key == Schema::ANYTHING {
         return (claimed_by_others != Schema::Nothing).then(|| MapClause {
             key: claimed_by_others,
@@ -452,11 +489,17 @@ fn claimed_beside_the_region(
                 .filter(move |(other, _)| *other != at)
                 .map(|(_, kept)| kept.clone())
         };
-        if **region == Schema::union(claimed().chain(others())) {
-            return Some(MapClause {
-                key: Schema::union(claimed()),
-                value: clause.value.clone(),
-            });
+        if **region == keys_joined(claimed().chain(others())) {
+            // What stands is read the same way, so the pass that takes one
+            // complement out leaves no other for a second pass to take.
+            return claimed_beside_the_region(
+                &MapClause {
+                    key: keys_joined(claimed()),
+                    value: clause.value.clone(),
+                },
+                defaults,
+                index,
+            );
         }
     }
     Some(clause.clone())
@@ -476,6 +519,21 @@ fn claimed_beside_the_region(
 /// Bool|}` keeps its `String => Bool`. The clauses admitting every value are
 /// read as the one clause they are first ([`tops_merged`]), so the region does
 /// not turn on how they are split.
+///
+/// **A list a join would write the region of stands as written.** One clause a
+/// key is what a dict display can spell ([`one_clause_a_key`]), and the join it
+/// takes can lose the clause that claims: `{anything: int, int: anything,
+/// complement(int): anything}` has every key claimed by its first clause, so
+/// closing frees none, and the join writes `{anything: anything}`, the term of
+/// the whole region, which a second `close` takes out. No shorter term says what
+/// the list says, so a join is kept only where the list it writes closes to
+/// itself, and otherwise the list stands. A record of the paper writes no such
+/// list, its keys being disjoint [Cas23, §4.4], so this departs from it only where
+/// it says nothing. Either way the answer closes to itself,
+/// and a list naming each key once keeps no value the read took out by standing:
+/// the join leaves a term reading otherwise only where the clause it wrote and
+/// the others cover every key, which leaves no key to free.
+#[inline]
 fn clauses_over(defaults: &[MapClause], open: Openness) -> Clauses {
     // A node with no clauses claims no key, so the unclaimed region is the
     // whole key space and the answer is the shared list either way: the top
@@ -484,51 +542,98 @@ fn clauses_over(defaults: &[MapClause], open: Openness) -> Clauses {
     if defaults.is_empty() {
         return clauses_for(open);
     }
+    clauses_over_a_list(defaults, open)
+}
+
+/// [`clauses_over`] where the node carries clauses, each region with a default
+/// of its own [Cas23, Def. 4.6]. Out of line, so a record opened pays the one
+/// test.
+#[inline(never)]
+fn clauses_over_a_list(defaults: &[MapClause], open: Openness) -> Clauses {
+    // Whoever wrote a key, the rest reads it as [`key_read`] does. An atom holds
+    // nothing to read, which is most of what is rewritten.
+    let keys_read;
+    let written = if defaults
+        .iter()
+        .any(|clause| matches!(clause.key, Schema::Union(_) | Schema::Complement(_)))
+    {
+        keys_read = defaults
+            .iter()
+            .map(|clause| MapClause {
+                key: key_read(&clause.key),
+                value: clause.value.clone(),
+            })
+            .collect::<Vec<_>>();
+        &keys_read[..]
+    } else {
+        defaults
+    };
     let merged;
-    let defaults = if defaults
+    let read = if written
         .iter()
         .filter(|clause| clause.value == Schema::ANYTHING)
         .nth(1)
         .is_some()
     {
-        merged = tops_merged(defaults);
+        merged = tops_merged(written);
         &merged[..]
     } else {
-        defaults
+        written
     };
-    let mut kept: Vec<MapClause> = defaults
+    let mut kept: Vec<MapClause> = read
         .iter()
         .enumerate()
-        .filter_map(|(at, clause)| claimed_beside_the_region(clause, defaults, at))
+        .filter_map(|(at, clause)| claimed_beside_the_region(clause, read, at))
         .collect();
-    if open == Openness::Open {
-        let region = unclaimed_region(&kept);
-        // A clause list already claiming every key leaves nothing to free, and
-        // an empty region would be a rectangle over no key at all.
-        if region != Schema::Nothing {
-            kept.push(MapClause {
-                key: region,
-                value: Schema::ANYTHING,
-            });
+    match open {
+        Openness::Open => {
+            let region = unclaimed_region(&kept);
+            // A clause list already claiming every key leaves nothing to free, and
+            // an empty region would be a rectangle over no key at all.
+            if region != Schema::Nothing {
+                kept.push(MapClause {
+                    key: region,
+                    value: Schema::ANYTHING,
+                });
+            }
+            merge_by_value(&mut kept);
+            // A merge can write one key twice, and the join that makes one
+            // clause of them can write one value twice, or lose the clause
+            // that claimed what a clause admitting every value reads as. So
+            // what a join leaves is read again, and it takes a clause short of
+            // every value each time, which bounds the reading.
+            if one_clause_a_key(&mut kept) {
+                return clauses_over(&kept, open);
+            }
         }
-        merge_by_value(&mut kept);
+        Openness::Closed => {
+            if one_clause_a_key(&mut kept) && clauses_over(&kept, open)[..] != kept[..] {
+                kept = defaults.to_vec();
+            }
+        }
     }
-    // In the constructor's order, since two orders of one clause list are one
-    // schema: the freed clause folds wherever its value first appears, and an
-    // opened map is equal to its own clauses written out again.
-    canonical_clauses(&mut kept);
-    // Two clauses the rewrite left over one key schema are one clause over the
-    // join of their values: a key is read by some clause, so `K x V` beside
-    // `K x W` is `K x (V | W)`. Adjacent in that order, and the join moves no
-    // key.
-    kept.dedup_by(|later, earlier| {
+    share_clauses(&mut kept)
+}
+
+/// Clauses over one key schema written as one clause over the join of their
+/// values, in the constructor's order, answering whether a clause went.
+///
+/// A key is read by some clause, so `K x V` beside `K x W` is `K x (V | W)`.
+/// The order is the constructor's since two orders of one clause list are one
+/// schema: the freed clause folds wherever its value first appears, and an
+/// opened map is equal to its own clauses written out again. It sets the two
+/// clauses side by side, and the join moves no key.
+fn one_clause_a_key(clauses: &mut Vec<MapClause>) -> bool {
+    let written = clauses.len();
+    canonical_clauses(clauses);
+    clauses.dedup_by(|later, earlier| {
         if later.key != earlier.key {
             return false;
         }
         earlier.value = Schema::union([earlier.value.clone(), later.value.clone()]);
         true
     });
-    share_clauses(&mut kept)
+    clauses.len() != written
 }
 
 /// The clauses admitting every value, read as one clause over the union of
@@ -555,7 +660,7 @@ fn tops_merged(defaults: &[MapClause]) -> Vec<MapClause> {
             continue;
         }
         if let Some(kept) = top.and_then(|at| merged.get_mut(at)) {
-            kept.key = Schema::union([kept.key.clone(), clause.key.clone()]);
+            kept.key = keys_joined([kept.key.clone(), clause.key.clone()]);
         } else {
             top = Some(merged.len());
             merged.push(clause.clone());
@@ -586,7 +691,7 @@ fn merge_by_value(clauses: &mut Vec<MapClause>) {
         // First occurrence keeps the position; the caller puts the list in
         // the constructor's order afterwards, as every spelling of it is.
         match folded.iter_mut().find(|kept| kept.value == clause.value) {
-            Some(kept) => kept.key = Schema::union([kept.key.clone(), clause.key]),
+            Some(kept) => kept.key = keys_joined([kept.key.clone(), clause.key]),
             None => folded.push(clause),
         }
     }
@@ -703,7 +808,14 @@ pub type Constraints = Arc<[Constraint]>;
 
 /// The schema intermediate representation.
 ///
-/// Each variant documents its denotation: the set of Python values it accepts.
+/// Each variant documents its denotation: the set of Python values it accepts,
+/// a union, a meet and a complement denoting the union, the intersection and
+/// the complement of their operands' sets [FCB08, Def. 4.1].
+/// The values are those of every interpreter the package supports, one domain
+/// apiece, and a relation is decided in all of them: a proof holds in each,
+/// and a refutation stands on a value each builds, so one turning on a
+/// container length in `(REACHED, LONGEST]`, which some interpreters build for
+/// some kinds and others do not, is declined (`REACHED`).
 /// `Ord`/`Eq` are structural; the constructors use them to put union and
 /// intersection members in one order and to drop a repeated one.
 ///
@@ -732,11 +844,12 @@ pub type Constraints = Arc<[Constraint]>;
 /// the two to one set.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Schema {
-    /// Top. Denotes every Python value; membership always holds. The payload
-    /// records how the top was written, and is read by `repr` to print it and
-    /// by the sharing table to keep the two apart ([`Spelling`]).
+    /// Top. Denotes every Python value [FCB08, Def. 4.1]; membership always
+    /// holds. The payload records how the top was written, and is read by
+    /// `repr` to print it and by the sharing table to keep the two apart
+    /// ([`Spelling`]).
     Anything(Spelling),
-    /// Bottom. Denotes the empty set; membership never holds.
+    /// Bottom. Denotes the empty set [FCB08, Def. 4.1]; membership never holds.
     Nothing,
     /// Denotes the singleton set `{None}`.
     NoneType,
@@ -828,7 +941,10 @@ pub enum Schema {
     /// matching value, every present optional field's value matches, and every
     /// key that is *not* a declared field name is covered by some default
     /// clause — a `(key-schema, value-schema)` pair the key and its value both
-    /// satisfy. Named fields take precedence over the defaults.
+    /// satisfy. Named fields take precedence over the defaults. That is a
+    /// dict's membership in a record type [Cas23, (21)], each clause the
+    /// default of the keys it claims, and two clauses claiming one key read as
+    /// a disjunction (`defaults`).
     ///
     /// One node subsumes the record, the homogeneous mapping, the heterogeneous
     /// mapping, and their combination: a closed record has no default clause, an
@@ -854,14 +970,14 @@ pub enum Schema {
         /// implements.
         defaults: Clauses,
     },
-    /// Denotes the union of the member sets: a value is a member iff it belongs
-    /// to at least one member schema.
+    /// Denotes the union of the member sets [FCB08, Def. 4.1], so a value is a
+    /// member iff it belongs to at least one member schema.
     Union(Members),
-    /// Denotes the intersection of the member sets: a value is a member iff it
-    /// belongs to every member schema.
+    /// Denotes the intersection of the member sets [FCB08, Def. 4.1], so a
+    /// value is a member iff it belongs to every member schema.
     Intersection(Members),
-    /// Denotes the complement of the inner set: a value is a member iff it is
-    /// not a member of the inner schema.
+    /// Denotes the complement of the inner set [FCB08, Def. 4.1], so a value
+    /// is a member iff it is not a member of the inner schema.
     Complement(Arc<Schema>),
     /// Denotes instances of a class, by `isinstance`. The class is held in the
     /// validator's object pool; the payload is its index.
@@ -895,7 +1011,8 @@ pub enum Schema {
         fields: Arc<[Attribute]>,
     },
     /// Denotes the subset of the base set satisfying every constraint
-    /// (`{ x in [[base]] | all constraints hold }`). The base is checked first.
+    /// (`{ x in [[base]] | all constraints hold }`), a base type refined by
+    /// predicates [JV20, §3.2]. The base is checked first.
     Refine {
         /// The base schema; a value must belong to it before constraints apply.
         base: Arc<Schema>,
@@ -903,8 +1020,9 @@ pub enum Schema {
         constraints: Constraints,
     },
     /// A reference to a recursive definition: denotes the same set as the
-    /// definition at this index in the validator's definitions table. The back
-    /// edge of a fixpoint, produced by `recursive`.
+    /// definition at this index in the validator's definitions table, so a
+    /// fixpoint and its unfolding are one set [AC93, §3.2]. The back edge of a
+    /// fixpoint, produced by `recursive`.
     Ref(DefIx),
     /// Denotes the **empty set**: the walk admits no value against one, and
     /// every decider reads it as a schema it cannot relate.
@@ -1350,6 +1468,35 @@ impl SeqShape {
     }
 }
 
+/// The longest length a value has, `sys.maxsize`.
+///
+/// The data model has `CPython` count a length in a `Py_ssize_t` and `len()`
+/// raise past `sys.maxsize`, which is that type's maximum, `isize::MAX` on the
+/// platform. A length bound reads lengths up to this one, and a value one
+/// longer is no value: no list is longer than `MaxLen(LONGEST)` lets through.
+pub const LONGEST: usize = isize::MAX.unsigned_abs();
+
+/// The longest length a refutation's value is given, `sys.maxsize // 128`: a
+/// length every container the decision builds reaches on every interpreter the
+/// package supports.
+///
+/// [`LONGEST`] is what no value passes, and a proof reads lengths up to it. It
+/// is not a length every container reaches. A container holds its items in one
+/// allocation, which the allocator refuses past `sys.maxsize` bytes, whatever
+/// the memory, so each kind stops where that allocation does. On `CPython` a
+/// list holds at most `sys.maxsize // 8` items (`py_list_resize`), a dict
+/// about a forty-eighth (`new_keys_object`), and a set, the tightest, about a
+/// fifty-third, a table of 16-byte entries filled to three fifths
+/// (`set_table_resize`). On `PyPy` one array holds at most `sys.maxsize` bytes
+/// (`incminimark.external_malloc`), and a dict's entries take at most 36 bytes
+/// an item with their growth (`rordereddict`), its sets being dicts. A
+/// refutation names a value outside a set, so one standing on a list of
+/// `sys.maxsize // 8 + 1` items stands on no value. Past this length a witness
+/// is declined, and so is the emptiness it would refute: a length in
+/// `(REACHED, LONGEST]` reaches some kinds on some interpreters and not others,
+/// which a schema does not say. It sits 2.4 times below the set.
+pub(crate) const REACHED: usize = LONGEST / 128;
+
 /// A constraint narrowing a [`Schema::Refine`] base set.
 ///
 /// Comparison and predicate operands live in the validator's object pool; the
@@ -1378,7 +1525,8 @@ pub enum Constraint {
     /// `value < pool[i]`.
     Lt(OperandIx),
     /// The value holds at least `n` items: the count a builtin container
-    /// stores, and `len(value)` for any other value.
+    /// stores, and `len(value)` for any other value. `n` is at most
+    /// [`LONGEST`], the longest length a value has.
     MinLen(usize),
     /// The value holds at most `n` items, counted as [`Constraint::MinLen`]
     /// counts them.
@@ -1431,6 +1579,15 @@ impl MapClause {
         }
     }
 
+    /// Whether this is [`top`](Self::top), either spelling of the top on
+    /// either side, read in place.
+    pub(crate) fn is_top(&self) -> bool {
+        matches!(
+            (&self.key, &self.value),
+            (Schema::Anything(_), Schema::Anything(_))
+        )
+    }
+
     /// A clause from a key and a value schema.
     ///
     /// Spelled here rather than at each pass over a clause list, for the reason
@@ -1454,13 +1611,19 @@ impl MapClause {
 ///
 /// A *required* field is never covered: it says the key must be there, and no
 /// clause says that of a key it does not name.
+///
+/// Asked of every field of every record an operator rewrites, twice, so the
+/// clause is read in place rather than compared with a top clause built and
+/// dropped for each field: `open` over a chain of records read 8% more
+/// instructions that way.
+#[inline]
 fn already_said(field: &Field, defaults: &[MapClause]) -> bool {
     if field.required {
         return false;
     }
     match defaults {
-        [] => field.schema == Schema::Nothing,
-        [clause] if *clause == MapClause::top() => field.schema == Schema::ANYTHING,
+        [] => matches!(field.schema, Schema::Nothing),
+        [clause] if clause.is_top() => matches!(field.schema, Schema::Anything(_)),
         _ => false,
     }
 }
@@ -1533,41 +1696,45 @@ impl Schema {
     /// what `repr` gives back.
     pub const ANY: Schema = Schema::Anything(Spelling::Any);
 
-    /// The class of an object schema, when this node is one: a meet carrying
-    /// exactly one `isinstance` atom beside exactly one deep check of what the
+    /// The class of an object schema and the member that declares it, when
+    /// this node has the shape the frontend builds for one: a meet carrying
+    /// exactly one `isinstance` atom beside exactly one deep check of what a
     /// class declares.
-    ///
-    /// That pair is what the frontend builds for a class whose fields it reads,
-    /// so it is what a user who wrote a class name is holding. `repr` and a
-    /// union's branch label both read the class back out of it, and a later meet
-    /// may flatten other members in beside the pair without changing which class
-    /// it is. The shape is recognized here, once, so the two readers cannot
-    /// recognize different shapes.
     ///
     /// The deep check is an attribute record where the fields are named and a
     /// sequence where they are positions: a `NamedTuple` is its class met with
-    /// `tuple[...]`. Reading the named shape alone made those two class forms
-    /// print differently -- a dataclass as `DC`, a `NamedTuple` as
-    /// `intersection(tuple[int], NT)` -- while the page states one rule for
-    /// both, and a union naming one branch said the same thing twice over.
+    /// `tuple[...]`. A later meet may flatten other members in beside the pair
+    /// without changing which class it is. `repr` and a union's branch label
+    /// both read the class back out of it, and the shape is recognized here,
+    /// once, so the two readers cannot recognize different shapes.
+    ///
+    /// The shape is not the class's own declaration on its evidence alone: a
+    /// class met with `list[int]` or with a protocol's record has it, and so
+    /// has `instance_of(C)` met with a record `C` does not declare. The schema
+    /// does not record which class declared a member, so this answers the
+    /// shape, and the bindings, which hold the class, ask the class whether the
+    /// member is its own.
     #[must_use]
-    pub fn object_class(&self) -> Option<ClassIx> {
+    pub fn object_class(&self) -> Option<(ClassIx, &Schema)> {
         let Schema::Intersection(members) = self else {
             return None;
         };
         let mut class = None;
-        let mut declarations = 0usize;
+        let mut declaration = None;
         for member in members.iter() {
             match member {
                 // A second atom of either kind is a meet of two objects, not one
                 // object: there is no single class to name.
                 Schema::Instance(_) if class.is_some() => return None,
                 Schema::Instance(index) => class = Some(*index),
-                Schema::AttrRecord { .. } | Schema::Seq { .. } => declarations += 1,
+                Schema::AttrRecord { .. } | Schema::Seq { .. } if declaration.is_some() => {
+                    return None;
+                }
+                Schema::AttrRecord { .. } | Schema::Seq { .. } => declaration = Some(member),
                 _ => {}
             }
         }
-        class.filter(|_| declarations == 1)
+        class.zip(declaration)
     }
 
     /// A short, stable label naming the expected set, shown in violations.
@@ -1779,6 +1946,41 @@ impl Schema {
         total
     }
 
+    /// Whether this node is a refinement holding a pattern.
+    fn holds_a_pattern(&self) -> bool {
+        matches!(self, Schema::Refine { constraints, .. }
+            if constraints.iter().any(|constraint| matches!(constraint, Constraint::Regex(_))))
+    }
+
+    /// The patterns this tree's refinements hold, in the order a walk of it
+    /// meets them: each `Constraint::Regex` of every node it reaches, a
+    /// reference read as the leaf it is here, since what it names is a tree of
+    /// the definitions table's own.
+    ///
+    /// The bindings compile a validator's patterns from this, and key each
+    /// compiled one by where the tree holds its text, so the text is handed
+    /// back where it lives rather than copied.
+    #[must_use]
+    pub fn patterns(&self) -> Vec<&str> {
+        let mut found = Vec::new();
+        let mut pending: Vec<&Schema> = Vec::new();
+        let mut root = Some(self);
+        while let Some(node) = root.take().or_else(|| pending.pop()) {
+            if let Schema::Refine { constraints, .. } = node {
+                found.extend(
+                    constraints
+                        .iter()
+                        .filter_map(|constraint| match constraint {
+                            Constraint::Regex(pattern) => Some(pattern.as_str()),
+                            _ => None,
+                        }),
+                );
+            }
+            node.push_children(&mut pending);
+        }
+        found
+    }
+
     /// Whether this constructor guards its children.
     ///
     /// A structural constructor does: a fixpoint unfolds one of them per step,
@@ -1935,6 +2137,7 @@ impl Schema {
             depth: 1,
             nodes: self.own_nodes(),
             escaped_self_ref: escapes(self),
+            holds_a_pattern: self.holds_a_pattern(),
         };
         let mut level: Vec<&Schema> = Vec::new();
         let mut next: Vec<&Schema> = Vec::new();
@@ -1947,6 +2150,7 @@ impl Schema {
             for node in level.drain(..) {
                 measure.nodes += node.own_nodes();
                 measure.escaped_self_ref |= escapes(node);
+                measure.holds_a_pattern |= node.holds_a_pattern();
                 node.push_children(&mut next);
             }
             std::mem::swap(&mut level, &mut next);
@@ -1976,6 +2180,9 @@ pub struct Measure {
     /// Whether a self-reference marker the caller does not recognize is
     /// anywhere in the tree.
     pub escaped_self_ref: bool,
+    /// Whether a refinement anywhere in the tree holds a pattern, which the
+    /// bindings compile while the validator is built ([`Schema::patterns`]).
+    pub holds_a_pattern: bool,
 }
 
 /// The sizes every walk and decision copies, pinned so a layout change is a

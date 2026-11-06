@@ -6,13 +6,15 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyNone, PyString};
 use restate_sdk_shared_core::fmt::{set_error_formatter, ErrorFormatter};
 use restate_sdk_shared_core::{
-    AwaitResponse, AwakeableHandle, CallHandle, CoreVM, Error, Header, IdentityVerifier, Input,
-    JournalReplay, NonDeterministicChecksOption, NonEmptyValue, NotificationHandle, OnMaxAttempts,
-    ResponseHead, RetryPolicy, RunExitResult, RunHandle, Target, TerminalFailure, UnresolvedFuture,
-    VMOptions, Value, CANCEL_NOTIFICATION_HANDLE, VM,
+    AwaitResponse, AwakeableHandle, CallHandle, CoreVM, Error, Header, IdentityVerifier,
+    ImplicitCancellationOption, Input, JournalReplay, NonDeterministicChecksOption, NonEmptyValue,
+    NotificationHandle, OnMaxAttempts, ResponseHead, RetryPolicy, RunExitResult, RunHandle, Target,
+    TerminalFailure, UnresolvedFuture, VMOptions, Value, CANCEL_NOTIFICATION_HANDLE, VM,
 };
 use std::fmt;
 use std::time::{Duration, SystemTime};
+
+mod sessions;
 
 // Current crate version
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -373,11 +375,12 @@ struct PyVM {
 #[pymethods]
 impl PyVM {
     #[new]
-    #[pyo3(signature = (headers, disable_payload_checks=false, explicit_recovery=false))]
+    #[pyo3(signature = (headers, disable_payload_checks=false, explicit_recovery=false, explicit_cancellation=false))]
     fn new(
         headers: Vec<(String, String)>,
         disable_payload_checks: bool,
         explicit_recovery: bool,
+        explicit_cancellation: bool,
     ) -> Result<Self, PyVMError> {
         // When a journal value codec is configured, the serialized payloads written to the journal
         // may legitimately differ between attempts (e.g. encryption with a random nonce), so we
@@ -392,6 +395,13 @@ impl PyVM {
                 JournalReplay::Disabled
             } else {
                 JournalReplay::Enabled
+            },
+            // With explicit cancellation, a cancellation neither fails the handler's awaits nor
+            // cancels its calls: the handler awaits CANCEL_NOTIFICATION_HANDLE and decides.
+            implicit_cancellation: if explicit_cancellation {
+                ImplicitCancellationOption::Disabled
+            } else {
+                VMOptions::default().implicit_cancellation
             },
             ..Default::default()
         };
@@ -1034,7 +1044,7 @@ fn _internal(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use tracing_subscriber::EnvFilter;
 
     // RESTATE_CORE_LOG controls everything when set. When it is not, the Restate Cloud
-    // tunnel still reports its lifecycle (the registration hint, connection changes).
+    // tunnel still reports its problems.
     let filter = match std::env::var("RESTATE_CORE_LOG") {
         Ok(directives) => EnvFilter::new(directives),
         Err(_) => EnvFilter::new(
@@ -1081,6 +1091,8 @@ fn _internal(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "CANCEL_NOTIFICATION_HANDLE",
         PyNotificationHandle::from(CANCEL_NOTIFICATION_HANDLE),
     )?;
+
+    sessions::register(m)?;
 
     // Set customized error formatter
     set_error_formatter(PythonErrorFormatter);

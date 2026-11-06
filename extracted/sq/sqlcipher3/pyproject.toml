@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqlcipher3"
-version = "0.6.4"
+version = "0.6.5"
 description = "DB-API 2.0 interface for SQLCipher 4.x"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -34,5 +34,5 @@ Repository = "https://github.com/coleifer/sqlcipher3"
 package-dir = { "sqlcipher3" = "sqlcipher3" }
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-* cp315-*"
 skip = "pp* *-musllinux_i686"

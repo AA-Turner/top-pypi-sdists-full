@@ -1,6 +1,9 @@
 """A streaming spectrogram: a crowded band, then a chirp and a tone in power
 and dB rows."""
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

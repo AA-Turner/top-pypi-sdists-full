@@ -42,6 +42,7 @@ from doppler.detection import (
     det_verify_count,
     det_verify_delay,
 )
+from doppler.examples._extra import require
 
 PFA_LOOK = 1e-2  # per-look false-alarm probability
 DECLARE_BUDGET = 1e-6  # compound false-declare budget
@@ -60,6 +61,7 @@ def _looks(rng, n, nu=0.0):
 
 
 def main(out_path="lockdet_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

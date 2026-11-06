@@ -1,7 +1,7 @@
 import time
+from collections.abc import Callable
 
 import pytest
-from hypothesis import given, strategies as st
 
 from w3lib.html import (
     get_base_url,
@@ -107,6 +107,19 @@ class TestRemoveEntities:
         assert replace_entities("&#xD7FF;&#xE000;") == "\ud7ff\ue000"
         assert replace_entities("&#xD800;").encode("utf-8") == b"\xef\xbf\xbd"
 
+    def test_named_reference_table(self):
+        # names are matched case-sensitively: "&Lt;" is U+226A, and a spelling
+        # the named character reference table does not contain, such as
+        # "&lT;", is not a reference
+        assert replace_entities("&Lt;&Gt;") == "\u226a\u226b"
+        assert replace_entities("&lT;img&gT;", remove_illegal=False) == "&lT;img&gT;"
+        for entity in ("&Quot;", "&Amp;", "&Nbsp;", "&copY;"):
+            assert replace_entities(entity, remove_illegal=False) == entity
+        # every name in the named character reference table resolves,
+        # including the ones HTML 4 does not define
+        assert replace_entities("&apos;&excl;&grave;&lpar;&rpar;&sol;") == "'!`()/"
+        assert replace_entities("&NotEqualTilde;") == "\u2242\u0338"
+
     def test_missing_semicolon(self):
         for entity, result in (
             ("&lt&lt!", "<<!"),
@@ -181,6 +194,12 @@ class TestReplaceTags:
         # browser; treating the quote as opening a value would swallow the ">".
         assert replace_tags('a<img alt= "x>KEEP">b') == 'aKEEP">b'
 
+    @pytest.mark.parametrize("space", ["\t", "\n", "\f", "\r"])
+    def test_html_whitespace_after_tag_name(self, space: str) -> None:
+        # Tab, LF, FF and CR end a tag name as a space does, so the quoted
+        # value that follows is read whole.
+        assert replace_tags(f'x<img{space}alt="a>b" src=x>y') == "xy"
+
     def test_replace_tags_no_catastrophic_backtracking(self):
         evil = "<a" * 50000
         start = time.process_time()
@@ -213,6 +232,24 @@ class TestRemoveComments:
         )
 
         assert remove_comments(b"test <!--") == "test "
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("a<!-->b", "ab"),
+            ("a<!--->b", "ab"),
+            ("a<!---->b", "ab"),
+            ("a<!-- x --!>b", "ab"),
+            ("a<!----!>b", "ab"),
+            ("a<!-- x --->b", "ab"),
+            ("a<!-- x -- y --!x -->b", "ab"),
+            # the dashes of "<!--" do not combine with a later "!>"
+            ("a<!--!>b-->c", "ac"),
+            ("a<!---!>b-->c", "ac"),
+        ],
+    )
+    def test_comment_closers(self, text, expected):
+        assert remove_comments(text) == expected
 
 
 class TestRemoveTags:
@@ -297,6 +334,20 @@ class TestRemoveTags:
         # U+00A0 does not separate "=" from a quoted value, so the tag ends at
         # the first ">", as in a browser, rather than swallowing it.
         assert remove_tags('a<img alt= "x>KEEP">b') == 'aKEEP">b'
+
+    @pytest.mark.parametrize("space", ["\t", "\n", "\f", "\r"])
+    def test_html_whitespace_after_tag_name(self, space: str) -> None:
+        # Tab, LF, FF and CR end a tag name as a space does, so the name is
+        # matched against which_ones and keep, and a quoted value is read whole.
+        assert (
+            remove_tags(f'<script{space}src="x.js"></script>', which_ones=("script",))
+            == ""
+        )
+        assert remove_tags(f'<p{space}class="a>b">txt</p>', which_ones=("p",)) == "txt"
+        assert remove_tags(f"<x-y{space}z>t</x-y>", which_ones=("x-y",)) == "t"
+        assert remove_tags(f"<b{space}z>t</b>", keep=("b",)) == f"<b{space}z>t</b>"
+        # "</" followed by whitespace is a bogus comment, removed as before.
+        assert remove_tags(f"a</{space}b>c") == "ac"
 
     @pytest.mark.parametrize(("tag", "text"), _QUOTE_OUTSIDE_VALUE_POSITION)
     def test_quote_outside_value_position(self, tag: str, text: str) -> None:
@@ -590,18 +641,21 @@ class TestGetBaseUrl:
             get_base_url(
                 "<html><head></head><body></body></html>", "https://example.org"
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
 
     @pytest.mark.parametrize("quote", ["<", ">"])
     def test_lt_gt_in_quoted_attribute_value(self, quote: str) -> None:
         assert (
-            get_base_url(f'<base data-x="a{quote}b" href="http://example.org/">')
+            get_base_url(
+                f'<base data-x="a{quote}b" href="http://example.org/">',
+                "https://example.org/",
+            )
             == "http://example.org/"
         )
 
     def test_get_base_url_href_attribute(self):
-        baseurl = "https://example.org"
+        baseurl = "https://example.org/"
         # Only an attribute named href sets the base URL: an attribute whose
         # name merely ends in "href" is not one, and the first href is the one
         # a browser reads.
@@ -627,8 +681,69 @@ class TestGetBaseUrl:
             == "http://example.org/found/"
         )
 
+    def test_get_base_url_relative_href(self):
+        baseurl = "https://example.org/a/b"
+        assert get_base_url(r'<base href="\c\d">', baseurl) == "https://example.org/c/d"
+        assert get_base_url('<base href="///example.com">', baseurl) == (
+            "https://example.com/"
+        )
+
+    @pytest.mark.parametrize(
+        ("href", "baseurl"),
+        [
+            # only a fragment can be resolved against an opaque path
+            ("/a", "data:text/html,x"),
+            ("a", "mailto:user@example.org"),
+            # forbidden host code points in a non-special URL
+            ("foo://a b/", "https://example.org/"),
+            ("foo://a|b/", "https://example.org/"),
+            # a host-less non-special URL with userinfo or a port
+            ("foo://user@/a", "https://example.org/"),
+            ("foo://:80/a", "https://example.org/"),
+            ("https://example.com:80x/", "https://example.org/"),
+        ],
+    )
+    def test_get_base_url_unparsable_href(self, href: str, baseurl: str) -> None:
+        # A <base> whose URL cannot be parsed leaves the fallback in place, as
+        # an empty one does, and a later <base> is not read either.
+        assert get_base_url(f'<base href="{href}">', baseurl) == baseurl
+        assert (
+            get_base_url(
+                f'<base href="{href}"><base href="https://evil.example/">', baseurl
+            )
+            == baseurl
+        )
+
+    @pytest.mark.parametrize(
+        "href",
+        [
+            "javascript:alert(1)//",
+            "JavaScript:/a/-alert(1)///",
+            "java\tscript:alert(1)",
+            "data:text/html,x",
+            " DATA:,x",
+        ],
+    )
+    def test_get_base_url_data_or_javascript_href(self, href: str) -> None:
+        # A data: or javascript: base URL leaves the fallback in place, and a
+        # later <base> is not read either.
+        baseurl = "https://example.org/a/b"
+        assert get_base_url(f'<base href="{href}">', baseurl) == baseurl
+        assert (
+            get_base_url(
+                f'<base href="{href}"><base href="https://evil.example/">', baseurl
+            )
+            == baseurl
+        )
+
+    def test_get_base_url_fragment_against_opaque_path(self) -> None:
+        assert (
+            get_base_url('<base href="#a">', "mailto:user@example.org")
+            == "mailto:user@example.org#a"
+        )
+
     def test_get_base_url_empty_href(self):
-        baseurl = "https://example.org"
+        baseurl = "https://example.org/"
         # The first <base> with an href attribute sets the base URL, and an
         # empty one leaves the fallback in place, even if a later <base> has a
         # value; a <base> without href does not count.
@@ -667,22 +782,33 @@ class TestGetBaseUrl:
         assert time.process_time() - start < 2
 
     def test_base_url_in_comment(self):
-        assert get_base_url("""<!-- <base href="http://example.com/"/> -->""") == ""
-        assert get_base_url("""<!-- <base href="http://example.com/"/>""") == ""
-        assert get_base_url("""<!-- <base href="http://example.com/"/> --""") == ""
+        baseurl = "https://example.org/"
+        for text in (
+            """<!-- <base href="http://example.com/"/> -->""",
+            """<!-- <base href="http://example.com/"/>""",
+            """<!-- <base href="http://example.com/"/> --""",
+        ):
+            assert get_base_url(text, baseurl) == baseurl
         assert (
             get_base_url(
-                """<!-- <!--  <base href="http://example.com/"/> -- -->  <base href="http://example_2.com/"/> """
+                """<!-- <!--  <base href="http://example.com/"/> -- -->  <base href="http://example_2.com/"/> """,
+                baseurl,
             )
             == "http://example_2.com/"
         )
 
         assert (
             get_base_url(
-                """<!-- <base href="http://example.com/"/> --> <!-- <base href="http://example_2.com/"/> --> <base href="http://example_3.com/"/>"""
+                """<!-- <base href="http://example.com/"/> --> <!-- <base href="http://example_2.com/"/> --> <base href="http://example_3.com/"/>""",
+                baseurl,
             )
             == "http://example_3.com/"
         )
+
+    @pytest.mark.parametrize("comment", ["<!-->", "<!--->", "<!-- x --!>"])
+    def test_base_url_after_comment(self, comment):
+        html = f'{comment}<base href="http://example.com/">'
+        assert get_base_url(html, "https://example.org") == "http://example.com/"
 
     def test_base_url_in_script(self):
         baseurl = "https://example.org"
@@ -693,14 +819,14 @@ class TestGetBaseUrl:
                 """<script>var t = "<base href='http://evil.example/'>";</script>""",
                 baseurl,
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
         assert (
             get_base_url(
                 """<noscript><base href="http://evil.example/"></noscript>""",
                 baseurl,
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
         # a real <base> after the ignored one is still picked up
         assert (
@@ -718,14 +844,14 @@ class TestGetBaseUrl:
                 """<script><base href="http://evil.example/">""",
                 baseurl,
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
         assert (
             get_base_url(
                 """<noscript foo="bar"><base href="http://evil.example/">""",
                 baseurl,
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
 
     def test_base_url_split_by_comment(self):
@@ -736,7 +862,7 @@ class TestGetBaseUrl:
                 """<base h<!--c-->ref="http://example.com/">""",
                 "https://example.org",
             )
-            == "https://example.org"
+            == "https://example.org/"
         )
 
     def test_relative_url_with_absolute_path(self):
@@ -775,7 +901,7 @@ class TestGetBaseUrl:
             <head><title>Dummy</title><basefoo href='http://example.org/something' /></head>\
             <body>blahablsdfsal&amp;</body>\
             </html>"""
-        assert get_base_url(text, baseurl) == "https://example.org"
+        assert get_base_url(text, baseurl) == "https://example.org/"
 
     def test_get_base_url_utf8(self):
         baseurl = "https://example.org"
@@ -824,7 +950,7 @@ class TestGetBaseUrl:
         ],
     )
     def test_get_base_url_bytes(self, encoding: str, char: str) -> None:
-        baseurl = "https://example.org"
+        baseurl = "https://example.org/"
         with_base = f"<html><head>{char}<base href='/path'></head></html>"
         without_base = f"<html><head>{char}</head></html>"
         assert (
@@ -845,22 +971,26 @@ class TestGetBaseUrl:
         assert text.encode("iso2022_jp") == b"<p>\x1b$B<base>\x1b(B</p>"
         assert (
             get_base_url(text.encode("iso2022_jp"), "https://example.org", "iso2022_jp")
-            == "https://example.org"
+            == "https://example.org/"
         )
 
     def test_get_base_url_non_ascii_compatible(self) -> None:
         # UTF-16 writes ASCII characters as something else than their ASCII
         # bytes, so the document is decoded before it is scanned.
         text = "<base href='/path'>"
-        assert get_base_url(
-            text.encode("utf-16"), "https://example.org", "utf-16"
-        ) == get_base_url(text, "https://example.org", "utf-16")
+        assert (
+            get_base_url(text.encode("utf-16"), "https://example.org", "utf-16")
+            == "https://example.org/path"
+        )
 
     def test_get_base_url_unknown_encoding(self) -> None:
-        with pytest.raises(LookupError):
+        # The encoding is detected instead, as browsers do.
+        assert (
             get_base_url(
                 b"<base href='/path'>", "https://example.org", "not-an-encoding"
             )
+            == "https://example.org/path"
+        )
 
     def test_get_base_url_split_by_a_dropped_escape(self) -> None:
         # ESC ( B redesignates ASCII where ASCII is already in use, so it
@@ -875,18 +1005,36 @@ class TestGetBaseUrl:
     def test_get_base_url_non_ascii_whitespace(self) -> None:
         # U+3000 does not separate a tag name from its attributes.
         text = "<base\u3000href='/path'>"
-        assert get_base_url(text, "https://example.org") == "https://example.org"
+        assert get_base_url(text, "https://example.org") == "https://example.org/"
         assert (
-            get_base_url(text.encode(), "https://example.org") == "https://example.org"
+            get_base_url(text.encode(), "https://example.org") == "https://example.org/"
         )
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            # "/" and HTML whitespace end the tag name.
+            ("<base/href='/path'>", "https://example.org/path"),
+            ("<base\fhref='/path'>", "https://example.org/path"),
+            # "\v" is no HTML whitespace, so it continues the tag name.
+            ("<base\vhref='/path'>", "https://example.org/"),
+        ],
+    )
+    def test_get_base_url_tag_name_end(self, text: str, expected: str) -> None:
+        assert get_base_url(text, "https://example.org") == expected
+        assert get_base_url(text.encode(), "https://example.org") == expected
 
     def test_get_base_url_non_ascii_case_folding(self) -> None:
         # U+017F uppercases to "S", but it is no "s" in a tag name.
         text = "<ba\u017fe href='/path'>"
-        assert get_base_url(text, "https://example.org") == "https://example.org"
+        assert get_base_url(text, "https://example.org") == "https://example.org/"
         assert (
-            get_base_url(text.encode(), "https://example.org") == "https://example.org"
+            get_base_url(text.encode(), "https://example.org") == "https://example.org/"
         )
+
+    def test_get_base_url_template(self) -> None:
+        text = "<template><base href='/t/'></template><base href='/a/'>"
+        assert get_base_url(text, "https://example.org") == "https://example.org/a/"
 
 
 class TestGetMetaRefresh:
@@ -899,20 +1047,57 @@ class TestGetMetaRefresh:
             </html>"""
         assert get_meta_refresh(body, baseurl) == (5, "http://example.org/newpage")
 
-    def test_no_meta(self):
-        assert get_meta_refresh("<html><body>no meta here</body></html>") == (
-            None,
-            None,
+    def test_get_meta_refresh_relative_url(self):
+        body = r"""<meta http-equiv="refresh" content="5;url=\\example.com\a">"""
+        assert get_meta_refresh(body, "https://example.org/b") == (
+            5,
+            "https://example.com/a",
         )
+
+    @pytest.mark.parametrize("url", ["https:example.com/a", "https:/example.com/a"])
+    def test_get_meta_refresh_other_scheme_without_slashes(self, url):
+        # A browser follows these to https://example.com/a; the base URL is
+        # not used because the scheme differs from that of the base URL.
+        body = f'<meta http-equiv="refresh" content="5;url={url}">'
+        assert get_meta_refresh(body, "http://example.org/b") == (
+            5,
+            "https://example.com/a",
+        )
+
+    @pytest.mark.parametrize(
+        ("url", "baseurl"),
+        [
+            # only a fragment can be resolved against an opaque path
+            ("/a", "data:text/html,x"),
+            ("a", "about:blank"),
+            # forbidden host code points in a non-special URL
+            ("foo://a b/", "https://example.org/"),
+            ("foo://a|b/", "https://example.org/"),
+            # a host-less non-special URL with userinfo or a port
+            ("foo://user@/a", "https://example.org/"),
+            ("foo://:80/a", "https://example.org/"),
+            ("https://example.com:80x/", "https://example.org/"),
+        ],
+    )
+    def test_get_meta_refresh_unparsable_url(self, url: str, baseurl: str) -> None:
+        # A refresh whose URL cannot be parsed is not followed, but a later
+        # one is.
+        body = f'<meta http-equiv="refresh" content="5;url={url}">'
+        assert get_meta_refresh(body, baseurl) == (None, None)
+        body += '<meta http-equiv="refresh" content="3;url=https://example.com/">'
+        assert get_meta_refresh(body, baseurl) == (3, "https://example.com/")
+
+    def test_no_meta(self):
+        assert get_meta_refresh(
+            "<html><body>no meta here</body></html>", "http://example.org"
+        ) == (None, None)
 
     def test_get_meta_refresh_unterminated_tag(self):
         baseurl = "http://example.org"
         body = """<meta http-equiv="refresh" content="5;url=newpage"</head>"""
         assert get_meta_refresh(body, baseurl) == (5, "http://example.org/newpage")
-        assert get_meta_refresh(body[:-7], baseurl) == (
-            5,
-            "http://example.org/newpage",
-        )
+        # a tag cut by the end of the document is dropped, as in a browser
+        assert get_meta_refresh(body[:-7], baseurl) == (None, None)
 
     def test_get_meta_refresh_meta_hidden_in_script(self):
         # A <meta refresh> that only exists as text inside a <script> closed
@@ -931,10 +1116,6 @@ class TestGetMetaRefresh:
         # browser
         body = """<script><meta http-equiv="refresh" content="0;url=http://evil.example/">"""
         assert get_meta_refresh(body, "http://good.example/") == (None, None)
-        assert get_meta_refresh(body, "http://good.example/", ignore_tags=()) == (
-            0.0,
-            "http://evil.example/",
-        )
 
     @pytest.mark.parametrize("quote", ["<", ">"])
     def test_lt_gt_in_quoted_attribute_value(self, quote: str) -> None:
@@ -944,40 +1125,66 @@ class TestGetMetaRefresh:
             "http://example.org/next",
         )
 
-    def test_get_meta_refresh_no_catastrophic_backtracking(self):
+    @pytest.mark.filterwarnings("ignore:Passing a relative:DeprecationWarning")
+    @pytest.mark.parametrize("baseurl", ["", "http://example.org"])
+    def test_get_meta_refresh_no_catastrophic_backtracking(self, baseurl):
         prefix = "<meta " * 80000
         start = time.process_time()
-        assert get_meta_refresh(prefix) == (None, None)
+        assert get_meta_refresh(prefix, baseurl) == (None, None)
         assert get_meta_refresh(
             prefix
-            + '<meta http-equiv="refresh" content="3; url=http://example.org/next/">'
+            + '<meta http-equiv="refresh" content="3; url=http://example.org/next/">',
+            baseurl,
         ) == (3.0, "http://example.org/next/")
         assert time.process_time() - start < 2
 
-    def test_get_meta_refresh_no_catastrophic_backtracking_single_tag(self):
+    @pytest.mark.filterwarnings("ignore:Passing a relative:DeprecationWarning")
+    # In a browser, the first http-equiv attribute, which is empty, wins.
+    @pytest.mark.parametrize(
+        ("baseurl", "found"),
+        [("", (3.0, "http://example.org/next/")), ("http://example.org", (None, None))],
+    )
+    def test_get_meta_refresh_no_catastrophic_backtracking_single_tag(
+        self, baseurl, found
+    ):
         evil = "<meta " + "http-equiv refresh " * 50000 + ">"
         start = time.process_time()
-        assert get_meta_refresh(evil, ignore_tags=()) == (None, None)
+        assert get_meta_refresh(evil, baseurl, ignore_tags=()) == (None, None)
         good = (
             "<meta "
             + "http-equiv refresh " * 50000
             + 'http-equiv="refresh" content="3;url=http://example.org/next/">'
         )
-        assert get_meta_refresh(good, ignore_tags=()) == (
-            3.0,
-            "http://example.org/next/",
-        )
+        assert get_meta_refresh(good, baseurl, ignore_tags=()) == found
         assert time.process_time() - start < 2
 
     def test_without_url(self):
-        # refresh without url should return (None, None)
+        # a refresh without url reloads the document
         baseurl = "http://example.org"
         body = """<meta http-equiv="refresh" content="5" />"""
-        assert get_meta_refresh(body, baseurl) == (None, None)
+        assert get_meta_refresh(body, baseurl) == (5, "http://example.org/")
 
         body = """<meta http-equiv="refresh" content="5;
             url=http://example.org/newpage" /></head>"""
         assert get_meta_refresh(body, baseurl) == (5, "http://example.org/newpage")
+
+    def test_separator_comma_or_whitespace(self):
+        # The HTML shared declarative refresh steps accept ";", "," or ASCII
+        # whitespace as the separator after the interval, so a browser follows
+        # all of these.
+        baseurl = "http://example.org"
+        for content in (
+            "0,url=http://example.org/newpage",
+            "0 url=http://example.org/newpage",
+            "0, url=http://example.org/newpage",
+            "5 ; url=http://example.org/newpage",
+        ):
+            body = f'<meta http-equiv="refresh" content="{content}">'
+            _, url = get_meta_refresh(body, baseurl)
+            assert url == "http://example.org/newpage", content
+        # Without any separator a browser does not refresh, so neither do we.
+        body = '<meta http-equiv="refresh" content="0url=http://example.org/x">'
+        assert get_meta_refresh(body, baseurl) == (None, None)
 
     def test_multiline(self):
         # meta refresh in multiple lines
@@ -994,6 +1201,24 @@ class TestGetMetaRefresh:
         body = """<meta http-equiv="refresh" content="3; url=&#39;http://www.example.com/other&#39;">"""
         assert get_meta_refresh(body, baseurl) == (3, "http://www.example.com/other")
 
+    def test_entities_do_not_spell_out_attributes(self) -> None:
+        # a reference is decoded into the value of its own attribute, so
+        # neither of these tags carries an http-equiv attribute
+        baseurl = "http://example.org"
+        body = (
+            '<meta data-x="&#34; http-equiv=&#34;refresh&#34;" '
+            'content="0;url=http://evil.example/">'
+        )
+        assert get_meta_refresh(body, baseurl) == (None, None)
+        body = '<meta http&#45;equiv="refresh" content="0;url=http://evil.example/">'
+        assert get_meta_refresh(body, baseurl) == (None, None)
+        # the real content attribute is read, not one a reference spells out
+        body = (
+            '<meta data-x="&#34; content=&#34;0;url=http://evil.example/&#34;" '
+            'http-equiv="refresh" content="5;url=/next">'
+        )
+        assert get_meta_refresh(body, baseurl) == (5.0, "http://example.org/next")
+
     def test_non_ascii_digit_interval(self):
         # the interval is ASCII digits only, so this is not a refresh
         baseurl = "http://example.org"
@@ -1006,6 +1231,13 @@ class TestGetMetaRefresh:
         baseurl = "http://example.org"
         body = """<meta http-equiv="refresh" content="0;url=/a&#xD800;b">"""
         assert get_meta_refresh(body, baseurl) == (0, "http://example.org/a%EF%BF%BDb")
+
+    def test_html5_named_reference_in_url(self):
+        # "&sol;" decodes to "/" in the URL, so this is a scheme-relative
+        # redirect to another host, as in a browser
+        baseurl = "https://example.com/dir/page"
+        body = """<meta http-equiv="refresh" content="0;url=&sol;&sol;other.example&sol;">"""
+        assert get_meta_refresh(body, baseurl) == (0, "https://other.example/")
 
     def test_relative_redirects(self):
         # relative redirects
@@ -1034,12 +1266,12 @@ class TestGetMetaRefresh:
 
     def test_nonascii_url_latin1_query(self):
         # non-ascii chars in the url path and query (latin1)
-        # only query part should be kept latin1 encoded before percent escaping
+        # the query is UTF-8 encoded, as in Firefox
         baseurl = "http://example.com"
         body = b"""<meta http-equiv="refresh" content="3; url=http://example.com/to\xa3?unit=\xb5">"""
         assert get_meta_refresh(body, baseurl, "latin1") == (
             3,
-            "http://example.com/to%C2%A3?unit=%B5",
+            "http://example.com/to%C2%A3?unit=%C2%B5",
         )
 
     def test_commented_meta_refresh(self):
@@ -1054,14 +1286,24 @@ class TestGetMetaRefresh:
         body = """<!-- commented --><meta http-equiv="refresh" content="3; url=http://example.com/">-->"""
         assert get_meta_refresh(body, baseurl) == (3, "http://example.com/")
 
+    @pytest.mark.parametrize("comment", ["<!-->", "<!--->", "<!-- x --!>"])
+    def test_meta_refresh_after_comment(self, comment):
+        body = (
+            f'{comment}<meta http-equiv="refresh" content="3; url=http://example.com/">'
+        )
+        assert get_meta_refresh(body, "http://example.com") == (
+            3,
+            "http://example.com/",
+        )
+
     def test_float_refresh_intervals(self):
-        # float refresh intervals
+        # browsers drop the fraction of a refresh interval
         baseurl = "http://example.com"
         body = """<meta http-equiv="refresh" content=".1;URL=index.html" />"""
-        assert get_meta_refresh(body, baseurl) == (0.1, "http://example.com/index.html")
+        assert get_meta_refresh(body, baseurl) == (0.0, "http://example.com/index.html")
 
         body = """<meta http-equiv="refresh" content="3.1;URL=index.html" />"""
-        assert get_meta_refresh(body, baseurl) == (3.1, "http://example.com/index.html")
+        assert get_meta_refresh(body, baseurl) == (3.0, "http://example.com/index.html")
 
     def test_tag_name(self):
         baseurl = "http://example.org"
@@ -1104,10 +1346,7 @@ http://www.example.org/index.php" />
             <head><script>if(!foobar()){ $('<meta http-equiv="refresh" content="0;url=http://example.org/foobar_required" />').appendTo('body'); }</script></head>
             </html>"""
         assert get_meta_refresh(body, baseurl) == (None, None)
-        assert get_meta_refresh(body, baseurl, ignore_tags=()) == (
-            0.0,
-            "http://example.org/foobar_required",
-        )
+        assert get_meta_refresh(body, baseurl, ignore_tags=()) == (None, None)
 
     def test_redirections_in_different_ordering__in_meta_tag(self):
         baseurl = "http://localhost:8000"
@@ -1139,10 +1378,10 @@ http://www.example.org/index.php" />
             "http://example.org/next",
         )
 
-    def test_first_content_attribute_with_a_payload_wins(self) -> None:
+    def test_first_content_attribute_wins(self) -> None:
         baseurl = "http://example.org"
         body = '<meta http-equiv="refresh" content="junk" content="3; url=/next">'
-        assert get_meta_refresh(body, baseurl) == (3.0, "http://example.org/next")
+        assert get_meta_refresh(body, baseurl) == (None, None)
 
     def test_http_equiv_without_refresh(self) -> None:
         # "refresh" elsewhere in the tag gets it scanned, but the pragma is
@@ -1151,11 +1390,15 @@ http://www.example.org/index.php" />
         body = '<meta http-equiv="content-type" content="3; url=/refresh">'
         assert get_meta_refresh(body, baseurl) == (None, None)
         body = '<meta http-equiv="content-type" http-equiv="refresh" content="3; url=/next">'
-        assert get_meta_refresh(body, baseurl) == (3.0, "http://example.org/next")
+        assert get_meta_refresh(body, baseurl) == (None, None)
 
     def test_unquoted_whitespace(self) -> None:
+        # content is "3;", a reload of the document
         body = "<meta http-equiv=refresh content=3; url=/next>"
-        assert get_meta_refresh(body, "http://example.org") == (None, None)
+        assert get_meta_refresh(body, "http://example.org") == (
+            3.0,
+            "http://example.org/",
+        )
 
     def test_no_catastrophic_backtracking(self) -> None:
         # a long run of whitespace inside a refresh tag must be skipped in
@@ -1227,7 +1470,7 @@ http://www.example.org/index.php" />
         body = "<meta http-equiv='refresh' content='3;url=/next'>"
         assert get_meta_refresh(
             body.encode("utf-16"), "http://example.org", "utf-16"
-        ) == get_meta_refresh(body, "http://example.org", "utf-16")
+        ) == (3.0, "http://example.org/next")
 
     def test_get_meta_refresh_split_by_a_dropped_escape(self) -> None:
         # ESC ( B redesignates ASCII where ASCII is already in use, so it
@@ -1248,13 +1491,40 @@ http://www.example.org/index.php" />
         assert get_meta_refresh(body, "http://example.org") == (None, None)
         assert get_meta_refresh(body.encode(), "http://example.org") == (None, None)
 
+    @pytest.mark.parametrize(
+        ("body", "expected"),
+        [
+            # "/" and HTML whitespace end the tag name.
+            (
+                "<meta/http-equiv='refresh'/content='3;url=/next'>",
+                (3.0, "http://example.org/next"),
+            ),
+            (
+                "<meta\fhttp-equiv='refresh' content='3;url=/next'>",
+                (3.0, "http://example.org/next"),
+            ),
+            # "\v" is no HTML whitespace, so it continues the tag name.
+            ("<meta\vhttp-equiv='refresh' content='3;url=/next'>", (None, None)),
+        ],
+    )
+    def test_get_meta_refresh_tag_name_end(
+        self, body: str, expected: tuple[float, str] | tuple[None, None]
+    ) -> None:
+        assert get_meta_refresh(body, "http://example.org") == expected
+        assert get_meta_refresh(body.encode(), "http://example.org") == expected
+
     def test_get_meta_refresh_content_non_ascii_whitespace(self) -> None:
         # The refresh content is parsed with ASCII whitespace only, so U+00A0
-        # around the interval or the ";" leaves it unparsed and no redirect is
-        # reported, as a browser reloads the same document instead.
-        for content in (" 0;url=/next", "0 ;url=/next", "0; url=/next"):
+        # around the interval leaves it unparsed, and after the ";" it starts
+        # the URL.
+        for content in (" 0;url=/next", "0 ;url=/next"):
             body = f"<meta http-equiv='refresh' content='{content}'>"
             assert get_meta_refresh(body, "http://example.org") == (None, None)
+        body = "<meta http-equiv='refresh' content='0; url=/next'>"
+        assert get_meta_refresh(body, "http://example.org") == (
+            0.0,
+            "http://example.org/%C2%A0url=/next",
+        )
         # An ASCII-whitespace variant is still parsed.
         assert get_meta_refresh(
             "<meta http-equiv='refresh' content='0; url=/next'>", "http://example.org"
@@ -1272,6 +1542,99 @@ http://www.example.org/index.php" />
             3.0,
             "http://example.org/next",
         )
+
+    def test_get_meta_refresh_like_a_browser(self) -> None:
+        body = (
+            b"<base href='/dir/'>"
+            b"<meta http-equiv='refresh' content='2;url=a'>"
+            b"<template><meta http-equiv='refresh' content='0;url=b'></template>"
+            b"<noscript><meta http-equiv='refresh' content='0.5;url=c'></noscript>"
+            b"<meta http-equiv='refresh' content='1;url=d'>"
+        )
+        baseurl = "http://example.org"
+        assert get_meta_refresh(body, baseurl) == (1.0, "http://example.org/dir/d")
+        assert get_meta_refresh(body, baseurl, ignore_tags=()) == (
+            0.0,
+            "http://example.org/dir/c",
+        )
+
+    def test_get_meta_refresh_deprecated_ignore_tags(self) -> None:
+        body = (
+            "<style><meta http-equiv='refresh' content='0;url=/a'></style>"
+            "<meta http-equiv='refresh' content='3;url=/b'>"
+        )
+        with pytest.warns(DeprecationWarning, match="ignore_tags"):
+            assert get_meta_refresh(
+                body, "http://example.org", ignore_tags=["style"]
+            ) == (
+                3.0,
+                "http://example.org/b",
+            )
+
+    def test_relative_baseurl_deprecated(self) -> None:
+        with pytest.warns(DeprecationWarning, match="baseurl"):
+            assert get_base_url("<base href='/a'>") == "/a"
+        with pytest.warns(DeprecationWarning, match="baseurl"):
+            assert get_meta_refresh(
+                "<meta http-equiv='refresh' content='3;url=b'>", "/a/"
+            ) == (3.0, "/a/b")
+
+
+@pytest.mark.filterwarnings("ignore:Passing a relative:DeprecationWarning")
+class TestRelativeBaseurl:
+    @pytest.mark.parametrize(
+        ("text", "encoding", "expected"),
+        [
+            (b"<p>", "utf-8", "/a/"),
+            ("<p>".encode("utf-16"), "utf-16", "/a/"),
+            ("<!-- <base href=/c> -->", "utf-8", "/a/"),
+            ("<base><base target=x><base href=/c>", "utf-8", "/c"),
+            ("<base href=javascript:x>", "utf-8", "/a/"),
+            ('<base href="https://example.com:80x/">', "utf-8", "/a/"),
+            ("<base href=' '><base href=/c>", "utf-8", "/a/"),
+        ],
+    )
+    def test_get_base_url(
+        self, text: str | bytes, encoding: str, expected: str
+    ) -> None:
+        assert get_base_url(text, "/a/", encoding) == expected
+
+    @pytest.mark.parametrize(
+        ("text", "encoding", "expected"),
+        [
+            (b"<p>", "utf-8", (None, None)),
+            ("<p>".encode("utf-16"), "utf-16", (None, None)),
+            (
+                "<meta http-equiv=content-type content='3;url=/refresh'>",
+                "utf-8",
+                (None, None),
+            ),
+            ("<meta name=x http-equiv=refresh content=junk>", "utf-8", (None, None)),
+            (
+                "<meta http-equiv=refresh content='3;url=https://example.com:80x/'>",
+                "utf-8",
+                (None, None),
+            ),
+            (
+                "<meta name=x http-equiv=refresh content='3;url=b'>",
+                "utf-8",
+                (3.0, "/a/b"),
+            ),
+        ],
+    )
+    def test_get_meta_refresh(
+        self,
+        text: str | bytes,
+        encoding: str,
+        expected: tuple[float, str] | tuple[None, None],
+    ) -> None:
+        assert get_meta_refresh(text, "/a/", encoding) == expected
+
+    def test_unknown_encoding(self) -> None:
+        with pytest.raises(LookupError):
+            get_base_url(b"<base href=/c>", "/a/", "not-an-encoding")
+        with pytest.raises(LookupError):
+            get_meta_refresh(b"<meta>", "/a/", "not-an-encoding")
 
 
 class TestHasEntities:
@@ -1315,33 +1678,6 @@ class TestHasEntities:
 
 BASE_TAG = '<base href="http://example.org/found">'
 META_TAG = '<meta http-equiv="refresh" content="5;url=http://example.org/found">'
-LIMIT = 100
-
-# Markup built out of these puts angle brackets everywhere a cut can misread
-# them: in comments, in quoted attribute values, in text, and in the content of
-# an ignored tag.
-FRAGMENTS = [
-    BASE_TAG,
-    META_TAG,
-    "<meta http-equiv=refresh content=5;url=http://example.org/found>",
-    '<meta title="a>b" http-equiv=refresh content=5;url=http://example.org/found>',
-    '<base title="a>b" href="http://example.org/found">',
-    '<meta title="a<b" http-equiv=refresh content=5;url=http://example.org/found>',
-    '<base title="a<b" href="http://example.org/found">',
-    "<base href=",
-    '"',
-    "<!--",
-    "-->",
-    "<script>",
-    "</script>",
-    '<p title="a>b">',
-    '<p title="a<b">',
-    "a < b",
-    "a > b",
-    "<",
-    ">",
-    "x",
-]
 
 
 def base(text: str | bytes, **kwargs: object) -> object:
@@ -1355,78 +1691,128 @@ def meta(text: str | bytes, **kwargs: object) -> object:
 @pytest.mark.parametrize(
     ("func", "tag", "found", "missing"),
     [
-        (base, BASE_TAG, "http://example.org/found", "https://example.org"),
+        (base, BASE_TAG, "http://example.org/found", "https://example.org/"),
         (meta, META_TAG, (5, "http://example.org/found"), (None, None)),
     ],
     ids=["base", "meta"],
 )
-class TestMaxScan:
-    def test_straddling_tag(self, func, tag, found, missing):
-        # A tag that starts before the limit and ends after it is read whole,
-        # wherever in it the limit falls, inside a quoted value included.
-        for offset in range(1, len(tag)):
-            text = "a" * (LIMIT - offset) + tag
-            assert func(text, max_scan=LIMIT) == found
-            assert func(text.encode(), max_scan=LIMIT) == found
+@pytest.mark.parametrize("ignored", ["script", "noscript"])
+class TestIgnoredTagEnd:
+    @pytest.mark.parametrize("end", ["x>", "\vx>"])
+    def test_false_end_tag(self, func, tag, found, missing, ignored, end):
+        text = f"<{ignored}></{ignored}{end}{tag}"
+        assert func(text) == missing
+        assert func(text.encode()) == missing
+        text += f"</{ignored}>{tag}"
+        assert func(text) == found
+        assert func(text.encode()) == found
 
-    def test_before_limit(self, func, tag, found, missing):
-        assert func(tag + "a" * LIMIT, max_scan=LIMIT) == found
-
-    def test_unterminated_tag_within_limit(self, func, tag, found, missing):
-        assert func(tag[:-1], max_scan=LIMIT) == found
-
-    def test_stray_lt_before_limit(self, func, tag, found, missing):
-        # A "<" that starts no tag must not extend the scan past the limit.
-        assert func("1 < 2 " + "a" * LIMIT + tag, max_scan=LIMIT) == missing
-
-    def test_bytes_limit_counts_bytes(self, func, tag, found, missing):
-        # The limit reaches the tag in characters, but not in bytes.
-        text = "\u00e9" * 20 + tag
-        assert func(text, max_scan=30) == found
-        assert func(text.encode(), max_scan=30) == missing
-
-    def test_bytes_split_character(self, func, tag, found, missing):
-        # The cut splits the last character, which decoding replaces.
-        assert func(("\u00e9" * 5).encode() + tag.encode(), max_scan=9) == missing
-
-    @given(
-        markup=st.lists(st.sampled_from(FRAGMENTS), max_size=12).map("".join),
-        max_scan=st.integers(min_value=0, max_value=400),
+    @pytest.mark.parametrize(
+        "end", [" <", "/<", " data-x=<", ' data-x="<', " data-x='<"]
     )
-    def test_cut_never_invents(self, func, tag, found, missing, markup, max_scan):
-        # A cut can misread an angle bracket in a comment or an attribute value
-        # only into looking at less, never into a result of its own.
-        assert func(markup, max_scan=max_scan) in (func(markup), missing)
-        assert func(markup.encode(), max_scan=max_scan) in (func(markup), missing)
+    def test_markup_inside_end_tag(self, func, tag, found, missing, ignored, end):
+        text = f"<{ignored}></{ignored}{end}{tag[1:]}"
+        assert func(text) == missing
+        assert func(text.encode()) == missing
 
-    def test_reading_on_stops_at_the_next_tag(self, func, tag, found, missing):
-        # Reading a split tag to its end stops where the next tag begins.
-        assert func("<p data-x=" + "a" * LIMIT + tag, max_scan=LIMIT) == missing
-
-    def test_past_limit(self, func, tag, found, missing):
-        assert func("a" * LIMIT + tag, max_scan=LIMIT) == missing
-
-    def test_limit_beyond_text(self, func, tag, found, missing):
-        assert func(tag, max_scan=LIMIT) == found
-
-    def test_unlimited(self, func, tag, found, missing):
-        assert func("a" * LIMIT + tag) == found
-
-    def test_zero(self, func, tag, found, missing):
-        assert func(tag, max_scan=0) == missing
-
-    def test_negative(self, func, tag, found, missing):
-        with pytest.raises(ValueError, match="max_scan"):
-            func(tag, max_scan=-1)
-
-
-@pytest.mark.parametrize("cut", range(10, 76, 5))
-def test_max_scan_straddling_unquoted_value(cut: int) -> None:
-    # Reading half a tag would yield a redirect to a truncated url, and the
-    # quoted ">" hides where the tag ends from anything that reads one
-    # differently from the scan.
-    tag = '<meta title="a>b" http-equiv=refresh content=5;url=http://example.org/found>'
-    assert get_meta_refresh(tag, "https://example.org", max_scan=cut) in (
-        (None, None),
-        (5.0, "http://example.org/found"),
+    @pytest.mark.parametrize(
+        "end", [" >", "/>", " data-x='>'>", ' data-x=a=b=">', ' =">', ' data-x=\v">']
     )
+    def test_after_end_tag(self, func, tag, found, missing, ignored, end):
+        text = f"<{ignored}>{tag}</{ignored}{end}{tag}"
+        assert func(text) == found
+        assert func(text.encode()) == found
+
+    @pytest.mark.parametrize(
+        "end",
+        [" a=unquoted" * 20000, " a='" + "<" * 20000],
+        ids=["unquoted", "unterminated-quoted"],
+    )
+    def test_long_end_tag(self, func, tag, found, missing, ignored, end):
+        text = f"<{ignored}></{ignored}{end}{tag}"
+        start = time.process_time()
+        assert func(text) == missing
+        assert func(text.encode()) == missing
+        assert time.process_time() - start < 2
+
+
+@pytest.mark.parametrize(
+    ("func", "tag", "found", "missing"),
+    [
+        (base, BASE_TAG, "http://example.org/found", "https://example.org/"),
+        (meta, META_TAG, (5, "http://example.org/found"), (None, None)),
+    ],
+    ids=["base", "meta"],
+)
+@pytest.mark.parametrize("ignored", ["script", "noscript"])
+class TestIgnoredTagStart:
+    @pytest.mark.parametrize(
+        "start", [">", " >", "\t>", "\n>", "\f>", "\r>", "/>", ' data-x="a">']
+    )
+    def test_start_tag(self, func, tag, found, missing, ignored, start):
+        text = f"<{ignored}{start}{tag}"
+        assert func(text) == missing
+        assert func(text.encode()) == missing
+
+    @pytest.mark.parametrize("rest", ["-x", ".x", "x", "ä", "\v"])
+    def test_longer_name(self, func, tag, found, missing, ignored, rest):
+        # Only HTML whitespace, "/" or ">" ends the tag name, so this is a
+        # different element, such as a custom one, and its content is parsed.
+        text = f"<{ignored}{rest}></{ignored}{rest}>{tag}"
+        assert func(text) == found
+        assert func(text.encode()) == found
+        text = f"<{ignored}{rest}>{tag}</{ignored}{rest}>"
+        assert func(text) == found
+        assert func(text.encode()) == found
+
+
+@pytest.mark.parametrize(
+    ("func", "tag", "found", "missing"),
+    [
+        (base, BASE_TAG, "http://example.org/found", "https://example.org/"),
+        (meta, META_TAG, (5, "http://example.org/found"), (None, None)),
+    ],
+    ids=["base", "meta"],
+)
+class TestTagInsideOtherTag:
+    @pytest.mark.parametrize(
+        ("start", "end"),
+        [
+            ("<p title='", "'>"),
+            ('<p title="', '">'),
+            ("<p title = '", "'>"),
+            ("</p title='", "'>"),
+            ("<custom-element data-x='", "'>"),
+        ],
+    )
+    def test_quoted_attribute_value(self, func, tag, found, missing, start, end):
+        # A tag written inside a quoted attribute value of another tag is text.
+        tag = tag.replace('"', "'") if start[-1] == '"' else tag
+        text = f"{start}{tag}{end}"
+        assert func(text) == missing
+        assert func(text.encode()) == missing
+        text += tag
+        assert func(text) == found
+        assert func(text.encode()) == found
+
+    @pytest.mark.parametrize("start", ["<p title=", "<p ", "<p/", "<p title='"])
+    def test_rest_of_other_tag(self, func, tag, found, missing, start):
+        # An unquoted value or an attribute name runs past a "<", and a quoted
+        # value left open runs to the end of the input.
+        text = f"{start}{tag}"
+        assert func(text) == missing
+        assert func(text.encode()) == missing
+
+    @pytest.mark.parametrize("before", ["<p title='>'>", "a < b", "<p>", "</p>"])
+    def test_after_other_tag(self, func, tag, found, missing, before):
+        text = f"{before}{tag}"
+        assert func(text) == found
+        assert func(text.encode()) == found
+
+
+@pytest.mark.parametrize("func", [base, meta])
+def test_max_scan_deprecated(func: Callable[..., object]) -> None:
+    with pytest.warns(DeprecationWarning, match="max_scan"):
+        assert func("a" * 10 + BASE_TAG + META_TAG, max_scan=5) == func(
+            BASE_TAG + META_TAG
+        )

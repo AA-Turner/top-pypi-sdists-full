@@ -48,7 +48,7 @@ pub(crate) struct StatsigSharedIdListsAdapter {
 struct ControllerState {
     listener: Option<Arc<dyn IdListsUpdateListener>>,
     role: Role,
-    generation: Option<String>,
+    installed_digest: Arc<Mutex<Option<[u8; 32]>>>,
     installed_manifest: Option<Arc<same_file::Handle>>,
     status: RefreshStatus,
     waiting_since: Instant,
@@ -167,7 +167,7 @@ impl StatsigSharedIdListsAdapter {
             state: AsyncMutex::new(ControllerState {
                 listener: None,
                 role: Role::Follower,
-                generation: None,
+                installed_digest: Arc::default(),
                 installed_manifest: None,
                 status: RefreshStatus::default(),
                 waiting_since: now,
@@ -186,7 +186,8 @@ impl StatsigSharedIdListsAdapter {
             stale_after: sync_interval
                 .max(Duration::from_millis(u64::from(DEFAULT_SYNC_MS)))
                 .saturating_mul(3),
-            ops_stats: OPS_STATS.get_for_instance(options.get_sdk_instance_id(sdk_key)),
+            ops_stats: OPS_STATS
+                .get_for_instance_with_options(options.get_sdk_instance_id(sdk_key), Some(options)),
             output_policy: crate::output_policy::OutputPolicy::from_options(Some(options)),
         }
     }
@@ -332,17 +333,22 @@ impl StatsigSharedIdListsAdapter {
         state: &mut ControllerState,
         catalog: SharedIdListCatalog,
     ) -> Result<bool, StatsigErr> {
-        if state.generation.as_deref() != Some(catalog.generation.as_str()) {
+        if *state.installed_digest.lock() != Some(catalog.content_digest) {
             let started = Instant::now();
             let listener = state.listener.clone().ok_or_else(|| {
                 StatsigErr::UnstartedAdapter("Shared ID-list listener missing".to_string())
             })?;
             let guard = self.storage_work.clone().lock_owned().await;
             let policy = self.output_policy;
+            let installed_digest = state.installed_digest.clone();
             let result = tokio::task::spawn_blocking(move || {
                 let _guard = guard;
                 let _scope = policy.enter();
-                listener.did_receive_id_list_snapshot(catalog.lists, catalog.propagation)
+                listener.did_receive_id_list_snapshot(catalog.lists, catalog.propagation)?;
+                // A cancelled tick can leave this install running. Record what the
+                // listener accepted before another tick can acquire storage_work.
+                *installed_digest.lock() = Some(catalog.content_digest);
+                Ok(())
             })
             .await
             .unwrap_or_else(|error| Err(StatsigErr::FileError(error.to_string())));
@@ -350,7 +356,6 @@ impl StatsigSharedIdListsAdapter {
                 return Ok(false);
             }
             result?;
-            state.generation = Some(catalog.generation);
             self.metric(
                 MetricType::Dist,
                 "shared_id_lists.install.latency_ms",
@@ -398,7 +403,7 @@ impl StatsigSharedIdListsAdapter {
             return Err(Self::stopped_error());
         }
         // Only the current cycle may consume an explicit initialize refresh.
-        if trigger == RefreshTrigger::Initialize {
+        if trigger == RefreshTrigger::SharedInitialize {
             state.next_sync = Instant::now();
         }
         let result = tokio::select! {
@@ -471,27 +476,42 @@ impl StatsigSharedIdListsAdapter {
         };
         let reader = store.clone();
         let installed = state.installed_manifest.clone();
+        let installed_digest = state.installed_digest.clone();
         // Check election first. A successor must always recover the current
         // catalog under its lease, irrespective of the last follower poll.
         let guard = self.storage_work.clone().lock_owned().await;
         let poll = tokio::task::spawn_blocking(move || {
             let _guard = guard;
             let lease = reader.try_acquire_lease().map_err(|_| "lease")?;
-            match lease {
+            let poll = match lease {
                 Some(lease) => {
                     let recovered = reader.load().map_err(|_| "recovery")?.unwrap_or_default();
                     let cleanup_failed = reader.cleanup(&lease).is_err();
-                    Ok(PollResult::Elected {
+                    PollResult::Elected {
                         lease,
                         recovered,
                         cleanup_failed,
-                    })
+                    }
                 }
-                None => reader
-                    .load_if_changed(installed.as_deref(), || {})
-                    .map(PollResult::Follower)
-                    .map_err(|_| "read"),
+                None => PollResult::Follower(
+                    reader
+                        .load_if_changed(installed.as_deref(), || {})
+                        .map_err(|_| "read")?,
+                ),
+            };
+            if let PollResult::Elected {
+                recovered: catalog, ..
             }
+            | PollResult::Follower(ManifestRead::Changed(_, catalog)) = &poll
+            {
+                // Reading a different catalog replaces the store's weak mapping cache,
+                // even if this tick is cancelled or the listener rejects the install.
+                // Reinstall a restored catalog once so its mappings stay pinned.
+                installed_digest
+                    .lock()
+                    .take_if(|digest| *digest != catalog.content_digest);
+            }
+            Ok(poll)
         })
         .await
         .unwrap_or(Err("storage_worker"));
@@ -527,6 +547,7 @@ impl StatsigSharedIdListsAdapter {
                     store: store.clone(),
                     lease,
                     current: Mutex::new(recovered),
+                    installed_digest: state.installed_digest.clone(),
                     listener,
                     storage_failed: AtomicBool::new(false),
                     install_pending: AtomicBool::new(false),
@@ -645,7 +666,7 @@ impl IdListsAdapter for StatsigSharedIdListsAdapter {
                     state.waiting_since = Instant::now();
                 }
                 loop {
-                    if self.tick(RefreshTrigger::Initialize).await? {
+                    if self.tick(RefreshTrigger::SharedInitialize).await? {
                         return Ok(());
                     }
                     tokio::select! {
@@ -719,6 +740,7 @@ struct PublishingListener {
     store: Arc<SharedIdListStore>,
     lease: SharedIdListLease,
     current: Mutex<SharedIdListCatalog>,
+    installed_digest: Arc<Mutex<Option<[u8; 32]>>>,
     listener: Arc<dyn IdListsUpdateListener>,
     storage_failed: AtomicBool,
     install_pending: AtomicBool,
@@ -815,10 +837,13 @@ impl PublishingListener {
         // Disk commit is the cursor authority even if the owner's store closes
         // afterward. A successor reloads this exact materialized state.
         *current = published;
-        self.install_pending.store(true, Ordering::Release);
-        self.listener
-            .did_receive_id_list_snapshot(current.lists.clone(), current.propagation.clone())?;
-        self.install_pending.store(false, Ordering::Release);
+        if *self.installed_digest.lock() != Some(current.content_digest) {
+            self.install_pending.store(true, Ordering::Release);
+            self.listener
+                .did_receive_id_list_snapshot(current.lists.clone(), current.propagation.clone())?;
+            *self.installed_digest.lock() = Some(current.content_digest);
+            self.install_pending.store(false, Ordering::Release);
+        }
         self.ops_stats.log(ObservabilityEvent::new_event(
             MetricType::Increment,
             "shared_id_lists.publish".to_string(),

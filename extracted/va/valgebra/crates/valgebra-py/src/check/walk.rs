@@ -43,7 +43,9 @@ use valgebra_core::{
     Violation,
 };
 
+use crate::build::declares_of_kind;
 use crate::check::ctx::{Ctx, Entered, MAX_RECURSION_DEPTH, MAX_WALK_DEPTH, WalkMode};
+use crate::check::index::{Tagged, TaggedPlan};
 use crate::check::memo::{Answer, Room};
 use crate::check::violation::{class_label_in, summarize_in, summarize_value, type_mismatch};
 use crate::codes::{
@@ -51,6 +53,7 @@ use crate::codes::{
     RECURSION_LOOP, UNEXPECTED_MATCH, UNION_ERROR, UNRESOLVED_RECURSION,
 };
 use crate::input::Value;
+use crate::oracle::special_lookup;
 
 mod record;
 mod scalar;
@@ -352,15 +355,16 @@ fn held_dict<'py>(value: &Bound<'py, PyDict>) -> PyResult<Bound<'py, PyDict>> {
     Ok(copy.bind(py).call1((value,))?.cast_into::<PyDict>()?)
 }
 
-/// Whether the value's type carries `name` as the base's own slot. The lookup
-/// runs a metaclass's own attribute hook, so it can raise.
+/// Whether the value's type carries `name` as the base's own slot, found
+/// where `len` and `iter` find it ([`special_lookup`]): a metaclass answering
+/// the name is not what the interpreter calls. Reading the class can raise.
 fn carries(
     value: &Bound<'_, PyAny>,
     name: &Bound<'_, PyString>,
     of_base: &'static Py<PyAny>,
     ctx: Ctx<'_>,
 ) -> bool {
-    match value.get_type().getattr_opt(name) {
+    match special_lookup(&value.get_type(), name) {
         Ok(found) => found.is_some_and(|found| found.is(of_base.bind(value.py()))),
         Err(err) => unread(err, value.py(), ctx),
     }
@@ -750,14 +754,15 @@ fn push_branch_label_within(
         // A class with declared attributes is a meet of an atom and a record, and
         // the branch names the class the user wrote rather than the algebra's
         // spelling of it. Any other meet names what each member admits.
-        Schema::Intersection(members) => {
-            if let Some(class) = schema.object_class() {
+        Schema::Intersection(members) => match schema.object_class() {
+            Some((class, declaration)) if declares_its_kind(class, declaration, ctx, py) => {
                 out.push(class_name(class, schema, ctx, py));
-            } else {
+            }
+            _ => {
                 out.push(meet_label(members, ctx, py, unfolded));
                 out.joined = true;
             }
-        }
+        },
         // A refinement's type is its base, matching `Schema::expected`; the
         // constraints report themselves when one of them is what failed.
         Schema::Refine { base, .. } => push_branch_label_within(base, ctx, py, out, unfolded),
@@ -800,6 +805,25 @@ fn operand_label(schema: &Schema, ctx: Ctx<'_>, py: Python<'_>, unfolded: u32) -
     } else {
         joined
     }
+}
+
+/// Whether the class at `index` declares a member of `declaration`'s kind, which
+/// is what lets a branch label name the meet by the class alone.
+///
+/// The kind and not the member, which `repr` asks of a build of the class: a
+/// label is computed on every refused union, where a build per branch would
+/// cost more than the walk, and a label names a record by its kind, `object`,
+/// so a record of the kind the class declares adds no word the class's name
+/// leaves out. A member of another kind does -- `list` beside a class with no
+/// declaration, a record beside a named tuple -- and the meet names it.
+fn declares_its_kind(index: ClassIx, declaration: &Schema, ctx: Ctx<'_>, py: Python<'_>) -> bool {
+    let Some(Ok(ty)) = class_at(ctx, index, py).map(|class| class.cast::<PyType>()) else {
+        return false;
+    };
+    declares_of_kind(ty, declaration).unwrap_or_else(|err| {
+        record_if_fatal(err, py, ctx);
+        false
+    })
 }
 
 /// The pooled class's own name, falling back to the node's kind when the pool
@@ -859,6 +883,17 @@ fn check_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_, 
     {
         return decided;
     }
+    // A union of records one key tags is read at that key, and the one record
+    // it names is walked ([`TaggedPlan`]): one lookup where the scan makes one
+    // a record. Two tests here, and the reading out of line, since this scan
+    // is inlined into every walk and what it carries costs the walks that
+    // never meet a tagged union.
+    if matches!(members.first(), Some(Schema::KeyedMap { .. }))
+        && !ctx.index.tagged.is_empty()
+        && let Some(admitted) = tagged_member(members, value, frame)
+    {
+        return admitted;
+    }
     // A value is a member iff it matches at least one branch. A scalar branch is
     // its type test, asked without the walk around it, and any other is walked
     // in this frame: the walk here is a fast one, which writes neither of the
@@ -883,6 +918,51 @@ fn check_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_, 
             None if ctx.state.memo.entered() == entered => member(m, value, frame),
             None => member_again(members.as_ptr() as usize, m, value, frame),
         })
+}
+
+/// [`check_union`] read by the union's [`TaggedPlan`], or `None` where it has
+/// none, or it cannot say for this value, or the walk is at its bound: the
+/// scan reads the union then, as it reports the bound.
+#[inline(never)]
+fn tagged_member(
+    members: &[Schema],
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let ctx = frame.ctx;
+    if !ctx.room_to_descend() {
+        return None;
+    }
+    let plan = ctx.index.tagged.get(&(members.as_ptr() as usize))?;
+    Some(match tagged_branch(plan, value, ctx)? {
+        Tagged::Branch(position) => members
+            .get(position)
+            .is_some_and(|record| member(record, value, frame)),
+        Tagged::Nothing => false,
+    })
+}
+
+/// The member of a tagged union `value` may belong to, read off its tag, or
+/// `None` where the plan cannot say and the scan reads the union.
+///
+/// An exact dict alone: its lookup reads the storage, as the record walk does.
+/// A lookup that raises is the scan's, which reads it as the record walk does,
+/// unless what stopped it is a fatal signal, which is recorded and refuses,
+/// since the scan would not see it raised again.
+fn tagged_branch(plan: &TaggedPlan, value: &Value<'_, '_>, ctx: Ctx<'_>) -> Option<Tagged> {
+    let Value::Py(value) = value else {
+        return None;
+    };
+    let dict = value.cast_exact::<PyDict>().ok()?;
+    match dict.get_item(plan.key.bind(value.py())) {
+        Ok(Some(tag)) => plan.branch(&tag),
+        Ok(None) => Some(Tagged::Nothing),
+        Err(err) if is_fatal(&err, value.py()) => {
+            record_fatal(err, ctx);
+            Some(Tagged::Nothing)
+        }
+        Err(_) => None,
+    }
 }
 
 /// [`check_union`] in a walk that explains, or that settles a complement's
@@ -1473,8 +1553,8 @@ fn check_instance(index: ClassIx, value: &Value<'_, '_>, frame: &mut Frame<'_, '
 /// without asking the class anything.
 ///
 /// `CPython`'s `PyObject_IsInstance` makes this test first, before it looks up
-/// an `__instancecheck__` -- "quick test for an exact match", from 3.10 to the
-/// current branch -- so it is the same answer read off the type pointer, and a
+/// an `__instancecheck__` -- "quick test for an exact match", on every
+/// supported release and the current branch -- so it is the same answer read off the type pointer, and a
 /// value of the class a schema names pays neither the call nor the result it
 /// folds. A list of `date`, of one enumeration, of one dataclass is that case
 /// at every element. `PyPy` implements `isinstance` otherwise, so there the

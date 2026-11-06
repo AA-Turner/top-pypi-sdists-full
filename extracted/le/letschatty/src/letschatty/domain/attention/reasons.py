@@ -41,3 +41,8 @@ class ReasonRepository(Protocol):
     async def delete(self, reason_id: StrObjectId) -> Motivo:
         """Marks it deleted (the document stays) and returns it as it was before."""
         ...
+
+    async def has_general_inquiry(self, company_id: StrObjectId, *, max_time_ms: int) -> bool:
+        """Whether the company has a live «Consulta general» (`is_fallback`), by an id-only read from the store now with a
+        time limit (it does not build the model: an unreadable document still counts)."""
+        ...

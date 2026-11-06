@@ -16,43 +16,37 @@ from .skills import AllRegistrySkills, RegistrySkill
 
 
 class Subagent:
-    """A named child agent the parent can start with the ``agents.spawn`` tool.
+    """A child agent that its parent starts with the ``agents.spawn`` tool.
 
-    Every field left as ``None`` is inherited from the agent that spawns this child. A field that
-    is set replaces the inherited value, and an empty list clears it: nothing is merged. A child
-    always runs under the root agent's permission policy and mode, so there is no
-    ``permission_policy`` or ``permission_mode`` field. Narrow a child's tools to make it stricter.
+    A subagent runs in its own session, below its parent's, as the user who started the root
+    session. It uses the parent's value for every field you leave as ``None``. A field you set
+    replaces the parent's value, and an empty list gives the subagent none: nothing is merged.
 
-    ``model``, ``reasoning_effort`` and ``temperature`` change the completion the child inherits,
-    under the same rules as on ``agents.Agent``. ``provider`` or ``completion`` replace it instead,
-    and are exclusive with each other: ``provider`` needs ``model`` too, and ``completion.model``
-    must equal ``model`` when both are set. The parent's ``output_type`` never reaches a
-    child, because a child's result is its final answer.
+    ``model``, ``reasoning_effort`` and ``temperature`` follow the same rules as on
+    ``agents.Agent``. ``provider`` needs ``model`` too. The parent's ``output_type`` never reaches
+    a subagent: its result is its final answer.
 
-    Connectors are inherited too, including ``all_connectors()`` on the root's Harness.
-    ``connectors=[]`` gives the child none, and a list takes the same items as
-    ``Agent(connectors=...)``: ``agents.connector(...)`` slots give the child exactly those, and
-    ``all_connectors(...)`` lets it discover every connector the user who started the root Session
-    can use. Every child Session runs as that user.
+    A subagent always runs under the root agent's permission policy and mode. To make it stricter,
+    give it fewer tools.
 
-    A child may bring tools and Hooks its parent does not have; their functions run on the same
-    worker as the parent's. Tool names are shared by the whole agent tree, so two different
-    functions cannot use one name anywhere in it.
+    A subagent can have tools and hooks that its parent does not have. Their functions run where
+    the parent's run. Tool names are shared by the whole tree, so two different
+    functions cannot have the same name anywhere in it.
 
-    ``builtins`` merges per field instead: each field set in ``agents.Builtins(...)`` replaces the
-    parent's value, and each field left out keeps it, so ``agents.Builtins(skills=False)`` turns off
-    only skills. ``Builtins`` checks its own fields when it is built, so turning off
-    ``programmatic_tool_calling`` also needs ``subagents=False``. Turning off ``skills`` or ``subagents``
-    drops the ones the child inherits; a child that sets its own needs the built-in on once merged,
-    which ``agents.Agent()`` checks. ``sandbox_access`` replaces the
-    parent's sandbox access level in the sandbox the whole tree shares; a tree without a sandbox
-    takes only ``"none"``. The tools and MCP sources a child gets, its own or inherited, are direct
-    when the child has no programmatic tool calling, unless they set ``model_access``.
+    Connectors: ``connectors=[]`` gives the subagent none. A list takes the same items as
+    ``Agent(connectors=...)``: ``agents.connector(...)`` gives it exactly those connectors, and
+    ``agents.all_connectors(...)`` gives it every connector the user can use.
 
-    ``skills`` takes explicit local bundles and Registry references, under the same rules for the
-    tree's sandbox. On a sandbox that holds files, a child's own skills are written into it when the
-    child starts, beside the root's. ``all_registry_skills()`` is a root Harness selection; a child that leaves
-    ``skills`` unset inherits the root's discovered catalog.
+    ``builtins`` is the one field that merges: each field you set in ``agents.Builtins(...)``
+    replaces the parent's value, and each field you leave out keeps it. For example,
+    ``agents.Builtins(skills=False)`` turns off only skills. Turning off ``programmatic_tool_calling``
+    also needs ``subagents=False``. A subagent that sets its own skills or subagents needs that
+    built-in on. ``sandbox_access`` sets the subagent's access to the sandbox the whole tree shares;
+    a tree with no sandbox takes only ``"none"``.
+
+    ``skills`` takes local bundles and registry skills. On a sandbox that holds files, a subagent's
+    own skills are written into it when the subagent starts. ``agents.all_registry_skills()`` is for the
+    root agent only: a subagent that leaves ``skills`` unset uses the root's skills.
 
     To add a tool to the parent's, pass the parent's list and the child's extended list::
 
@@ -69,6 +63,30 @@ class Subagent:
                 )
             ],
         )
+
+    Args:
+        name: The child's name, which the parent passes to ``agents.spawn``.
+        description: What the child does, which the parent reads to choose it.
+        instructions: The child's instructions, added to the agent loop's default system prompt.
+        model: The model. ``None`` inherits the parent's.
+        provider: The built-in completion provider, with ``model``. ``None`` inherits the parent's.
+        completion: A completion configuration, used instead of ``provider``. ``None`` inherits the parent's.
+        reasoning_effort: How much the model reasons. ``None`` inherits the parent's.
+        temperature: The sampling temperature. ``None`` inherits the parent's.
+        max_iterations: The most steps of the agent loop in one turn. ``None`` inherits the parent's.
+        first_output_timeout_seconds: How long one model call waits for its first output. ``None``
+            inherits the parent's.
+        auto_compact_threshold: The number of tokens at which the loop summarizes older turns. ``None``
+            inherits the parent's.
+        tools: The child's tools. ``None`` inherits the parent's; ``[]`` gives it none.
+        hooks: The child's hooks. ``None`` inherits the parent's; ``[]`` gives it none.
+        mcps: The child's MCP servers, by name. ``None`` inherits the parent's; ``{}`` gives it none.
+        connectors: The child's connectors. ``None`` inherits the parent's; ``[]`` gives it none.
+        skills: The child's skills. ``None`` inherits the parent's; ``[]`` gives it none.
+        subagents: The child's own subagents. ``None`` inherits the parent's; ``[]`` gives it none.
+        builtins: The built-in features to change: each field set replaces the parent's. ``None``
+            inherits them all.
+        sandbox_access: The child's access to the tree's sandbox. ``None`` inherits the parent's.
     """
 
     __slots__ = (

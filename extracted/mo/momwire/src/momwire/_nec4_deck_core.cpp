@@ -1015,6 +1015,9 @@ const char *const kExecuteCards[] = {"XQ", "RP", "NE", "NH"};
 const char *const kArmingCards[] = {"EX", "FR", "LD", "GN", "EK", "TL", "NT"};
 const char *const kOperatorCards[] = {"GN", "EK", "LD"};
 const char *const kNetworkTransparent[] = {"PT", "PQ", "MP"};
+// `_LD_RUN_TRANSPARENT` (momwire#1812): the cards an LD run survives; the nec4
+// dialect adds EK
+const char *const kLdRunTransparent[] = {"PT", "PQ", "MP", "CM", "CE"};
 
 template <std::size_t N>
 bool in(const std::string &m, const char *const (&set)[N]) {
@@ -1145,16 +1148,20 @@ class Parser {
                 // `wire_geometry_refusal` after the card); a deck that survives
                 // them still declines after the build (`structure`). Any
                 // other card's is Python's to read (an LD 5 NaN conductivity
-                // is served).
+                // is served). Its decline waits for the end of the cards, so
+                // a later card's refusal (an EX 4) is Python's, in its words
+                // and its order; the card itself is read as Python reads it
+                // (`Card.i` refuses a NaN integer field in Python's words).
                 const bool geometry =
                     in(card.mnemonic, kGeometryCards) || card.mnemonic == "CW";
                 if (!finite && geometry)
                     nonfinite_geometry_ = true;
-                else if (!finite)
-                    decline("a non-finite field on a " + card.mnemonic + " card");
+                else if (!finite && nonfinite_card_.empty())
+                    nonfinite_card_ = card.mnemonic;
             }
             this->card(card);
         }
+        if (!nonfinite_card_.empty()) decline("a non-finite field on a " + nonfinite_card_ + " card");
         structure();
     }
 
@@ -1170,6 +1177,7 @@ class Parser {
     std::vector<Card> geometry_cards_;
     bool structure_built_ = false;
     bool nonfinite_geometry_ = false;  // a geometry card carried a NaN or infinity
+    std::string nonfinite_card_;       // the first other card that carried one
     Structure structure_;
 
     std::vector<bool> ran_;
@@ -1201,6 +1209,7 @@ class Parser {
     std::vector<ll> live_;
     std::set<Pair> loaded_;
     std::map<Pair, LoadSpec> load_spec_at_;
+    bool ld_run_open_ = false;  // `_ld_run_open` (momwire#1812)
     MaterialState materials_;
     std::map<ll, std::pair<double, double>> wire_insulation_;  // (radius, eps_r)
 
@@ -1443,6 +1452,14 @@ class Parser {
         return true;
     }
 
+    // `_discard_loads`: LD -1, and the first LD of a new run (momwire#1812)
+    void discard_loads() {
+        live_.clear();
+        loaded_.clear();
+        load_spec_at_.clear();
+        materials_ = MaterialState();
+    }
+
     void ld(const Card &card) {
         if (dialect_ == Dialect::nec4) {
             Int t = card.i(0);
@@ -1454,10 +1471,7 @@ class Parser {
         }
         Int ldtyp_i = card.i(0);
         if (ldtyp_i == Int(-1)) {
-            live_.clear();
-            loaded_.clear();
-            load_spec_at_.clear();
-            materials_ = MaterialState();
+            discard_loads();
             return;
         }
         bool known = false;
@@ -1481,15 +1495,21 @@ class Parser {
                        " segments expand into per-segment loads");
         LoadSpec spec;
         if (!load_spec(ldtyp, card, spec)) return;
+        std::set<Pair> this_card;
         for (const Pair &p : cell_rule(pairs, &spec)) {
             const Structure &s2 = structure();
             Pair key = s2.element_of(p.first, p.second);
-            if (loaded_.count(key))
+            if (!this_card.insert(key).second)
                 deck_error(
                     "LD on a segment that already carries a load is not supported by this engine — a "
                     "second load on one segment is not merged");
-            loaded_.insert(key);
-            load_spec_at_[key] = spec;
+            if (loaded_.count(key)) {
+                // stacked in one run of LD cards: both stay in force
+                load_spec_at_.erase(key);
+            } else {
+                loaded_.insert(key);
+                load_spec_at_[key] = spec;
+            }
             std::pair<ll, double> ra = s2.resolve_of(p.first, p.second);
             LogEntry entry{key.first, ra.second, spec};
             ll index = -1;
@@ -1780,6 +1800,14 @@ class Parser {
 
     void card(const Card &card) {
         const std::string &m = card.mnemonic;
+        // `_ld_run_open` (momwire#1812): the first LD of a new run discards
+        // every earlier load; any card but the transparent ones ends a run
+        if (m == "LD") {
+            if (!ld_run_open_) discard_loads();
+            ld_run_open_ = true;
+        } else if (!in(m, kLdRunTransparent) && !(m == "EK" && dialect_ == Dialect::nec4)) {
+            ld_run_open_ = false;
+        }
         if (m == "CM" || m == "CE") {
             std::string text = card.text();
             comments_.push_back(nec5::latin1_to_utf8(text));

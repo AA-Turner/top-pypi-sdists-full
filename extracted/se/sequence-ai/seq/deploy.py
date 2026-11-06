@@ -36,7 +36,6 @@ from seq.registry import (
     infer_params,
     registration,
     models_declared,
-    region_declared,
     resources_declared,
 )
 from seq.weights import DEFAULT_WEIGHTS_MOUNT, weights_volume_mount
@@ -96,9 +95,7 @@ def deployment_request(
                        if spec.extra_weights else None),
 
         resources=Resources(gpu=[spec.gpu], cpu=cpu, cpu_limit=declared["cpu_limit"], memory_gb=memory_gb,
-                            memory_limit_gb=declared["memory_limit_gb"],
-
-                            region=region_declared(cls)),
+                            memory_limit_gb=declared["memory_limit_gb"]),
         policy=DeploymentPolicy(
             handler_ref=reg.handler_ref,
 

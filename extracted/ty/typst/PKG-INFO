@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: typst
-Version: 0.15.0
+Version: 0.15.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 License-File: LICENSE
 Summary: Python binding to Typst, a new markup-based typesetting system that is powerful and easy to learn.
 License-Expression: Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://github.com/messense/typst-py/blob/main/README.md
 Project-URL: Homepage, https://github.com/messense/typst-py/
@@ -24,6 +24,8 @@ Python binding to [typst](https://github.com/typst/typst),
 a new markup-based typesetting system that is powerful and easy to learn.
 
 ## Installation
+
+Requires Python 3.9 or newer.
 
 ```bash
 pip install typst
@@ -63,6 +65,10 @@ svg_bytes = typst.compile("hello.typ", format="svg", pretty=True)
 # Multiple compatible PDF standards can be requested at once.
 pdf_bytes = typst.compile("hello.typ", pdf_standards=["a-2a", "ua-1"])
 
+# Skip PDF accessibility tags for smaller files, like the CLI's --no-pdf-tags.
+# Tags cannot be disabled for PDF/A-1a, PDF/A-2a, PDF/A-3a, and PDF/UA-1.
+pdf_bytes = typst.compile("hello.typ", pdf_tags=False)
+
 # For multi-page export (the template is the same as the typst cli)
 images = typst.compile("hello.typ", output="hello{n}.png", format="png")
 
@@ -78,6 +84,21 @@ values = json.loads(typst.query("hello.typ", "<note>", field="value", one=True))
 # Or use Typst's newer eval-style query expression
 values = json.loads(typst.eval("hello.typ", "query(<note>).first().value"))
 ```
+
+## Watch mode
+
+`Compiler.watch` recompiles whenever the input or any file it depends
+on (imports, images, data files) changes, like `typst watch`. Keep the output open in a
+viewer next to your editor:
+
+```python
+import typst
+
+# Blocks until Ctrl-C. Compilation errors are printed and do not stop watching.
+typst.Compiler("hello.typ").watch("hello.pdf")
+```
+
+It accepts the same output options as `Compiler.compile`.
 
 ## Multi-file projects
 

@@ -2,6 +2,7 @@ use super::*;
 use crate::SpecStore;
 use crate::networking::{HttpMethod, NetworkProvider, Response};
 use crate::sdk_event_emitter::SdkEventEmitter;
+use futures::FutureExt;
 use parking_lot::Mutex;
 use serde_json::{Value, json};
 use tokio::sync::Semaphore;
@@ -86,6 +87,7 @@ fn manifest_entry(name: &str, size: u64) -> Value {
 
 fn setup(
     lazy_load_id_lists: Option<bool>,
+    private_elias_fano: bool,
 ) -> (
     Arc<Provider>,
     Arc<StatsigHttpIdListsAdapter>,
@@ -109,6 +111,7 @@ fn setup(
     let options = StatsigOptions {
         id_lists_url: Some(MANIFEST_URL.into()),
         lazy_load_id_lists,
+        enable_id_list_elias_fano: Some(private_elias_fano),
         ..StatsigOptions::default()
     };
     let mut adapter = StatsigHttpIdListsAdapter::new("secret-lazy-list-test", &options);
@@ -129,7 +132,7 @@ fn setup(
 
 #[tokio::test]
 async fn initialization_remains_eager_by_default() {
-    let (provider, adapter, store) = setup(None);
+    let (provider, adapter, store) = setup(None, false);
 
     adapter.sync_id_lists().await.unwrap();
 
@@ -141,7 +144,7 @@ async fn initialization_remains_eager_by_default() {
 
 #[tokio::test]
 async fn lazy_initialization_downloads_no_list_bodies() {
-    let (provider, adapter, store) = setup(Some(true));
+    let (provider, adapter, store) = setup(Some(true), false);
 
     adapter.sync_id_lists().await.unwrap();
 
@@ -153,7 +156,7 @@ async fn lazy_initialization_downloads_no_list_bodies() {
 
 #[tokio::test]
 async fn on_demand_load_uses_latest_polled_manifest_and_stays_refreshed() {
-    let (provider, adapter, store) = setup(Some(true));
+    let (provider, adapter, store) = setup(Some(true), false);
     adapter.sync_id_lists().await.unwrap();
 
     provider.manifest.lock()["lazy"] = manifest_entry("lazy", 6);
@@ -189,7 +192,7 @@ async fn on_demand_load_uses_latest_polled_manifest_and_stays_refreshed() {
 
 #[tokio::test]
 async fn concurrent_on_demand_loads_share_one_download() {
-    let (provider, adapter, _) = setup(Some(true));
+    let (provider, adapter, _) = setup(Some(true), false);
     adapter.sync_id_lists().await.unwrap();
     let gate = Arc::new(Semaphore::new(0));
     *provider.file_gate.lock() = Some(gate.clone());
@@ -219,7 +222,13 @@ async fn concurrent_on_demand_loads_share_one_download() {
 
 #[tokio::test]
 async fn concurrent_distinct_on_demand_loads_are_globally_bounded() {
-    let (provider, adapter, _) = setup(Some(true));
+    for private_elias_fano in [false, true] {
+        check_distinct_download_limit(private_elias_fano).await;
+    }
+}
+
+async fn check_distinct_download_limit(private_elias_fano: bool) {
+    let (provider, adapter, store) = setup(Some(true), private_elias_fano);
     for index in 0..8 {
         let name = format!("lazy-{index}");
         provider.manifest.lock()[name.as_str()] = manifest_entry(&name, 3);
@@ -232,42 +241,29 @@ async fn concurrent_distinct_on_demand_loads_are_globally_bounded() {
 
     let gate = Arc::new(Semaphore::new(0));
     *provider.file_gate.lock() = Some(gate.clone());
-    let mut tasks = Vec::new();
-    for index in 0..8 {
-        let adapter = adapter.clone();
-        tasks.push(tokio::spawn(async move {
-            adapter.process_id_list(&format!("lazy-{index}")).await
-        }));
-    }
-
-    tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            let attempts = (0..8)
-                .map(|index| provider.file_attempts(&format!("lazy-{index}")))
-                .sum::<usize>();
-            if attempts == ID_LIST_DOWNLOAD_CONCURRENCY {
-                break;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    tokio::time::sleep(Duration::from_millis(25)).await;
-    let attempts = (0..8)
-        .map(|index| provider.file_attempts(&format!("lazy-{index}")))
-        .sum::<usize>();
-    assert_eq!(attempts, ID_LIST_DOWNLOAD_CONCURRENCY);
+    let loads = (0..8).map(|index| {
+        let adapter = &adapter;
+        async move { adapter.process_id_list(&format!("lazy-{index}")).await }
+    });
+    // Poll every caller while the provider holds all body requests open.
+    let mut loads = std::pin::pin!(futures::future::try_join_all(loads));
+    assert!(futures::poll!(&mut loads).is_pending());
+    let active = provider
+        .requests
+        .lock()
+        .iter()
+        .filter(|r| r.url != MANIFEST_URL)
+        .count();
+    assert_eq!(active, ID_LIST_DOWNLOAD_CONCURRENCY);
 
     gate.add_permits(8);
-    for task in tasks {
-        task.await.unwrap().unwrap();
-    }
+    loads.await.unwrap();
+    assert_eq!(store.load_data().id_lists.len(), 8);
 }
 
 #[tokio::test]
 async fn stalled_manifest_poll_does_not_block_unrelated_cold_load() {
-    let (provider, adapter, store) = setup(Some(true));
+    let (provider, adapter, store) = setup(Some(true), false);
     adapter.sync_id_lists().await.unwrap();
 
     let manifest_gate = Arc::new(Semaphore::new(0));
@@ -296,7 +292,7 @@ async fn stalled_manifest_poll_does_not_block_unrelated_cold_load() {
 
 #[tokio::test]
 async fn cold_load_finishes_on_the_replacement_listener() {
-    let (provider, adapter, old_store) = setup(Some(true));
+    let (provider, adapter, old_store) = setup(Some(true), true);
     adapter.sync_id_lists().await.unwrap();
     let gate = Arc::new(Semaphore::new(0));
     *provider.file_gate.lock() = Some(gate.clone());
@@ -312,7 +308,7 @@ async fn cold_load_finishes_on_the_replacement_listener() {
     .await
     .unwrap();
 
-    let (_, _, replacement) = setup(Some(true));
+    let (_, _, replacement) = setup(Some(true), false);
     adapter
         .clone()
         .start(&StatsigRuntime::get_runtime(), replacement.clone())
@@ -322,4 +318,127 @@ async fn cold_load_finishes_on_the_replacement_listener() {
     load.await.unwrap().unwrap();
     assert!(!old_store.load_data().id_lists.contains_key("lazy"));
     assert_eq!(replacement.get_current_id_list_metadata()["lazy"].size, 3);
+}
+
+#[tokio::test]
+async fn polling_a_warm_list_preserves_a_new_cold_lists_partial_cursor() {
+    let (provider, adapter, store) = setup(Some(true), true);
+    provider.manifest.lock()["lazy"] = manifest_entry("lazy", 9);
+    adapter.sync_id_lists().await.unwrap();
+    adapter.process_id_list("selected").await.unwrap();
+
+    // Pause the poll's append. The cold list was absent when this poll selected its jobs.
+    provider.manifest.lock()["selected"] = manifest_entry("selected", 6);
+    provider
+        .bodies
+        .lock()
+        .insert(file_url("selected"), "+a\n+b\n".into());
+    let gate = Arc::new(Semaphore::new(0));
+    *provider.file_gate.lock() = Some(gate.clone());
+    let mut poll = adapter.sync_id_lists().boxed_local();
+    assert!(futures::poll!(&mut poll).is_pending());
+    assert_eq!(provider.file_attempts("selected"), 2);
+    *provider.file_gate.lock() = None;
+    adapter.process_id_list("lazy").await.unwrap();
+    gate.add_permits(1);
+    poll.await.unwrap();
+
+    let installed = store.get_current_id_list_metadata();
+    assert_eq!(installed.get("lazy").map(|entry| entry.size), Some(3));
+    provider
+        .bodies
+        .lock()
+        .insert(file_url("lazy"), "+a\n+b\n+c\n".into());
+    adapter.sync_id_lists().await.unwrap();
+    let requests = provider.requests.lock();
+    let ranges: Vec<_> = requests
+        .iter()
+        .filter(|r| r.url == file_url("lazy"))
+        .map(|r| r.headers.as_ref().unwrap()["Range"].as_str())
+        .collect();
+    assert_eq!(ranges, ["bytes=0-", "bytes=3-"]);
+    assert!(store.load_data().id_lists["lazy"].ids.contains("c"));
+}
+
+#[tokio::test]
+async fn overlapping_lazy_poll_and_materialization_resume_from_the_committed_cursor() {
+    for poll_first in [true, false] {
+        let (provider, adapter, store) = setup(Some(true), true);
+        provider.manifest.lock()["lazy"] = manifest_entry("lazy", 9);
+        adapter.sync_id_lists().await.unwrap();
+        adapter.process_id_list("lazy").await.unwrap();
+
+        // The body is behind the manifest. Both requests start at byte three.
+        let gate = Arc::new(Semaphore::new(0));
+        *provider.file_gate.lock() = Some(gate.clone());
+        provider
+            .bodies
+            .lock()
+            .insert(file_url("lazy"), "+a\n+b\n".into());
+        let mut poll = adapter.sync_id_lists().boxed_local();
+        let mut load = adapter.process_id_list("lazy").boxed_local();
+        assert!(futures::poll!(&mut poll).is_pending());
+        assert!(futures::poll!(&mut load).is_pending());
+        assert_eq!(provider.file_attempts("lazy"), 3);
+
+        // Wake both requests, but only poll the first caller to completion.
+        gate.add_permits(2);
+        let (first, second) = if poll_first {
+            (poll, load)
+        } else {
+            (load, poll)
+        };
+        first.await.unwrap();
+        assert_eq!(store.get_current_id_list_metadata()["lazy"].size, 6);
+        provider
+            .bodies
+            .lock()
+            .insert(file_url("lazy"), "+a\n+b\n+c\n".into());
+        gate.add_permits(1);
+        second.await.unwrap();
+
+        let requests = provider.requests.lock();
+        let ranges: Vec<_> = requests
+            .iter()
+            .filter(|r| r.url == file_url("lazy"))
+            .map(|r| r.headers.as_ref().unwrap()["Range"].as_str())
+            .collect();
+        assert_eq!(ranges, ["bytes=0-", "bytes=3-", "bytes=3-", "bytes=6-"]);
+        let snapshot = store.load_data();
+        assert_eq!(snapshot.id_lists["lazy"].metadata.size, 9);
+        assert!(snapshot.id_lists["lazy"].ids.contains("c"));
+    }
+}
+
+#[test]
+fn cancelled_lazy_caller_drains_its_worker_before_same_name_retry() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .max_blocking_threads(1)
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let (provider, adapter, store) = setup(Some(true), true);
+        adapter.sync_id_lists().await.unwrap();
+
+        // Occupy the publication worker so the first caller can be dropped after
+        // submitting its callback but before the callback installs the list.
+        let (release, wait) = std::sync::mpsc::channel();
+        let blocker =
+            tokio::task::spawn_blocking(move || wait.recv_timeout(Duration::from_secs(5)).unwrap());
+        {
+            let mut first = Box::pin(adapter.process_id_list("lazy"));
+            assert!(futures::poll!(&mut first).is_pending());
+            assert_eq!(provider.file_attempts("lazy"), 1);
+        }
+        let mut retry = Box::pin(adapter.process_id_list("lazy"));
+        assert!(futures::poll!(&mut retry).is_pending());
+        assert_eq!(provider.file_attempts("lazy"), 1);
+        release.send(()).unwrap();
+        blocker.await.unwrap();
+        retry.await.unwrap();
+
+        assert_eq!(provider.file_attempts("lazy"), 1);
+        assert_eq!(store.get_current_id_list_metadata()["lazy"].size, 3);
+    });
 }

@@ -15,7 +15,10 @@ use crate::ir::{Attribute, DefIx, Field, MapClause, PredIx, SeqShape};
 ///
 /// `A ∩ ¬A = ∅` is declined for an atom that is not a set, and a predicate
 /// nested inside a container makes the whole container one -- so each way a
-/// schema holds another is a way the search must descend.
+/// schema holds another is a way the search must descend. The union's other
+/// branch is `str`: beside `int`, the union holds every integer whatever the
+/// predicate answers, and the kinds a meet may hold read it empty against its
+/// complement, where the law is not what decides.
 #[test]
 fn a_callback_is_found_through_every_container() {
     let predicate = Schema::Refine {
@@ -36,7 +39,7 @@ fn a_callback_is_found_through_every_container() {
         Schema::set(predicate.clone()),
         Schema::frozen_set(predicate.clone()),
         Schema::Complement(Arc::new(predicate.clone())),
-        Schema::union([predicate.clone(), Schema::Int]),
+        Schema::union([predicate.clone(), Schema::Str]),
         Schema::list(SeqShape::fixed([predicate.clone()])),
         Schema::list(SeqShape::homogeneous(predicate.clone())),
         Schema::KeyedMap {
@@ -269,6 +272,14 @@ fn the_default_oracle_declines_every_question() {
         oracle.literals_disjoint(ConstIx::new(0), ConstIx::new(1)),
         None
     );
+    assert_eq!(
+        oracle.literals_counted_apart(&[ConstIx::new(0), ConstIx::new(1)]),
+        None
+    );
+    assert_eq!(
+        oracle.literals_paired(&[ConstIx::new(0)], &[ConstIx::new(1)]),
+        None
+    );
     assert_eq!(oracle.literal_kind(ConstIx::new(0)), None);
     assert_eq!(oracle.operand_kind(one), None);
     assert_eq!(oracle.class_admits_kind(ClassIx::new(0), Kind::Int), None);
@@ -278,6 +289,8 @@ fn the_default_oracle_declines_every_question() {
     );
     assert_eq!(oracle.kind_derives_from(Kind::Int, ClassIx::new(0)), None);
     assert!(!oracle.constant_is_alone(ConstIx::new(0)));
+    assert!(!oracle.equal_values_read_alike(ConstIx::new(0)));
+    assert_eq!(oracle.strings_admitted(&Schema::Str, &["a"]), None);
 }
 
 /// The default answers what an attribute of a direct instance can be from the

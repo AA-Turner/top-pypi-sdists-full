@@ -31,6 +31,7 @@ _RY_TYPES: list[type] = [
     ry.Globster,
     ry.Headers,
     ry.HttpStatus,
+    ry.JSON,
     ry.ISOWeekDate,
     ry.Identity,
     ry.Instant,
@@ -87,16 +88,11 @@ _RY_TYPES: list[type] = [
     ry.sha3_512,
     ry.sha512,
     ry.sha512_256,
-    # submodules
-    ry.xxhash.xxh3_64,
-    ry.xxhash.xxh3_128,
-    ry.xxhash.xxh32,
-    ry.xxhash.xxh64,
+    ry.xxh3_64,
+    ry.xxh3_128,
+    ry.xxh32,
+    ry.xxh64,
 ]
-
-_SUBCLASSING_OK: set[type] = {
-    ry.Bytes,
-}
 
 
 def is_exception_subclass(cls: type) -> bool:
@@ -121,10 +117,7 @@ def test_no_missing_types_from_ry_init(subtests: pytest.Subtests) -> None:
 
 @pytest.mark.parametrize(
     "cls",
-    [
-        pytest.param(cls, id=cls.__name__)
-        for cls in filter(lambda c: c not in _SUBCLASSING_OK, _RY_TYPES)
-    ],
+    [pytest.param(cls, id=cls.__name__) for cls in _RY_TYPES],
 )
 def test_subclassing_fails(cls: t.Any) -> None:
     """

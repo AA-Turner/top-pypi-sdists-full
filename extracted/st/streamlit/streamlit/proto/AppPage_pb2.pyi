@@ -49,6 +49,7 @@ class AppPage(_message.Message):
     URL_PATHNAME_FIELD_NUMBER: _builtins.int
     IS_HIDDEN_FIELD_NUMBER: _builtins.int
     EXTERNAL_URL_FIELD_NUMBER: _builtins.int
+    HELP_FIELD_NUMBER: _builtins.int
     page_script_hash: _builtins.str
     page_name: _builtins.str
     icon: _builtins.str
@@ -62,6 +63,11 @@ class AppPage(_message.Message):
     """If set, this page links to an external URL that opens in a new browser tab
     instead of navigating within the app. Only set by the navigation payload.
     """
+    help: _builtins.str
+    """Markdown from `st.Page(help=...)` that says what the page is. The nav shows
+    it as the item's tooltip and accessible description, and the agent
+    snapshot reports it. Empty when unset.
+    """
     def __init__(
         self,
         *,
@@ -73,10 +79,11 @@ class AppPage(_message.Message):
         url_pathname: _builtins.str = ...,
         is_hidden: _builtins.bool = ...,
         external_url: _builtins.str | None = ...,
+        help: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_external_url", b"_external_url", "external_url", b"external_url"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_external_url", b"_external_url", "external_url", b"external_url", "icon", b"icon", "is_default", b"is_default", "is_hidden", b"is_hidden", "page_name", b"page_name", "page_script_hash", b"page_script_hash", "section_header", b"section_header", "url_pathname", b"url_pathname"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_external_url", b"_external_url", "external_url", b"external_url", "help", b"help", "icon", b"icon", "is_default", b"is_default", "is_hidden", b"is_hidden", "page_name", b"page_name", "page_script_hash", b"page_script_hash", "section_header", b"section_header", "url_pathname", b"url_pathname"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__external_url: _TypeAlias = _typing.Literal["external_url"]  # noqa: Y015
     _WhichOneofArgType__external_url: _TypeAlias = _typing.Literal["_external_url", b"_external_url"]  # noqa: Y015

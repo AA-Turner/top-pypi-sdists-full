@@ -240,14 +240,14 @@ def _find_mutable_trail(raw: str):
         except ValueError as exc:
             return None, None, None, _err("CloudTrailARNInvalidException", str(exc))
         if spec.account_id != get_account_id():
-            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 404)
+            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 400)
         trail = _trails.get_scoped(spec.account_id, spec.region, name)
         if trail is None or trail.get("TrailARN") != str(spec):
-            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 404)
+            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 400)
         if spec.region != get_region():
             if trail.get("IsMultiRegionTrail", False):
                 return name, spec.region, trail, _invalid_home_region_error(name, spec.region)
-            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 404)
+            return name, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 400)
         return name, spec.region, trail, None
 
     trail = _trails.get(raw)
@@ -257,7 +257,7 @@ def _find_mutable_trail(raw: str):
     home_region, trail = _find_any_account_trail(raw)
     if trail is not None and trail.get("IsMultiRegionTrail", False):
         return raw, home_region, trail, _invalid_home_region_error(raw, home_region)
-    return raw, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 404)
+    return raw, None, None, _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 400)
 
 
 def _parse_trail_arn(arn: str):
@@ -412,10 +412,18 @@ def _lookup_events(body: dict):
         if "EventSource" in attrs and ev.get("EventSource", "") != attrs["EventSource"]:
             continue
         filtered.append(ev)
-        if len(filtered) >= max_results:
-            break
 
-    return _ok({"Events": filtered})
+    start = 0
+    token = body.get("NextToken")
+    if token:
+        ids = [ev["EventId"] for ev in filtered]
+        if token not in ids:
+            return _err("InvalidNextTokenException", "Invalid NextToken.")
+        start = ids.index(token)
+    out = {"Events": filtered[start:start + max_results]}
+    if start + max_results < len(filtered):
+        out["NextToken"] = filtered[start + max_results]["EventId"]
+    return _ok(out)
 
 
 def _is_non_aws_trail_arn_partition(raw: str) -> bool:
@@ -468,6 +476,9 @@ def _create_trail(body: dict):
         "RecursiveLogging": body.get("RecursiveLogging", True),
         "IsLogging": False,
     }
+    for key in ("CloudWatchLogsLogGroupArn", "CloudWatchLogsRoleArn"):
+        if body.get(key):
+            trail[key] = body[key]
     # CreateTrail must persist KmsKeyId so DescribeTrails/GetTrail echo it; otherwise a
     # CMK set at create is dropped and Terraform's aws_cloudtrail needs a second apply to
     # converge (only UpdateTrail stored it). Stored normalized to a key ARN, and only when
@@ -487,6 +498,9 @@ def _create_trail(body: dict):
         "IsOrganizationTrail": trail["IsOrganizationTrail"],
         "RecursiveLogging": trail["RecursiveLogging"],
     }
+    for key in ("CloudWatchLogsLogGroupArn", "CloudWatchLogsRoleArn"):
+        if trail.get(key):
+            resp[key] = trail[key]
     if kms:
         resp["KmsKeyId"] = kms
     return _ok(resp)
@@ -520,7 +534,7 @@ def _get_trail(body: dict):
     except ValueError as exc:
         return _err("CloudTrailARNInvalidException", str(exc))
     if trail is None:
-        return _err("TrailNotFoundException", f"Unknown trail: {name!r}", 404)
+        return _err("TrailNotFoundException", f"Unknown trail: {name!r}", 400)
     return _ok({"Trail": _trail_view(trail)})
 
 
@@ -562,7 +576,7 @@ def _get_trail_status(body: dict):
     except ValueError as exc:
         return _err("CloudTrailARNInvalidException", str(exc))
     if trail is None:
-        return _err("TrailNotFoundException", f"Unknown trail: {name!r}", 404)
+        return _err("TrailNotFoundException", f"Unknown trail: {name!r}", 400)
     status = {
         "IsLogging": bool(trail.get("IsLogging", True)),
         "StartLoggingTime": trail.get("_StartedAt"),
@@ -726,7 +740,7 @@ def _get_event_selectors(body: dict):
     except ValueError as exc:
         return _err("CloudTrailARNInvalidException", str(exc))
     if trail is None:
-        return _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 404)
+        return _err("TrailNotFoundException", f"Unknown trail: {raw!r}", 400)
     selectors = _event_selectors.get_scoped(get_account_id(), home_region, name, _DEFAULT_EVENT_SELECTORS)
     return _ok(
         {

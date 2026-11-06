@@ -22,7 +22,8 @@ enum class KKTSolver
     sparse_ldlt_eq_cond,
     sparse_ldlt_ineq_cond,
     sparse_ldlt_cond,
-    sparse_multistage
+    sparse_multistage,
+    sparse_multistage_parallel
 };
 
 constexpr const char* kkt_solver_to_string(KKTSolver kkt_solver)
@@ -35,6 +36,7 @@ constexpr const char* kkt_solver_to_string(KKTSolver kkt_solver)
         case KKTSolver::sparse_ldlt_ineq_cond: return "sparse_ldlt_ineq_cond";
         case KKTSolver::sparse_ldlt_cond: return "sparse_ldlt_cond";
         case KKTSolver::sparse_multistage: return "sparse_multistage";
+        case KKTSolver::sparse_multistage_parallel: return "sparse_multistage_parallel";
         default: return "unknown";
     }
 }
@@ -53,6 +55,8 @@ struct Settings
     T eps_duality_gap_rel = 1e-9;
 
     T infeasibility_threshold = 0.9;
+    T eps_primal_inf = 1e-4;
+    T eps_dual_inf = 1e-4;
 
     T reg_lower_limit = 1e-10;
     T reg_finetune_lower_limit = 1e-13;
@@ -69,6 +73,8 @@ struct Settings
     T tau = 0.99;
 
     KKTSolver kkt_solver = KKTSolver::dense_cholesky;
+
+    isize num_threads = 0;
 
     bool iterative_refinement_always_enabled = false;
     T iterative_refinement_eps_abs = 1e-12;
@@ -90,6 +96,8 @@ struct Settings
                eps_duality_gap_abs > 0 &&
                eps_duality_gap_rel >= 0 &&
                infeasibility_threshold >= 0 &&
+               eps_primal_inf > 0 &&
+               eps_dual_inf > 0 &&
                reg_lower_limit > 0 &&
                reg_finetune_primal_update_threshold >= 0 &&
                reg_finetune_dual_update_threshold >= 0 &&
@@ -97,6 +105,7 @@ struct Settings
                max_factor_retires > 0 &&
                preconditioner_iter >= 0 &&
                tau > 0 && tau <= 1 &&
+               num_threads >= 0 &&
                iterative_refinement_eps_abs > 0 &&
                iterative_refinement_eps_rel >= 0 &&
                iterative_refinement_max_iter >= 0 &&

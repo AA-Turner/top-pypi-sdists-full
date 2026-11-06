@@ -6,8 +6,6 @@ fresh bar. Call an existing `ProgressBar` instance the same way --
 prefix and want to reuse it as a wrapper.
 """
 
-from __future__ import annotations
-
 import time
 
 import progressbar
@@ -16,7 +14,7 @@ STEPS = 24
 
 
 def main() -> None:
-    for _ in progressbar.progressbar(range(STEPS)):
+    for _ in progressbar.progressbar(range(STEPS), fast=False):
         time.sleep(0.005)
 
     bar = progressbar.ProgressBar(prefix='Second pass: ')

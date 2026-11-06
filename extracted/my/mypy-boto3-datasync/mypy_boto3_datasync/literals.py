@@ -83,7 +83,7 @@ __all__ = (
 AgentStatusType = Literal["OFFLINE", "ONLINE"]
 AtimeType = Literal["BEST_EFFORT", "NONE"]
 AzureAccessTierType = Literal["ARCHIVE", "COOL", "HOT"]
-AzureBlobAuthenticationTypeType = Literal["NONE", "SAS"]
+AzureBlobAuthenticationTypeType = Literal["NONE", "OIDC", "SAS"]
 AzureBlobTypeType = Literal["BLOCK"]
 EfsInTransitEncryptionType = Literal["NONE", "TLS1_2"]
 EndpointTypeType = Literal["FIPS", "FIPS_PRIVATE_LINK", "PRIVATE_LINK", "PUBLIC"]
@@ -163,6 +163,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -267,6 +268,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -318,8 +320,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -573,7 +573,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

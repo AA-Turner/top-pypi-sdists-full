@@ -1,28 +1,41 @@
 Metadata-Version: 2.4
 Name: volue_insight_timeseries
-Version: 2.3.1
-Summary: Volue Insight API python library
-Home-page: https://www.volueinsight.com
-Author: Volue Insight
-Author-email: support.insight@volue.com
-Project-URL: Homepage, https://volueinsight.com/
+Version: 3.0.0
+Summary: Volue Data & Forecasts API python library
+Home-page: https://www.volue.com/data-and-forecasts
+Author: Volue Data & Forecasts
+Author-email: df.support@volue.com
+License: MIT
+Project-URL: Homepage, https://www.volue.com/data-and-forecasts
 Project-URL: Documentation, https://docs.volue.com/data-and-forecasts/volue-insight-timeseries/
 Project-URL: Source, https://github.com/Volue-Public/volue-insight-timeseries
 Project-URL: Issues, https://github.com/Volue-Public/volue-insight-timeseries/issues
-Requires-Python: >=3.10, <3.15
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: requests>=2.18
+Requires-Dist: urllib3>=1.26
 Requires-Dist: sseclient-py>=1.7
-Requires-Dist: pandas>=1.5.0; python_version >= "3.10" and python_version < "3.13"
-Requires-Dist: pandas>=2.2.3; python_version ~= "3.13"
-Requires-Dist: pandas>=2.3.3; python_version ~= "3.14"
+Requires-Dist: python-dateutil
+Provides-Extra: pandas
+Requires-Dist: pandas>=1.5.0; extra == "pandas"
 Dynamic: author
 Dynamic: author-email
+Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
+Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-This library is meant as a simple toolkit for working with data from https://api.volueinsight.com/ (or equivalent services).  Note that access is based on some sort of login credentials, this library is not all that useful unless you have a valid Volue Insight account.
+Python library for the Volue Data & Forecasts Timeseries API. You need a Volue Data & Forecasts account. Documentation: https://docs.volue.com/data-and-forecasts/volue-insight-timeseries/

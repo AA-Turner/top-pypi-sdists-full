@@ -285,9 +285,10 @@ async fn partial_eager_refresh_removes_by_name_and_recovers_only_missing_bytes()
         observability::ops_stats::OpsStatsEvent, sdk_event_emitter::SdkEventEmitter,
         spec_store::SpecStore,
     };
-    for compact in [false, true] {
+    for (compact, concurrency) in [(false, None), (true, None), (false, Some(2))] {
         let options = StatsigOptions {
             enable_id_list_elias_fano: Some(compact),
+            id_list_init_build_concurrency: concurrency,
             experimental_flags: Some(["partial_id_list_refresh".to_string()].into()),
             ..Default::default()
         };
@@ -822,9 +823,18 @@ async fn serialized_starts_cannot_replace_another_refresh_listener() {
 #[serial]
 async fn cancelled_downloads_close_diagnostics_and_shutdown_rejects_queued_work() {
     use crate::observability::ops_stats::OpsStatsEvent;
-    for url in ["https://manifest.test/lists", "https://files.test/a"] {
+    for (url, disabled) in ["https://manifest.test/lists", "https://files.test/a"]
+        .into_iter()
+        .flat_map(|url| [Some(true), Some(false), None].map(|disabled| (url, disabled)))
+    {
         for shutdown in [false, true] {
-            let (provider, adapter, listener) = setup(&["a"]);
+            let (provider, adapter, listener) = setup_with_options(
+                &["a"],
+                StatsigOptions {
+                    disable_remote_telemetry: disabled,
+                    ..Default::default()
+                },
+            );
             let mut events = adapter.ops_stats.subscribe_for_test();
             provider.gate(url);
             let task = start(adapter.clone());
@@ -852,6 +862,7 @@ async fn cancelled_downloads_close_diagnostics_and_shutdown_rejects_queued_work(
             while let Ok(event) = events.try_recv() {
                 match event {
                     OpsStatsEvent::Diagnostics(event) => {
+                        assert_ne!(disabled, Some(true));
                         if let Some(marker) = event.marker {
                             let marker = serde_json::to_value(marker).unwrap();
                             let key =
@@ -880,7 +891,10 @@ async fn cancelled_downloads_close_diagnostics_and_shutdown_rejects_queued_work(
                     _ => {}
                 }
             }
-            assert_eq!((failed_requests, failed_syncs), (1, 1));
+            assert_eq!(
+                (failed_requests, failed_syncs),
+                (usize::from(disabled != Some(true)), 1)
+            );
             assert!(balance.values().all(|v| *v == 0), "{balance:?}");
         }
     }
@@ -958,7 +972,7 @@ async fn serialized_shutdown_bounds_an_entered_blocking_callback() {
 
 #[tokio::test]
 #[serial]
-async fn same_listener_start_fetches_the_manifest_during_a_cold_compact_download() {
+async fn same_listener_start_completes_during_a_cold_compact_download() {
     let (provider, adapter, _) = setup_with_options(
         &["cold"],
         StatsigOptions {
@@ -982,15 +996,16 @@ async fn same_listener_start_fetches_the_manifest_during_a_cold_compact_download
         tokio::spawn(async move { adapter.process_id_list("cold").await })
     };
     until(|| provider.attempts("cold") == 1).await;
-    let start = adapter.clone().start(&runtime, listener);
-    tokio::pin!(start);
-    tokio::select! {
-        result = &mut start => panic!("refresh finished while compact storage was busy: {result:?}"),
-        () = until(|| provider.manifest_attempts() == 2) => {}
-    }
+    tokio::time::timeout(
+        Duration::from_secs(3),
+        adapter.clone().start(&runtime, listener),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(provider.manifest_attempts(), 2);
     gate.add_permits(1);
     cold.await.unwrap().unwrap();
-    start.await.unwrap();
 }
 
 #[tokio::test]

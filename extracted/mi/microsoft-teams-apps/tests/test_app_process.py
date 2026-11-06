@@ -5,28 +5,39 @@ Licensed under the MIT License.
 # pyright: basic
 
 import asyncio
+import json
+import warnings
 from contextlib import contextmanager
 from typing import Any, Iterator
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
+import httpx2
 import pytest
 from microsoft_teams.api import (
+    Account,
     Activity,
     ActivityTypeAdapter,
+    ApiClient,
+    ConversationAccount,
     ConversationReference,
     InvokeResponse,
+    MessageActivityInput,
+    PlanInfoEntity,
+    SentActivity,
+    Step,
     TokenProtocol,
 )
 from microsoft_teams.api.auth.cloud_environment import PUBLIC, US_GOV
-from microsoft_teams.apps import ActivityContext, ActivityEvent, App
+from microsoft_teams.apps import ActivityContext, ActivityEvent, ActivitySentEvent, App, HttpStream, Plan
 from microsoft_teams.apps.app_events import EventManager
 from microsoft_teams.apps.app_process import ActivityProcessor
 from microsoft_teams.apps.events import CoreActivity
-from microsoft_teams.apps.plugins import StreamCancelledError
+from microsoft_teams.apps.plugins import PluginBase
+from microsoft_teams.apps.plugins.streamer import PlanConflictStreamError
 from microsoft_teams.apps.routing.router import ActivityHandler, ActivityRouter
 from microsoft_teams.apps.state import TurnState, TurnStateContainer, TurnStateLoader, TurnStateSealedError
 from microsoft_teams.apps.token_provider import AppTokenProvider
-from microsoft_teams.common import Client, LocalStorage
+from microsoft_teams.common import Client, EventEmitter, LocalStorage
 from opentelemetry import baggage
 
 
@@ -587,6 +598,140 @@ class TestActivityProcessor:
         activity_processor.event_manager.on_activity_sent.assert_called_once()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("activity_id", "channel_data", "conversation", "expect_reply_chain", "destination"),
+        [
+            (
+                "reply-2",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                True,
+                "19:user_bot@unq.gbl.spaces",
+            ),
+            (
+                "root-1",
+                {"chat": {"id": "19:user_bot@unq.gbl.spaces"}, "replyChain": {"id": "root-1"}},
+                {"id": "a:encrypted"},
+                False,
+                None,
+            ),
+            (
+                "reply-2",
+                {"channel": {"id": "19:channel@thread.tacv2"}, "replyChain": {"id": "root-1"}},
+                {"id": "19:channel@thread.tacv2;messageid=root-1", "conversationType": "channel"},
+                True,
+                "19:channel@thread.tacv2",
+            ),
+        ],
+        ids=["chat-in-thread", "chat-top-level", "channel"],
+    )
+    async def test_send_from_a_handler_is_placed_from_the_payload(
+        self, activity_processor, activity_id, channel_data, conversation, expect_reply_chain, destination
+    ):
+        """The full pipeline places a reactive send in the reply chain named by the inbound payload."""
+        core_activity = CoreActivity(
+            type="message",
+            id=activity_id,
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": conversation,
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+                "channelData": channel_data,
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
+        activity_processor.http_client.clone.return_value = activity_processor.http_client
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client:
+            mock_context_api = MagicMock()
+            mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            mock_context_api.conversations.create_activity = AsyncMock(return_value=sent)
+            mock_context_api.conversations._create_reply_chain_activity = AsyncMock(return_value=sent)
+            mock_context_api.clone.return_value = mock_context_api
+            mock_api_client.return_value = mock_context_api
+
+            async def calling_handler(ctx):
+                await ctx.send("hi")
+                return None
+
+            activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
+            activity_processor.event_manager = MagicMock()
+            activity_processor.event_manager.on_activity_response = AsyncMock()
+            activity_processor.event_manager.on_activity_sent = AsyncMock()
+            activity_processor.event_manager.on_error = AsyncMock()
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", DeprecationWarning)
+                await activity_processor.process_activity([], mock_activity_event)
+
+        conversations = mock_context_api.conversations
+        if expect_reply_chain:
+            conversations._create_reply_chain_activity.assert_called_once()
+            assert conversations._create_reply_chain_activity.call_args.args[:2] == (destination, "root-1")
+            conversations.create_activity.assert_not_called()
+        else:
+            conversations.create_activity.assert_called_once()
+            assert conversations.create_activity.call_args.args[0] == "a:encrypted"
+            conversations._create_reply_chain_activity.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_updated_send_warns_once_when_given_a_conversation_ref(self, activity_processor):
+        """ctx.send with a conversation reference is deprecated, and the warning is raised by the wrapper only once."""
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-send",
+            service_url="https://service.url",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url"
+        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
+
+        sent = SentActivity(id="sent-1", activity_params=MessageActivityInput(text="hi"))
+        other_ref = ConversationReference(
+            bot=Account(id="bot-1"),
+            conversation=ConversationAccount(id="other-conv"),
+            channel_id="msteams",
+            service_url="https://service.url",
+        )
+        activity_processor.http_client.clone.return_value = activity_processor.http_client
+        with patch("microsoft_teams.apps.app_process.ApiClient") as mock_api_client:
+            mock_context_api = MagicMock()
+            mock_context_api.users.token.get = AsyncMock(side_effect=Exception("no token"))
+            mock_context_api.conversations.create_activity = AsyncMock(return_value=sent)
+            mock_context_api.clone.return_value = mock_context_api
+            mock_api_client.return_value = mock_context_api
+
+            async def calling_handler(ctx):
+                await ctx.send("hi", other_ref)
+                return None
+
+            activity_processor.router.select_handlers = MagicMock(return_value=[calling_handler])
+            activity_processor.event_manager = MagicMock()
+            activity_processor.event_manager.on_activity_response = AsyncMock()
+            activity_processor.event_manager.on_activity_sent = AsyncMock()
+            activity_processor.event_manager.on_error = AsyncMock()
+
+            with pytest.warns(DeprecationWarning, match="to send to a different conversation") as recorded:
+                await activity_processor.process_activity([], mock_activity_event)
+
+        deprecations = [w for w in recorded if issubclass(w.category, DeprecationWarning)]
+        assert len(deprecations) == 1
+        assert mock_context_api.conversations.create_activity.call_args.args[0] == "other-conv"
+        sent_event = activity_processor.event_manager.on_activity_sent.call_args.args[0]
+        assert sent_event.conversation_ref == other_ref
+
+    @pytest.mark.asyncio
     async def test_stream_handlers_emit_activity_sent_events(self, activity_processor):
         """handle_chunk and handle_close emit on_activity_sent for stream events."""
         from microsoft_teams.api import MessageActivityInput, SentActivity
@@ -628,6 +773,267 @@ class TestActivityProcessor:
             await close_handler(sent)
 
         assert activity_processor.event_manager.on_activity_sent.call_count == 2
+
+    @pytest.fixture
+    async def plan_context(self, activity_processor):
+        activity_processor.fetch_user_token = False
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        api = MagicMock(spec=ApiClient)
+        api.from_service_url.return_value = api
+        api.conversations = MagicMock()
+
+        async def create_activity(conversation_id, activity):
+            activity_id = "answer" if isinstance(activity, MessageActivityInput) else "DO_NOT_USE_PLACEHOLDER_ID"
+            return SentActivity(id=activity_id, activity_params=activity)
+
+        api.conversations.create_activity = AsyncMock(side_effect=create_activity)
+        events = EventEmitter[str]()
+        sent = asyncio.Queue[ActivitySentEvent]()
+        events.on("activity_sent", sent.put_nowait)
+        activity_processor.event_manager = EventManager(events)
+        plugin = MagicMock(spec=PluginBase)
+        with patch("microsoft_teams.apps.app_process.ApiClient", return_value=api):
+            context = await activity_processor._build_context(_message_activity("inbound-id"), token, [plugin])
+            yield context, api, plugin, sent, token
+
+    @pytest.mark.parametrize(
+        "method,operation",
+        [
+            ("start", "start"),
+            ("update", "continue"),
+            ("stop", "stop"),
+            ("error", "error"),
+            ("complete", "complete"),
+        ],
+    )
+    async def test_context_plan_notifies_app_and_plugin_once(self, plan_context, method, operation):
+        ctx, api, plugin, sent, _ = plan_context
+        plan = ctx.plan()
+        if method == "complete":
+            result = await plan.complete("Done")
+        elif method in ("start", "update"):
+            result = await getattr(plan, method)([Step(id="lookup", version=1, title="Lookup", status="active")])
+        else:
+            result = await getattr(plan, method)()
+
+        event = await asyncio.wait_for(sent.get(), timeout=1)
+
+        assert sent.empty()
+        api.conversations.create_activity.assert_awaited_once()
+        plugin.on_activity_sent.assert_awaited_once()
+        plugin_event = plugin.on_activity_sent.call_args.args[0]
+        assert plugin_event.activity is event.activity
+        assert plugin_event.conversation_ref == event.conversation_ref
+        assert event.conversation_ref == ctx.conversation_ref
+        assert event.conversation_ref.activity_id == "inbound-id"
+        activity = event.activity.activity_params
+        assert activity.reply_to_id == "inbound-id"
+        assert activity.entities[0].plan_type == operation
+        if operation == "complete":
+            assert event.activity is result
+            assert event.activity.id == "answer"
+            assert activity.type == "message"
+        else:
+            assert result is None
+            assert event.activity.id == "DO_NOT_USE_PLACEHOLDER_ID"
+            assert activity.type == "typing"
+
+    async def test_context_plan_rejects_prompt_override(self, plan_context):
+        ctx, api, plugin, sent, _ = plan_context
+
+        with pytest.raises(TypeError, match="reply_to_id"):
+            ctx.plan(reply_to_id="other-prompt")  # pyright: ignore[reportCallIssue]
+
+        api.conversations.create_activity.assert_not_awaited()
+        plugin.on_activity_sent.assert_not_awaited()
+        assert sent.empty()
+
+    async def test_context_plan_subscribes_once_without_replacing_listeners(self, plan_context):
+        ctx, _, plugin, sent, _ = plan_context
+        plan = ctx.plan()
+        on_sent = MagicMock()
+        plan.events.on("sent", on_sent)
+        assert ctx.plan() is plan
+        assert ctx.plan() is plan
+        assert plan.events.listener_count("sent") == 2
+        expected_ref = ctx.conversation_ref.model_copy(deep=True)
+        ctx.conversation_ref = ctx.conversation_ref.model_copy(deep=True)
+        ctx.conversation_ref.conversation.id = "changed-chat"
+
+        await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
+        await ctx.plan().complete("Done")
+        received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(2)]
+
+        assert sent.empty()
+        assert plugin.on_activity_sent.await_count == 2
+        assert [event.activity.activity_params.reply_to_id for event in received] == [
+            "inbound-id",
+            "inbound-id",
+        ]
+        assert all(event.conversation_ref == expected_ref for event in received)
+        assert on_sent.call_count == 2
+        assert on_sent.call_args_list[0].args[0] is received[0].activity
+        assert on_sent.call_args_list[1].args[0] is received[1].activity
+
+    async def test_plan_notifications_do_not_use_context_send_or_targeting(self, plan_context):
+        ctx, api, _, sent, _ = plan_context
+        ctx.activity.recipient.is_targeted = True
+        ctx.send = AsyncMock()
+
+        result = await ctx.plan().complete("Done")
+        event = await asyncio.wait_for(sent.get(), timeout=1)
+
+        ctx.send.assert_not_awaited()
+        api.conversations.create_activity.assert_awaited_once()
+        api.conversations.create_targeted_activity.assert_not_called()
+        assert result.activity_params.recipient is None
+        assert event.activity is result
+        assert sent.empty()
+
+    async def test_plan_event_reference_is_independent_for_each_send(self, plan_context):
+        ctx, _, _, sent, _ = plan_context
+        plan = ctx.plan()
+        expected_ref = ctx.conversation_ref.model_copy(deep=True)
+
+        await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
+        first = await asyncio.wait_for(sent.get(), timeout=1)
+        first.conversation_ref.bot.id = "changed-by-listener"
+        first.conversation_ref.conversation.id = "changed-chat"
+
+        await plan.complete("Done")
+        second = await asyncio.wait_for(sent.get(), timeout=1)
+
+        assert second.conversation_ref == expected_ref
+        assert second.conversation_ref is not first.conversation_ref
+        assert second.activity.activity_params.from_ is None
+        assert second.activity.activity_params.conversation.model_dump(exclude_none=True) == {
+            "id": expected_ref.conversation.id
+        }
+
+    @pytest.mark.parametrize("method", ["start", "complete"])
+    async def test_failed_context_plan_does_not_notify_app_or_plugin(self, plan_context, method):
+        ctx, api, plugin, sent, _ = plan_context
+        plan = ctx.plan()
+        on_sent = MagicMock()
+        plan.events.on("sent", on_sent)
+        api.conversations.create_activity.side_effect = RuntimeError("Plan send failed")
+
+        with pytest.raises(RuntimeError, match="Plan send failed"):
+            if method == "start":
+                await plan.start([Step(id="lookup", version=1, title="Lookup", status="active")])
+            else:
+                await plan.complete("Done")
+
+        on_sent.assert_not_called()
+        plugin.on_activity_sent.assert_not_awaited()
+        assert sent.empty()
+
+    async def test_retained_context_plan_notifies_after_turn(self, activity_processor, plan_context):
+        ctx, api, plugin, sent, token = plan_context
+        saved: list[Plan] = []
+
+        async def retain_plan(context):
+            saved.append(context.plan())
+
+        activity_processor.router.select_handlers.return_value = [retain_plan]
+        response = await activity_processor.process_activity(
+            [plugin],
+            ActivityEvent(body=CoreActivity.model_validate(ctx.activity.model_dump()), token=token),
+        )
+        assert response.status == 200
+        api.conversations.create_activity.assert_not_awaited()
+        assert sent.empty()
+
+        result = await saved[0].complete("Background answer")
+        event = await asyncio.wait_for(sent.get(), timeout=1)
+
+        assert event.activity is result
+        assert event.activity.activity_params.reply_to_id == "inbound-id"
+        plugin.on_activity_sent.assert_awaited_once()
+        assert sent.empty()
+
+    async def test_caught_final_plan_conflict_does_not_fail_processor_cleanup(self, activity_processor):
+        requests = []
+        rejections = []
+        caught = []
+        error_body = {"error": {"code": "PlanConflict", "message": "The user stopped this plan."}}
+
+        def handle(request):
+            payload = json.loads(request.content)
+            requests.append((request, payload))
+            assert request.method == "POST"
+            assert request.url.host == "service.url"
+            assert request.url.path == "/v3/conversations/conv-789/activities"
+            operations = [entity["planType"] for entity in payload.get("entities", []) if entity["type"] == "planInfo"]
+            if operations == ["complete"]:
+                response = httpx2.Response(409, json=error_body)
+                rejections.append(response)
+                return response
+            if operations == ["stop"]:
+                return httpx2.Response(202)
+            assert not operations
+            assert payload["type"] == "typing"
+            return httpx2.Response(201, json={"id": "stream-id"})
+
+        events = EventEmitter[str]()
+        sent = asyncio.Queue[ActivitySentEvent]()
+        on_error = MagicMock()
+        on_response = MagicMock()
+        on_close = MagicMock()
+        events.on("activity_sent", sent.put_nowait)
+        events.on("error", on_error)
+        events.on("activity_response", on_response)
+        activity_processor.event_manager = EventManager(events)
+        activity_processor.fetch_user_token = False
+        activity_processor.token_provider.get_app_token.return_value = None
+
+        async def handler(ctx):
+            assert isinstance(ctx, ActivityContext)
+            assert isinstance(ctx.stream, HttpStream)
+            ctx.stream.on_close(on_close)
+            plan = ctx.plan()
+            ctx.stream.emit("Final answer")
+            ctx.stream.emit(plan.completion())
+            try:
+                await ctx.stream.close()
+            except PlanConflictStreamError as error:
+                caught.append(error)
+                await plan.stop()
+            else:
+                pytest.fail("The transport must reject every Plan completion")
+
+        activity_processor.router = ActivityRouter()
+        activity_processor.router.add_handler(lambda activity: activity.type == "message", handler)
+        token = MagicMock(spec=TokenProtocol)
+        token.service_url = "https://service.url"
+        event = ActivityEvent(body=CoreActivity.model_validate(_message_activity().model_dump()), token=token)
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(handle)) as http:
+            activity_processor.http_client = Client(_http=http)
+            response = await activity_processor.process_activity([], event)
+            received = [await asyncio.wait_for(sent.get(), timeout=1) for _ in range(2)]
+
+        assert response.status == 200
+        on_error.assert_not_called()
+        on_close.assert_not_called()
+        on_response.assert_called_once()
+        assert sent.empty()
+        assert len(requests) == 3
+        assert [payload["type"] for _, payload in requests] == ["typing", "message", "typing"]
+        assert all(payload["replyToId"] == "activity-123" for _, payload in requests)
+        assert len(rejections) == len(caught) == 1
+        error = caught[0]
+        assert error.response is rejections[0]
+        assert error.response.status_code == 409
+        assert error.response.json() == error_body
+        assert error.request is requests[1][0]
+        assert isinstance(error.__cause__, httpx2.HTTPStatusError)
+        assert error.__cause__.response is error.response
+        assert error.__cause__.request is error.request
+        assert str(error) == str(error.__cause__)
+        assert all(event.activity.activity_params.type == "typing" for event in received)
+        assert received[-1].activity.activity_params.entities == [PlanInfoEntity(plan_type="stop")]
+        assert received[-1].activity.id == "DO_NOT_USE_PLACEHOLDER_ID"
 
     @pytest.mark.asyncio
     async def test_build_context_marks_signed_in_when_token_available(self, activity_processor):
@@ -825,6 +1231,84 @@ class TestActivityProcessor:
         assert credential.actor == "app"
 
     @pytest.mark.asyncio
+    async def test_build_context_reads_inline_images_with_the_token_of_the_turns_own_api_client(
+        self, activity_processor
+    ):
+        """An inbound Agentic User activity must reach `ctx.files` as an agentic Bot API credential."""
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-inline-credential",
+            service_url="https://service.url/",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {
+                    "id": "bot-1",
+                    "name": "Test Bot",
+                    "agenticAppId": "agentic-app-id",
+                    "agenticUserId": "agentic-user-id",
+                    "agenticAppBlueprintId": "blueprint-id",
+                    "tenantId": "tenant-id",
+                },
+                "channelId": "msteams",
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url/"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._bot_api_credential
+
+        assert credential is not None
+        assert credential.actor == "agentic_user"
+
+        # The client's token is scoped to the inbound identity, so an agentic identity reads as itself.
+        context.api.http.token = "turn-client-token"
+        assert await credential.token() == "turn-client-token"
+
+    @pytest.mark.asyncio
+    async def test_build_context_resolves_the_turn_clients_token_factory_and_carries_the_service_url(
+        self, activity_processor
+    ):
+        """The credential reads the API client's token source at fetch time, factory shape included."""
+        activity_processor.fetch_user_token = False
+        activity_processor.http_client.http = MagicMock()
+        core_activity = CoreActivity(
+            type="message",
+            id="activity-inline-factory",
+            service_url="https://service.url/amer/",
+            **{
+                "from": {"id": "user-1", "name": "Test User"},
+                "conversation": {"id": "conv-1"},
+                "recipient": {"id": "bot-1", "name": "Test Bot"},
+                "channelId": "msteams",
+            },
+        )
+        activity = ActivityTypeAdapter.validate_python(core_activity.model_dump(by_alias=True, exclude_none=True))
+        mock_token = MagicMock(spec=TokenProtocol)
+        mock_token.service_url = "https://service.url/amer/"
+
+        context = await activity_processor._build_context(activity, mock_token, [])
+        credential = context.files._bot_api_credential
+
+        assert credential is not None
+        assert credential.actor == "app"
+        assert credential.service_url == "https://service.url/amer/"
+
+        calls: list[int] = []
+
+        async def factory() -> str:
+            calls.append(1)
+            return "factory-token"
+
+        context.api.http.token = factory
+        assert await credential.token() == "factory-token"
+        assert calls == [1]
+
+    @pytest.mark.asyncio
     async def test_build_context_skips_token_fetch_when_disabled(self, activity_processor):
         """When fetch_user_token is False, the user-token API is not called."""
         from unittest.mock import patch
@@ -882,93 +1366,6 @@ class TestActivityProcessor:
 
         with pytest.raises(ValueError, match="EventManager was not initialized"):
             await activity_processor.process_activity([], mock_activity_event)
-
-    @pytest.mark.asyncio
-    async def test_process_activity_handles_stream_cancelled(self, activity_processor):
-        """StreamCancelledError from middleware is caught; response status is 200."""
-        core_activity = CoreActivity(
-            type="message",
-            id="activity-cancel",
-            service_url="https://service.url",
-            **{
-                "from": {"id": "user-1", "name": "Test User"},
-                "conversation": {"id": "conv-1"},
-                "recipient": {"id": "bot-1", "name": "Test Bot"},
-                "channelId": "msteams",
-            },
-        )
-        mock_token = MagicMock(spec=TokenProtocol)
-        mock_token.service_url = "https://service.url"
-        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
-
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(side_effect=StreamCancelledError())
-        activity_processor.event_manager = MagicMock()
-        activity_processor.event_manager.on_activity_response = AsyncMock()
-        activity_processor.event_manager.on_error = AsyncMock()
-
-        result = await activity_processor.process_activity([], mock_activity_event)
-
-        assert result.status == 200
-
-    @pytest.mark.asyncio
-    async def test_process_activity_stream_cancelled_raises_state_save_failure(self, activity_processor):
-        """A handled stream cancellation does not hide a persistence failure."""
-        save_error = RuntimeError("save failed")
-        container = TurnStateContainer(
-            conversation=TurnState(),
-            conversation_id="conv-789",
-        )
-
-        activity_processor.state_loader = MagicMock()
-        activity_processor.state_loader.load = AsyncMock(return_value=container)
-        activity_processor.state_loader.save = AsyncMock(side_effect=save_error)
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(side_effect=StreamCancelledError())
-        self._wire_event_manager(activity_processor)
-
-        with pytest.raises(RuntimeError) as exc_info:
-            await activity_processor.process_activity([], self._message_event())
-
-        assert exc_info.value is save_error
-        error_event = activity_processor.event_manager.on_error.await_args.args[0]
-        assert error_event.error is save_error
-        activity_processor.event_manager.on_activity_response.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_process_activity_handles_response_event_stream_cancelled(self, activity_processor):
-        """StreamCancelledError from the response event retains the legacy 200 response."""
-        core_activity = CoreActivity(
-            type="message",
-            id="activity-response-cancel",
-            service_url="https://service.url",
-            **{
-                "from": {"id": "user-1", "name": "Test User"},
-                "conversation": {"id": "conv-1"},
-                "recipient": {"id": "bot-1", "name": "Test Bot"},
-                "channelId": "msteams",
-            },
-        )
-        mock_token = MagicMock(spec=TokenProtocol)
-        mock_token.service_url = "https://service.url"
-        mock_activity_event = ActivityEvent(body=core_activity, token=mock_token)
-
-        activity_processor.router.select_handlers = MagicMock(return_value=[])
-        activity_processor.execute_middleware_chain = AsyncMock(
-            return_value=InvokeResponse(status=202, body={"accepted": True})
-        )
-        activity_processor.event_manager = MagicMock()
-        activity_processor.event_manager.on_activity_response = AsyncMock(side_effect=StreamCancelledError())
-        activity_processor.event_manager.on_error = AsyncMock()
-
-        with patch("microsoft_teams.apps.routing.activity_context.HttpStream") as mock_stream_class:
-            mock_stream = mock_stream_class.return_value
-            mock_stream.close = AsyncMock()
-
-            result = await activity_processor.process_activity([], mock_activity_event)
-
-        assert result.status == 200
-        assert mock_stream.close.await_count == 2
 
     @pytest.mark.asyncio
     async def test_process_activity_raises_exception(self, activity_processor):

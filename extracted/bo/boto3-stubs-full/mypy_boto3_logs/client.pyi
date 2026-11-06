@@ -1189,9 +1189,9 @@ class CloudWatchLogsClient(BaseClient):
     ) -> PutAccountPolicyResponseTypeDef:
         """
         Creates an account-level data protection policy, subscription filter policy,
-        field index policy, transformer policy, or metric extraction policy that
-        applies to all log groups, a subset of log groups, or a data source name and
-        type combination in the account.
+        field index policy, transformer policy, metric extraction policy, or retention
+        policy that applies to all log groups, a subset of log groups, or a data source
+        name and type combination in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_account_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_account_policy)

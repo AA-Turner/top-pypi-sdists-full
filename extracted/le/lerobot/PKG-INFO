@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lerobot
-Version: 0.6.1
+Version: 0.7.0
 Summary: 🤗 LeRobot: State-of-the-art Machine Learning for Real-World Robotics in Pytorch
 Author-email: Rémi Cadène <re.cadene@gmail.com>, Simon Alibert <alibert.sim@gmail.com>, Alexander Soare <alexander.soare159@gmail.com>, Quentin Gallouédec <quentin.gallouedec@ec-lyon.fr>, Steven Palma <imstevenpmwork@ieee.org>, Pepijn Kooijmans <pepijnkooijmans@outlook.com>, Michel Aractingi <michel.aractingi@gmail.com>, Adil Zouitine <adilzouitinegm@gmail.com>, Dana Aubakirova <danaaubakirova17@gmail.com>, Caroline Pascal <caroline8.pascal@gmail.com>, Martino Russi <nopyeps@gmail.com>, Thomas Wolf <thomaswolfcontact@gmail.com>
 License: Apache-2.0
@@ -22,34 +22,43 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch<2.12.0,>=2.7
-Requires-Dist: torchvision<0.27.0,>=0.22.0
+Requires-Dist: torch<2.16.0,>=2.7
+Requires-Dist: torchvision<0.30.0,>=0.22.0
 Requires-Dist: numpy<2.3.0,>=2.0.0
 Requires-Dist: opencv-python-headless<4.14.0,>=4.9.0
-Requires-Dist: Pillow<13.0.0,>=10.0.0
+Requires-Dist: Pillow<14.0.0,>=10.0.0
 Requires-Dist: einops<0.9.0,>=0.8.0
 Requires-Dist: draccus<0.12.0,>=0.11.6
-Requires-Dist: huggingface-hub<2.0.0,>=1.6.0
+Requires-Dist: huggingface-hub<3.0.0,>=1.31.0
+Requires-Dist: filelock<5.0.0,>=4.2.1
+Requires-Dist: fsspec<2027.0.0,>=2023.5.0
 Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: gymnasium<2.0.0,>=1.1.1
 Requires-Dist: safetensors<1.0.0,>=0.4.3
-Requires-Dist: packaging<26.0,>=24.2
+Requires-Dist: packaging<27.0,>=24.2
 Requires-Dist: termcolor<4.0.0,>=2.4.0
 Requires-Dist: tqdm<5.0.0,>=4.66.0
 Requires-Dist: cmake<4.2.0,>=3.29.0.1
-Requires-Dist: setuptools<82.0.0,>=71.0.0
+Requires-Dist: setuptools<85.0.0,>=71.0.0
+Provides-Extra: lancedb
+Requires-Dist: lerobot[dataset]; extra == "lancedb"
+Requires-Dist: lancedb<0.40.0,>=0.37.1; extra == "lancedb"
+Provides-Extra: lancedb-convert
+Requires-Dist: lerobot[lancedb]; extra == "lancedb-convert"
+Requires-Dist: lerobot-lancedb<0.4.0,>=0.3.1; extra == "lancedb-convert"
 Provides-Extra: dataset
-Requires-Dist: datasets<5.0.0,>=4.8.0; extra == "dataset"
+Requires-Dist: datasets<6.0.0,>=4.8.0; extra == "dataset"
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == "dataset"
 Requires-Dist: pyarrow<30.0.0,>=21.0.0; extra == "dataset"
 Requires-Dist: lerobot[av-dep]; extra == "dataset"
-Requires-Dist: torchcodec<0.12.0,>=0.3.0; ((sys_platform == "linux" and (platform_machine == "x86_64" or platform_machine == "AMD64")) or (sys_platform == "darwin" and platform_machine == "arm64")) and extra == "dataset"
-Requires-Dist: torchcodec<0.12.0,>=0.7.0; sys_platform == "win32" and extra == "dataset"
-Requires-Dist: torchcodec<0.12.0,>=0.11.0; (sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64")) and extra == "dataset"
+Requires-Dist: torchcodec<0.18.0,>=0.3.0; ((sys_platform == "linux" and (platform_machine == "x86_64" or platform_machine == "AMD64")) or (sys_platform == "darwin" and platform_machine == "arm64")) and extra == "dataset"
+Requires-Dist: torchcodec<0.18.0,>=0.7.0; sys_platform == "win32" and extra == "dataset"
+Requires-Dist: torchcodec<0.18.0,>=0.11.0; (sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64")) and extra == "dataset"
 Requires-Dist: jsonlines<5.0.0,>=4.0.0; extra == "dataset"
 Provides-Extra: training
 Requires-Dist: lerobot[dataset]; extra == "training"
-Requires-Dist: wandb<0.28.0,>=0.24.0; extra == "training"
+Requires-Dist: trackio[gpu]<1.0.0,>=0.44.0; sys_platform != "darwin" and extra == "training"
+Requires-Dist: trackio[apple-gpu]<1.0.0,>=0.44.0; sys_platform == "darwin" and extra == "training"
 Requires-Dist: lerobot[accelerate-dep]; extra == "training"
 Provides-Extra: hardware
 Requires-Dist: lerobot[pynput-dep]; extra == "hardware"
@@ -76,7 +85,9 @@ Requires-Dist: placo<0.9.16,>=0.9.6; extra == "placo-dep"
 Requires-Dist: cmeel-urdfdom<5,>=4; extra == "placo-dep"
 Requires-Dist: cmeel-tinyxml2<11; extra == "placo-dep"
 Provides-Extra: transformers-dep
-Requires-Dist: transformers<5.6.0,>=5.4.0; extra == "transformers-dep"
+Requires-Dist: transformers<5.23.0,>=5.22.0; extra == "transformers-dep"
+Provides-Extra: sentencepiece-dep
+Requires-Dist: sentencepiece<0.3.0,>=0.2.0; extra == "sentencepiece-dep"
 Provides-Extra: grpcio-dep
 Requires-Dist: grpcio<2.0.0,>=1.73.1; extra == "grpcio-dep"
 Requires-Dist: protobuf<8.0.0,>=6.31.1; extra == "grpcio-dep"
@@ -97,6 +108,8 @@ Requires-Dist: matplotlib<4.0.0,>=3.10.3; extra == "matplotlib-dep"
 Requires-Dist: contourpy<2.0.0,>=1.3.0; extra == "matplotlib-dep"
 Provides-Extra: pyserial-dep
 Requires-Dist: pyserial<4.0,>=3.5; extra == "pyserial-dep"
+Provides-Extra: rustypot-dep
+Requires-Dist: rustypot<2.0.0,>=1.13.1; extra == "rustypot-dep"
 Provides-Extra: deepdiff-dep
 Requires-Dist: deepdiff<9.0.0,>=7.0.1; extra == "deepdiff-dep"
 Provides-Extra: pynput-dep
@@ -104,19 +117,18 @@ Requires-Dist: pynput<1.9.0,>=1.7.8; extra == "pynput-dep"
 Provides-Extra: pyzmq-dep
 Requires-Dist: pyzmq<28.0.0,>=26.2.1; extra == "pyzmq-dep"
 Provides-Extra: motorbridge-dep
-Requires-Dist: motorbridge<0.4.0,>=0.3.2; extra == "motorbridge-dep"
+Requires-Dist: motorbridge<0.6,>=0.5; extra == "motorbridge-dep"
 Provides-Extra: motorbridge-smart-servo-dep
 Requires-Dist: motorbridge-smart-servo<0.1.0,>=0.0.4; extra == "motorbridge-smart-servo-dep"
 Provides-Extra: timm-dep
 Requires-Dist: timm<1.1.0,>=1.0.0; extra == "timm-dep"
+Provides-Extra: serial-motors
+Requires-Dist: lerobot[rustypot-dep]; extra == "serial-motors"
+Requires-Dist: lerobot[pyserial-dep]; extra == "serial-motors"
 Provides-Extra: feetech
-Requires-Dist: feetech-servo-sdk<2.0.0,>=1.0.0; extra == "feetech"
-Requires-Dist: lerobot[pyserial-dep]; extra == "feetech"
-Requires-Dist: lerobot[deepdiff-dep]; extra == "feetech"
+Requires-Dist: lerobot[serial-motors]; extra == "feetech"
 Provides-Extra: dynamixel
-Requires-Dist: dynamixel-sdk<3.9.0,>=3.7.31; extra == "dynamixel"
-Requires-Dist: lerobot[pyserial-dep]; extra == "dynamixel"
-Requires-Dist: lerobot[deepdiff-dep]; extra == "dynamixel"
+Requires-Dist: lerobot[serial-motors]; extra == "dynamixel"
 Provides-Extra: damiao
 Requires-Dist: lerobot[can-dep]; extra == "damiao"
 Provides-Extra: robstride
@@ -147,6 +159,10 @@ Requires-Dist: protobuf<=6.32.0; extra == "reachy2"
 Provides-Extra: rebot
 Requires-Dist: lerobot[motorbridge-dep]; extra == "rebot"
 Requires-Dist: lerobot[motorbridge-smart-servo-dep]; extra == "rebot"
+Provides-Extra: yam
+Requires-Dist: lerobot[motorbridge-dep]; extra == "yam"
+Requires-Dist: lerobot[can-dep]; extra == "yam"
+Requires-Dist: lerobot[placo-dep]; extra == "yam"
 Provides-Extra: kinematics
 Requires-Dist: lerobot[placo-dep]; extra == "kinematics"
 Provides-Extra: intelrealsense
@@ -163,11 +179,13 @@ Provides-Extra: wallx
 Requires-Dist: lerobot[transformers-dep]; extra == "wallx"
 Requires-Dist: lerobot[peft-dep]; extra == "wallx"
 Requires-Dist: lerobot[scipy-dep]; extra == "wallx"
-Requires-Dist: torchdiffeq<0.3.0,>=0.2.4; extra == "wallx"
 Requires-Dist: lerobot[qwen-vl-utils-dep]; extra == "wallx"
 Provides-Extra: pi
 Requires-Dist: lerobot[transformers-dep]; extra == "pi"
 Requires-Dist: lerobot[scipy-dep]; extra == "pi"
+Requires-Dist: lerobot[sentencepiece-dep]; extra == "pi"
+Provides-Extra: dm05
+Requires-Dist: lerobot[transformers-dep]; extra == "dm05"
 Provides-Extra: molmoact2
 Requires-Dist: lerobot[transformers-dep]; extra == "molmoact2"
 Requires-Dist: lerobot[peft-dep]; extra == "molmoact2"
@@ -204,11 +222,23 @@ Requires-Dist: lerobot[transformers-dep]; extra == "xvla"
 Provides-Extra: eo1
 Requires-Dist: lerobot[transformers-dep]; extra == "eo1"
 Requires-Dist: lerobot[qwen-vl-utils-dep]; extra == "eo1"
+Provides-Extra: longwam
+Requires-Dist: lerobot[transformers-dep]; extra == "longwam"
+Requires-Dist: lerobot[diffusers-dep]; extra == "longwam"
+Requires-Dist: lerobot[sentencepiece-dep]; extra == "longwam"
 Provides-Extra: fastwam
 Requires-Dist: lerobot[transformers-dep]; extra == "fastwam"
 Requires-Dist: lerobot[diffusers-dep]; extra == "fastwam"
+Provides-Extra: flux3
+Requires-Dist: lerobot[transformers-dep]; extra == "flux3"
 Provides-Extra: evo1
 Requires-Dist: lerobot[transformers-dep]; extra == "evo1"
+Provides-Extra: fineart-vla
+Requires-Dist: lerobot[pi]; extra == "fineart-vla"
+Provides-Extra: fineart-vla-kernels
+Requires-Dist: lerobot[fineart_vla]; extra == "fineart-vla-kernels"
+Requires-Dist: liger-kernel<0.9.0,>=0.8.0; sys_platform == "linux" and extra == "fineart-vla-kernels"
+Requires-Dist: kernels<0.15.0,>=0.14.1; extra == "fineart-vla-kernels"
 Provides-Extra: hilserl
 Requires-Dist: lerobot[transformers-dep]; extra == "hilserl"
 Requires-Dist: lerobot[dataset]; extra == "hilserl"
@@ -223,9 +253,22 @@ Provides-Extra: lingbot-va
 Requires-Dist: lerobot[transformers-dep]; extra == "lingbot-va"
 Requires-Dist: lerobot[diffusers-dep]; extra == "lingbot-va"
 Requires-Dist: lerobot[accelerate-dep]; extra == "lingbot-va"
-Provides-Extra: async
-Requires-Dist: lerobot[grpcio-dep]; extra == "async"
-Requires-Dist: lerobot[matplotlib-dep]; extra == "async"
+Provides-Extra: lingbot-vla-v2
+Requires-Dist: lerobot[transformers-dep]; extra == "lingbot-vla-v2"
+Requires-Dist: lerobot[scipy-dep]; extra == "lingbot-vla-v2"
+Provides-Extra: wall-oss-05
+Requires-Dist: lerobot[transformers-dep]; extra == "wall-oss-05"
+Provides-Extra: g05
+Requires-Dist: lerobot[transformers-dep]; extra == "g05"
+Provides-Extra: lawam
+Requires-Dist: lerobot[transformers-dep]; extra == "lawam"
+Requires-Dist: lerobot[diffusers-dep]; extra == "lawam"
+Provides-Extra: cosmos3
+Requires-Dist: lerobot[transformers-dep]; extra == "cosmos3"
+Requires-Dist: lerobot[diffusers-dep]; extra == "cosmos3"
+Provides-Extra: remote
+Requires-Dist: eclipse-zenoh<1.11.0,>=1.9.0; extra == "remote"
+Requires-Dist: msgpack<2.0.0,>=1.1.0; extra == "remote"
 Provides-Extra: peft
 Requires-Dist: lerobot[transformers-dep]; extra == "peft"
 Requires-Dist: lerobot[peft-dep]; extra == "peft"
@@ -238,7 +281,7 @@ Requires-Dist: pre-commit<5.0.0,>=3.7.0; extra == "dev"
 Requires-Dist: debugpy<1.9.0,>=1.8.1; extra == "dev"
 Requires-Dist: lerobot[grpcio-dep]; extra == "dev"
 Requires-Dist: grpcio-tools<2.0.0,>=1.73.1; extra == "dev"
-Requires-Dist: mypy>=1.19.1; extra == "dev"
+Requires-Dist: mypy<3.0.0,>=2.0.0; extra == "dev"
 Requires-Dist: ruff>=0.14.1; extra == "dev"
 Requires-Dist: lerobot[notebook]; extra == "dev"
 Provides-Extra: notebook
@@ -254,12 +297,11 @@ Requires-Dist: scikit-image<0.26.0,>=0.23.2; extra == "video-benchmark"
 Requires-Dist: pandas<2.4.0,>=2.2.2; extra == "video-benchmark"
 Provides-Extra: aloha
 Requires-Dist: lerobot[dataset]; extra == "aloha"
-Requires-Dist: gym-aloha<0.2.0,>=0.1.4; extra == "aloha"
+Requires-Dist: gym-aloha<0.2.0,>=0.1.5; extra == "aloha"
 Requires-Dist: lerobot[scipy-dep]; extra == "aloha"
 Provides-Extra: pusht
 Requires-Dist: lerobot[dataset]; extra == "pusht"
-Requires-Dist: gym-pusht<0.2.0,>=0.1.5; extra == "pusht"
-Requires-Dist: pymunk<7.0.0,>=6.6.0; extra == "pusht"
+Requires-Dist: gym-pusht<0.2.0,>=0.1.8; extra == "pusht"
 Provides-Extra: libero
 Requires-Dist: lerobot[dataset]; extra == "libero"
 Requires-Dist: lerobot[transformers-dep]; extra == "libero"
@@ -271,6 +313,7 @@ Requires-Dist: metaworld==3.0.0; extra == "metaworld"
 Requires-Dist: lerobot[scipy-dep]; extra == "metaworld"
 Provides-Extra: all
 Requires-Dist: lerobot[dataset]; extra == "all"
+Requires-Dist: lerobot[lancedb]; extra == "all"
 Requires-Dist: lerobot[training]; extra == "all"
 Requires-Dist: lerobot[hardware]; extra == "all"
 Requires-Dist: lerobot[viz]; extra == "all"
@@ -285,22 +328,32 @@ Requires-Dist: lerobot[lekiwi]; extra == "all"
 Requires-Dist: lerobot[openarms]; extra == "all"
 Requires-Dist: lerobot[reachy2]; extra == "all"
 Requires-Dist: lerobot[rebot]; extra == "all"
+Requires-Dist: lerobot[yam]; extra == "all"
 Requires-Dist: lerobot[kinematics]; extra == "all"
 Requires-Dist: lerobot[intelrealsense]; extra == "all"
 Requires-Dist: lerobot[diffusion]; extra == "all"
 Requires-Dist: lerobot[multi_task_dit]; extra == "all"
 Requires-Dist: lerobot[wallx]; extra == "all"
+Requires-Dist: lerobot[wall_oss_05]; extra == "all"
 Requires-Dist: lerobot[pi]; extra == "all"
+Requires-Dist: lerobot[dm05]; extra == "all"
+Requires-Dist: lerobot[fineart_vla]; extra == "all"
 Requires-Dist: lerobot[molmoact2]; extra == "all"
 Requires-Dist: lerobot[smolvla]; extra == "all"
 Requires-Dist: lerobot[fastwam]; extra == "all"
+Requires-Dist: lerobot[longwam]; extra == "all"
+Requires-Dist: lerobot[flux3]; extra == "all"
 Requires-Dist: lerobot[groot]; extra == "all"
 Requires-Dist: lerobot[xvla]; extra == "all"
 Requires-Dist: lerobot[evo1]; extra == "all"
 Requires-Dist: lerobot[hilserl]; extra == "all"
 Requires-Dist: lerobot[vla_jepa]; extra == "all"
 Requires-Dist: lerobot[lingbot_va]; extra == "all"
-Requires-Dist: lerobot[async]; extra == "all"
+Requires-Dist: lerobot[lingbot_vla_v2]; extra == "all"
+Requires-Dist: lerobot[g05]; extra == "all"
+Requires-Dist: lerobot[lawam]; extra == "all"
+Requires-Dist: lerobot[cosmos3]; extra == "all"
+Requires-Dist: lerobot[remote]; extra == "all"
 Requires-Dist: lerobot[dev]; extra == "all"
 Requires-Dist: lerobot[test]; extra == "all"
 Requires-Dist: lerobot[video_benchmark]; extra == "all"
@@ -318,7 +371,7 @@ Dynamic: description-content-type
 Dynamic: license-file
 
 <p align="center">
-  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/lerobot-logo-thumbnail.png" width="100%">
+  <img alt="LeRobot, Hugging Face Robotics Library" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.7.0/media/readme/lerobot-logo-thumbnail.png" width="100%">
 </p>
 
 <div align="center">
@@ -330,7 +383,7 @@ Dynamic: license-file
 [![Status](https://img.shields.io/pypi/status/lerobot)](https://pypi.org/project/lerobot/)
 [![Version](https://img.shields.io/pypi/v/lerobot)](https://pypi.org/project/lerobot/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.1-ff69b4.svg)](https://github.com/huggingface/lerobot/blob/main/CODE_OF_CONDUCT.md)
-[![Discord](https://img.shields.io/badge/Discord-Join_Us-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/q8Dzzpym3f)
+[![Discord](https://img.shields.io/badge/Discord-Join_Us-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/s3KuuzsPFb)
 
 </div>
 
@@ -353,13 +406,15 @@ pip install lerobot
 lerobot-info
 ```
 
+The base install is lightweight. Add the extras you need, for example `pip install 'lerobot[dataset]'` to load datasets, `'lerobot[training]'` to train policies, or `'lerobot[core_scripts,feetech]'` to record with an SO-101 arm.
+
 > [!IMPORTANT]
 > For detailed installation guide, please see the [Installation Documentation](https://huggingface.co/docs/lerobot/installation).
 
 ## Robots & Control
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
+  <img src="https://raw.githubusercontent.com/huggingface/lerobot/v0.7.0/media/readme/robots_control_video.webp" width="640px" alt="Reachy 2 Demo">
 </div>
 
 LeRobot provides a unified `Robot` class interface that decouples control logic from hardware specifics. It supports a wide range of robots and teleoperation devices.
@@ -377,7 +432,7 @@ action = model.select_action(obs)
 robot.send_action(action)
 ```
 
-**Supported Hardware:** SO100, LeKiwi, Koch, HopeJR, OMX, EarthRover, Reachy2, Gamepads, Keyboards, Phones, OpenARM, Unitree G1, reBot B601.
+**Supported Hardware:** SO101, OpenARM, LeKiwi, Unitree G1, reBot B601, Koch, HopeJR, OMX, EarthRover, Reachy2, Gamepads, Keyboards, Phones and more.
 
 While these devices are natively integrated into the LeRobot codebase, the library is designed to be extensible. You can easily implement the Robot interface to utilize LeRobot's data collection, training, and visualization tools for your own custom robot.
 
@@ -409,7 +464,7 @@ Learn more about it in the [LeRobotDataset Documentation](https://huggingface.co
 LeRobot implements state-of-the-art policies in pure PyTorch, covering Imitation Learning, Reinforcement Learning, Vision-Language-Action (VLA) models, World Models, and Reward Models, with more coming soon. It also provides you with the tools to instrument and inspect your training process.
 
 <p align="center">
-  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/VLA_architecture.jpg" width="640px">
+  <img alt="Gr00t Architecture" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.7.0/media/readme/VLA_architecture.jpg" width="640px">
 </p>
 
 Training a policy is as simple as running a script configuration:
@@ -417,16 +472,17 @@ Training a policy is as simple as running a script configuration:
 ```bash
 lerobot-train \
   --policy.type=act \
-  --dataset.repo_id=lerobot/aloha_mobile_cabinet
+  --dataset.repo_id=lerobot/aloha_mobile_cabinet \
+  --policy.push_to_hub=false
 ```
 
-| Category                   | Models                                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Imitation Learning**     | [ACT](./docs/source/policy_act_README.md), [Diffusion](./docs/source/policy_diffusion_README.md), [VQ-BeT](./docs/source/policy_vqbet_README.md), [Multitask DiT Policy](./docs/source/policy_multi_task_dit_README.md)                                                                                                                                                                    |
-| **Reinforcement Learning** | [HIL-SERL](./docs/source/hilserl.mdx), [TDMPC](./docs/source/policy_tdmpc_README.md) & QC-FQL (coming soon)                                                                                                                                                                                                                                                                                |
-| **VLAs Models**            | [Pi0](./docs/source/pi0.mdx), [Pi0Fast](./docs/source/pi0fast.mdx), [Pi0.5](./docs/source/pi05.mdx), [GR00T N1.7](./docs/source/policy_groot_README.md), [SmolVLA](./docs/source/policy_smolvla_README.md), [XVLA](./docs/source/xvla.mdx), [EO-1](./docs/source/eo1.mdx), [MolmoAct2](./docs/source/molmoact2.mdx), [WALL-OSS](./docs/source/walloss.mdx), [EVO1](./docs/source/evo1.mdx) |
-| **World Models**           | [VLA-JEPA](./docs/source/vla_jepa.mdx), [LingBot-VA](./docs/source/lingbot_va.mdx), [FastWAM](./docs/source/fastwam.mdx)                                                                                                                                                                                                                                                                   |
-| **Reward Models**          | [SARM](./docs/source/sarm.mdx), [TOPReward](./docs/source/topreward.mdx), [Robometer](./docs/source/robometer.mdx)                                                                                                                                                                                                                                                                         |
+| Category                   | Models                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Imitation Learning**     | [ACT](./docs/source/policy_act_README.md), [Diffusion](./docs/source/policy_diffusion_README.md), [VQ-BeT](./docs/source/policy_vqbet_README.md), [Multitask DiT Policy](./docs/source/policy_multi_task_dit_README.md)                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Reinforcement Learning** | [HIL-SERL](./docs/source/hilserl.mdx), [TDMPC](./docs/source/policy_tdmpc_README.md) & QC-FQL (coming soon)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **VLAs Models**            | [Pi0](./docs/source/pi0.mdx), [Pi0Fast](./docs/source/pi0fast.mdx), [Pi0.5](./docs/source/pi05.mdx), [OpenGalaxea G0.5](./docs/source/g05.mdx), [FineART-VLA](./docs/source/fineart_vla.mdx), [GR00T N1.7](./docs/source/policy_groot_README.md), [SmolVLA](./docs/source/policy_smolvla_README.md), [XVLA](./docs/source/xvla.mdx), [EO-1](./docs/source/eo1.mdx), [MolmoAct2](./docs/source/molmoact2.mdx), [LingBot-VLA 2.0](./docs/source/lingbot_vla_v2.mdx), [WALL-OSS](./docs/source/walloss.mdx), [Wall-OSS-0.5](./docs/source/wall_oss_05.mdx), [EVO1](./docs/source/evo1.mdx), [DM05](./docs/source/dm05.mdx) |
+| **World Models**           | [VLA-JEPA](./docs/source/vla_jepa.mdx), [LingBot-VA](./docs/source/lingbot_va.mdx), [FastWAM](./docs/source/fastwam.mdx), [Long-WAM](./docs/source/longwam.mdx), [LaWAM](./docs/source/lawam.mdx), [FLUX 3 Action](./docs/source/flux3.mdx), [Cosmos3](./docs/source/cosmos3.mdx)                                                                                                                                                                                                                                                                                                                                       |
+| **Reward Models**          | [SARM](./docs/source/sarm.mdx), [TOPReward](./docs/source/topreward.mdx), [Robometer](./docs/source/robometer.mdx)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Similarly to the hardware, you can easily implement your own policy & leverage LeRobot's data collection, training, and visualization tools, and share your model to the HF Hub.
 
@@ -434,7 +490,7 @@ For detailed policy setup guides, see the [Policy Documentation](https://hugging
 
 ## Inference & Evaluation
 
-Evaluate your policies in simulation or on real hardware using the unified evaluation script. LeRobot supports standard benchmarks like **LIBERO**, **MetaWorld** and more to come.
+Evaluate your policies in simulation with `lerobot-eval`. LeRobot supports standard benchmarks like **LIBERO**, **MetaWorld** and more to come. To run a trained policy on a real robot, use `lerobot-rollout` (see the [Policy Deployment Documentation](https://huggingface.co/docs/lerobot/inference)).
 
 ```bash
 # Evaluate a policy on the LIBERO benchmark
@@ -447,11 +503,28 @@ lerobot-eval \
 
 Learn how to implement your own simulation environment or benchmark and distribute it from the HF Hub by following the [EnvHub Documentation](https://huggingface.co/docs/lerobot/envhub).
 
+### Third-Party Hardware
+
+Beyond the natively supported hardware, the community maintains a growing ecosystem of plugins for other robots, teleoperators, cameras, and sensors - UFACTORY xArm, Universal Robots UR5e, Franka, AgileX Piper, Trossen WidowX, ARX5, I2RT YAM, GELLO, SpaceMouse, Meta Quest, ROS 2 bridges, tactile and depth cameras, and more.
+
+Plugins are auto-discovered by package name: LeRobot imports any installed package prefixed with `lerobot_robot_`, `lerobot_teleoperator_`, or `lerobot_camera_`. Install one and use the `type` it registers straight from the CLI:
+
+```bash
+pip install lerobot_robot_<name> lerobot_teleoperator_<name>
+
+lerobot-record \
+  --robot.type=<robot_name> \
+  --teleop.type=<teleoperator_name> \
+  --dataset.repo_id=${HF_USER}/my-dataset
+```
+
+Browse the full list in the [Third-Party Robots & Teleoperators](https://huggingface.co/docs/lerobot/main/third_party_robots) and [Third-Party Cameras & Sensors](https://huggingface.co/docs/lerobot/main/third_party_sensors) documentation.
+
 ## Resources
 
 - **[Documentation](https://huggingface.co/docs/lerobot/index):** The complete guide to tutorials & API.
 - **[Chinese Tutorials: LeRobot+SO-ARM101中文教程-同济子豪兄](https://zihao-ai.feishu.cn/wiki/space/7589642043471924447)** Detailed doc for assembling, teleoperate, dataset, train, deploy. Verified by Seed Studio and 5 global hackathon players.
-- **[Discord](https://discord.gg/q8Dzzpym3f):** Join the `LeRobot` server to discuss with the community.
+- **[Discord](https://discord.gg/s3KuuzsPFb):** Join the `LeRobot` server to discuss with the community.
 - **[X](https://x.com/LeRobotHF):** Follow us on X to stay up-to-date with the latest developments.
 - **[Robot Learning Tutorial](https://huggingface.co/spaces/lerobot/robot-learning-tutorial):** A free, hands-on course to learn robot learning using LeRobot.
 - **[T-Shirt Folding Experiment](https://huggingface.co/spaces/lerobot/robot-folding):** An end-to-end demonstration of folding t-shirts with LeRobot.
@@ -492,7 +565,7 @@ If you are referencing our research or the academic paper, please also cite our 
 We welcome contributions from everyone in the community! To get started, please read our [CONTRIBUTING.md](https://github.com/huggingface/lerobot/blob/main/CONTRIBUTING.md) guide. Whether you're adding a new feature, improving documentation, or fixing a bug, your help and feedback are invaluable. We're incredibly excited about the future of open-source robotics and can't wait to work with you on what's next—thank you for your support!
 
 <p align="center">
-  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.6.1/media/readme/so100_video.webp" width="640px">
+  <img alt="SO101 Video" src="https://raw.githubusercontent.com/huggingface/lerobot/v0.7.0/media/readme/so100_video.webp" width="640px">
 </p>
 
 <div align="center">

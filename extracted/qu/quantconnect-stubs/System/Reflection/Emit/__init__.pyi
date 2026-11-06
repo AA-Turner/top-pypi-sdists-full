@@ -1757,6 +1757,18 @@ class PEFileKinds(IntEnum):
     WINDOW_APPLICATION = ...
 
 
+class _DynamicMethod_CreateDelegate(System.Reflection._MethodInfo_CreateDelegate):
+    """"""
+
+    @overload
+    def __call__(self, delegate_type: typing.Type) -> System.Delegate:
+        ...
+
+    @overload
+    def __call__(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+        ...
+
+
 class DynamicMethod(System.Reflection.MethodInfo):
     """This class has no documentation."""
 
@@ -1820,6 +1832,10 @@ class DynamicMethod(System.Reflection.MethodInfo):
     def init_locals(self, value: bool) -> None:
         ...
 
+    @property
+    def create_delegate(self) -> System.Reflection.Emit._DynamicMethod_CreateDelegate:
+        ...
+
     @overload
     def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> None:
         ...
@@ -1850,14 +1866,6 @@ class DynamicMethod(System.Reflection.MethodInfo):
 
     @overload
     def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
         ...
 
     def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:

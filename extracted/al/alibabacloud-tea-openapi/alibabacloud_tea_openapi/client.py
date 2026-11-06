@@ -49,6 +49,7 @@ class Client:
     _endpoint_rule: str = None
     _endpoint_map: Dict[str, str] = None
     _suffix: str = None
+    _endpoint_suffix: str = None
     _read_timeout: int = None
     _connect_timeout: int = None
     _http_proxy: str = None
@@ -73,6 +74,7 @@ class Client:
     _disable_http_2: bool = None
     _retry_options: RetryOptions = None
     _tls_min_version: str = None
+    _ipv4_only: bool = None
     _attribute_map: spi_models.AttributeMap = None
 
     def __init__(
@@ -114,6 +116,10 @@ class Client:
         self._endpoint_type = config.endpoint_type
         self._network = config.network
         self._suffix = config.suffix
+        if DaraCore.is_null(config.endpoint_suffix) or config.endpoint_suffix == '':
+            self._endpoint_suffix = os.environ.get('ALIBABA_CLOUD_ENDPOINT_SUFFIX')
+        else:
+            self._endpoint_suffix = config.endpoint_suffix
         self._protocol = config.protocol
         self._method = config.method
         self._region_id = config.region_id
@@ -134,6 +140,7 @@ class Client:
         self._disable_http_2 = config.disable_http_2
         self._retry_options = config.retry_options
         self._tls_min_version = config.tls_min_version
+        self._ipv4_only = config.ipv4_only
 
     """
      * @remarks
@@ -172,6 +179,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -222,14 +230,14 @@ class Client:
                 if DaraCore.is_null(headers):
                     # endpoint is setted in product client
                     _request.headers = DaraCore.merge({
-                        'host': self._endpoint,
+                        'host': self._endpoint_for_request(request),
                         'x-acs-version': version,
                         'x-acs-action': action,
                         'user-agent': Utils.get_user_agent(self._user_agent),
                     }, global_headers, extends_headers, request.headers)
                 else:
                     _request.headers = DaraCore.merge({
-                        'host': self._endpoint,
+                        'host': self._endpoint_for_request(request),
                         'x-acs-version': version,
                         'x-acs-action': action,
                         'user-agent': Utils.get_user_agent(self._user_agent),
@@ -391,6 +399,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -441,14 +450,14 @@ class Client:
                 if DaraCore.is_null(headers):
                     # endpoint is setted in product client
                     _request.headers = DaraCore.merge({
-                        'host': self._endpoint,
+                        'host': self._endpoint_for_request(request),
                         'x-acs-version': version,
                         'x-acs-action': action,
                         'user-agent': Utils.get_user_agent(self._user_agent),
                     }, global_headers, extends_headers, request.headers)
                 else:
                     _request.headers = DaraCore.merge({
-                        'host': self._endpoint,
+                        'host': self._endpoint_for_request(request),
                         'x-acs-version': version,
                         'x-acs-action': action,
                         'user-agent': Utils.get_user_agent(self._user_agent),
@@ -626,6 +635,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -667,7 +677,7 @@ class Client:
                         extends_queries = extends_parameters.queries
                 _request.headers = DaraCore.merge({
                     'date': Utils.get_date_utcstring(),
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'accept': 'application/json',
                     'x-acs-signature-nonce': Utils.get_nonce(),
                     'x-acs-signature-method': 'HMAC-SHA1',
@@ -833,6 +843,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -874,7 +885,7 @@ class Client:
                         extends_queries = extends_parameters.queries
                 _request.headers = DaraCore.merge({
                     'date': Utils.get_date_utcstring(),
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'accept': 'application/json',
                     'x-acs-signature-nonce': Utils.get_nonce(),
                     'x-acs-signature-method': 'HMAC-SHA1',
@@ -1055,6 +1066,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -1096,7 +1108,7 @@ class Client:
                         extends_queries = extends_parameters.queries
                 _request.headers = DaraCore.merge({
                     'date': Utils.get_date_utcstring(),
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'accept': 'application/json',
                     'x-acs-signature-nonce': Utils.get_nonce(),
                     'x-acs-signature-method': 'HMAC-SHA1',
@@ -1262,6 +1274,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -1303,7 +1316,7 @@ class Client:
                         extends_queries = extends_parameters.queries
                 _request.headers = DaraCore.merge({
                     'date': Utils.get_date_utcstring(),
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'accept': 'application/json',
                     'x-acs-signature-nonce': Utils.get_nonce(),
                     'x-acs-signature-method': 'HMAC-SHA1',
@@ -1508,6 +1521,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -1561,7 +1575,7 @@ class Client:
                 _request.query = DaraCore.merge({}, global_queries, extends_queries, request.query)
                 # endpoint is setted in product client
                 _request.headers = DaraCore.merge({
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'x-acs-version': params.version,
                     'x-acs-action': params.action,
                     'user-agent': Utils.get_user_agent(self._user_agent),
@@ -1769,6 +1783,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -1811,7 +1826,7 @@ class Client:
                 _request.query = DaraCore.merge({}, global_queries, extends_queries, request.query)
                 # endpoint is setted in product client
                 _request.headers = DaraCore.merge({
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'x-acs-version': params.version,
                     'x-acs-action': params.action,
                     'user-agent': Utils.get_user_agent(self._user_agent),
@@ -2020,6 +2035,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -2082,7 +2098,7 @@ class Client:
                 )
                 configuration_context = spi_models.InterceptorContextConfiguration(
                     region_id = self._region_id,
-                    endpoint = request.endpoint_override or self._endpoint,
+                    endpoint = self._endpoint_for_request(request),
                     endpoint_rule = self._endpoint_rule,
                     endpoint_map = self._endpoint_map,
                     endpoint_type = self._endpoint_type,
@@ -2093,9 +2109,7 @@ class Client:
                     request = request_context,
                     configuration = configuration_context
                 )
-                attribute_map = spi_models.AttributeMap()
-                if not DaraCore.is_null(self._attribute_map):
-                    attribute_map = self._attribute_map
+                attribute_map = self._attribute_map_with_endpoint_suffix()
                 # 1. spi.modifyConfiguration(context: SPI.InterceptorContext, attributeMap: SPI.AttributeMap);
                 self._spi.modify_configuration(interceptor_context, attribute_map)
                 # 2. spi.modifyRequest(context: SPI.InterceptorContext, attributeMap: SPI.AttributeMap);
@@ -2151,6 +2165,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -2213,7 +2228,7 @@ class Client:
                 )
                 configuration_context = spi_models.InterceptorContextConfiguration(
                     region_id = self._region_id,
-                    endpoint = request.endpoint_override or self._endpoint,
+                    endpoint = self._endpoint_for_request(request),
                     endpoint_rule = self._endpoint_rule,
                     endpoint_map = self._endpoint_map,
                     endpoint_type = self._endpoint_type,
@@ -2224,9 +2239,7 @@ class Client:
                     request = request_context,
                     configuration = configuration_context
                 )
-                attribute_map = spi_models.AttributeMap()
-                if not DaraCore.is_null(self._attribute_map):
-                    attribute_map = self._attribute_map
+                attribute_map = self._attribute_map_with_endpoint_suffix()
                 # 1. spi.modifyConfiguration(context: SPI.InterceptorContext, attributeMap: SPI.AttributeMap);
                 await self._spi.modify_configuration_async(interceptor_context, attribute_map)
                 # 2. spi.modifyRequest(context: SPI.InterceptorContext, attributeMap: SPI.AttributeMap);
@@ -2282,6 +2295,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -2324,7 +2338,7 @@ class Client:
                 _request.query = DaraCore.merge({}, global_queries, extends_queries, request.query)
                 # endpoint is setted in product client
                 _request.headers = DaraCore.merge({
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'x-acs-version': params.version,
                     'x-acs-action': params.action,
                     'user-agent': Utils.get_user_agent(self._user_agent),
@@ -2442,6 +2456,7 @@ class Client:
             'socks5Proxy': runtime.socks_5proxy or self._socks_5proxy,
             'socks5NetWork': runtime.socks_5net_work or self._socks_5net_work,
             'maxIdleConns': DaraCore.to_number(runtime.max_idle_conns or self._max_idle_conns),
+            'ipv4Only': bool(self._ipv4_only),
             'retryOptions': self._retry_options,
             'ignoreSSL': runtime.ignore_ssl,
             'tlsMinVersion': self._tls_min_version,
@@ -2484,7 +2499,7 @@ class Client:
                 _request.query = DaraCore.merge({}, global_queries, extends_queries, request.query)
                 # endpoint is setted in product client
                 _request.headers = DaraCore.merge({
-                    'host': self._endpoint,
+                    'host': self._endpoint_for_request(request),
                     'x-acs-version': params.version,
                     'x-acs-action': params.action,
                     'user-agent': Utils.get_user_agent(self._user_agent),
@@ -2633,6 +2648,43 @@ class Client:
         else:
             return await self.execute_async(params, request, runtime)
 
+
+    def _endpoint_for_request(self, request):
+        endpoint = request.endpoint_override or self._endpoint
+        attributes = self._attribute_map_with_endpoint_suffix()
+        suffix = ((attributes.key or {}).get('endpointSuffix') or '').strip().lower()
+        if not suffix:
+            suffix = os.environ.get('ALIBABA_CLOUD_ENDPOINT_SUFFIX', '').strip().lower()
+        suffix = suffix or 'aliyuncs.com'
+        if suffix not in ('aliyuncs.com', 'aliyuncs.alibaba'):
+            raise main_exceptions.ClientException(code='InvalidEndpointSuffix', message='endpointSuffix must be aliyuncs.com or aliyuncs.alibaba')
+        old = '.aliyuncs.com'
+        if endpoint and suffix != 'aliyuncs.com' and endpoint.endswith(old):
+            return endpoint[:-len(old)] + '.' + suffix
+        return endpoint
+
+    def _attribute_map_with_endpoint_suffix(self):
+        attribute_map = self._attribute_map
+        if DaraCore.is_null(attribute_map):
+            attribute_map = spi_models.AttributeMap()
+        existing = None
+        if not DaraCore.is_null(attribute_map.key):
+            existing = attribute_map.key.get('endpointSuffix')
+        if existing and existing.strip():
+            return attribute_map
+        if not self._endpoint_suffix:
+            return attribute_map
+        keys = {}
+        if not DaraCore.is_null(attribute_map.key):
+            keys.update(attribute_map.key)
+        keys['endpointSuffix'] = self._endpoint_suffix
+        attributes = None
+        if not DaraCore.is_null(attribute_map.attributes):
+            attributes = dict(attribute_map.attributes)
+        return spi_models.AttributeMap(
+            key=keys,
+            attributes=attributes,
+        )
 
     def get_access_key_id(self) -> str:
         if DaraCore.is_null(self._credential):

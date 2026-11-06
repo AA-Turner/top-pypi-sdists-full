@@ -80,7 +80,5 @@ class CachedCoexistenceImportSyncRepository:
         await self._drop(sync_id)
 
     async def _drop(self, sync_id: StrObjectId) -> None:
-        try:
-            await self.cache.cache.delete(self.cache.item_key(str(sync_id)))
-        except Exception as exc:
-            logger.debug("coexistence_import_sync cache bust failed for %s: %s", sync_id, exc)
+        await self.cache.drop_key(self.cache.item_key(str(sync_id)), on_failure=lambda exc: logger.debug(
+            "coexistence_import_sync cache bust failed for %s: %s", sync_id, exc))

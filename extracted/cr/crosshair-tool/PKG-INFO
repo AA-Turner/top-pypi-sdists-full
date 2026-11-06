@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crosshair-tool
-Version: 0.0.112
+Version: 0.0.113
 Summary: Analyze Python code for correctness using symbolic execution.
 Author-email: Phillip Schanely <pschanely+vE7F@gmail.com>
 License: MIT
@@ -33,7 +33,7 @@ Requires-Dist: pygls>=1.0.0
 Requires-Dist: typeshed-client>=2.0.5
 Provides-Extra: dev
 Requires-Dist: autodocsumm<1,>=0.2.2; extra == "dev"
-Requires-Dist: black==26.5.1; extra == "dev"
+Requires-Dist: black==26.10.1; extra == "dev"
 Requires-Dist: deal>=4.13.0; extra == "dev"
 Requires-Dist: flake8==7.1.2; extra == "dev"
 Requires-Dist: Flake8-pyproject>=1.2; extra == "dev"
@@ -50,7 +50,7 @@ Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: sphinx>=3.4.3; extra == "dev"
 Requires-Dist: sphinx-rtd-theme>=0.5.1; extra == "dev"
 Requires-Dist: rst2pdf>=0.102; extra == "dev"
-Requires-Dist: z3-solver==5.3.1.0; extra == "dev"
+Requires-Dist: z3-solver==5.3.3.0; extra == "dev"
 Dynamic: license-file
 
 <img src="https://raw.githubusercontent.com/pschanely/CrossHair/main/doc/source/logo-gray.png" width="5%" align="left">

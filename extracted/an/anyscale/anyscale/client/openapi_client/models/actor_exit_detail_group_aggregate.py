@@ -35,6 +35,8 @@ class ActorExitDetailGroupAggregate(object):
     openapi_types = {
         'death_reason': 'str',
         'error_message': 'str',
+        'error_message_hash': 'str',
+        'batch_id': 'str',
         'ray_session_name': 'str',
         'metrics': 'ActorGroupedAggregateMetrics'
     }
@@ -42,11 +44,13 @@ class ActorExitDetailGroupAggregate(object):
     attribute_map = {
         'death_reason': 'death_reason',
         'error_message': 'error_message',
+        'error_message_hash': 'error_message_hash',
+        'batch_id': 'batch_id',
         'ray_session_name': 'ray_session_name',
         'metrics': 'metrics'
     }
 
-    def __init__(self, death_reason=None, error_message=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, death_reason=None, error_message=None, error_message_hash=None, batch_id=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """ActorExitDetailGroupAggregate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -54,12 +58,18 @@ class ActorExitDetailGroupAggregate(object):
 
         self._death_reason = None
         self._error_message = None
+        self._error_message_hash = None
+        self._batch_id = None
         self._ray_session_name = None
         self._metrics = None
         self.discriminator = None
 
         self.death_reason = death_reason
         self.error_message = error_message
+        if error_message_hash is not None:
+            self.error_message_hash = error_message_hash
+        if batch_id is not None:
+            self.batch_id = batch_id
         self.ray_session_name = ray_session_name
         self.metrics = metrics
 
@@ -108,6 +118,48 @@ class ActorExitDetailGroupAggregate(object):
             raise ValueError("Invalid value for `error_message`, must not be `None`")  # noqa: E501
 
         self._error_message = error_message
+
+    @property
+    def error_message_hash(self):
+        """Gets the error_message_hash of this ActorExitDetailGroupAggregate.  # noqa: E501
+
+
+        :return: The error_message_hash of this ActorExitDetailGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._error_message_hash
+
+    @error_message_hash.setter
+    def error_message_hash(self, error_message_hash):
+        """Sets the error_message_hash of this ActorExitDetailGroupAggregate.
+
+
+        :param error_message_hash: The error_message_hash of this ActorExitDetailGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._error_message_hash = error_message_hash
+
+    @property
+    def batch_id(self):
+        """Gets the batch_id of this ActorExitDetailGroupAggregate.  # noqa: E501
+
+
+        :return: The batch_id of this ActorExitDetailGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._batch_id
+
+    @batch_id.setter
+    def batch_id(self, batch_id):
+        """Sets the batch_id of this ActorExitDetailGroupAggregate.
+
+
+        :param batch_id: The batch_id of this ActorExitDetailGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._batch_id = batch_id
 
     @property
     def ray_session_name(self):

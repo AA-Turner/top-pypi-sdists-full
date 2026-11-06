@@ -100,7 +100,7 @@ impl Drop for OpsStatsInstanceScopeGuard<'_> {
 }
 
 pub struct OpsStats {
-    instances_map: RwLock<HashMap<String, Weak<OpsStatsForInstance>>>,
+    instances_map: RwLock<HashMap<(String, bool), Weak<OpsStatsForInstance>>>,
 }
 
 impl Default for OpsStats {
@@ -117,6 +117,19 @@ impl OpsStats {
     }
 
     pub fn get_for_instance(&self, sdk_key: &str) -> Arc<OpsStatsForInstance> {
+        self.get_for_instance_with_options(sdk_key, None)
+    }
+
+    pub(crate) fn get_for_instance_with_options(
+        &self,
+        sdk_key: &str,
+        options: Option<&crate::StatsigOptions>,
+    ) -> Arc<OpsStatsForInstance> {
+        let remote_telemetry_disabled =
+            options.is_some_and(|o| o.disable_remote_telemetry == Some(true));
+        // An enabled uploader must never receive an opted-out instance's SDK errors,
+        // even when callers reuse the same SDK key or explicit instance ID.
+        let registry_key = (sdk_key.to_string(), remote_telemetry_disabled);
         // Never reuse or disable an ordinary client's registry entry, even for the same ID.
         if crate::output_policy::OutputPolicy::current().is_silent() {
             let mut instance = OpsStatsForInstance::disabled();
@@ -132,7 +145,7 @@ impl OpsStats {
             .try_read_for(std::time::Duration::from_secs(5))
         {
             Some(read_guard) => {
-                if let Some(instance) = read_guard.get(sdk_key) {
+                if let Some(instance) = read_guard.get(&registry_key) {
                     if let Some(instance) = instance.upgrade() {
                         return instance.clone();
                     }
@@ -146,17 +159,19 @@ impl OpsStats {
             }
         }
 
-        let instance = Arc::new(OpsStatsForInstance::new());
+        let instance = Arc::new(OpsStatsForInstance::new_with_remote_telemetry_disabled(
+            remote_telemetry_disabled,
+        ));
         match self
             .instances_map
             .try_write_for(std::time::Duration::from_secs(5))
         {
             Some(mut write_guard) => {
-                // Another caller may have registered this key after our read lookup.
-                if let Some(existing) = write_guard.get(sdk_key).and_then(Weak::upgrade) {
+                // Another constructor may have populated this namespace after the read.
+                if let Some(existing) = write_guard.get(&registry_key).and_then(Weak::upgrade) {
                     return existing;
                 }
-                write_guard.insert(sdk_key.into(), Arc::downgrade(&instance));
+                write_guard.insert(registry_key, Arc::downgrade(&instance));
             }
             None => {
                 log_e!(
@@ -219,7 +234,7 @@ impl OpsStats {
     pub(crate) fn has_instance_for_test(&self, sdk_key: &str) -> bool {
         self.instances_map
             .read()
-            .get(sdk_key)
+            .get(&(sdk_key.to_string(), false))
             .and_then(Weak::upgrade)
             .is_some()
     }
@@ -234,6 +249,7 @@ pub enum OpsStatsEvent {
 }
 
 pub struct OpsStatsForInstance {
+    remote_telemetry_disabled: bool,
     output_suppressed: bool,
     sender: Option<Sender<OpsStatsEvent>>,
     shutdown_notify: Arc<Notify>,
@@ -248,8 +264,13 @@ impl Default for OpsStatsForInstance {
 
 impl OpsStatsForInstance {
     pub fn new() -> Self {
+        Self::new_with_remote_telemetry_disabled(false)
+    }
+
+    fn new_with_remote_telemetry_disabled(remote_telemetry_disabled: bool) -> Self {
         let (tx, _) = broadcast::channel(1000);
         OpsStatsForInstance {
+            remote_telemetry_disabled,
             output_suppressed: false,
             sender: Some(tx),
             shutdown_notify: Arc::new(Notify::new()),
@@ -258,10 +279,15 @@ impl OpsStatsForInstance {
 
     pub(crate) fn disabled() -> Self {
         Self {
+            remote_telemetry_disabled: true,
             output_suppressed: false,
             sender: None,
             shutdown_notify: Arc::new(Notify::new()),
         }
+    }
+
+    pub(crate) fn remote_telemetry_disabled(&self) -> bool {
+        self.remote_telemetry_disabled
     }
 
     #[cfg(test)]
@@ -278,6 +304,10 @@ impl OpsStatsForInstance {
     }
 
     pub fn log(&self, event: OpsStatsEvent) {
+        // SDK errors must still reach local observability when remote reporting is disabled.
+        if matches!(event, OpsStatsEvent::Diagnostics(_)) && self.remote_telemetry_disabled {
+            return;
+        }
         if self.output_suppressed {
             return;
         }
@@ -285,6 +315,11 @@ impl OpsStatsForInstance {
             Self::forward_scoped_hydration_event(event);
             return;
         };
+        // Opted-out instances without an ObservabilityClient have no consumer for
+        // metrics/errors. Skipping these events is expected, not a queue failure.
+        if self.remote_telemetry_disabled && sender.receiver_count() == 0 {
+            return;
+        }
         match sender.send(event) {
             Ok(_) => {}
             Err(e) => {
@@ -354,6 +389,9 @@ impl OpsStatsForInstance {
     }
 
     pub fn add_marker(&self, marker: Marker, context: Option<ContextType>) {
+        if self.remote_telemetry_disabled {
+            return;
+        }
         self.log(OpsStatsEvent::Diagnostics(DiagnosticsEvent {
             marker: Some(marker),
             context,
@@ -363,6 +401,9 @@ impl OpsStatsForInstance {
     }
 
     pub fn set_diagnostics_context(&self, context: ContextType) {
+        if self.remote_telemetry_disabled {
+            return;
+        }
         self.log(OpsStatsEvent::Diagnostics(DiagnosticsEvent {
             marker: None,
             context: Some(context),
@@ -372,6 +413,9 @@ impl OpsStatsForInstance {
     }
 
     pub fn enqueue_diagnostics_event(&self, key: Option<KeyType>, context: Option<ContextType>) {
+        if self.remote_telemetry_disabled {
+            return;
+        }
         self.log(OpsStatsEvent::Diagnostics(DiagnosticsEvent {
             marker: None,
             context,
@@ -739,3 +783,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "ops_stats_remote_telemetry_tests.rs"]
+mod remote_telemetry_tests;

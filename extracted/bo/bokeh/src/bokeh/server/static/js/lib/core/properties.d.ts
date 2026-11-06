@@ -163,6 +163,7 @@ export declare abstract class VectorSpec<T, V extends Vector<T> = Vector<T>> ext
     scalar(value: T, n: number): UniformScalar<T>;
     vector(values: Arrayable<T>): UniformVector<T>;
     uniform(source: ColumnarDataSource): Uniform<T>;
+    protected _array(source: ColumnarDataSource): Arrayable<unknown>;
     array(source: ColumnarDataSource): Arrayable<unknown>;
 }
 export declare abstract class DataSpec<T> extends VectorSpec<T> {
@@ -180,6 +181,7 @@ export declare abstract class NumberUnitsSpec<Units> extends UnitsSpec<number, U
 }
 export declare abstract class BaseCoordinateSpec<T> extends DataSpec<T> {
     abstract get dimension(): "x" | "y";
+    array(source: ColumnarDataSource, materialize_dates?: boolean): Arrayable<unknown>;
 }
 export declare abstract class CoordinateSpec extends BaseCoordinateSpec<number | Factor> {
 }

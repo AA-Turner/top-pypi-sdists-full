@@ -10,7 +10,7 @@ import attrs
 import pydantic
 import pytest
 
-from typed_settings import cls_attrs, cls_utils, types
+from typed_settings import _compat, cls_attrs, cls_utils, types
 
 
 @attrs.define
@@ -659,7 +659,10 @@ class TestDataclasses:
                 },
             )
             y: GrandChild
-            z: list[int] = dataclasses.field(default_factory=list)
+            if _compat.PY_314:
+                z: list[int] = dataclasses.field(default_factory=list, doc="child z")
+            else:
+                z: list[int] = dataclasses.field(default_factory=list)  # type: ignore[no-redef]
 
         @dataclasses.dataclass
         class Parent:
@@ -708,7 +711,12 @@ class TestDataclasses:
                 default=dataclasses.MISSING,
                 has_no_default=False,
                 default_is_factory=True,
-                metadata={},
+                metadata={
+                    "click": {"help": "child z"},
+                    "argparse": {"help": "child z"},
+                }
+                if _compat.PY_314
+                else {},
             ),
             types.OptionInfo(
                 parent_cls=Parent,

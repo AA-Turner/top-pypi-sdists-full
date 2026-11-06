@@ -14,12 +14,16 @@ class Solar:
     J2000 = 2451545
 
     def __init__(self, year, month, day, hour, minute, second):
+        if month < 1 or month > 12:
+            raise Exception("wrong month %d" % month)
+        if day < 1 or day > 31:
+            raise Exception("wrong day %d" % day)
+        # Special handling for October 1582 (Julian calendar gap)
+        # Valid days are 1-4 and 15-31, not continuous 1-21
         if year == 1582 and month == 10:
             if 4 < day < 15:
                 raise Exception("wrong solar year %d month %d day %d" % (year, month, day))
-        if month < 1 or month > 12:
-            raise Exception("wrong month %d" % month)
-        if day < 1 or month > 31:
+        elif day > SolarUtil.getDaysOfMonth(year, month):
             raise Exception("wrong day %d" % day)
         if hour < 0 or hour > 23:
             raise Exception("wrong hour %d" % hour)
@@ -76,6 +80,14 @@ class Solar:
         if hour > 23:
             hour -= 24
             day += 1
+            # Handle month overflow
+            days_in_month = SolarUtil.getDaysOfMonth(year, month)
+            if day > days_in_month:
+                day -= days_in_month
+                month += 1
+                if month > 12:
+                    month = 1
+                    year += 1
         return Solar(year, month, day, hour, minute, second)
 
     @staticmethod

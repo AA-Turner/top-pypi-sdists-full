@@ -448,8 +448,6 @@ class OpenflowRuntime(pulumi.CustomResource):
                  schema: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
-        > **Caution: Preview Feature** This feature is considered a preview feature in the provider, regardless of the state of the resource in Snowflake. We do not guarantee its stability. It will be reworked and marked as a stable feature in future releases. Breaking changes are expected, even without bumping the major version. To use this feature, add the relevant feature name to `preview_features_enabled` field in the provider configuration. Please always refer to the Getting Help section in our Github repo to best determine how to get help for your questions.
-
         > **Note** Every mutating statement is asynchronous and the provider waits for the runtime to settle before returning, so applies take minutes rather than seconds. If you encounter timeout errors, use a `timeouts` block to set higher limits for your environment.
 
         > **Note** A runtime is created inside an Openflow deployment, and connectors are created inside a runtime's schema, so a connector's `database` and `schema` must match its runtime's.
@@ -520,8 +518,6 @@ class OpenflowRuntime(pulumi.CustomResource):
                  args: OpenflowRuntimeArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        > **Caution: Preview Feature** This feature is considered a preview feature in the provider, regardless of the state of the resource in Snowflake. We do not guarantee its stability. It will be reworked and marked as a stable feature in future releases. Breaking changes are expected, even without bumping the major version. To use this feature, add the relevant feature name to `preview_features_enabled` field in the provider configuration. Please always refer to the Getting Help section in our Github repo to best determine how to get help for your questions.
-
         > **Note** Every mutating statement is asynchronous and the provider waits for the runtime to settle before returning, so applies take minutes rather than seconds. If you encounter timeout errors, use a `timeouts` block to set higher limits for your environment.
 
         > **Note** A runtime is created inside an Openflow deployment, and connectors are created inside a runtime's schema, so a connector's `database` and `schema` must match its runtime's.
@@ -699,6 +695,40 @@ class OpenflowRuntime(pulumi.CustomResource):
         __props__.__dict__["schema"] = schema
         __props__.__dict__["show_outputs"] = show_outputs
         return OpenflowRuntime(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            database: pulumi.Input[Optional[_builtins.str]] = None,
+            deployment: pulumi.Input[Optional[_builtins.str]] = None,
+            describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['OpenflowRuntimeDescribeOutputArgs', 'OpenflowRuntimeDescribeOutputArgsDict', 'outputs.OpenflowRuntimeDescribeOutput']]]]] = None,
+            display_name: pulumi.Input[Optional[_builtins.str]] = None,
+            execute_as_role: pulumi.Input[Optional[_builtins.str]] = None,
+            external_access_integrations: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            max_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+            min_nodes: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            node_type: pulumi.Input[Optional[_builtins.str]] = None,
+            schema: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['OpenflowRuntimeShowOutputArgs', 'OpenflowRuntimeShowOutputArgsDict', 'outputs.OpenflowRuntimeShowOutput']]]]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["comment"] = comment
+        __props__["database"] = database
+        __props__["deployment"] = deployment
+        __props__["describeOutputs"] = describe_outputs
+        __props__["displayName"] = display_name
+        __props__["executeAsRole"] = execute_as_role
+        __props__["externalAccessIntegrations"] = external_access_integrations
+        __props__["fullyQualifiedName"] = fully_qualified_name
+        __props__["maxNodes"] = max_nodes
+        __props__["minNodes"] = min_nodes
+        __props__["name"] = name
+        __props__["nodeType"] = node_type
+        __props__["schema"] = schema
+        __props__["showOutputs"] = show_outputs
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/openflowRuntime:OpenflowRuntime', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter

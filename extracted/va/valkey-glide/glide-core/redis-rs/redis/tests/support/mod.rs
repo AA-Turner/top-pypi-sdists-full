@@ -1,0 +1,954 @@
+#![allow(dead_code)]
+
+use std::path::Path;
+use std::{env, fs, io, path::PathBuf, process};
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+};
+
+#[cfg(feature = "aio")]
+use futures::Future;
+use redis::{ConnectionAddr, InfoDict, Pipeline, ProtocolVersion, RedisConnectionInfo, Value};
+
+use redis::{ClientTlsConfig, TlsCertificates};
+
+use tempfile::TempDir;
+
+#[cfg(feature = "aio")]
+use redis::GlideConnectionOptions;
+
+pub fn use_protocol() -> ProtocolVersion {
+    if env::var("PROTOCOL").unwrap_or_default() == "RESP3" {
+        ProtocolVersion::RESP3
+    } else {
+        ProtocolVersion::RESP2
+    }
+}
+
+pub fn current_thread_runtime() -> tokio::runtime::Runtime {
+    let mut builder = tokio::runtime::Builder::new_current_thread();
+
+    #[cfg(feature = "aio")]
+    builder.enable_io();
+
+    builder.enable_time();
+
+    builder.build().unwrap()
+}
+
+#[cfg(feature = "aio")]
+pub fn block_on_all<F, V>(f: F) -> F::Output
+where
+    F: Future<Output = redis::RedisResult<V>>,
+{
+    use std::cell::Cell;
+    use std::panic;
+    use std::sync::Once;
+
+    // Tokio's runtime silently swallows panics raised inside spawned tasks
+    // (https://users.rust-lang.org/t/tokio-runtime-what-happens-when-a-thread-panics/95819),
+    // so a panic hook records them and the driver below aborts the test. Once Tokio
+    // stabilizes `unhandled_panic` on the runtime builder this can go away.
+    //
+    // A thread-local flag is enough because `current_thread_runtime()` polls every
+    // task on the calling thread, so one test's panic is never seen by another.
+    thread_local! {
+        static PANICKED: Cell<bool> = const { Cell::new(false) };
+    }
+    static INSTALL_HOOK: Once = Once::new();
+
+    INSTALL_HOOK.call_once(|| {
+        let previous = panic::take_hook();
+        panic::set_hook(Box::new(move |info| {
+            previous(info);
+            PANICKED.with(|flag| flag.set(true));
+        }));
+    });
+    PANICKED.with(|flag| flag.set(false));
+
+    // This continuously query the flag, in order to abort ASAP after a panic.
+    let check_future = futures_util::FutureExt::fuse(async {
+        loop {
+            if PANICKED.with(|flag| flag.get()) {
+                return Err((redis::ErrorKind::IoError, "panic was caught").into());
+            }
+            futures_time::task::sleep(futures_time::time::Duration::from_millis(1)).await;
+        }
+    });
+    let f = futures_util::FutureExt::fuse(f);
+    futures::pin_mut!(f, check_future);
+
+    let res = current_thread_runtime().block_on(async {
+        futures::select! {res = f => res, err = check_future => err}
+    });
+
+    if PANICKED.with(|flag| flag.replace(false)) {
+        panic!("Internal thread panicked");
+    }
+
+    res
+}
+
+#[cfg(any(feature = "cluster", feature = "cluster-async"))]
+mod cluster;
+
+#[cfg(any(feature = "cluster", feature = "cluster-async"))]
+mod mock_cluster;
+
+mod util;
+#[allow(unused_imports)]
+pub use self::util::*;
+
+#[cfg(any(feature = "cluster", feature = "cluster-async"))]
+#[allow(unused_imports)]
+pub use self::cluster::*;
+
+#[cfg(any(feature = "cluster", feature = "cluster-async"))]
+#[allow(unused_imports)]
+pub use self::mock_cluster::*;
+
+#[cfg(feature = "sentinel")]
+mod sentinel;
+
+#[cfg(feature = "sentinel")]
+#[allow(unused_imports)]
+pub use self::sentinel::*;
+
+#[derive(PartialEq)]
+enum ServerType {
+    Tcp { tls: bool },
+    Unix,
+}
+
+pub enum Module {
+    Json,
+}
+
+pub struct RedisServer {
+    pub process: process::Child,
+    pub(crate) tempdir: tempfile::TempDir,
+    pub(crate) addr: redis::ConnectionAddr,
+    pub(crate) tls_paths: Option<TlsFilePaths>,
+}
+
+impl ServerType {
+    fn get_intended() -> ServerType {
+        match env::var("REDISRS_SERVER_TYPE")
+            .ok()
+            .as_ref()
+            .map(|x| &x[..])
+        {
+            Some("tcp") => ServerType::Tcp { tls: false },
+            Some("tcp+tls") => ServerType::Tcp { tls: true },
+            Some("unix") => ServerType::Unix,
+            Some(val) => {
+                panic!("Unknown server type {val:?}");
+            }
+            None => ServerType::Tcp { tls: false },
+        }
+    }
+}
+
+impl RedisServer {
+    pub fn new() -> RedisServer {
+        RedisServer::with_modules(&[], false)
+    }
+
+    pub fn new_with_mtls() -> RedisServer {
+        RedisServer::with_modules(&[], true)
+    }
+
+    pub fn get_addr(port: u16) -> ConnectionAddr {
+        let server_type = ServerType::get_intended();
+        match server_type {
+            ServerType::Tcp { tls } => {
+                if tls {
+                    redis::ConnectionAddr::TcpTls {
+                        host: "127.0.0.1".to_string(),
+                        port,
+                        insecure: true,
+                        tls_params: None,
+                    }
+                } else {
+                    redis::ConnectionAddr::Tcp("127.0.0.1".to_string(), port)
+                }
+            }
+            ServerType::Unix => {
+                let (a, b) = rand::random::<(u64, u64)>();
+                let path = format!("/tmp/redis-rs-test-{a}-{b}.sock");
+                redis::ConnectionAddr::Unix(PathBuf::from(&path))
+            }
+        }
+    }
+
+    pub fn with_modules(modules: &[Module], mtls_enabled: bool) -> RedisServer {
+        let redis_port = get_random_available_port();
+        let addr = RedisServer::get_addr(redis_port);
+
+        RedisServer::new_with_addr_tls_modules_and_spawner(
+            addr,
+            None,
+            None,
+            mtls_enabled,
+            modules,
+            |cmd| {
+                cmd.spawn()
+                    .unwrap_or_else(|err| panic!("Failed to run {cmd:?}: {err}"))
+            },
+        )
+    }
+
+    pub fn new_with_addr_and_modules(
+        addr: redis::ConnectionAddr,
+        modules: &[Module],
+        mtls_enabled: bool,
+    ) -> RedisServer {
+        RedisServer::new_with_addr_tls_modules_and_spawner(
+            addr,
+            None,
+            None,
+            mtls_enabled,
+            modules,
+            |cmd| {
+                cmd.spawn()
+                    .unwrap_or_else(|err| panic!("Failed to run {cmd:?}: {err}"))
+            },
+        )
+    }
+
+    pub fn new_with_addr_tls_modules_and_spawner<
+        F: FnOnce(&mut process::Command) -> process::Child,
+    >(
+        addr: redis::ConnectionAddr,
+        config_file: Option<&Path>,
+        tls_paths: Option<TlsFilePaths>,
+        mtls_enabled: bool,
+        modules: &[Module],
+        spawner: F,
+    ) -> RedisServer {
+        // Check wether the server available is valkey or redis
+        let server_command = ["valkey-server", "redis-server"]
+            .iter()
+            .find(|cmd| which::which(cmd).is_ok())
+            .copied()
+            .unwrap_or_else(|| {
+                panic!("Neither valkey-server nor redis-server exists in the system.")
+            });
+        let mut server_cmd = process::Command::new(server_command);
+
+        if let Some(config_path) = config_file {
+            server_cmd.arg(config_path);
+        }
+        server_cmd.arg("--enable-debug-command").arg("yes");
+
+        // Load Redis Modules
+        for module in modules {
+            match module {
+                Module::Json => {
+                    server_cmd
+                        .arg("--loadmodule")
+                        .arg(env::var("REDIS_RS_REDIS_JSON_PATH").expect(
+                        "Unable to find path to RedisJSON at REDIS_RS_REDIS_JSON_PATH, is it set?",
+                    ));
+                }
+            };
+        }
+
+        server_cmd
+            .stdout(process::Stdio::null())
+            .stderr(process::Stdio::null());
+        let tempdir = tempfile::Builder::new()
+            .prefix("redis")
+            .tempdir()
+            .expect("failed to create tempdir");
+        server_cmd.arg("--logfile").arg(Self::log_file(&tempdir));
+        match addr {
+            redis::ConnectionAddr::Tcp(ref bind, server_port) => {
+                server_cmd
+                    .arg("--port")
+                    .arg(server_port.to_string())
+                    .arg("--bind")
+                    .arg(bind);
+
+                RedisServer {
+                    process: spawner(&mut server_cmd),
+                    tempdir,
+                    addr,
+                    tls_paths: None,
+                }
+            }
+            redis::ConnectionAddr::TcpTls { ref host, port, .. } => {
+                let tls_paths = tls_paths.unwrap_or_else(|| build_keys_and_certs_for_tls(&tempdir));
+
+                let auth_client = if mtls_enabled { "yes" } else { "no" };
+
+                // prepare redis with TLS
+                server_cmd
+                    .arg("--tls-port")
+                    .arg(port.to_string())
+                    .arg("--port")
+                    .arg("0")
+                    .arg("--tls-cert-file")
+                    .arg(&tls_paths.redis_crt)
+                    .arg("--tls-key-file")
+                    .arg(&tls_paths.redis_key)
+                    .arg("--tls-ca-cert-file")
+                    .arg(&tls_paths.ca_crt)
+                    .arg("--tls-auth-clients")
+                    .arg(auth_client)
+                    .arg("--bind")
+                    .arg(host);
+
+                // Insecure only disabled if `mtls` is enabled
+                let insecure = !mtls_enabled;
+
+                let addr = redis::ConnectionAddr::TcpTls {
+                    host: host.clone(),
+                    port,
+                    insecure,
+                    tls_params: None,
+                };
+
+                RedisServer {
+                    process: spawner(&mut server_cmd),
+                    tempdir,
+                    addr,
+                    tls_paths: Some(tls_paths),
+                }
+            }
+            redis::ConnectionAddr::Unix(ref path) => {
+                server_cmd
+                    .arg("--port")
+                    .arg("0")
+                    .arg("--unixsocket")
+                    .arg(path);
+                RedisServer {
+                    process: spawner(&mut server_cmd),
+                    tempdir,
+                    addr,
+                    tls_paths: None,
+                }
+            }
+        }
+    }
+
+    pub fn client_addr(&self) -> &redis::ConnectionAddr {
+        &self.addr
+    }
+
+    pub fn connection_info(&self) -> redis::ConnectionInfo {
+        redis::ConnectionInfo {
+            addr: self.client_addr().clone(),
+            redis: RedisConnectionInfo {
+                protocol: use_protocol(),
+                ..Default::default()
+            },
+        }
+    }
+
+    pub fn stop(&mut self) {
+        let _ = self.process.kill();
+        let _ = self.process.wait();
+        if let redis::ConnectionAddr::Unix(ref path) = *self.client_addr() {
+            fs::remove_file(path).ok();
+        }
+    }
+
+    pub fn log_file(tempdir: &TempDir) -> PathBuf {
+        tempdir.path().join("redis.log")
+    }
+}
+
+pub(crate) mod ports;
+pub use ports::get_random_available_port;
+
+pub(crate) mod readiness;
+
+impl Drop for RedisServer {
+    fn drop(&mut self) {
+        self.stop()
+    }
+}
+
+pub struct TestContext {
+    pub server: RedisServer,
+    pub client: redis::Client,
+    pub protocol: ProtocolVersion,
+}
+
+pub(crate) fn is_tls_enabled() -> bool {
+    true
+}
+
+pub(crate) const STARTUP_ATTEMPTS: usize = 5;
+
+impl TestContext {
+    pub fn new() -> TestContext {
+        TestContext::with_modules(&[], false)
+    }
+
+    pub fn new_with_mtls() -> TestContext {
+        Self::with_modules(&[], true)
+    }
+
+    /// Spawn a standalone server and wait for it to prove ownership of its
+    /// address. `get_random_available_port` releases its probe socket before the
+    /// child binds, so another process can take the port in between; each such
+    /// collision gets a fresh server on a fresh address (a new port, or a new
+    /// socket path under the Unix server type).
+    pub(crate) fn start(
+        mut spawn: impl FnMut() -> RedisServer,
+        mut client: impl FnMut(&RedisServer) -> redis::Client,
+    ) -> Result<TestContext, readiness::ReadinessError> {
+        let mut attempt = 1;
+        loop {
+            let mut server = spawn();
+            let client = client(&server);
+            match readiness::wait_for_server(
+                &mut server.process,
+                &client,
+                true,
+                readiness::STARTUP_TIMEOUT,
+            ) {
+                Ok(()) => {
+                    return Ok(TestContext {
+                        server,
+                        client,
+                        protocol: use_protocol(),
+                    })
+                }
+                Err(err)
+                    if attempt < STARTUP_ATTEMPTS
+                        && err.is_port_collision(&RedisServer::log_file(&server.tempdir)) =>
+                {
+                    eprintln!("Retrying standalone server on a fresh address: {err}");
+                    attempt += 1;
+                }
+                Err(err) => return Err(err),
+            }
+        }
+    }
+
+    pub fn with_tls(tls_files: TlsFilePaths, mtls_enabled: bool) -> TestContext {
+        Self::start(
+            || {
+                let addr = RedisServer::get_addr(get_random_available_port());
+                RedisServer::new_with_addr_tls_modules_and_spawner(
+                    addr,
+                    None,
+                    Some(tls_files.clone()),
+                    mtls_enabled,
+                    &[],
+                    |cmd| {
+                        cmd.spawn()
+                            .unwrap_or_else(|err| panic!("Failed to run {cmd:?}: {err}"))
+                    },
+                )
+            },
+            |server| {
+                build_single_client(server.connection_info(), &server.tls_paths, mtls_enabled)
+                    .unwrap()
+            },
+        )
+        .unwrap_or_else(|err| panic!("{err}"))
+    }
+
+    pub fn with_modules(modules: &[Module], mtls_enabled: bool) -> TestContext {
+        Self::start(
+            || RedisServer::with_modules(modules, mtls_enabled),
+            |server| {
+                build_single_client(server.connection_info(), &server.tls_paths, mtls_enabled)
+                    .unwrap()
+            },
+        )
+        .unwrap_or_else(|err| panic!("{err}"))
+    }
+
+    pub fn with_client_name(clientname: &str) -> TestContext {
+        Self::start(
+            || RedisServer::with_modules(&[], false),
+            |server| {
+                let con_info = redis::ConnectionInfo {
+                    addr: server.client_addr().clone(),
+                    redis: redis::RedisConnectionInfo {
+                        client_name: Some(clientname.to_string()),
+                        ..Default::default()
+                    },
+                };
+                build_single_client(con_info, &server.tls_paths, false).unwrap()
+            },
+        )
+        .unwrap_or_else(|err| panic!("{err}"))
+    }
+
+    pub fn connection(&self) -> redis::Connection {
+        self.client.get_connection(None).unwrap()
+    }
+
+    #[cfg(feature = "aio")]
+    pub async fn async_connection(&self) -> redis::RedisResult<redis::aio::MultiplexedConnection> {
+        self.client
+            .get_multiplexed_async_connection(GlideConnectionOptions::default())
+            .await
+    }
+
+    #[cfg(feature = "aio")]
+    pub async fn async_pubsub(&self) -> redis::RedisResult<redis::aio::PubSub> {
+        self.client.get_async_pubsub().await
+    }
+
+    pub fn stop_server(&mut self) {
+        self.server.stop();
+    }
+
+    #[cfg(feature = "tokio-comp")]
+    pub async fn multiplexed_async_connection(
+        &self,
+    ) -> redis::RedisResult<redis::aio::MultiplexedConnection> {
+        self.multiplexed_async_connection_tokio().await
+    }
+
+    #[cfg(feature = "tokio-comp")]
+    pub async fn multiplexed_async_connection_tokio(
+        &self,
+    ) -> redis::RedisResult<redis::aio::MultiplexedConnection> {
+        self.client
+            .get_multiplexed_tokio_connection(GlideConnectionOptions::default())
+            .await
+    }
+
+    pub fn get_version(&self) -> Version {
+        let mut conn = self.connection();
+        get_version(&mut conn)
+    }
+}
+
+fn encode_iter<W>(values: &[Value], writer: &mut W, prefix: &str) -> io::Result<()>
+where
+    W: io::Write,
+{
+    write!(writer, "{}{}\r\n", prefix, values.len())?;
+    for val in values.iter() {
+        encode_value(val, writer)?;
+    }
+    Ok(())
+}
+fn encode_map<W>(values: &[(Value, Value)], writer: &mut W, prefix: &str) -> io::Result<()>
+where
+    W: io::Write,
+{
+    write!(writer, "{}{}\r\n", prefix, values.len())?;
+    for (k, v) in values.iter() {
+        encode_value(k, writer)?;
+        encode_value(v, writer)?;
+    }
+    Ok(())
+}
+pub fn encode_value<W>(value: &Value, writer: &mut W) -> io::Result<()>
+where
+    W: io::Write,
+{
+    #![allow(clippy::write_with_newline)]
+    match *value {
+        Value::Nil => write!(writer, "$-1\r\n"),
+        Value::Int(val) => write!(writer, ":{val}\r\n"),
+        Value::BulkString(ref val) => {
+            write!(writer, "${}\r\n", val.len())?;
+            writer.write_all(val)?;
+            writer.write_all(b"\r\n")
+        }
+        Value::Array(ref values) => encode_iter(values, writer, "*"),
+        Value::Okay => write!(writer, "+OK\r\n"),
+        Value::SimpleString(ref s) => write!(writer, "+{s}\r\n"),
+        Value::Map(ref values) => encode_map(values, writer, "%"),
+        Value::Attribute {
+            ref data,
+            ref attributes,
+        } => {
+            encode_map(attributes, writer, "|")?;
+            encode_value(data, writer)?;
+            Ok(())
+        }
+        Value::Set(ref values) => encode_iter(values, writer, "~"),
+        Value::Double(val) => write!(writer, ",{val}\r\n"),
+        Value::Boolean(v) => {
+            if v {
+                write!(writer, "#t\r\n")
+            } else {
+                write!(writer, "#f\r\n")
+            }
+        }
+        Value::VerbatimString {
+            ref format,
+            ref text,
+        } => {
+            // format is always 3 bytes
+            write!(writer, "={}\r\n{}:{}\r\n", 3 + text.len(), format, text)
+        }
+        Value::BigNumber(ref val) => write!(writer, "({val}\r\n"),
+        Value::Push { ref kind, ref data } => {
+            write!(writer, ">{}\r\n+{kind}\r\n", data.len() + 1)?;
+            for val in data.iter() {
+                encode_value(val, writer)?;
+            }
+            Ok(())
+        }
+        Value::ServerError(ref err) => match err.details() {
+            Some(details) => write!(writer, "-{} {details}\r\n", err.err_code()),
+            None => write!(writer, "-{}\r\n", err.err_code()),
+        },
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TlsFilePaths {
+    pub(crate) redis_crt: PathBuf,
+    pub(crate) redis_key: PathBuf,
+    pub(crate) ca_crt: PathBuf,
+}
+
+pub fn build_keys_and_certs_for_tls(tempdir: &TempDir) -> TlsFilePaths {
+    // Based on shell script in redis's server tests
+    // https://github.com/redis/redis/blob/8c291b97b95f2e011977b522acf77ead23e26f55/utils/gen-test-certs.sh
+    let ca_crt = tempdir.path().join("ca.crt");
+    let ca_key = tempdir.path().join("ca.key");
+    let ca_serial = tempdir.path().join("ca.txt");
+    let redis_crt = tempdir.path().join("redis.crt");
+    let redis_key = tempdir.path().join("redis.key");
+    let ext_file = tempdir.path().join("openssl.cnf");
+
+    fn make_key<S: AsRef<std::ffi::OsStr>>(name: S, size: usize) {
+        process::Command::new("openssl")
+            .arg("genrsa")
+            .arg("-out")
+            .arg(name)
+            .arg(format!("{size}"))
+            .stdout(process::Stdio::null())
+            .stderr(process::Stdio::null())
+            .spawn()
+            .expect("failed to spawn openssl")
+            .wait()
+            .expect("failed to create key");
+    }
+
+    // Build CA Key
+    // 2048 bits is enough for a test CA and generates much faster than 4096 on
+    // entropy-constrained runners. Matches the Python cluster manager.
+    make_key(&ca_key, 2048);
+
+    // Build redis key
+    make_key(&redis_key, 2048);
+
+    // Build CA Cert
+    process::Command::new("openssl")
+        .arg("req")
+        .arg("-x509")
+        .arg("-new")
+        .arg("-nodes")
+        .arg("-sha256")
+        .arg("-key")
+        .arg(&ca_key)
+        .arg("-days")
+        .arg("3650")
+        .arg("-subj")
+        .arg("/O=Redis Test/CN=Certificate Authority")
+        .arg("-out")
+        .arg(&ca_crt)
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl")
+        .wait()
+        .expect("failed to create CA cert");
+
+    // Build x509v3 extensions file
+    fs::write(
+        &ext_file,
+        b"keyUsage = digitalSignature, keyEncipherment\n\
+    subjectAltName = @alt_names\n\
+    [alt_names]\n\
+    IP.1 = 127.0.0.1\n",
+    )
+    .expect("failed to create x509v3 extensions file");
+
+    // Read redis key
+    let mut key_cmd = process::Command::new("openssl")
+        .arg("req")
+        .arg("-new")
+        .arg("-sha256")
+        .arg("-subj")
+        .arg("/O=Redis Test/CN=Generic-cert")
+        .arg("-key")
+        .arg(&redis_key)
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl");
+
+    // build redis cert
+    process::Command::new("openssl")
+        .arg("x509")
+        .arg("-req")
+        .arg("-sha256")
+        .arg("-CA")
+        .arg(&ca_crt)
+        .arg("-CAkey")
+        .arg(&ca_key)
+        .arg("-CAserial")
+        .arg(&ca_serial)
+        .arg("-CAcreateserial")
+        .arg("-days")
+        .arg("365")
+        .arg("-extfile")
+        .arg(&ext_file)
+        .arg("-out")
+        .arg(&redis_crt)
+        .stdin(key_cmd.stdout.take().expect("should have stdout"))
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl")
+        .wait()
+        .expect("failed to create redis cert");
+
+    key_cmd.wait().expect("failed to create redis key");
+
+    TlsFilePaths {
+        redis_crt,
+        redis_key,
+        ca_crt,
+    }
+}
+
+/// Generate a fresh client certificate and private key, signed by the CA that
+/// [`build_keys_and_certs_for_tls`] created, and write them to `dest_crt` and
+/// `dest_key`.
+///
+/// This is the on-disk cert-rotation primitive used by the mTLS reload
+/// integration test: it re-signs a brand-new leaf key with the *same* CA
+/// (`ca.crt` / `ca.key`, siblings of `tls_paths.ca_crt`) so the rotated material
+/// still authenticates against the already-running TLS cluster. The new leaf
+/// carries the same subject and `127.0.0.1` SAN as the original so it is
+/// interchangeable with it from the server's point of view.
+///
+/// Writing directly to the paths the client is watching mirrors how cert-manager
+/// / Kubernetes secret projection rotates credentials in production.
+pub fn rotate_client_cert_and_key(tls_paths: &TlsFilePaths, dest_crt: &Path, dest_key: &Path) {
+    let ca_crt = &tls_paths.ca_crt;
+    let ca_key = ca_crt.with_file_name("ca.key");
+    let ca_serial = ca_crt.with_file_name("ca.txt");
+    let ext_file = ca_crt.with_file_name("rotate_openssl.cnf");
+
+    // Fresh 2048-bit leaf key.
+    process::Command::new("openssl")
+        .arg("genrsa")
+        .arg("-out")
+        .arg(dest_key)
+        .arg("2048")
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl")
+        .wait()
+        .expect("failed to create rotated client key");
+
+    // x509v3 extensions file (matches build_keys_and_certs_for_tls).
+    fs::write(
+        &ext_file,
+        b"keyUsage = digitalSignature, keyEncipherment\n\
+        subjectAltName = @alt_names\n\
+        [alt_names]\n\
+        IP.1 = 127.0.0.1\n",
+    )
+    .expect("failed to create x509v3 extensions file");
+
+    // CSR from the new key.
+    let mut csr_cmd = process::Command::new("openssl")
+        .arg("req")
+        .arg("-new")
+        .arg("-sha256")
+        .arg("-subj")
+        .arg("/O=Redis Test/CN=Generic-cert")
+        .arg("-key")
+        .arg(dest_key)
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl");
+
+    // Sign the CSR with the existing CA to produce the rotated leaf cert.
+    process::Command::new("openssl")
+        .arg("x509")
+        .arg("-req")
+        .arg("-sha256")
+        .arg("-CA")
+        .arg(ca_crt)
+        .arg("-CAkey")
+        .arg(&ca_key)
+        .arg("-CAserial")
+        .arg(&ca_serial)
+        .arg("-CAcreateserial")
+        .arg("-days")
+        .arg("365")
+        .arg("-extfile")
+        .arg(&ext_file)
+        .arg("-out")
+        .arg(dest_crt)
+        .stdin(csr_cmd.stdout.take().expect("should have stdout"))
+        .stdout(process::Stdio::null())
+        .stderr(process::Stdio::null())
+        .spawn()
+        .expect("failed to spawn openssl")
+        .wait()
+        .expect("failed to create rotated client cert");
+
+    csr_cmd.wait().expect("failed to create rotated client CSR");
+}
+
+pub type Version = (u16, u16, u16);
+
+fn get_version(conn: &mut impl redis::ConnectionLike) -> Version {
+    let info: InfoDict = redis::Cmd::new().arg("INFO").query(conn).unwrap();
+    let version: String = info.get("redis_version").unwrap();
+    let versions: Vec<u16> = version
+        .split('.')
+        .map(|version| version.parse::<u16>().unwrap())
+        .collect();
+    assert_eq!(versions.len(), 3);
+    (versions[0], versions[1], versions[2])
+}
+
+pub fn is_major_version(expected_version: u16, version: Version) -> bool {
+    expected_version <= version.0
+}
+
+pub fn is_version(expected_major_minor: (u16, u16), version: Version) -> bool {
+    expected_major_minor.0 < version.0
+        || (expected_major_minor.0 == version.0 && expected_major_minor.1 <= version.1)
+}
+
+fn load_certs_from_file(tls_file_paths: &TlsFilePaths) -> TlsCertificates {
+    let ca_file = File::open(&tls_file_paths.ca_crt).expect("Cannot open CA cert file");
+    let mut root_cert_vec = Vec::new();
+    BufReader::new(ca_file)
+        .read_to_end(&mut root_cert_vec)
+        .expect("Unable to read CA cert file");
+
+    let cert_file = File::open(&tls_file_paths.redis_crt).expect("cannot open private cert file");
+    let mut client_cert_vec = Vec::new();
+    BufReader::new(cert_file)
+        .read_to_end(&mut client_cert_vec)
+        .expect("Unable to read client cert file");
+
+    let key_file = File::open(&tls_file_paths.redis_key).expect("Cannot open private key file");
+    let mut client_key_vec = Vec::new();
+    BufReader::new(key_file)
+        .read_to_end(&mut client_key_vec)
+        .expect("Unable to read client key file");
+
+    TlsCertificates {
+        client_tls: Some(ClientTlsConfig {
+            client_cert: client_cert_vec,
+            client_key: client_key_vec,
+        }),
+        root_cert: Some(root_cert_vec),
+    }
+}
+
+pub(crate) fn build_single_client<T: redis::IntoConnectionInfo>(
+    connection_info: T,
+    tls_file_params: &Option<TlsFilePaths>,
+    mtls_enabled: bool,
+) -> redis::RedisResult<redis::Client> {
+    if mtls_enabled && tls_file_params.is_some() {
+        redis::Client::build_with_tls(
+            connection_info,
+            load_certs_from_file(
+                tls_file_params
+                    .as_ref()
+                    .expect("Expected certificates when `tls-rustls` feature is enabled"),
+            ),
+        )
+    } else {
+        redis::Client::open(connection_info)
+    }
+}
+
+pub(crate) mod mtls_test {
+    use super::*;
+    use redis::{cluster::ClusterClient, ConnectionInfo, RedisError};
+
+    fn clean_node_info(nodes: &[ConnectionInfo]) -> Vec<ConnectionInfo> {
+        let nodes = nodes
+            .iter()
+            .map(|node| match node {
+                ConnectionInfo {
+                    addr: redis::ConnectionAddr::TcpTls { host, port, .. },
+                    redis,
+                } => ConnectionInfo {
+                    addr: redis::ConnectionAddr::TcpTls {
+                        host: host.to_owned(),
+                        port: *port,
+                        insecure: false,
+                        tls_params: None,
+                    },
+                    redis: redis.clone(),
+                },
+                _ => node.clone(),
+            })
+            .collect();
+        nodes
+    }
+
+    pub(crate) fn create_cluster_client_from_cluster(
+        cluster: &TestClusterContext,
+        mtls_enabled: bool,
+    ) -> Result<ClusterClient, RedisError> {
+        let server = cluster
+            .cluster
+            .servers
+            .first()
+            .expect("Expected at least 1 server");
+        let tls_paths = server.tls_paths.as_ref();
+        let nodes = clean_node_info(&cluster.nodes);
+        let builder = redis::cluster::ClusterClientBuilder::new(nodes);
+        if let Some(tls_paths) = tls_paths {
+            // server-side TLS available
+            if mtls_enabled {
+                builder.certs(load_certs_from_file(tls_paths))
+            } else {
+                builder
+            }
+        } else {
+            // server-side TLS NOT available
+            builder
+        }
+        .build()
+    }
+}
+
+pub fn build_simple_pipeline_for_invalidation() -> Pipeline {
+    let mut pipe = redis::pipe();
+    pipe.cmd("GET")
+        .arg("key_1")
+        .ignore()
+        .cmd("SET")
+        .arg("key_1")
+        .arg(42)
+        .ignore();
+    pipe
+}
+
+use std::sync::Once;
+
+static INIT_LOGGER: Once = Once::new();
+
+pub fn init_logger() {
+    INIT_LOGGER.call_once(|| {
+        tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()) // Read `RUST_LOG` from the environment
+        .with_test_writer() // Ensure logs are captured and outputted for tests
+        .init();
+    });
+}

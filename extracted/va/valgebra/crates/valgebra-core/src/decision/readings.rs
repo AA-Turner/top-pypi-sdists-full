@@ -14,9 +14,13 @@
 //! question a rule left, in the direction a sound procedure may -- a reading
 //! that cannot name a value declines, and the pair stays undecided.
 
-use crate::ir::{ClassIx, CollKind, Constraint, Schema, SeqKind};
+use crate::descr::regular::{Alphabet, RegularSet};
+use crate::ir::{ClassIx, CollKind, ConstIx, Constraint, REACHED, Schema, SeqKind};
 use crate::kind::{Kind, Region, Regions};
+use crate::verdict::{Relation, Verdict};
 
+use super::constraints::{Multiples, integer, longest, shortest};
+use super::emptiness::{holds_apart, most_keys, value_count_bounds};
 use super::literals::literal_constants;
 use super::{Cx, LeafRelations, NoLeafRelations};
 
@@ -34,10 +38,11 @@ impl Schema {
     /// [FCB08, (5)] (distinct builtin scalars, distinct container kinds, a
     /// refinement's base versus another, a union whose every member is, a meet
     /// one of whose members with a kind of its own is against a schema with a
-    /// kind, two homogeneous sequences or sets of one
-    /// container whose elements share no value where a length bound rules out
-    /// the empty one), and false (conservatively) where it cannot decide:
-    /// `Any`, a reference and a complement.
+    /// kind, two homogeneous sequences or sets of one container whose elements
+    /// share no value where a length bound rules out the empty one, two records
+    /// requiring a key whose schemas share none [Cas23, (11)]), and false
+    /// (conservatively) where it cannot decide: `Any`, a reference and a
+    /// complement.
     ///
     /// A `Literal` and an `Instance` are read through the `oracle`, which holds
     /// the constants and the classes the core cannot: it kinds a literal,
@@ -54,21 +59,14 @@ impl Schema {
         // four hundred million calls into the bindings. The oracle can answer
         // the whole question at once where it holds the constants, and declines
         // -- leaving the walk to run -- where it cannot.
-        // Each table is read only where the one before it answered: a tuple of
-        // the two builds both, and the second is wasted whenever the first says
-        // this pair is not two tables of constants.
         //
-        // And neither is read until both sides are a shape that could *be* one.
-        // A table is a literal or a union of them, so every other node answers
-        // the question with a discriminant test -- while building the left
-        // table walks the left union's members, and a union of nothing but
-        // literals against a node that is not a table pays that walk to reach a
-        // reading the right side was never going to answer.
+        // Neither table is read until both sides are a shape that could *be*
+        // one. A table is a literal or a union of them, so every other node
+        // answers the question with a discriminant test here, where the call
+        // would cost every pair the walk reaches.
         if matches!(self, Schema::Literal(_) | Schema::Union(_))
             && matches!(other, Schema::Literal(_) | Schema::Union(_))
-            && let Some(left) = literal_constants(self)
-            && let Some(right) = literal_constants(other)
-            && let Some(answer) = oracle.literal_sets_disjoint(&left, &right)
+            && let Some(answer) = tables_disjoint(self, other, oracle)
         {
             return answer;
         }
@@ -78,6 +76,14 @@ impl Schema {
         // never see it.
         match (self, other) {
             (Schema::Union(members), _) => {
+                // Two discriminated unions are read at their tag, before the
+                // arms read every pair of their records.
+                if let Schema::Union(theirs) = other
+                    && matches!(members.first(), Some(Schema::KeyedMap { .. }))
+                    && let Some(answer) = tagged_unions_disjoint(members, theirs, oracle)
+                {
+                    return answer;
+                }
                 return !members.is_empty()
                     && members.iter().all(|m| m.disjoint_with(other, oracle));
             }
@@ -90,6 +96,23 @@ impl Schema {
             // question for them. Ask the oracle about the constants instead.
             (Schema::Literal(a), Schema::Literal(b)) => {
                 return oracle.literals_disjoint(*a, *b).unwrap_or(false);
+            }
+            // Two records requiring one key share no value where the key's two
+            // schemas share none: a dict in both holds the key, and its value
+            // there is in both schemas, two record atoms meeting pointwise
+            // [Cas23, (12)] and empty where a required label is [Cas23, (11)].
+            // A discriminated union is two sets of such records, told apart by
+            // a constant under one key, and the union arms above read it a
+            // record pair at a time, so its meet is empty without the
+            // distribution of every pair into a record.
+            (Schema::KeyedMap { fields: mine, .. }, Schema::KeyedMap { fields: theirs, .. }) => {
+                return mine.iter().filter(|field| field.required).any(|field| {
+                    theirs.iter().any(|other| {
+                        other.required
+                            && other.name == field.name
+                            && field.schema.disjoint_with(&other.schema, oracle)
+                    })
+                });
             }
             _ => {}
         }
@@ -149,13 +172,16 @@ impl Schema {
     /// whole meet branch by branch: `int & str` is disjoint from `str | int`,
     /// each branch by the other member.
     ///
-    /// **Only a member with a kind of its own is read.** A schema shares its
-    /// subterms, so a tower of unions of meets of unions is a term of linear
-    /// size and a tree of exponential size, and a reading that went from a meet
-    /// into a union and back would walk the tree, once per goal the decision
-    /// asks. A union and a meet carry no kind, nor does a class or a literal,
-    /// whose kinds are the oracle's, and reading those through every branch of
-    /// a union is a call per branch on every pair the refutations leave.
+    /// **Only a member with a kind of its own is read, or a union whose
+    /// branches each have one.** A schema shares its subterms, so a tower of
+    /// unions of meets of unions is a term of linear size and a tree of
+    /// exponential size, and a reading that went from a meet into a union and
+    /// back would walk the tree, once per goal the decision asks. A union of
+    /// kinded branches goes one level in and no further -- `(int | float) &
+    /// ~bool` is a number however its bounds read -- and a meet holding no such
+    /// member, a class or a literal, whose kinds are the oracle's, is not read:
+    /// reading those through every branch of a union is a call per branch on
+    /// every pair the refutations leave.
     #[inline(never)]
     fn meet_disjoint_with(&self, other: &Schema, oracle: &dyn LeafRelations) -> bool {
         let Schema::Intersection(members) = self else {
@@ -163,7 +189,7 @@ impl Schema {
         };
         members
             .iter()
-            .any(|member| member.type_tag().is_some() && member.disjoint_with(other, oracle))
+            .any(|member| read_by_kind(member) && member.disjoint_with(other, oracle))
     }
 
     /// The element of a schema whose values are that element repeated: a
@@ -220,8 +246,400 @@ impl Schema {
             && self.star_element().is_some()
     }
 
+    /// What a container's length settles of the pair, where a sized value or a
+    /// refinement of one is the subject: `Holds` for a refinement whose length
+    /// is at most zero -- the empty container of its kind and nothing else --
+    /// below a supertype admitting that container, `Fails` for a record whose
+    /// required fields alone are a length the supertype refuses
+    /// ([`required_fields_refused`](Self::required_fields_refused)), a
+    /// subject holding a length the supertype's bounds leave out
+    /// ([`length_refused`](Self::length_refused)) -- a sequence or a set one
+    /// longer than the supertype's maximum among them -- or one holding the
+    /// empty container of its kind, which the supertype refuses
+    /// ([`the_empty_refused`](Self::the_empty_refused)), `Unknown` otherwise.
+    ///
+    /// Out of line behind the discriminant test its caller asks, so a pair of
+    /// any other shape pays the one test.
+    #[inline(never)]
+    pub(super) fn read_by_length(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        if let Schema::Refine { base, constraints } = self
+            && let Some(kind) = base.type_tag()
+            && base.admits_the_empty(kind)
+            && constraints
+                .iter()
+                .any(|constraint| matches!(constraint, Constraint::MaxLen(0)))
+            && other.admits_the_empty(kind)
+        {
+            return Relation::Holds;
+        }
+        if self.required_fields_refused(other, cx)
+            || self.length_refused(other, cx)
+            || self.the_empty_refused(other)
+            || self.a_refined_branch_refused(other, cx)
+        {
+            return Relation::Fails;
+        }
+        Relation::Unknown
+    }
+
+    /// Whether a branch of a refined union holds a value under the constraints
+    /// of a kind the supertype holds none of: that value is the subject's and
+    /// outside the supertype.
+    ///
+    /// A refinement of a union is the union of its branches refined
+    /// [FCB08, Def. 4.1], a refined base type cut down a value at a time
+    /// [JV20, §3.2]. A value of a branch the constraints keep is a value of
+    /// the subject. So `Annotated[int | str, MaxLen(1)]` is refuted below
+    /// `int` on `""`, and `Annotated[str | bytes, MaxLen(256)]` below `bytes`
+    /// on a short word. Read off the branch's verdict and the supertype's
+    /// kinds, asking no goal of the pair.
+    fn a_refined_branch_refused(&self, other: &Schema, cx: &mut Cx<'_>) -> bool {
+        let Schema::Refine { base, constraints } = self else {
+            return false;
+        };
+        let Schema::Union(branches) = &**base else {
+            return false;
+        };
+        branches.iter().any(|branch| {
+            branch
+                .type_tag()
+                .is_some_and(|kind| other.holds_no_value_of(kind, cx.oracle))
+                && Schema::refine(branch.clone(), constraints.to_vec()).verdict_rec(cx)
+                    == Verdict::Inhabited
+        })
+    }
+
+    /// Whether the exact empty container of the subject's kind is one of its
+    /// values and none of the supertype's: a value of the subject outside the
+    /// supertype, read on both sides by
+    /// [`holds_the_exact_empty`](Self::holds_the_exact_empty).
+    ///
+    /// The reading the bare shapes have through their own rules, read through a
+    /// refinement whose bounds admit zero, which is the same set where the
+    /// base is sized: `Annotated[set[int], MinLen(0)]` holds `set()`, which
+    /// `MinLen(1)` refuses, as `set[int]` does, and `Annotated[dict,
+    /// MaxLen(0)]` holds `{}`, which `{"a": int}` refuses.
+    fn the_empty_refused(&self, other: &Schema) -> bool {
+        self.type_tag().is_some_and(|kind| {
+            self.holds_the_exact_empty(kind) == Some(true)
+                && other.holds_the_exact_empty(kind) == Some(false)
+        })
+    }
+
+    /// Whether a record's value of its required fields alone has a length the
+    /// supertype's bounds refuse.
+    ///
+    /// A record's length is the count of its keys, and the value holding its
+    /// required fields and nothing else is one of its values wherever the
+    /// record holds any: its required fields then each hold a value, and no
+    /// key is left for a clause to cover. So a record requiring more fields
+    /// than the supertype's maximum length, or fewer than its minimum, holds a
+    /// value the bound refuses -- `{"a": int, "b": int}` below
+    /// `Annotated[dict[str, int], MaxLen(1)]`, or `{"a?": int}` below one with
+    /// `MinLen(1)`, whose value `{}` is shorter.
+    fn required_fields_refused(&self, other: &Schema, cx: &mut Cx<'_>) -> bool {
+        let (Schema::KeyedMap { fields, .. }, Schema::Refine { constraints, .. }) = (self, other)
+        else {
+            return false;
+        };
+        let required = fields.iter().filter(|field| field.required).count();
+        let refused = required < shortest(constraints.iter())
+            || longest(constraints.iter()).is_some_and(|most| required > most);
+        refused && self.verdict_rec(cx) == Verdict::Inhabited
+    }
+
+    /// Whether a refinement holding a value of every length its bounds admit
+    /// holds one the supertype's length bounds refuse.
+    ///
+    /// The subject's base holds a value of each length from some least one
+    /// ([`every_length_from`](Self::every_length_from)), and where its
+    /// constraints are length bounds alone, none excludes such a value: the
+    /// subject holds one of each length from the larger of that least and its
+    /// `MinLen` to its `MaxLen`, and to [`REACHED`] at most, the longest a
+    /// container every interpreter builds: [`LONGEST`](crate::ir::LONGEST) is
+    /// where no value is longer, and a length between the two is no witness,
+    /// since the relation decided is the one every supported interpreter's
+    /// values induce, as models are compared by the subtyping they induce
+    /// [FCB08, §5.3]. A
+    /// length the supertype's bounds leave out -- below its `MinLen`, or above
+    /// its `MaxLen` -- is then a value outside the supertype whatever its base:
+    /// `Annotated[str, MaxLen(256)]` holds a text of 65 code points, which
+    /// `MaxLen(64)` refuses. The entailment the other way is the bound rules'
+    /// [JV20, Fig. 3.4]; this is what they leave undecided, and what a pattern
+    /// counting past a few hundred code points no longer holds.
+    ///
+    /// A union refuses a value where each branch does, so a length every
+    /// branch leaves out is the same witness: a branch that is a refinement
+    /// admits no length outside its bounds, whatever its base and its other
+    /// constraints, and a branch holding no value of the subject's kind admits
+    /// none. Any other branch leaves the union unread. The length asked is the
+    /// least one from the subject's least that no branch's bounds admit.
+    ///
+    /// A base written bare is its refinement under no bound: every length is
+    /// at least zero, so `str` and `Annotated[str, MinLen(0)]` are one set,
+    /// and read alike. A set holds a set of each length up to the values its
+    /// element holds apart under `==` ([`holds_apart`]), which the length
+    /// asked is held to. So a shape written bare is refuted one past a
+    /// maximum: `list[int]` below `Annotated[list[int], MaxLen(1)]` on
+    /// `[0, 0]`, and `set[Literal[1, 2]]` below `MaxLen(1)` on `{1, 2}`.
+    fn length_refused(&self, other: &Schema, cx: &mut Cx<'_>) -> bool {
+        let (base, constraints): (&Schema, &[Constraint]) = match self {
+            Schema::Refine { base, constraints } => (base, constraints),
+            bare => (bare, &[]),
+        };
+        let branches = match other {
+            Schema::Refine { .. } => core::slice::from_ref(other),
+            Schema::Union(members) => &members[..],
+            _ => return false,
+        };
+        if !constraints
+            .iter()
+            .all(|constraint| matches!(constraint, Constraint::MinLen(_) | Constraint::MaxLen(_)))
+        {
+            return false;
+        }
+        let Some(kind) = base.type_tag() else {
+            return false;
+        };
+        let mut admitted: Vec<(usize, Option<usize>)> = Vec::with_capacity(branches.len());
+        for branch in branches {
+            match branch {
+                Schema::Refine {
+                    constraints: theirs,
+                    ..
+                } => admitted.push((shortest(theirs.iter()), longest(theirs.iter()))),
+                _ if branch.holds_no_value_of(kind, cx.oracle) => {}
+                _ => return false,
+            }
+        }
+        let from = match base {
+            Schema::Coll { .. } => Some(0),
+            _ => base.every_length_from(cx),
+        };
+        let Some(from) = from else {
+            return false;
+        };
+        let least = from.max(shortest(constraints.iter()));
+        let most = longest(constraints.iter()).unwrap_or(REACHED).min(REACHED);
+        if most < least {
+            return false;
+        }
+        admitted.sort_unstable();
+        let mut length = least;
+        for (low, high) in admitted {
+            if low > length {
+                break;
+            }
+            match high {
+                None => return false,
+                Some(high) if high >= length => length = high.saturating_add(1),
+                Some(_) => {}
+            }
+        }
+        length <= most
+            && match base {
+                Schema::Coll { element, .. } => holds_apart(element, length, cx.oracle),
+                _ => true,
+            }
+    }
+
+    /// The least length from which this shape holds a value of every length,
+    /// or `None` where it is not read: a word of any length for `str` and
+    /// `bytes`; a sequence with a repeated element, each position holding a
+    /// value, from its prefix on; and a mapping with one clause and no field,
+    /// whose key holds every value of a kind with no end of them -- a name,
+    /// a byte string, an integer -- and whose value holds one, from empty.
+    pub(super) fn every_length_from(&self, cx: &mut Cx<'_>) -> Option<usize> {
+        #[cfg(test)]
+        let _crossing = super::goal_tests::goals::crossing();
+        match self {
+            Schema::Str | Schema::Bytes => Some(0),
+            Schema::Seq { shape, .. } => {
+                let tail = shape.tail.as_deref()?;
+                shape
+                    .prefix
+                    .iter()
+                    .chain([tail])
+                    .all(|position| position.verdict_rec(cx) == Verdict::Inhabited)
+                    .then_some(shape.prefix.len())
+            }
+            Schema::KeyedMap { fields, defaults } if fields.is_empty() => {
+                let [clause] = &defaults[..] else {
+                    return None;
+                };
+                ([Kind::Str, Kind::Bytes, Kind::Int]
+                    .iter()
+                    .any(|kind| clause.key.holds_every_value_of(*kind, cx.oracle))
+                    && clause.value.verdict_rec(cx) == Verdict::Inhabited)
+                    .then_some(0)
+            }
+            _ => None,
+        }
+    }
+
+    /// The lengths of this schema's values, as the least and, where there is
+    /// one, the most: `None` where a value may have no length, or one this
+    /// does not count.
+    ///
+    /// Read off the two constructors whose lengths no component of the set
+    /// representation counts. A set holds each member once and every member is
+    /// a value of its element, so it holds at most the values the element holds
+    /// apart under `==` ([`value_count_bounds`]), and none at least: the empty
+    /// set is one of its values. A record's keys are its fields, every value
+    /// holding the required ones, and beyond them the keys its clauses can take
+    /// ([`most_keys`]): none for a closed one, two for `dict[bool, int]`, and
+    /// no most for a clause keyed by a kind with no end of values. Each count
+    /// is the walk's: the length of a set or a dict is read from its storage,
+    /// which holds the members and the keys these count.
+    ///
+    /// The lengths are the bounds the shape says without writing them, so they
+    /// entail a length bound as a written one does, Sub-Base's entailment
+    /// [JV20, Fig. 3.4] with them among the subject's constraints
+    /// ([`lengths_entail`](Self::lengths_entail)).
+    pub(super) fn lengths_held(
+        &self,
+        oracle: &dyn LeafRelations,
+    ) -> Option<(usize, Option<usize>)> {
+        match self {
+            Schema::Coll { element, .. } => {
+                let (_, most) = value_count_bounds(element, oracle);
+                Some((0, (most != usize::MAX).then_some(most)))
+            }
+            Schema::KeyedMap { fields, defaults } => Some((
+                fields.iter().filter(|field| field.required).count(),
+                most_keys(fields, defaults, oracle, |_| false),
+            )),
+            _ => None,
+        }
+    }
+
+    /// Whether the lengths this schema holds entail every one of
+    /// `constraints` ([`lengths_held`](Self::lengths_held)): a minimum at or
+    /// below the least, a maximum at or above the most, as a written length
+    /// bound entails a looser one; any other constraint is not entailed.
+    ///
+    /// Out of line behind the discriminant test its callers ask, so a schema
+    /// that holds no lengths pays the one test.
+    #[inline(never)]
+    pub(super) fn lengths_entail(
+        &self,
+        constraints: &[Constraint],
+        oracle: &dyn LeafRelations,
+    ) -> bool {
+        let Some((least, most)) = self.lengths_held(oracle) else {
+            return false;
+        };
+        constraints.iter().all(|constraint| match constraint {
+            Constraint::MinLen(wanted) => least >= *wanted,
+            Constraint::MaxLen(allowed) => most.is_some_and(|most| most <= *allowed),
+            _ => false,
+        })
+    }
+
+    /// Whether every empty container of `kind` is a value of this schema, read
+    /// off the constructors: `false` is "not seen", never "refused".
+    ///
+    /// A sequence shape with no prefix admits the empty sequence of its kind, a
+    /// set shape the empty set of its kind whatever its element admits, and a
+    /// mapping the empty dict where it requires no field [Cas23, fn. 11] -- no
+    /// key is missing, and none is left for a clause to cover. A subclass's
+    /// empty instance is admitted with the rest, since each node reads its
+    /// container by the storage. A refinement of one keeps it under length
+    /// bounds that admit zero; a predicate says nothing. The other supertypes
+    /// never reach this: the rules settle the universe before any reading, and
+    /// split a union and a meet into the members this reads.
+    #[inline(never)]
+    pub(super) fn admits_the_empty(&self, kind: Kind) -> bool {
+        match self {
+            Schema::Seq { shape, .. } => self.type_tag() == Some(kind) && shape.prefix.is_empty(),
+            Schema::Coll { .. } => self.type_tag() == Some(kind),
+            Schema::KeyedMap { fields, .. } => {
+                kind == Kind::Dict && fields.iter().all(|field| !field.required)
+            }
+            Schema::Refine { base, constraints } => {
+                base.admits_the_empty(kind)
+                    && constraints.iter().all(|constraint| {
+                        matches!(constraint, Constraint::MinLen(0) | Constraint::MaxLen(_))
+                    })
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the exact empty container of `kind` -- `[]`, `()`, `set()`,
+    /// `frozenset()` or `{}` -- is a value of this schema, read off the
+    /// constructors: `Some` where the shape says, `None` where it cannot.
+    ///
+    /// Three-valued where [`admits_the_empty`](Self::admits_the_empty) is not,
+    /// so a complement reads as its inner answer negated: `~{"a": int}` holds
+    /// `{}`, which `{"a": int}` refuses for the key it requires. A refinement
+    /// keeps the answer under length bounds that admit zero and refuses it
+    /// under a least length above zero; any other constraint is unread. A
+    /// union holds it where a member does and a meet where every member does.
+    /// One value is all a meet needs to be inhabited, so the subclasses' empty
+    /// instances are not read, and a class, a literal and a reference are not
+    /// read at all.
+    pub(super) fn holds_the_exact_empty(&self, kind: Kind) -> Option<bool> {
+        match self {
+            Schema::Anything(_) => Some(true),
+            Schema::Nothing
+            | Schema::NoneType
+            | Schema::Bool
+            | Schema::Int
+            | Schema::Float
+            | Schema::Str
+            | Schema::Bytes => Some(false),
+            Schema::Seq { shape, .. } => {
+                Some(self.type_tag() == Some(kind) && shape.prefix.is_empty())
+            }
+            Schema::Coll { .. } => Some(self.type_tag() == Some(kind)),
+            Schema::KeyedMap { fields, .. } => {
+                Some(kind == Kind::Dict && fields.iter().all(|field| !field.required))
+            }
+            Schema::Refine { base, constraints } => {
+                if !base.holds_the_exact_empty(kind)? {
+                    return Some(false);
+                }
+                let mut held = Some(true);
+                for constraint in constraints.iter() {
+                    match constraint {
+                        Constraint::MinLen(0) | Constraint::MaxLen(_) => {}
+                        Constraint::MinLen(_) => return Some(false),
+                        _ => held = None,
+                    }
+                }
+                held
+            }
+            Schema::Complement(inner) => inner.holds_the_exact_empty(kind).map(|held| !held),
+            Schema::Union(members) => {
+                let mut held = Some(false);
+                for member in members.iter() {
+                    match member.holds_the_exact_empty(kind) {
+                        Some(true) => return Some(true),
+                        Some(false) => {}
+                        None => held = None,
+                    }
+                }
+                held
+            }
+            Schema::Intersection(members) => {
+                let mut held = Some(true);
+                for member in members.iter() {
+                    match member.holds_the_exact_empty(kind) {
+                        Some(false) => return Some(false),
+                        Some(true) => {}
+                        None => held = None,
+                    }
+                }
+                held
+            }
+            _ => None,
+        }
+    }
+
     /// Whether every value of `kind` belongs to this schema, read off the
-    /// constructors.
+    /// constructors: [`kinds_held_whole`](Self::kinds_held_whole) at one kind,
+    /// with no reference unfolded.
     ///
     /// The reading a dict key needs before it can name a witness. A key schema
     /// that holds every value of a kind holds the plain one a refutation picks
@@ -238,78 +656,55 @@ impl Schema {
     /// member by member, so `Literal[True, False]` is not seen to hold every
     /// boolean.
     pub(super) fn holds_every_value_of(&self, kind: Kind, oracle: &dyn LeafRelations) -> bool {
-        match self {
-            Schema::Anything(_) => true,
-            Schema::NoneType => kind == Kind::NoneType,
-            Schema::Bool => kind == Kind::Bool,
-            // `bool` subclasses `int`, so every boolean is an integer.
-            Schema::Int => matches!(kind, Kind::Int | Kind::Bool),
-            Schema::Float => kind == Kind::Float,
-            Schema::Str => kind == Kind::Str,
-            Schema::Bytes => kind == Kind::Bytes,
-            Schema::Seq {
-                container: SeqKind::Tuple,
-                shape,
-            } => {
-                kind == Kind::Tuple
-                    && shape.prefix.is_empty()
-                    && matches!(shape.tail.as_deref(), Some(Schema::Anything(_)))
-            }
-            Schema::Coll {
-                container: CollKind::FrozenSet,
-                element,
-            } => kind == Kind::FrozenSet && matches!(**element, Schema::Anything(_)),
-            Schema::Union(members) => members
-                .iter()
-                .any(|member| member.holds_every_value_of(kind, oracle)),
-            Schema::Intersection(members) => members
-                .iter()
-                .all(|member| member.holds_every_value_of(kind, oracle)),
-            Schema::Complement(inner) => inner.holds_no_value_of(kind, oracle),
-            _ => false,
-        }
+        whole(self, &mut KindWalk::new(oracle, &[], true)) & bit(kind) != 0
     }
 
-    /// Whether no value of `kind` belongs to this schema.
+    /// Whether no value of `kind` belongs to this schema:
+    /// [`kinds_possibly_held`](Self::kinds_possibly_held) at one kind, with no
+    /// reference unfolded.
     ///
     /// The dual of [`holds_every_value_of`](Self::holds_every_value_of), and the
     /// two meet at a complement: `¬k` holds every value of a kind exactly where
-    /// `k` holds none. Off the connectives it is [`disjoint_with`]'s reading of
-    /// a node against a whole kind -- its tag where the core can read one, the
-    /// oracle's answer for a class -- and a refinement is read through its
-    /// base, which it is a subset of. Sound and incomplete in the same way:
-    /// `bool` holds no plain integer, and is not seen to, because the two
-    /// kinds share values.
-    ///
-    /// [`disjoint_with`]: Self::disjoint_with
+    /// `k` holds none. Sound and incomplete in the same way: `bool` holds no
+    /// plain integer, and is not seen to, because the two kinds share values.
     pub(super) fn holds_no_value_of(&self, kind: Kind, oracle: &dyn LeafRelations) -> bool {
-        match self {
-            Schema::Nothing => true,
-            Schema::Union(members) => members
-                .iter()
-                .all(|member| member.holds_no_value_of(kind, oracle)),
-            Schema::Intersection(members) => members
-                .iter()
-                .any(|member| member.holds_no_value_of(kind, oracle)),
-            Schema::Complement(inner) => inner.holds_every_value_of(kind, oracle),
-            Schema::Refine { base, .. } => base.holds_no_value_of(kind, oracle),
-            _ => match self.type_tag_with(oracle) {
-                Some(tag) => !tag.shares_values_with(kind),
-                None => self.class_excludes(kind, oracle),
-            },
-        }
+        possibly(self, &mut KindWalk::new(oracle, &[], true)) & bit(kind) == 0
     }
 
-    /// Whether this schema is a class the oracle says holds no value of `kind`.
+    /// The kinds every value of which this schema holds, one bit per place in
+    /// [`Kind::ALL`]: the universe holds every kind whole, a builtin's bare
+    /// atom its own -- `int` `bool`'s too, every boolean being an integer --
+    /// as does a tuple or frozenset of anything, a union what one branch holds
+    /// whole, a meet what every member does, and a complement every kind its
+    /// inner schema may hold no value of [FCB08, Def. 4.1]. A reference is read
+    /// through its definition in `defs`, which it denotes. The walk enters no
+    /// constructor, and a contractive table puts one on every cycle, so a chain
+    /// of references ends; in a table that is not contractive, the bound below
+    /// ends it, and each half answers conservatively there, the other half's
+    /// answer read through a complement being conservative too.
     ///
-    /// A class is the one atom the core cannot read at all, and the answer is
-    /// the bindings' -- `false` for a class laid out as another kind, since a
-    /// subclass inherits the layout and cannot lay down a second. A class
-    /// laying down none is declined there rather than refuted: a subclass of it
-    /// may derive from a builtin too, and its instances are then of that kind.
-    fn class_excludes(&self, kind: Kind, oracle: &dyn LeafRelations) -> bool {
-        matches!(self, Schema::Instance(class)
-            if oracle.class_admits_kind(*class, kind) == Some(false))
+    /// One walk for every kind rather than a walk per kind: the pairs that reach
+    /// the kind refutation are many, and eleven walks each cost the relation
+    /// matrix a fourteenth of its instructions. The walk reads at most
+    /// [`KIND_WALK`] nodes and is conservative past them, so a tower of unions
+    /// of meets, a tree of exponential size over a term of linear size, ends.
+    /// A class is read as holding any kind here; `outside_the_class` asks the
+    /// oracle about the one kind a subject has.
+    pub(super) fn kinds_held_whole(&self, oracle: &dyn LeafRelations, defs: &[Schema]) -> Kinds {
+        whole(self, &mut KindWalk::new(oracle, defs, false))
+    }
+
+    /// The kinds this schema may hold a value of; a kind outside it is one the
+    /// schema holds none of. An atom may hold its kind's values and those
+    /// sharing them [FCB08, (5)], a refinement no more than its base, a class
+    /// what the oracle says it lays down, a union what any branch may, a meet
+    /// no more than each member may [FCB08, Def. 4.1], and a complement every
+    /// kind its inner schema does not hold whole. The same walk as
+    /// [`kinds_held_whole`](Self::kinds_held_whole), on the same bound, and a
+    /// class read the same way: as any kind, the oracle asked about classes by
+    /// the per-kind readings alone, where a key's class is the question.
+    pub(super) fn kinds_possibly_held(&self, oracle: &dyn LeafRelations, defs: &[Schema]) -> Kinds {
+        possibly(self, &mut KindWalk::new(oracle, defs, false))
     }
 
     /// A concrete type tag for nodes whose disjointness the core can decide
@@ -542,6 +937,207 @@ impl Schema {
     }
 }
 
+/// Whether a meet member has a kind to read: its own, or one per branch of a
+/// union, whose kinds are its branches'.
+fn read_by_kind(member: &Schema) -> bool {
+    member.type_tag().is_some()
+        || matches!(member, Schema::Union(branches)
+            if branches.iter().all(|branch| branch.type_tag().is_some()))
+}
+
+impl Schema {
+    /// Whether the subject holds every value of a kind the supertype holds
+    /// none of. Every kind is inhabited -- `None`, `False`, `0`, `0.0`, `""`,
+    /// `b""`, `[]`, `()`, `set()`, `frozenset()`, `{}` -- and each kind is a
+    /// question of its own [FCB08, (4)], so such a kind names a value of the
+    /// subject outside the supertype: `anything` is outside the JSON values at
+    /// `b""`, and so is the complement of the JSON values.
+    ///
+    /// Asked of a subject that can hold a whole kind, the universe or a
+    /// complement, and out of line behind that test, so a pair of any other
+    /// shape pays one match.
+    pub(super) fn spills_a_kind(&self, other: &Schema, cx: &Cx<'_>) -> bool {
+        matches!(self, Schema::Anything(_) | Schema::Complement(_))
+            && spills_a_kind_into(self, other, cx)
+    }
+
+    /// Whether this schema holds every value of a kind with infinitely many
+    /// values, which is every kind but `None` and `bool`: no finite set of
+    /// constants holds such a kind whole ([`spills_past_a_table`]).
+    ///
+    /// [`spills_past_a_table`]: super::literals::spills_past_a_table
+    pub(super) fn holds_a_boundless_kind_whole(&self, cx: &Cx<'_>) -> bool {
+        self.kinds_held_whole(cx.oracle, cx.defs) & !FINITE_KINDS != 0
+    }
+
+    /// Whether this schema holds no value of some kind, which makes its
+    /// complement inhabited: the complement holds every value of that kind
+    /// [FCB08, Def. 4.1], and every kind has one. Read by the witness guard
+    /// for a complement subject, and not by emptiness.
+    #[inline(never)]
+    pub(super) fn misses_a_kind(&self, cx: &Cx<'_>) -> bool {
+        self.kinds_possibly_held(cx.oracle, cx.defs) != EVERY_KIND
+    }
+}
+
+/// [`Schema::spills_a_kind`] past its shape test: the kinds the subject holds
+/// whole, less those the supertype may hold any value of, each kind a question
+/// of its own [FCB08, (4)]. Asked of any subject by the respelling of a pair the
+/// rules declined, where it is the kinds the difference holds whole.
+///
+/// The subject is read first: most subjects hold no kind whole, which ends the
+/// question before the supertype is walked.
+#[inline(never)]
+pub(super) fn spills_a_kind_into(subject: &Schema, other: &Schema, cx: &Cx<'_>) -> bool {
+    let whole = subject.kinds_held_whole(cx.oracle, cx.defs);
+    whole != 0 && whole & !other.kinds_possibly_held(cx.oracle, cx.defs) != 0
+}
+
+/// A set of kinds, one bit per place in [`Kind::ALL`].
+pub(super) type Kinds = u16;
+
+/// Every kind.
+const EVERY_KIND: Kinds = (1 << Kind::ALL.len()) - 1;
+
+/// The kinds with finitely many values: `None`'s one and `bool`'s two. The two
+/// bits are distinct, so their sum is their union.
+const FINITE_KINDS: Kinds = bit(Kind::NoneType) + bit(Kind::Bool);
+
+/// The nodes one kind reading may read before it answers conservatively.
+///
+/// **This bound is cost.** The reading is a walk of a finite term, which ends
+/// without it; what it caps is a tower of unions of meets, whose tree is
+/// exponential in a term of linear size, read on a pair the rules declined.
+/// The schemas a kind is read off -- a map's key, a JSON universe, a guard --
+/// read in a few dozen nodes. A literal spends none: it is a leaf whose kind
+/// is one question, so a table of constants is read for the one node its
+/// union is, and what the bound caps stays the nodes with members.
+pub(super) const KIND_WALK: u32 = 64;
+
+/// The kind's own bit.
+const fn bit(kind: Kind) -> Kinds {
+    1 << kind.position()
+}
+
+/// The kinds a value of `kind` may also have: itself, and `int` and `bool`
+/// for each other, every boolean being an integer. The two bits are distinct,
+/// so their sum is their union.
+const fn sharing(kind: Kind) -> Kinds {
+    match kind {
+        Kind::Bool | Kind::Int => bit(Kind::Bool) + bit(Kind::Int),
+        other => bit(other),
+    }
+}
+
+/// One kind reading's oracle, definitions, whether it asks the oracle about a
+/// class, and the nodes it has left.
+struct KindWalk<'a> {
+    oracle: &'a dyn LeafRelations,
+    defs: &'a [Schema],
+    classes: bool,
+    left: u32,
+}
+
+impl<'a> KindWalk<'a> {
+    fn new(oracle: &'a dyn LeafRelations, defs: &'a [Schema], classes: bool) -> Self {
+        Self {
+            oracle,
+            defs,
+            classes,
+            left: KIND_WALK,
+        }
+    }
+
+    /// Read one more node, or `false` where the bound is spent.
+    fn read(&mut self) -> bool {
+        self.left.checked_sub(1).is_some_and(|left| {
+            self.left = left;
+            true
+        })
+    }
+}
+
+/// [`Schema::kinds_held_whole`].
+fn whole(schema: &Schema, walk: &mut KindWalk<'_>) -> Kinds {
+    // A literal holds no kind whole, and is read without a node.
+    if matches!(schema, Schema::Literal(_)) || !walk.read() {
+        return 0;
+    }
+    match schema {
+        Schema::Anything(_) => EVERY_KIND,
+        Schema::NoneType | Schema::Bool | Schema::Float | Schema::Str | Schema::Bytes => {
+            schema.type_tag().map_or(0, bit)
+        }
+        // `bool` subclasses `int`, so every boolean is an integer.
+        Schema::Int => sharing(Kind::Int),
+        Schema::Seq {
+            container: SeqKind::Tuple,
+            shape,
+        } if shape.prefix.is_empty()
+            && matches!(shape.tail.as_deref(), Some(Schema::Anything(_))) =>
+        {
+            bit(Kind::Tuple)
+        }
+        Schema::Coll {
+            container: CollKind::FrozenSet,
+            element,
+        } if matches!(**element, Schema::Anything(_)) => bit(Kind::FrozenSet),
+        Schema::Union(members) => members
+            .iter()
+            .fold(0, |held, member| held | whole(member, walk)),
+        Schema::Intersection(members) => members
+            .iter()
+            .fold(EVERY_KIND, |held, member| held & whole(member, walk)),
+        Schema::Complement(inner) => EVERY_KIND & !possibly(inner, walk),
+        Schema::Ref(at) => walk.defs.get(at.get()).map_or(0, |body| whole(body, walk)),
+        _ => 0,
+    }
+}
+
+/// [`Schema::kinds_possibly_held`], on the same walk as [`whole`].
+fn possibly(schema: &Schema, walk: &mut KindWalk<'_>) -> Kinds {
+    // A literal may hold its constant's kind, read without a node.
+    if let Schema::Literal(constant) = schema {
+        return walk
+            .oracle
+            .literal_kind(*constant)
+            .map_or(EVERY_KIND, sharing);
+    }
+    if !walk.read() {
+        return EVERY_KIND;
+    }
+    match schema {
+        Schema::Nothing => 0,
+        Schema::Union(members) => members
+            .iter()
+            .fold(0, |held, member| held | possibly(member, walk)),
+        Schema::Intersection(members) => members
+            .iter()
+            .fold(EVERY_KIND, |held, member| held & possibly(member, walk)),
+        Schema::Complement(inner) => EVERY_KIND & !whole(inner, walk),
+        Schema::Refine { base, .. } => possibly(base, walk),
+        Schema::Ref(at) => walk
+            .defs
+            .get(at.get())
+            .map_or(EVERY_KIND, |body| possibly(body, walk)),
+        // A class is the one atom the core cannot read at all, and the answer
+        // is the bindings' -- `false` for a class laid out as another kind,
+        // since a subclass inherits the layout and cannot lay down a second. A
+        // class laying down none is declined there rather than read as holding
+        // none: a subclass of it may derive from a builtin too, and its
+        // instances are then of that kind. Each kind's bit is distinct, so the
+        // sum is their union.
+        Schema::Instance(class) if walk.classes => Kind::ALL
+            .iter()
+            .filter(|&&kind| walk.oracle.class_admits_kind(*class, kind) != Some(false))
+            .map(|&kind| bit(kind))
+            .sum(),
+        _ => schema
+            .type_tag_with(walk.oracle)
+            .map_or(EVERY_KIND, sharing),
+    }
+}
+
 /// Whether a direct instance of `class` has none of the kinds `other` admits.
 ///
 /// The kind half of the reading a meet of a class and its attributes gets,
@@ -581,5 +1177,269 @@ pub(super) fn outside_every_kind(other: &Schema, class: ClassIx, cx: &Cx<'_>) ->
             .and_then(|body| body.type_tag_with(cx.oracle))
             .is_some_and(outside),
         _ => other.type_tag_with(cx.oracle).is_some_and(outside),
+    }
+}
+
+/// Refuted where a refinement of `int` holds a multiple of its step that is no
+/// multiple of an integer step the other refinement carries; a decline
+/// otherwise.
+///
+/// The multiple is the witness, and it is outside the other refinement
+/// whatever its base and its other constraints, since every value of that
+/// refinement satisfies its step [JV20, §3.2] and `%` reads an `int` against an
+/// `int` exactly.
+/// `MultipleOf(5000)` is outside `MultipleOf(3)` at 5000, and `MultipleOf(6)`
+/// outside `MultipleOf(2500)` at 6.
+pub(super) fn refuted_by_a_multiple(
+    narrow_base: &Schema,
+    narrow: &[Constraint],
+    wide: &[Constraint],
+    oracle: &dyn LeafRelations,
+) -> Relation {
+    let outside = matches!(narrow_base, Schema::Int)
+        && wide.iter().any(|c| matches!(c, Constraint::MultipleOf(_)))
+        && Multiples::of(narrow, oracle).is_some_and(|multiples| {
+            wide.iter().any(|constraint| match constraint {
+                Constraint::MultipleOf(index) => {
+                    integer(*index, oracle).is_some_and(|other| multiples.one_outside(other))
+                }
+                _ => false,
+            })
+        });
+    if outside {
+        Relation::Fails
+    } else {
+        Relation::Unknown
+    }
+}
+
+/// Whether two tables of constants share no value, asked of the oracle for
+/// both tables at once: `None` where either side is no table, or the oracle
+/// cannot compare them. Its callers test both shapes first, a literal or a
+/// union, so a pair that holds no table pays no call.
+///
+/// Each table is read only where the one before it answered: a tuple of the
+/// two builds both, and the second is wasted whenever the first says the pair
+/// is not two tables of constants. Building the left one walks the left
+/// union's members, which a union of nothing but literals against a node that
+/// is not a table would pay to reach a reading the right side was never going
+/// to answer.
+pub(super) fn tables_disjoint(
+    left: &Schema,
+    right: &Schema,
+    oracle: &dyn LeafRelations,
+) -> Option<bool> {
+    oracle.literal_sets_disjoint(&literal_constants(left)?, &literal_constants(right)?)
+}
+
+/// How many texts of a string subject [`Schema::decided_by_its_texts`] puts to
+/// the walk. A pattern holding more is read by a guess at one of its texts.
+pub(super) const TEXTS_READ: usize = 64;
+
+impl Schema {
+    /// The relation read off the texts of a string subject, each put to the
+    /// walk the oracle runs, where every other decider declined.
+    ///
+    /// A pattern's table can be past the build's limit -- a counted Unicode
+    /// class under a repetition, `(?:\w{3,4})+` -- and then no set reading
+    /// holds it, though the walk's own matcher answers for one text, as it
+    /// answers for a literal's constant. The texts are the words of one of the
+    /// subject's patterns whose table builds and holds at most [`TEXTS_READ`]
+    /// words, which is every text the subject has; or, past that, a guess at a
+    /// text of each pattern ([`RegularSet::a_text_of`]).
+    ///
+    /// A text the walk admits to the subject and refuses to `other` is a value
+    /// outside it, which refutes whatever either side holds. A proof needs
+    /// every text, and both sides judging two `str`s of one text alike
+    /// ([`reads_the_text_alone`](Self::reads_the_text_alone)): the walk answers
+    /// for a `str`, and a subclass of it with the same text is a value of the
+    /// subject as well. Against `Nothing` this is the subject's emptiness.
+    #[inline(never)]
+    pub(super) fn decided_by_its_texts(
+        &self,
+        other: &Schema,
+        oracle: &dyn LeafRelations,
+    ) -> Relation {
+        let Some((texts, every_text)) = self.texts_to_read() else {
+            return Relation::Unknown;
+        };
+        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+        let Some(admitted) = oracle.strings_admitted(self, &texts) else {
+            return Relation::Unknown;
+        };
+        let held: Vec<&str> = texts
+            .iter()
+            .zip(admitted)
+            .filter_map(|(text, admitted)| admitted.then_some(*text))
+            .collect();
+        if held.is_empty() {
+            return Relation::proven(every_text && self.reads_the_text_alone());
+        }
+        match oracle.strings_admitted(other, &held) {
+            Some(inside) if inside.contains(&false) => Relation::Fails,
+            Some(_) => Relation::proven(
+                every_text && self.reads_the_text_alone() && other.reads_the_text_alone(),
+            ),
+            None => Relation::Unknown,
+        }
+    }
+
+    /// The texts a string subject is read by, and whether they are every text
+    /// it has: the words of the first of its patterns holding at most
+    /// [`TEXTS_READ`], or a guess at a text of each. A meet is read by its
+    /// members' patterns, since it is below each member. `None` where no
+    /// pattern refines a `str` at the top.
+    fn texts_to_read(&self) -> Option<(Vec<String>, bool)> {
+        let members = match self {
+            Schema::Intersection(members) => &members[..],
+            schema => core::slice::from_ref(schema),
+        };
+        let patterns: Vec<&str> = members
+            .iter()
+            .filter_map(|member| match member {
+                Schema::Refine { base, constraints } if matches!(**base, Schema::Str) => {
+                    Some(constraints)
+                }
+                _ => None,
+            })
+            .flat_map(|constraints| constraints.iter())
+            .filter_map(|constraint| match constraint {
+                Constraint::Regex(pattern) => Some(&**pattern),
+                _ => None,
+            })
+            .collect();
+        if patterns.is_empty() {
+            return None;
+        }
+        let every_text = patterns
+            .iter()
+            .find_map(|pattern| RegularSet::pattern(pattern, Alphabet::Text)?.words(TEXTS_READ));
+        if let Some(words) = every_text {
+            let texts = words
+                .into_iter()
+                .map(|word| String::from_utf8(word).ok())
+                .collect::<Option<Vec<_>>>()?;
+            return Some((texts, true));
+        }
+        let guesses: Vec<String> = patterns
+            .iter()
+            .filter_map(|pattern| RegularSet::a_text_of(pattern))
+            .collect();
+        (!guesses.is_empty()).then_some((guesses, false))
+    }
+
+    /// Whether two `str`s of one text are both values of this schema or
+    /// neither: a pattern and a length read the text, and a kind no `str` is
+    /// holds neither. A literal pins the exact type, a class and a predicate
+    /// read the value, and each of those declines.
+    fn reads_the_text_alone(&self) -> bool {
+        match self {
+            Schema::Anything(_)
+            | Schema::Nothing
+            | Schema::Str
+            | Schema::NoneType
+            | Schema::Bool
+            | Schema::Int
+            | Schema::Float
+            | Schema::Bytes => true,
+            Schema::Refine { base, constraints } => {
+                matches!(**base, Schema::Str)
+                    && constraints.iter().all(|constraint| {
+                        matches!(
+                            constraint,
+                            Constraint::Regex(_) | Constraint::MinLen(_) | Constraint::MaxLen(_)
+                        )
+                    })
+            }
+            Schema::Complement(inner) => inner.reads_the_text_alone(),
+            Schema::Union(members) | Schema::Intersection(members) => {
+                members.iter().all(Schema::reads_the_text_alone)
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Whether two unions of records each pinning one required key to a constant
+/// share no value, read at that key; `None` where they are not two such
+/// unions or the oracle declines to pair their constants ([`tag_pairs`]).
+///
+/// Two records requiring one key share no value where its two schemas share
+/// none [Cas23, (11)], the record pair arm of [`Schema::disjoint_with`], and
+/// two constants apart are two such schemas, so a pair of records pinned to
+/// constants apart is disjoint by its tag. The pairs the oracle names are read
+/// whole, and every other pair is answered by the tags: the answer the pairwise
+/// arms give, for one pass over the tags in place of a question a pair.
+///
+/// Out of line, asked where the first member is a record.
+#[inline(never)]
+fn tagged_unions_disjoint(
+    mine: &[Schema],
+    theirs: &[Schema],
+    oracle: &dyn LeafRelations,
+) -> Option<bool> {
+    let pairs = tag_pairs(mine, theirs, oracle)?;
+    Some(pairs.into_iter().all(|(at, other)| {
+        mine.get(at)
+            .zip(theirs.get(other))
+            .is_some_and(|(left, right)| left.disjoint_with(right, oracle))
+    }))
+}
+
+/// The pairs of positions, one in `mine` and one in `theirs`, whose records
+/// pin a shared required key to constants sharing a value
+/// ([`LeafRelations::literals_paired`]); every pair not named is two records
+/// disjoint by that key. `None` where some member of either is no record
+/// pinning the key, or the oracle declines.
+///
+/// The key is one the first member requires, pinned in every member of both
+/// unions; a constant is written as a literal or as the union of one the
+/// frontend builds for `Literal[c]`. The pairs come ordered by their position
+/// in `mine`.
+///
+/// Out of line, and asked only where the first member is a record, a
+/// discriminant test its callers make: the union arms it sits beside are on
+/// every relation's path, and a pair of unions of anything else pays that
+/// test alone.
+#[inline(never)]
+pub(super) fn tag_pairs(
+    mine: &[Schema],
+    theirs: &[Schema],
+    oracle: &dyn LeafRelations,
+) -> Option<Vec<(usize, usize)>> {
+    let Some(Schema::KeyedMap { fields, .. }) = mine.first() else {
+        return None;
+    };
+    fields
+        .iter()
+        .filter(|field| field.required)
+        .find_map(|field| {
+            let tags = |members: &[Schema]| {
+                members
+                    .iter()
+                    .map(|member| pinned(member, &field.name))
+                    .collect::<Option<Vec<ConstIx>>>()
+            };
+            let mut pairs = oracle.literals_paired(&tags(mine)?, &tags(theirs)?)?;
+            pairs.sort_unstable();
+            Some(pairs)
+        })
+}
+
+/// The constant `member`, a record, pins its required key `name` to.
+fn pinned(member: &Schema, name: &str) -> Option<ConstIx> {
+    let Schema::KeyedMap { fields, .. } = member else {
+        return None;
+    };
+    let field = fields
+        .iter()
+        .find(|field| field.required && *field.name == *name)?;
+    match &field.schema {
+        Schema::Literal(constant) => Some(*constant),
+        Schema::Union(members) => match &members[..] {
+            [Schema::Literal(constant)] => Some(*constant),
+            _ => None,
+        },
+        _ => None,
     }
 }

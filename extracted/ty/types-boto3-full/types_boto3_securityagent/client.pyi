@@ -566,8 +566,8 @@ class SecurityAgentClient(BaseClient):
 
     def create_membership(self, **kwargs: Unpack[CreateMembershipRequestTypeDef]) -> dict[str, Any]:
         """
-        Creates a new membership, granting a user access to an agent space within an
-        application.
+        Creates a new membership, granting a user or group access to an agent space
+        within an application.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_membership.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#create_membership)
@@ -674,7 +674,7 @@ class SecurityAgentClient(BaseClient):
 
     def delete_membership(self, **kwargs: Unpack[DeleteMembershipRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a membership, revoking a user's access to an agent space.
+        Deletes a membership, revoking a user's or group's access to an agent space.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_membership.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityagent/client/#delete_membership)

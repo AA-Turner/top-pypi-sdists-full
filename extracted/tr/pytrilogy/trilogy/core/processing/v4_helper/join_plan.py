@@ -83,13 +83,32 @@ class JoinPlan:
         """The plan for a merge joining `sides`: a contributor folded into
         another side pairs with nothing there. A side joined more than once is
         split: its projections pair on anything they both hold."""
-        joined = frozenset(sides)
+        return self.across([frozenset({gid}) for gid in sides])
+
+    def across(self, sides: Sequence[frozenset[str]]) -> "JoinPlan":
+        """The plan for a merge joining `sides`, each the contributors whose
+        rows it holds (a merge assembled below the consumer holds several):
+        only pairings between two sides are joined here, the rest were joined
+        below. A contributor on more than one side, or split already, pairs
+        with itself."""
+        index: dict[str, set[int]] = {}
+        for i, side in enumerate(sides):
+            for gid in side:
+                index.setdefault(gid, set()).add(i)
         return replace(
             self,
             pairings=tuple(
-                p for p in self.pairings if p.left in joined and p.right in joined
+                p
+                for p in self.pairings
+                if p.left == p.right
+                and p.left in index
+                or any(
+                    i != j
+                    for i in index.get(p.left, ())
+                    for j in index.get(p.right, ())
+                )
             ),
-        ).with_split(frozenset(gid for gid in joined if sides.count(gid) > 1))
+        ).with_split(frozenset(gid for gid, at in index.items() if len(at) > 1))
 
     def with_split(self, split: frozenset[str]) -> "JoinPlan":
         """The plan with each `split` contributor joined as several projections
@@ -128,6 +147,11 @@ class JoinPlan:
         return frozenset().union(
             *(p.keys & held for p in self.pairings if gid in (p.left, p.right))
         )
+
+    def owed_by(self, gid: str) -> frozenset[str]:
+        """What `gid`'s side is widened to: its pairing keys and the keys
+        the consumer's contract asks it to carry."""
+        return self.keys_for(gid) | self.carry_demands.get(gid, frozenset())
 
     def islands(self) -> list[set[str]]:
         """Contributors grouped by what pairs them, single-row ones aside."""
@@ -811,8 +835,9 @@ def plan_final_join(
         if attrs[gid].derivation == Derivation.ROOT
     }
     for gid, keys in (contracted or {}).items():
+        widenable = _widenable(group_graph, attrs, gid, environment)
         carry_demands[gid] = carry_demands.get(gid, frozenset()) | (
-            keys & _widenable(group_graph, attrs, gid, environment)
+            keys & (widenable | _renderable(widenable, keys, environment))
         )
     # A row stream is identified by the grain keys its rows turn out to hold
     # (`sale_recency` at customer and sale date holds both off its inputs);

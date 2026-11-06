@@ -1,6 +1,10 @@
-use super::{Alphabet, Dfa, MAX_STATES, RegularSet};
+use super::{
+    Alphabet, COMPILED, COMPILED_BYTES, Compiled, Dfa, Handles, MAX_STATES, Products, RegularSet,
+    WITNESS_BYTES,
+};
 use crate::descr::lattice_tests::Algebra;
 use proptest::prelude::*;
+use std::sync::Arc;
 
 /// The words a law is checked over.
 ///
@@ -121,6 +125,78 @@ fn ranked_pattern() -> impl Strategy<Value = String> {
                 .prop_map(|(x, quantifier)| format!("(?:{x}){quantifier}")),
         ]
     })
+}
+
+/// Every word over `{a, -, é}` of up to three letters: a word character, a
+/// character that is none, and a word character past ASCII.
+fn bounded_words() -> Vec<String> {
+    let mut words = vec![String::new()];
+    let mut layer = vec![String::new()];
+    for _ in 0..3 {
+        layer = layer
+            .iter()
+            .flat_map(|word| ["a", "-", "é"].map(|letter| format!("{word}{letter}")))
+            .collect();
+        words.extend(layer.iter().cloned());
+    }
+    words
+}
+
+/// Patterns over `{a, -, é}` whose two ends may each assert a word boundary or
+/// its negation, Unicode or ASCII: the first read as the character it asks
+/// about, the second by the builder.
+///
+/// Every repetition the syntax has, greedy and lazy, nested in one another:
+/// the part between the ends is built from its tree, and a repetition of a
+/// repetition is the tree a printer writes back as another pattern.
+fn bounded_pattern() -> impl Strategy<Value = String> {
+    let leaf = prop_oneof![
+        Just(String::new()),
+        Just("a".to_owned()),
+        Just("-".to_owned()),
+        Just("é".to_owned()),
+        Just("[a-]".to_owned()),
+    ];
+    let between = leaf.prop_recursive(2, 8, 2, |inner| {
+        prop_oneof![
+            (inner.clone(), inner.clone()).prop_map(|(x, y)| format!("{x}{y}")),
+            (inner.clone(), inner.clone()).prop_map(|(x, y)| format!("(?:{x}|{y})")),
+            (
+                inner,
+                prop::sample::select(vec!["*", "+", "?", "{1,2}", "*?", "+?", "??"])
+            )
+                .prop_map(|(x, repeat)| format!("(?:{x}){repeat}")),
+        ]
+    });
+    let end = || prop::sample::select(vec!["", r"\b", r"\B", r"(?-u:\b)", r"(?-u:\B)"]);
+    (end(), between, end()).prop_map(|(first, between, last)| format!("{first}{between}{last}"))
+}
+
+/// A word boundary at an end of a pattern is read as the character it asks
+/// about, under the whole-text match the walk runs: `\bab\b` is `ab`, `\Bab`
+/// and a bare `\b` hold nothing, and a bare `\B` holds the empty word.
+///
+/// One inside a pattern is refused, as the builder refuses it, and so is one in
+/// a pattern over bytes, which this reading does not take.
+#[test]
+fn a_word_boundary_at_an_end_is_the_character_it_asks_about() {
+    assert_eq!(language(r"\bab\b"), language("ab"));
+    assert_eq!(language(r"(?-u:\b)ab"), language("ab"));
+    assert!(language(r"\Bab").is_empty());
+    assert!(language(r"\b").is_empty());
+    assert_eq!(language(r"\B"), one_word(b""));
+    assert_eq!(language(r"\b(?:a|-)"), language("a"));
+    assert_eq!(language(r"(?:a|-)\B"), language("-"));
+    // A repetition of a repetition between the ends keeps the words it holds:
+    // the optional `(?:a+)?` holds the empty word, which `\B` admits at an end
+    // and the word character `a` does not.
+    assert_eq!(language(r"(?:a+)?\B"), one_word(b""));
+    assert_eq!(language(r"\B(?:a+)?"), one_word(b""));
+    assert_eq!(language(r"(?:a{1,2})?\B"), one_word(b""));
+    assert_eq!(language(r"(?:-+)?\B"), language("-*"));
+    assert!(language(r"(?:a+)+\B").is_empty());
+    assert!(RegularSet::pattern(r"a\bb", Alphabet::Text).is_none());
+    assert!(RegularSet::pattern(r"\bab\b", Alphabet::Bytes).is_none());
 }
 
 /// Languages over the three-letter alphabet the universe covers.
@@ -301,6 +377,26 @@ proptest! {
         }
     }
 
+    /// A pattern opening or closing on a word boundary holds the words the
+    /// walk's matcher admits whole, the boundary read as the character it asks
+    /// about.
+    #[test]
+    fn a_word_boundary_at_an_end_holds_the_words_its_matcher_admits(
+        pattern in bounded_pattern()
+    ) {
+        let set = language(&pattern);
+        let whole = matcher(&pattern);
+        for word in bounded_words() {
+            prop_assert_eq!(
+                set.holds(word.as_bytes()),
+                whole.is_match(&word),
+                "{} against {:?}",
+                pattern,
+                word
+            );
+        }
+    }
+
     /// A pattern's language is the words the walk's matcher admits whole.
     ///
     /// The laws above check the automata against each other, which holds as
@@ -452,10 +548,10 @@ fn a_pattern_is_anchored_at_both_ends() {
 
 /// A pattern that parses only once wrapped is refused: `a)|(b` closes the
 /// wrapper's group and opens one the wrapper closes, and the language built
-/// would be one nobody wrote.
+/// would be one nobody wrote. Asked again, the memo hands back the refusal.
 #[test]
 fn a_pattern_that_parses_only_wrapped_is_refused() {
-    for pattern in ["a)|(b", ")|(", "a)(b"] {
+    for pattern in ["a)|(b", ")|(", "a)(b"].repeat(2) {
         assert!(
             RegularSet::pattern(pattern, Alphabet::Text).is_none(),
             "{pattern} built"
@@ -878,6 +974,25 @@ fn a_word_past_the_state_bound_refuses() {
     assert!(RegularSet::word(&[edge.as_slice(), b"a"].concat()).is_none());
 }
 
+/// A length bound is held to the state bound before its pattern is written, as
+/// a word is: a table counting to the bound holds a state for each count. Past
+/// it a bound of a million is refused rather than compiled into a million
+/// copies of a code point, and a counted repetition a caller's pattern writes
+/// is refused by the compiler's own size limit rather than by the allocation
+/// that aborts the interpreter.
+#[test]
+fn a_length_past_the_state_bound_refuses_before_it_is_built() {
+    for alphabet in [Alphabet::Text, Alphabet::Bytes] {
+        assert!(RegularSet::at_most(2, alphabet).is_some(), "{alphabet:?}");
+        assert!(RegularSet::at_least(2, alphabet).is_some(), "{alphabet:?}");
+        for past in [MAX_STATES - 1, 1_000_000, usize::MAX] {
+            assert!(RegularSet::at_least(past, alphabet).is_none(), "{past}");
+            assert!(RegularSet::at_most(past, alphabet).is_none(), "{past}");
+        }
+    }
+    assert!(RegularSet::pattern("(?s:.){1000000}", Alphabet::Text).is_none());
+}
+
 /// A product that keeps a word's chain is a chain again, minimized again: a
 /// word of four thousand bytes met with a language that holds it is the word.
 #[test]
@@ -901,4 +1016,383 @@ fn the_widest_table_the_state_bound_admits_builds() {
         .expect("a table inside the state bound builds");
     assert_eq!(set.dfa.state_count(), MAX_STATES - 1);
     assert!(set.holds(&word));
+}
+
+/// A language built once on a thread is the table handed back for the same text
+/// again, a refusal included, and the memo holds the language under the text it
+/// was asked by.
+#[test]
+fn a_built_language_is_handed_back_for_its_text() {
+    let first = language("ab*c");
+    assert!(Arc::ptr_eq(&first.dfa, &language("ab*c").dfa));
+    let held = COMPILED.with_borrow(|memo| memo.utf8.contains_key("(?:ab*c)"));
+    assert!(
+        held,
+        "the language is kept under the text it was built from"
+    );
+    let wide = "(a|b)*a(a|b){24}";
+    assert!(
+        RegularSet::pattern(wide, Alphabet::Text).is_none(),
+        "the build refuses"
+    );
+    let refused = format!("(?:{wide})");
+    let kept = COMPILED.with_borrow(|memo| memo.utf8.get(refused.as_str()).cloned());
+    assert_eq!(kept, Some(None), "the refusal is kept as well as a table");
+}
+
+/// A table weighs the bytes its rows, classes and accepting flags hold: one
+/// letter is three states over two classes.
+#[test]
+fn a_table_weighs_its_rows() {
+    let set = language("a");
+    assert_eq!(set.dfa.state_count(), 3);
+    assert_eq!(set.dfa.bytes(), 256 * 2 + 3 * 2 * 4 + 3);
+}
+
+/// The memo's bound is four tables at the widest a table is: [`MAX_STATES`]
+/// rows of 256 classes, a transition a `u32`.
+#[test]
+fn the_memo_holds_four_of_the_widest_tables() {
+    let widest = MAX_STATES * 256 * size_of::<u32>();
+    assert_eq!(COMPILED_BYTES, 4 * widest);
+    assert_eq!(
+        COMPILED_BYTES,
+        16 << 20,
+        "sixteen mebibytes, as the docs say"
+    );
+}
+
+/// The memo holds no more than [`COMPILED_BYTES`]: a language that fills it
+/// exactly is kept beside what it holds, the next one starts it over, and one
+/// heavier than the bound alone is not kept at all. A refusal weighs its text.
+#[test]
+fn the_memo_starts_over_at_its_bound() {
+    let mut memo = Compiled::default();
+    memo.keep(false, &"a".repeat(COMPILED_BYTES - 1), None);
+    memo.keep(true, "b", None);
+    assert_eq!(memo.held, COMPILED_BYTES);
+    assert_eq!(memo.utf8.len() + memo.raw.len(), 2);
+    memo.keep(true, "c", None);
+    assert_eq!(memo.held, 1);
+    assert_eq!(memo.utf8.len() + memo.raw.len(), 1);
+    memo.keep(false, &"d".repeat(COMPILED_BYTES), None);
+    assert_eq!(
+        memo.held, COMPILED_BYTES,
+        "a language as heavy as the bound is kept alone"
+    );
+    memo.keep(false, &"e".repeat(COMPILED_BYTES + 1), None);
+    assert_eq!(memo.held, COMPILED_BYTES, "a heavier one is not kept");
+    assert!(
+        !memo
+            .raw
+            .contains_key("e".repeat(COMPILED_BYTES + 1).as_str())
+    );
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        max_shrink_time: 2_000,
+        ..ProptestConfig::default()
+    })]
+
+    /// The words a finite language lists are its words, and the limit is
+    /// exact: every word listed is held, every word of the universe held is
+    /// listed, and the count listed is the least limit that lists them.
+    #[test]
+    fn a_finite_language_lists_exactly_its_words(set in regular_set()) {
+        let Some(words) = set.words(64) else {
+            return Ok(());
+        };
+        for word in &words {
+            prop_assert!(set.holds(word), "{word:?} is listed and not held");
+        }
+        for word in universe() {
+            prop_assert_eq!(set.holds(word), words.iter().any(|listed| listed == word));
+        }
+        prop_assert_eq!(set.words(words.len()), Some(words.clone()));
+        if let Some(fewer) = words.len().checked_sub(1) {
+            prop_assert_eq!(set.words(fewer), None);
+        }
+    }
+}
+
+/// A language is listed where it holds at most the limit, shortest first, and
+/// is not where it holds more or infinitely many.
+#[test]
+fn a_language_is_listed_up_to_its_limit() {
+    let listed = |pattern: &str, limit| language(pattern).words(limit);
+    let words = |words: &[&str]| Some(words.iter().map(|word| word.as_bytes().to_vec()).collect());
+    assert_eq!(listed("a|abc", 64), words(&["a", "abc"]));
+    assert_eq!(listed("x{0,2}", 64), words(&["", "x", "xx"]));
+    assert_eq!(listed("[ab]c", 2), words(&["ac", "bc"]));
+    assert_eq!(listed("[ab]c", 1), None);
+    assert_eq!(listed("a+", 64), None);
+    assert_eq!(listed("é", 64), words(&["é"]));
+    assert_eq!(
+        language("a")
+            .intersect(&language("b"))
+            .and_then(|set| set.words(64)),
+        words(&[])
+    );
+}
+
+/// A guess at a text of a pattern reads each part at its least: a class at its
+/// first character, a repetition its fewest times, an alternation its
+/// shortest branch, an assertion nothing -- which the walk may then refuse.
+#[test]
+fn a_guess_reads_each_part_at_its_least() {
+    assert_eq!(
+        RegularSet::a_text_of(r"(?:\w{3,4})+").as_deref(),
+        Some("000")
+    );
+    assert!(matcher(r"(?:\w{3,4})+").is_match("000"));
+    assert_eq!(RegularSet::a_text_of("x|yz").as_deref(), Some("x"));
+    assert_eq!(RegularSet::a_text_of("(a)(?:b)?c*").as_deref(), Some("a"));
+    assert_eq!(RegularSet::a_text_of(r"a\bb").as_deref(), Some("ab"));
+    assert!(!matcher(r"a\bb").is_match("ab"));
+    assert_eq!(RegularSet::a_text_of("[é-ü]").as_deref(), Some("é"));
+    let counted = |count: usize| RegularSet::a_text_of(&format!("a{{{count}}}"));
+    assert_eq!(
+        counted(WITNESS_BYTES).map(|text| text.len()),
+        Some(WITNESS_BYTES)
+    );
+    assert_eq!(counted(WITNESS_BYTES + 1), None);
+    assert_eq!(RegularSet::a_text_of("a)|(b"), None);
+}
+
+/// The WTF-8 spelling of `points`, a lone surrogate spelled the way the
+/// three-byte form spells every other code point.
+fn wtf8(points: &[u32]) -> Vec<u8> {
+    // Every value handed over is masked to a byte first.
+    let byte = |value: u32| u8::try_from(value & 0xFF).unwrap_or(0);
+    let mut bytes = Vec::new();
+    for &point in points {
+        match point {
+            0..=0x7F => bytes.push(byte(point)),
+            0x80..=0x7FF => bytes.extend([0xC0 | byte(point >> 6), 0x80 | byte(point & 0x3F)]),
+            0x800..=0xFFFF => bytes.extend([
+                0xE0 | byte(point >> 12),
+                0x80 | byte((point >> 6) & 0x3F),
+                0x80 | byte(point & 0x3F),
+            ]),
+            _ => bytes.extend([
+                0xF0 | byte(point >> 18),
+                0x80 | byte((point >> 12) & 0x3F),
+                0x80 | byte((point >> 6) & 0x3F),
+                0x80 | byte(point & 0x3F),
+            ]),
+        }
+    }
+    bytes
+}
+
+proptest! {
+    // THEORY: a-refinement-narrows-its-base
+    /// A word ordered against a bound is in the language exactly where Python
+    /// orders the two that way: `bytes` byte by byte, and `str` code point by
+    /// code point, a lone surrogate among them, a prefix before what extends
+    /// it.
+    #[test]
+    fn an_ordered_language_holds_the_words_python_orders_so(
+        bound in proptest::collection::vec(proptest::sample::select(vec![0u32, 0x61, 0x62, 0xE9, 0xD7FF, 0xD800, 0xE000, 0x1F600]), 0..4),
+        word in proptest::collection::vec(proptest::sample::select(vec![0u32, 0x61, 0x62, 0xE9, 0xD7FF, 0xD800, 0xE000, 0x1F600]), 0..5),
+        above in any::<bool>(),
+        inclusive in any::<bool>(),
+    ) {
+        let ordered = |held: core::cmp::Ordering| match (above, inclusive) {
+            (true, true) => held.is_ge(),
+            (true, false) => held.is_gt(),
+            (false, true) => held.is_le(),
+            (false, false) => held.is_lt(),
+        };
+        let text = RegularSet::ordered(&wtf8(&bound), above, inclusive, Alphabet::Text).unwrap();
+        prop_assert_eq!(text.holds(&wtf8(&word)), ordered(word.cmp(&bound)));
+        let narrow = |points: &[u32]| {
+            points
+                .iter()
+                .map(|point| u8::try_from(point & 0xFF).unwrap_or(0))
+                .collect::<Vec<u8>>()
+        };
+        let bytes = RegularSet::ordered(&narrow(&bound), above, inclusive, Alphabet::Bytes).unwrap();
+        prop_assert_eq!(bytes.holds(&narrow(&word)), ordered(narrow(&word).cmp(&narrow(&bound))));
+    }
+}
+
+/// The words short of a bound are the kind's words short of it: no byte
+/// string that is no `str` is in the text language.
+#[test]
+fn an_ordered_text_language_holds_no_word_a_str_cannot_spell() {
+    let below = RegularSet::ordered(b"b", false, false, Alphabet::Text).unwrap();
+    assert!(below.holds(b"a"));
+    assert!(!below.holds(&[0xFF]), "a byte no str spells");
+    assert!(
+        !below.holds(&[0x61, 0x80]),
+        "a continuation with nothing before it"
+    );
+}
+
+/// A product of two tables is built once while the memo holds it, whichever
+/// order the two are asked in.
+///
+/// The memo's whole claim: asked again, a meet or a join hands back the table
+/// it built, and since meet and join commute the pair in the other order is
+/// the same entry. The language is the one a fresh product builds.
+#[test]
+fn a_product_of_two_tables_is_built_once() {
+    let a = language("a+b*");
+    let b = language("[ab]{2,5}");
+    let met = a.intersect(&b).expect("a small product");
+    let again = b.intersect(&a).expect("a small product");
+    assert!(
+        Arc::ptr_eq(&met.dfa, &again.dfa),
+        "the second meet built a table"
+    );
+    assert!(met.holds(b"ab") && met.holds(b"aab") && !met.holds(b"a") && !met.holds(b"ba"));
+    let joined = a.union(&b).expect("a small product");
+    assert!(
+        !Arc::ptr_eq(&joined.dfa, &met.dfa),
+        "a join is not the meet"
+    );
+    assert!(Arc::ptr_eq(
+        &joined.dfa,
+        &b.union(&a).expect("a small product").dfa
+    ));
+    assert!(joined.holds(b"ba") && joined.holds(b"a"));
+}
+
+/// The product memo holds no more than [`COMPILED_BYTES`], as the language
+/// memo does: a product that fills it exactly is kept beside what it holds,
+/// the next one starts it over, and one heavier than the bound alone is not
+/// kept at all.
+#[test]
+fn the_product_memo_starts_over_at_its_bound() {
+    let table = || Arc::new(Dfa::empty());
+    let tables = || [table(), table()];
+    let mut memo = Products::default();
+    memo.keep((1, 1, false), tables(), None, COMPILED_BYTES - 1);
+    memo.keep((2, 2, false), tables(), None, 1);
+    assert_eq!(memo.held, COMPILED_BYTES);
+    assert_eq!(memo.built.len(), 2);
+    memo.keep((3, 3, false), tables(), None, 1);
+    assert_eq!(memo.held, 1);
+    assert_eq!(memo.built.len(), 1);
+    memo.keep((4, 4, false), tables(), None, COMPILED_BYTES);
+    assert_eq!(
+        memo.held, COMPILED_BYTES,
+        "a product as heavy as the bound is kept alone"
+    );
+    memo.keep((5, 5, false), tables(), None, COMPILED_BYTES + 1);
+    assert_eq!(memo.held, COMPILED_BYTES, "a heavier one is not kept");
+    assert!(!memo.built.contains_key(&(5, 5, false)));
+}
+
+/// A complement, a word and an order bound built again are handed the table
+/// the first build got, so a product with one of them is found again.
+///
+/// The handle memo's whole claim, read through the memo it serves: the three
+/// are built anew on every ask, and the product memo finds a product by the
+/// addresses of its two tables. A different language is a different table.
+#[test]
+fn a_table_built_again_is_handed_the_first_ones_handle() {
+    let a = language("a+b*");
+    let first = a.complement();
+    let again = a.complement();
+    assert!(
+        Arc::ptr_eq(&first.dfa, &again.dfa),
+        "a complement built again is a second table"
+    );
+    let b = language("[ab]{2,5}");
+    let met = first.intersect(&b).expect("a small product");
+    assert!(
+        Arc::ptr_eq(&met.dfa, &again.intersect(&b).expect("a small product").dfa),
+        "the product with the complement was built again"
+    );
+    let word = |text: &[u8]| RegularSet::word(text).expect("a short word");
+    assert!(Arc::ptr_eq(&word(b"abc").dfa, &word(b"abc").dfa));
+    assert!(!Arc::ptr_eq(&word(b"abc").dfa, &word(b"abd").dfa));
+    let below = |bound: &[u8]| {
+        RegularSet::ordered(bound, false, true, Alphabet::Text).expect("a short bound")
+    };
+    assert!(Arc::ptr_eq(&below(b"b").dfa, &below(b"b").dfa));
+    assert!(below(b"b").holds(b"a") && !below(b"b").holds(b"c"));
+}
+
+/// The handle memo holds no more than [`COMPILED_BYTES`], as the other two
+/// do: a table that fills it exactly is kept beside what it holds, the next
+/// one starts it over, and one heavier than the bound alone is not kept at
+/// all.
+#[test]
+fn the_handle_memo_starts_over_at_its_bound() {
+    let table = |word: &[u8]| Arc::new(Dfa::word(word));
+    let mut memo = Handles::default();
+    memo.keep(table(b"a"), COMPILED_BYTES - 1);
+    memo.keep(table(b"b"), 1);
+    assert_eq!(memo.held, COMPILED_BYTES);
+    assert_eq!(memo.tables.len(), 2);
+    memo.keep(table(b"c"), 1);
+    assert_eq!(memo.held, 1);
+    assert_eq!(memo.tables.len(), 1);
+    memo.keep(table(b"d"), COMPILED_BYTES);
+    assert_eq!(
+        memo.held, COMPILED_BYTES,
+        "a table as heavy as the bound is kept alone"
+    );
+    memo.keep(table(b"e"), COMPILED_BYTES + 1);
+    assert_eq!(memo.held, COMPILED_BYTES, "a heavier one is not kept");
+    assert!(!memo.tables.contains(&Dfa::word(b"e")));
+}
+
+/// A counted code point or byte, built directly, is the table the pattern
+/// compiler builds and minimizes, at every count the compiler can build: the
+/// minimal form is unique [DV14, Thm. 1], so the two are one table. Past what
+/// the compiler builds, the direct table is held to the state bound alone:
+/// seven states a code point and two beside them.
+#[test]
+fn a_counted_symbol_is_the_table_the_compiler_builds() {
+    for alphabet in [Alphabet::Text, Alphabet::Bytes] {
+        for count in [0, 1, 2, 3, 7, 40, 255] {
+            for at_least in [false, true] {
+                let unit = super::code_point(alphabet);
+                let pattern = if at_least {
+                    format!("{unit}{{{count},}}")
+                } else {
+                    format!("{unit}{{0,{count}}}")
+                };
+                // Determinized from the parse rather than compiled through the
+                // memo, which keeps a counted table under this very text: read
+                // through it, the comparison could be the table with itself.
+                let parsed = regex_automata::util::syntax::parse_with(
+                    &pattern,
+                    &regex_automata::util::syntax::Config::new().utf8(false),
+                )
+                .expect("the pattern parses");
+                let compiled = RegularSet::determinize(&parsed).expect("within the build");
+                assert_eq!(
+                    *compiled.dfa,
+                    Dfa::counted(count, at_least, alphabet),
+                    "{pattern}"
+                );
+            }
+        }
+    }
+    let largest = (MAX_STATES - 2) / 7;
+    assert!(RegularSet::at_most(largest, Alphabet::Text).is_some());
+    assert!(RegularSet::at_most(largest + 1, Alphabet::Text).is_none());
+    assert!(RegularSet::at_least(largest, Alphabet::Text).is_some());
+    assert!(RegularSet::at_least(MAX_STATES - 2, Alphabet::Bytes).is_some());
+    assert!(RegularSet::at_least(MAX_STATES - 1, Alphabet::Bytes).is_none());
+}
+
+/// A counted table is built once a thread and kept under the text the
+/// compiler would build it from: asked again, the table is read back.
+#[test]
+fn a_counted_table_is_kept_under_the_compilers_text() {
+    let text = format!("{}{{0,{}}}", super::code_point(Alphabet::Text), 500);
+    COMPILED.with_borrow_mut(|memo| memo.raw.remove(text.as_str()));
+    let first = RegularSet::at_most(500, Alphabet::Text).expect("within the bound");
+    let kept = COMPILED.with_borrow(|memo| memo.raw.get(text.as_str()).cloned());
+    let kept = kept.flatten().expect("kept under the compiler's text");
+    assert!(Arc::ptr_eq(&kept.dfa, &first.dfa));
+    let again = RegularSet::at_most(500, Alphabet::Text).expect("within the bound");
+    assert!(Arc::ptr_eq(&again.dfa, &first.dfa));
 }

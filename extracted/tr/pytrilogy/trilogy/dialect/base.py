@@ -685,6 +685,45 @@ def render_true_divide(float_type: str, args: list[str], types: list) -> str:
     return " / ".join(args)
 
 
+def render_log(args: list[str], types: list) -> str:
+    """`log(x, b)` is the log of `x` to base `b`. A two-argument `log` takes
+    the base first on SQLite, Postgres, Snowflake and MySQL and second
+    elsewhere, so only the change of base is portable."""
+    if args[1] in ("10", "10.0"):
+        return f"log10({args[0]})"
+    return f"(ln({args[0]}) / ln({args[1]}))"
+
+
+def render_present_extreme(name: str) -> Callable[..., str]:
+    """`greatest`/`least` of the present arguments, as DuckDB and Postgres
+    compute them, on an engine whose own is NULL when any argument is: each
+    argument falls back to the others, so the result is NULL only when every
+    argument is."""
+
+    def render(args: list[str], types: list) -> str:
+        if len(args) == 1:
+            return args[0]
+        fallbacks = [
+            f"coalesce({', '.join([a, *args[:i], *args[i + 1 :]])})"
+            for i, a in enumerate(args)
+        ]
+        return f"{name}({', '.join(fallbacks)})"
+
+    return render
+
+
+CALENDAR_PARTS = frozenset({"day", "week", "month", "quarter", "year"})
+
+
+def offset_keeps_date(args: list[str], types: list) -> bool:
+    """A whole-day offset of a DATE is a DATE (`date_add`'s declared type)."""
+    return (
+        bool(types)
+        and getattr(types[0], "data_type", None) == DataType.DATE
+        and args[1].lower() in CALENDAR_PARTS
+    )
+
+
 def render_unsupported(name: str) -> Callable[..., str]:
     def render(args: list[str], types: list) -> str:
         raise NotImplementedError(f"`{name}` is not supported by this dialect")
@@ -773,12 +812,11 @@ FUNCTION_MAP = {
     FunctionType.FLOOR: lambda x, types: f"floor({x[0]})",
     FunctionType.CEIL: lambda x, types: f"ceil({x[0]})",
     FunctionType.MOD: lambda x, types: f"{x[0]} % {x[1]}",
-    FunctionType.POWER: lambda x, types: f"{x[0]} ** {x[1]}",
+    # `**` is DuckDB's alone; SQLite, Postgres and SQL Server reject it
+    FunctionType.POWER: lambda x, types: f"power({x[0]}, {x[1]})",
     FunctionType.SQRT: lambda x, types: f"sqrt({x[0]})",
     FunctionType.RANDOM: lambda x, types: "random()",
-    FunctionType.LOG: lambda x, types: (
-        f"log({x[0]})" if x[1] == 10 else f"log({x[0]}, {x[1]})"
-    ),
+    FunctionType.LOG: render_log,
     # aggregate types
     FunctionType.COUNT_DISTINCT: lambda x, types: f"count(distinct {x[0]})",
     FunctionType.COUNT: lambda x, types: f"count({x[0]})",
@@ -940,6 +978,32 @@ CREATE {% if create_mode == "create_or_replace" %}OR REPLACE TABLE{% elif create
 {{ partition_clause }}
 {%- endif %};
 """.strip())
+
+
+def _reads_unfiltered_partial(cte: CTE | UnionCTE, concept: BuildConcept) -> bool:
+    """`cte` re-aggregates the stored `agg(x)` that `concept`, an `agg(x ? c)`,
+    was matched to, so its filter is applied here. A table storing
+    `agg(x ? c)` itself holds filtered values, and so does a CTE below that
+    re-aggregated them already."""
+    sources = set(cte.source_map.get(concept.address, []))
+    for datasource in cte.source.datasources:
+        if isinstance(datasource, BuildDatasource) and (
+            {datasource.name, datasource.safe_identifier} & sources
+        ):
+            return (
+                datasource.aggregate_column_for(concept) is None
+                and datasource.filtered_column_for(concept) is not None
+            )
+    parent = next((p for p in cte.parent_ctes if p.name in sources), None)
+    return (
+        parent is not None
+        and not (
+            isinstance(parent, CTE)
+            and parent.group_to_grain
+            and concept.address in {r.address for r in parent.rollup_concepts}
+        )
+        and _reads_unfiltered_partial(parent, concept)
+    )
 
 
 class BaseDialect:
@@ -1563,14 +1627,32 @@ class BaseDialect:
         logger.debug(
             f"{LOGGER_PREFIX} [{c.address}] Starting rendering loop on cte: {cte.name}"
         )
-        if cte.group_to_grain and c.address in {
-            concept.address for concept in cte.rollup_concepts
-        }:
+        planned = (
+            next((r for r in cte.rollup_concepts if r.address == c.address), None)
+            if cte.group_to_grain
+            else None
+        )
+        if planned is not None:
+            # the planned rollup, not a stale spelling of it in a parent's
+            # lineage (`count_distinct(k)` read as the `count(k)` it became)
+            c = planned
             rolled = self.safe_get_cte_value(cte, c, raise_invalid)
             if not rolled:
                 rolled = INVALID_REFERENCE_STRING(
                     f"Missing rollup source reference to {c.address}"
                 )
+            filtered = c.filtered_rollup
+            if filtered is not None and _reads_unfiltered_partial(cte, c):
+                # `agg(x ? c)` from a stored `agg(x)`: each partial counts where
+                # `c` holds on its row (`Cover.filtered_sum_exact`)
+                condition = self.render_expr(
+                    filtered[1].where.conditional, cte, raise_invalid=raise_invalid
+                )
+                rolled = f"CASE WHEN {condition} THEN {rolled} ELSE NULL END"
+                summed = self.FUNCTION_MAP[rollup_reaggregate(c)]([rolled], [])
+                if filtered[0][0] == FunctionType.COUNT:
+                    return self.FUNCTION_MAP[FunctionType.COALESCE]([summed, "0"], [])
+                return summed
             summed = self.FUNCTION_MAP[rollup_reaggregate(c)]([rolled], [])
             # a pre-aggregated COUNT rolled up through a join that padded it
             # (a sparse summary table beside its dimension): the group of one

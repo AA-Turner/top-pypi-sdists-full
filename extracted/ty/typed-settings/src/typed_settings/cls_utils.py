@@ -21,15 +21,13 @@ from typing import (
     Any,
     Final,
     Protocol,
-    # Self,   # if PY_311
-    # override,  # if PY_311
     cast,
     get_args,
     get_origin,
     overload,
 )
 
-from . import constants, types
+from . import _compat, constants, types
 from .types import NestedOptions, OptionInfo, SettingsDict
 
 
@@ -58,7 +56,6 @@ class NestedSequence(NestedOptions):
             return None
         return cls(deep_options(args[0]))
 
-    # @override  # if PY_311
     def init_data(self, path: str, val: object) -> list:
         """
         Return a list with an empty dict for each iten of the sequence *val*.
@@ -70,7 +67,6 @@ class NestedSequence(NestedOptions):
             raise TypeError(f"{path} (needs to be a sequence)")
         return [{} for _ in val]
 
-    # @override  # if PY_311
     def handle_nested(
         self, path: str, val: object
     ) -> list[tuple[SettingsDict | object, str, dict[str, OptionInfo]]]:
@@ -118,7 +114,6 @@ class NestedMapping(NestedOptions):
             return None
         return cls(deep_options(args[1]))
 
-    # @override  # if PY_311
     def handle_nested(
         self, path: str, val: object
     ) -> list[tuple[SettingsDict | object, str, dict[str, OptionInfo]]]:
@@ -344,7 +339,11 @@ class Dataclasses:
                     )
                     metadata = _get_metadata(
                         field.metadata.get(constants.METADATA_KEY),
-                        attr_docs.get(field.name),
+                        (
+                            field.doc or attr_docs.get(field.name)
+                            if _compat.PY_314
+                            else attr_docs.get(field.name)
+                        ),
                     )
                     origin = get_origin(field.type)
                     oinfo = types.OptionInfo(

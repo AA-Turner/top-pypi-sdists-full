@@ -8,11 +8,10 @@ authors = [
 dependencies = [
     "pydantic>=2.7.0",
     "numpy>=2.0.0",
-    "typing-extensions>=4.11.0;python_version<'3.11'",
 ]
-requires-python = "<4.0,>=3.10"
+requires-python = "<4.0,>=3.11"
 readme = "README.md"
-repository = "https://github.com/p2p-ld/numpydantic"
+license = "MIT"
 keywords = [
     "arrays",
     "validation",
@@ -26,23 +25,20 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: File Formats :: JSON :: JSON Schema",
     "Topic :: Utilities",
 ]
-version = "1.10.0"
-
-[project.license]
-text = "MIT"
+version = "2.0.0"
 
 [project.urls]
 homepage = "https://numpydantic.readthedocs.io"
@@ -61,15 +57,16 @@ video = [
     "opencv-python>=4.9.0.80",
 ]
 zarr = [
-    "zarr>=2.17.2,<3.0.0",
+    "zarr>=3.1.0",
 ]
 arrays = [
     "numpydantic[dask,hdf5,zarr,video]",
 ]
 mypy = [
     "mypy>=1.17.1",
-    "tomli>=2.4.1;python_version<'3.11'",
 ]
+
+[dependency-groups]
 tests = [
     "numpydantic[arrays,mypy]",
     "pytest>=7.4.0",
@@ -79,6 +76,7 @@ tests = [
     "coveralls>=3.3.1",
     "pyright>=1.1.408",
     "pytest-xdist>=3.8.0",
+    "typing-extensions>=4.16.0;python_version<'3.12'",
 ]
 docs = [
     "numpydantic[arrays,mypy]",
@@ -100,55 +98,24 @@ dev = [
     "ruff<1.0.0,>=0.2.0",
 ]
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.build]
-includes = []
-
-[tool.pdm.resolution]
-exclude-newer = "7d"
-
-[tool.pdm.scripts]
-test = "pytest"
-docs = "sphinx-autobuild ./docs ./docs/_build"
-docs-prod = "python -m sphinx -M html ./docs ./docs/_build -W -E -a --keep-going"
-
-[tool.pdm.scripts.lint]
-composite = [
-    "ruff check",
-    "black . --diff",
+[build-system]
+requires = [
+    "pdm-backend",
 ]
-
-[tool.pdm.scripts.format]
-composite = [
-    "black .",
-    "ruff check --fix",
-]
-
-[tool.pdm.scripts.lock]
-composite = [
-    "pdm lock --with :all --python=\">=3.10,<3.12\"",
-    "pdm lock --with :all --python=\">=3.12,<3.14\" --append",
-    "pdm lock --with :all --python=\">=3.14\" --append",
-]
-
-[tool.pdm.version]
-source = "scm"
-tag_filter = "v*"
-tag_regex = "v(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\\.post(0|[1-9][0-9]*))?(\\.dev(0|[1-9][0-9]*))?$)$"
+build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
 addopts = [
     "--cov=numpydantic",
     "--cov-append",
+    "-n=auto",
 ]
 testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore:.*deprecated alias.*Deprecated NumPy 1\\.24.*",
-    "ignore:.*divide by zero encountered in log10.*",
+    "ignore:String shape expressions:DeprecationWarning",
+    "ignore:Treating '...' in a string:DeprecationWarning",
 ]
 markers = [
     "dtype: mark test related to dtype validation",
@@ -167,24 +134,30 @@ markers = [
     "scalar: scalar values",
     "model: dtype annotatiosn are a pydantic model",
     "typechecking: type checker integration - mypy, pyright",
+    "pyright: Pyright type checker",
 ]
 
 [tool.black]
 target-version = [
-    "py310",
     "py311",
     "py312",
     "py313",
     "py314",
+    "py315",
 ]
+extend-exclude = "^/tests/data/"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 include = [
     "src/numpydantic/**/*.py",
     "tests/**/*.py",
     "pyproject.toml",
 ]
+
+[tool.ruff.per-file-target-version]
+"tests/data/typevars/*/pep695.py" = "py312"
+"tests/test_shape_typevars_pep695.py" = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -232,18 +205,15 @@ fixable = [
     "F722",
     "ANN",
 ]
+"tests/data/*" = [
+    "E501",
+]
 
 [tool.mypy]
 plugins = [
     "numpydantic.mypy",
     "pydantic.mypy",
 ]
-
-[[tool.mypy.overrides]]
-module = [
-    "zarr.*",
-]
-follow_untyped_imports = true
 
 [tool.numpydantic.mypy]
 interfaces = [
@@ -255,13 +225,45 @@ interfaces = [
 [tool.pydantic-mypy]
 init_typed = true
 
-[tool.coverage.run]
-omit = [
-    "src/numpydantic/vendor/*",
+[tool.codespell]
+skip = ".git*,*.lock,*.css,*.bib"
+check-hidden = true
+ignore-words-list = "afile,ND"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+includes = []
+
+[tool.pdm.resolution]
+exclude-newer = "7d"
+
+[tool.pdm.scripts]
+test = "pytest"
+docs = "sphinx-autobuild ./docs ./docs/_build"
+docs-prod = "python -m sphinx -M html ./docs ./docs/_build -W -E -a --keep-going"
+
+[tool.pdm.scripts.lint]
+composite = [
+    "ruff check",
+    "black . --diff",
 ]
 
-[build-system]
-requires = [
-    "pdm-backend",
+[tool.pdm.scripts.format]
+composite = [
+    "black .",
+    "ruff check --fix",
 ]
-build-backend = "pdm.backend"
+
+[tool.pdm.scripts.lock]
+composite = [
+    "pdm lock --with :all --python=\">=3.11,<3.12\"",
+    "pdm lock --with :all --python=\">=3.12,<3.14\" --append",
+    "pdm lock --with :all --python=\">=3.14\" --append",
+]
+
+[tool.pdm.version]
+source = "scm"
+tag_filter = "v*"
+tag_regex = "v(?P<version>([1-9][0-9]*!)?(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*((a|b|c|rc)(0|[1-9][0-9]*))?(\\.post(0|[1-9][0-9]*))?(\\.dev(0|[1-9][0-9]*))?$)$"

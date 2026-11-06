@@ -26,35 +26,30 @@ _MAX_DESCRIBED_ERROR_CHARS = 200
 
 
 class SessionInput(BaseModel):
-    """Base class for caller-supplied values delivered to declared consumers.
+    """A value you pass when you start a session, which tools and hooks can read.
 
-    A Session input is caller context, such as a repository or an organization, and
-    never a credential: it lives in the Session's Workflow input and state for the
-    Session's whole lifetime.
+    Subclass it with the fields you need, such as a repository or an organization, and set
+    ``input_id``. A tool, a hook or a sandbox hook reads it with a parameter annotated
+    ``Annotated[YourInput, agents.Depends()]``; the model never sees it. Never put a credential in
+    it: the session keeps it for its whole lifetime.
 
-    The control plane checks a value against the class's JSON Schema only, so a rule
-    only a validator expresses is checked where the value is used. A rejected value
-    fails that use with an error naming the input: a hook fails its Turn, a tool call
-    fails, and a sandbox hook fails the Session start.
+    A rule that only a validator expresses is checked where the value is used, and a rejected value
+    fails that use. Never put the value in a validator's message, since the message reaches turn
+    results and the model.
 
-    The error names the consumer and the input, then lists each failing field as
-    pydantic does. pydantic hides input values, while field paths and some messages (for
-    example an invalid union tag) can mention parts of the input. A validator must not put
-    the value in its message: the message reaches Turn results and the model.
-
-    A Session keeps its inputs for its whole lifetime, across worker versions, so a
+    A session keeps its inputs for its whole lifetime, across new deployments of the agent, so a
     change to a class must keep accepting the values its previous version accepted.
     """
 
     # pydantic's own validation errors then omit the supplied value.
     model_config = ConfigDict(frozen=True, hide_input_in_errors=True)
 
-    #: Stable wire identity of this input, never part of the value itself.
     input_id: ClassVar[str] = ""
+    """The input's stable name, which a session uses to find it. It is not part of the value."""
 
 
 class Depends:
-    """Mark an ``Annotated`` parameter as a Session input: ``Annotated[T, agents.Depends()]``.
+    """Mark an ``Annotated`` parameter as a session input: ``Annotated[T, agents.Depends()]``.
 
     The annotated type ``T`` is the input class, declared once.
     """

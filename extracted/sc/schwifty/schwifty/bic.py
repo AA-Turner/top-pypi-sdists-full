@@ -11,6 +11,9 @@ from pycountry.db import Data  # type: ignore
 from schwifty import common
 from schwifty import exceptions
 from schwifty import registry
+from schwifty.domain import Bank
+from schwifty.domain import canonical_bic
+from schwifty.domain import lookup_rank
 
 
 if TYPE_CHECKING:
@@ -22,6 +25,10 @@ if TYPE_CHECKING:
 
 _bic_iso9362_re = re.compile(r"[A-Z0-9]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?")
 _bic_swift_re = re.compile(r"[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?")
+
+# Country codes SWIFT uses in BICs that are not (yet) part of ISO 3166-1. Kosovo's banks are
+# assigned the user-assigned code XK, which the IBAN registry uses as well.
+_non_iso_country_codes = frozenset({"XK"})
 
 
 class BIC(common.Base):
@@ -93,10 +100,10 @@ class BIC(common.Base):
         Examples:
             >>> bic_codes = BIC.candidates_from_bank_code("FR", "30004")
             >>> bic_codes  # doctest: +ELLIPSIS
-            [<BIC=BNPAFRPPIFN>, <BIC=BNPAFRPPPAA>, <BIC=BNPAFRPPMED>, ...]
+            [<BIC=BNPAFRPP>, <BIC=BNPAFRPPPXV>, <BIC=BNPAFRPPPVD>, ...]
 
             >>> BIC.candidates_from_bank_code("DE", "20070024")  # doctest: +ELLIPSIS
-            [<BIC=DEUTDEDBHAM>, <BIC=DEUTDEDB200>, ...]
+            [<BIC=DEUTDEDBHAM>, <BIC=DEUTDEDB241>, ...]
 
             >>> BIC.candidates_from_bank_code("DE", "01010101")
             Traceback (most recent call last):
@@ -170,12 +177,10 @@ class BIC(common.Base):
             raise exceptions.InvalidBankCode(
                 f"Unknown bank code {bank_code!r} for country {country_code!r}"
             )
-        sorted_banks = sorted(
-            banks,
-            key=lambda b: b.primary,
-            reverse=True,
-        )
-        return [cls(entry.bic) for entry in sorted_banks if entry.bic]
+        sorted_banks = sorted(banks, key=lookup_rank, reverse=True)
+        # Bank records carry the canonical form of their BIC, so equivalent forms of the same BIC,
+        # such as BNPAFRPP and BNPAFRPPXXX, are listed once.
+        return [cls(bic) for bic in dict.fromkeys(entry.bic for entry in sorted_banks if entry.bic)]
 
     @classmethod
     def from_bank_code(cls, country_code: str, bank_code: str) -> BIC:
@@ -234,32 +239,9 @@ class BIC(common.Base):
             * Switzerland
         """
         try:
-            candidates = cls.candidates_from_bank_code(country_code, bank_code)
-            if len(candidates) > 1:
-                # Among equally generic codes, entries the registry marks as primary win
-                # over the rest before the alphabetical tie-break is applied.
-                primary = {
-                    entry.bic
-                    for entry in registry.get_banks_by_code(country_code, bank_code)
-                    if entry.primary and entry.bic
-                }
-
-                def prefer_primary(codes: list[BIC]) -> list[BIC]:
-                    flagged = [c for c in codes if c.compact in primary]
-                    return flagged or codes
-
-                # If we have multiple candidates, we try to pick the
-                # one with no branch code which is the most generic one.
-                generic_codes = [c for c in candidates if not c.branch_code]
-                if generic_codes:
-                    return max(prefer_primary(generic_codes))
-
-                # If we don't have one, we try to pick the one with
-                # 'XXX' as a branch code
-                generic_codes = [c for c in candidates if c.branch_code == "XXX"]
-                if generic_codes:
-                    return max(prefer_primary(generic_codes))
-            return candidates[0]
+            # The candidates are ordered by rank, the same way ``IBAN.bank`` picks its record,
+            # so that the BIC and the bank describe the same institution.
+            return cls.candidates_from_bank_code(country_code, bank_code)[0]
         except (KeyError, IndexError) as e:
             raise exceptions.InvalidBankCode(
                 f"Unknown bank code {bank_code!r} for country {country_code!r}"
@@ -300,7 +282,7 @@ class BIC(common.Base):
             raise exceptions.InvalidStructure(f"Invalid structure '{self!s}'")
 
     def _validate_country_code(self) -> None:
-        if self.country is None:
+        if self.country is None and self.country_code not in _non_iso_country_codes:
             raise exceptions.InvalidCountryCode(f"Invalid country code '{self.country_code}'")
 
     @classmethod
@@ -378,17 +360,30 @@ class BIC(common.Base):
             formatted += " " + self.branch_code
         return formatted
 
+    @property
+    def banks(self) -> list[Bank]:
+        """list[Bank]: The bank records of this BIC in Schwifty's registry.
+
+        A BIC without branch code and the same BIC with the branch code ``XXX`` are treated as
+        identical (see :attr:`canonical`). A branch BIC only has records if the registry lists the
+        branch itself.
+
+        Examples:
+            >>> [bank.bank_code for bank in BIC("MARKDEF1100").banks]
+            ['10000000']
+            >>> BIC("REVOGB21XXX").banks == BIC("REVOGB21").banks
+            True
+        """
+        return registry.get_banks_by_bic(str(self))
+
     def _lookup_values(self, key: str) -> list[str]:
-        entries = registry.get_banks_by_bic(str(self))
+        entries = self.banks
         if not entries and self.branch_code:
             # An 11-character BIC denotes a branch of the institution that the
             # first 8 characters identify. Not every national registry lists
             # entries per branch, so fall back to the institution's BIC when
             # the branch-specific lookup comes up empty.
-            entries = registry.get_banks_by_bic(str(self)[:8])
-        elif not entries and len(self) == 8:
-            # Some registries store only the equivalent 11-character XXX form.
-            entries = registry.get_banks_by_bic(f"{self}XXX")
+            entries = BIC(str(self)[:8], allow_invalid=True).banks
         return sorted({val for entry in entries if (val := getattr(entry, key))})
 
     @property
@@ -462,8 +457,19 @@ class BIC(common.Base):
 
     @property
     def exists(self) -> bool:
-        """bool: Indicates if the BIC is available in Schwifty's registry."""
-        return bool(registry.get_banks_by_bic(str(self)))
+        """bool: Indicates if the BIC is available in Schwifty's registry.
+
+        A BIC without branch code and the same BIC with the branch code ``XXX`` are treated as
+        identical (see :attr:`canonical`). The former BIC of a merged bank exists as well, see
+        :attr:`.Bank.legacy_bic`.
+
+        Examples:
+            >>> BIC("REVOGB21").exists
+            True
+            >>> BIC("REVOGB21XXX").exists
+            True
+        """
+        return bool(self.banks)
 
     @property
     def type(self) -> str:
@@ -511,3 +517,22 @@ class BIC(common.Base):
     def branch_code(self) -> str:
         """str: The branch-code part of the BIC (if available)"""
         return self._get_slice(start=8, end=11)
+
+    @property
+    def canonical(self) -> BIC:
+        """BIC: The BIC in the canonical form of its primary office.
+
+        ISO 9362 treats a BIC without branch code and the same BIC with the branch code ``XXX``
+        as identical. Both are returned in their 8-character form, other branch codes are kept,
+        so that two BICs denote the same office if their canonical forms are equal.
+
+        Examples:
+            >>> BIC("REVOGB21XXX").canonical
+            <BIC=REVOGB21>
+            >>> BIC("REVOGB21").canonical
+            <BIC=REVOGB21>
+            >>> BIC("DEUTDEDBHAM").canonical
+            <BIC=DEUTDEDBHAM>
+        """
+        canonical = canonical_bic(str(self))
+        return self if canonical == str(self) else BIC(canonical, allow_invalid=True)

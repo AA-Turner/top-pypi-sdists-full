@@ -28,6 +28,7 @@ __all__ = (
     "BlockchainChainType",
     "BodyParsingFallbackBehaviorType",
     "ComparisonOperatorType",
+    "ConnectedAccountChainType",
     "CountryCodeType",
     "CryptoCurrencyType",
     "CurrencyModeType",
@@ -90,6 +91,7 @@ AssociatedResourceTypeType = Literal[
 BlockchainChainType = Literal["BASE", "BASE_SEPOLIA", "SOLANA", "SOLANA_DEVNET"]
 BodyParsingFallbackBehaviorType = Literal["EVALUATE_AS_STRING", "MATCH", "NO_MATCH"]
 ComparisonOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
+ConnectedAccountChainType = Literal["BASE", "SOLANA"]
 CountryCodeType = Literal[
     "AD",
     "AE",
@@ -442,6 +444,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

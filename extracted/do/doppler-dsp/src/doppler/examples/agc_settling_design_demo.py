@@ -53,6 +53,7 @@ import math
 import numpy as np
 
 from doppler.agc import AGC
+from doppler.examples._extra import require
 
 DIR = complex(0.6, 0.8)  # |DIR| == 1, so scaling exercises both components
 
@@ -160,6 +161,7 @@ assert rel < 0.15, (
 
 
 def main() -> int:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

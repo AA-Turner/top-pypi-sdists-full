@@ -29,20 +29,29 @@ class MistralSecret(BaseModel):
     Build it with ``MistralSecret.workspace(NAME)``, or leave the reference out with
     ``MistralSecret()`` and bind it at deploy time with
     ``agents deploy --secret-binding NAME=secret:workspace:...``, which also overrides a reference.
-    ``worker_env=True`` also sets the secret as an environment variable of the worker, where tools
-    read it; without it, the secret reaches only the destinations that name it.
+    ``worker_env=True`` also sets the secret as an environment variable where your Python tools
+    run, so they can read it; without it, the secret reaches only the destinations that name it.
     """
 
     # A value in `ref` may be a secret pasted by mistake, so no validation error may print the input.
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     kind: Literal["mistral"] = "mistral"
+    """Always ``"mistral"``: the Mistral Secret Manager."""
     ref: str | None = None
+    """The secret's reference, such as ``"secret:workspace:NAME"``. ``None`` leaves it to
+    ``agents deploy --secret-binding``."""
     worker_env: bool = False
+    """Whether the secret is also an environment variable where your Python tools run."""
 
     @classmethod
     def workspace(cls, name: str, *, worker_env: bool = False) -> Self:
-        """The workspace secret ``name`` of the Secret Manager."""
+        """The workspace secret ``name`` of the Secret Manager.
+
+        Args:
+            name: The secret's name in the workspace.
+            worker_env: Whether the secret is also an environment variable where your Python tools run.
+        """
 
         return cls(ref=f"secret:workspace:{name}", worker_env=worker_env)
 

@@ -54,6 +54,8 @@ def run() -> int:
             scene=not args.no_physics_scene,
             comment=args.comment,
             ros_packages=args.package,
+            strict=args.strict,
+            openpbr=not args.no_openpbr,
         )
         if result := converter.convert(args.input_file, args.output_dir):
             Tf.Status(f"Created USD Asset: {result.path}")
@@ -126,6 +128,13 @@ def __create_parser() -> argparse.ArgumentParser:
         help="Disable authoring a `UsdPhysics.Scene` prim",
     )
     parser.add_argument(
+        "--no-openpbr",
+        action="store_true",
+        default=False,
+        help="Disable authoring OpenPBR shaders, so visual materials use only `UsdPreviewSurface` "
+        "rather than OpenPBR with a `UsdPreviewSurface` fallback",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -137,6 +146,12 @@ def __create_parser() -> argparse.ArgumentParser:
         "-c",
         default="",
         help="Comment to add to the USD file",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="Fail conversion only when a rigid body and its descendants have no collision or positive-mass inertial",
     )
     parser.add_argument(
         "--package",

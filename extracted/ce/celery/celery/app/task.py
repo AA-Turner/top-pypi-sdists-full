@@ -1,5 +1,7 @@
 """Task implementation: request context and the task base class."""
+import inspect
 import sys
+import types
 
 from billiard.einfo import ExceptionInfo, ExceptionWithTraceback
 from kombu import serialization
@@ -12,7 +14,7 @@ from celery.canvas import _chain, group, signature
 from celery.exceptions import Ignore, ImproperlyConfigured, MaxRetriesExceededError, Reject, Retry
 from celery.local import class_property
 from celery.result import EagerResult, denied_join_result
-from celery.utils import abstract
+from celery.utils import abstract, deprecated
 from celery.utils.functional import mattrgetter, maybe_list
 from celery.utils.imports import instantiate
 from celery.utils.nodenames import gethostname
@@ -23,6 +25,9 @@ from .registry import _unpickle_task_v2
 from .utils import appstr
 
 __all__ = ('Context', 'Task')
+
+# Sentinel used by Context.update() to detect whether 'timelimit' was changed.
+_UNSET = object()
 
 #: extracts attributes related to publishing a message from an object.
 extract_exec_options = mattrgetter(
@@ -68,6 +73,28 @@ def _reprtask(task, fmt=None, flags=None):
     )
 
 
+def get_actual_ignore_result(task, req):
+    """Return the effective ignore_result, with request overriding task.
+
+    If req provides an explicit ignore_result, that value is used;
+    otherwise task.ignore_result is returned.
+    """
+    if req is None:
+        return task.ignore_result
+
+    actual = getattr(req, 'ignore_result', None)
+
+    # Context defines `ignore_result = False` at class level (see Context
+    # in celery/app/task.py). getattr() above would return the class default
+    # (False) even when the request never set it explicitly, making it
+    # impossible to distinguish "override=False" from "not set". We check
+    # __dict__ to detect only instance-level (i.e., explicitly set) values.
+    if isinstance(req, Context) and 'ignore_result' not in req.__dict__:
+        actual = None
+
+    return actual if actual is not None else task.ignore_result
+
+
 class Context:
     """Task request variables (Task.request)."""
 
@@ -103,6 +130,8 @@ class Context:
     shadow = None
     taskset = None   # compat alias to group
     timelimit = None
+    time_limit = None
+    soft_time_limit = None
     utc = None
     stamped_headers = None
     stamps = None
@@ -123,7 +152,24 @@ class Context:
         return headers
 
     def update(self, *args, **kwargs):
-        return self.__dict__.update(*args, **kwargs)
+        # O(1) detection: snapshot the current timelimit identity before the
+        # update, then compare after.  Any input form that dict.update()
+        # accepts (Mapping, iterable of pairs, kwargs) will change the stored
+        # object if 'timelimit' was present, so an `is not` identity check is
+        # sufficient — no need to pre-scan the arguments.
+        old_timelimit = self.__dict__.get('timelimit', _UNSET)
+
+        self.__dict__.update(*args, **kwargs)
+
+        new_timelimit = self.__dict__.get('timelimit', _UNSET)
+        if new_timelimit is not old_timelimit:
+            if isinstance(new_timelimit, (list, tuple)) and len(new_timelimit) >= 2:
+                self.time_limit, self.soft_time_limit = new_timelimit[0], new_timelimit[1]
+            else:
+                # Explicitly clear any previously set values when timelimit is
+                # provided but is None or otherwise invalid.
+                self.time_limit = None
+                self.soft_time_limit = None
 
     def clear(self):
         return self.__dict__.clear()
@@ -168,7 +214,8 @@ class Context:
             if self.stamps is not None and self.stamped_headers is not None:
                 execution_options['stamped_headers'] = self.stamped_headers
                 for k, v in self.stamps.items():
-                    execution_options[k] = v
+                    if k in self.stamped_headers:
+                        execution_options[k] = v
         return execution_options
 
     @property
@@ -296,7 +343,32 @@ class Task:
     #:
     #: The application default can be overridden with the
     #: :setting:`task_acks_on_failure_or_timeout` setting.
+    #:
+    #: .. deprecated:: 6.0
+    #:     Use :attr:`acks_on_failure` and :attr:`acks_on_timeout` instead.
     acks_on_failure_or_timeout = None
+
+    #: When enabled messages for this task will be acknowledged on failure.
+    #: Falls back to :attr:`acks_on_failure_or_timeout` if :const:`None`.
+    #:
+    #: Configuring this setting only applies to tasks that are
+    #: acknowledged **after** they have been executed and only if
+    #: :setting:`task_acks_late` is enabled.
+    #:
+    #: The application default can be overridden with the
+    #: :setting:`task_acks_on_failure` setting.
+    acks_on_failure = None
+
+    #: When enabled messages for this task will be acknowledged on timeout.
+    #: Falls back to :attr:`acks_on_failure_or_timeout` if :const:`None`.
+    #:
+    #: Configuring this setting only applies to tasks that are
+    #: acknowledged **after** they have been executed and only if
+    #: :setting:`task_acks_late` is enabled.
+    #:
+    #: The application default can be overridden with the
+    #: :setting:`task_acks_on_timeout` setting.
+    acks_on_timeout = None
 
     #: Even if :attr:`acks_late` is enabled, the worker will
     #: acknowledge tasks when the worker process executing them abruptly
@@ -310,6 +382,17 @@ class Task:
     #: what you're doing.
     reject_on_worker_lost = None
 
+    #: When enabled, a task whose worker process exits abruptly is sent
+    #: again the same way :meth:`retry` would, so :attr:`max_retries` and
+    #: :attr:`default_retry_delay` apply.  Once the retries run out the
+    #: task fails instead of being re-queued.
+    #:
+    #: Takes precedence over :attr:`reject_on_worker_lost`, which is still
+    #: used if sending the retry fails.
+    #: The default is taken from the :setting:`task_retry_on_worker_lost`
+    #: setting.
+    retry_on_worker_lost = None
+
     #: Tuple of expected exceptions.
     #:
     #: These are errors that are expected in normal operation
@@ -321,7 +404,11 @@ class Task:
     #: Default task expiry time.
     expires = None
 
-    #: Default task priority.
+    #: Default task priority. A number between 0 and 9, where the
+    #: interpretation depends on the broker: with RabbitMQ, higher numbers
+    #: denote higher priority; with Redis, priority 0 is the highest. See
+    #: :ref:`routing-options-rabbitmq-priorities` and
+    #: :ref:`redis-message-priorities`.
     priority = None
 
     #: Max length of result representation used in logs and events.
@@ -339,16 +426,25 @@ class Task:
 
     _exec_options = None
 
+    #: Set for tasks created with ``pydantic=True``: dumps the models passed
+    #: by the caller that the task gets back as equal models.
+    _dump_pydantic_arguments = None
+
     __bound__ = False
 
     from_config = (
         ('serializer', 'task_serializer'),
         ('rate_limit', 'task_default_rate_limit'),
         ('priority', 'task_default_priority'),
+        ('time_limit', 'task_time_limit'),
+        ('soft_time_limit', 'task_soft_time_limit'),
         ('track_started', 'task_track_started'),
         ('acks_late', 'task_acks_late'),
         ('acks_on_failure_or_timeout', 'task_acks_on_failure_or_timeout'),
+        ('acks_on_failure', 'task_acks_on_failure'),
+        ('acks_on_timeout', 'task_acks_on_timeout'),
         ('reject_on_worker_lost', 'task_reject_on_worker_lost'),
+        ('retry_on_worker_lost', 'task_retry_on_worker_lost'),
         ('ignore_result', 'task_ignore_result'),
         ('store_eager_result', 'task_store_eager_result'),
         ('store_errors_even_if_ignored', 'task_store_errors_even_if_ignored'),
@@ -366,12 +462,36 @@ class Task:
         conf = app.conf
         cls._exec_options = None  # clear option cache
 
+        if not was_bound:
+            for attr in ('queue', 'exchange', 'exchange_type',
+                         'routing_key', 'delivery_mode', 'priority'):
+                if attr in cls.__dict__:
+                    # In Celery 6.0, make these task attributes have no effect
+                    deprecated.warn(
+                        description=f'The {attr!r} task attribute',
+                        removal='6.0',
+                        alternative='Use the task_routes setting instead.',
+                    )
+
         if cls.typing is None:
             cls.typing = app.strict_typing
 
         for attr_name, config_name in cls.from_config:
             if getattr(cls, attr_name, None) is None:
                 setattr(cls, attr_name, conf[config_name])
+
+        if cls.acks_on_failure is None:
+            cls.acks_on_failure = (
+                cls.acks_on_failure_or_timeout
+                if cls.acks_on_failure_or_timeout is not None
+                else True
+            )
+        if cls.acks_on_timeout is None:
+            cls.acks_on_timeout = (
+                cls.acks_on_failure_or_timeout
+                if cls.acks_on_failure_or_timeout is not None
+                else True
+            )
 
         # decorate with annotations from config.
         if not was_bound:
@@ -431,6 +551,8 @@ class Task:
         finally:
             self.pop_request()
             _task_stack.pop()
+
+    __class_getitem__ = classmethod(types.GenericAlias)
 
     def __reduce__(self):
         # - tasks are pickled into the name of the task only, and the receiver
@@ -517,7 +639,12 @@ class Task:
                 only used to specify custom routing keys to topic exchanges.
 
             priority (int): The task priority, a number between 0 and 9.
-                Defaults to the :attr:`priority` attribute.
+                The interpretation is broker-specific: with RabbitMQ, higher
+                numbers denote higher priority; with Redis, priority ``0`` is
+                the highest priority. See
+                :ref:`routing-options-rabbitmq-priorities` and
+                :ref:`redis-message-priorities`. Defaults to the
+                :attr:`priority` attribute.
 
             serializer (str): Serialization method to use.
                 Can be `pickle`, `json`, `yaml`, `msgpack` or any custom
@@ -597,11 +724,13 @@ class Task:
             shadow = shadow or self.shadow_name(args, kwargs, options)
 
         preopts = self._get_exec_options()
-        options = dict(preopts, **options) if options else preopts
+        options = dict(preopts, **options)
+
+        # Pickle can send models as they are, so only dump them for other serializers.
+        if self._dump_pydantic_arguments is not None and options.get('serializer') != 'pickle':
+            args, kwargs = self._dump_pydantic_arguments(args, kwargs)
 
         options.setdefault('ignore_result', self.ignore_result)
-        if self.priority:
-            options.setdefault('priority', self.priority)
 
         app = self._get_app()
         if app.conf.task_always_eager:
@@ -657,7 +786,14 @@ class Task:
         request = self.request if request is None else request
         args = request.args if args is None else args
         kwargs = request.kwargs if kwargs is None else kwargs
-        options = {**request.as_execution_options(), **extra_options}
+        options = {
+            **request.as_execution_options(),
+            # Keep the caller's ignore_result for the retry.  Read through
+            # get_actual_ignore_result(): Context's class-level False
+            # default would otherwise look like an explicit override.
+            'ignore_result': get_actual_ignore_result(self, request),
+            **extra_options
+        }
         delivery_info = request.delivery_info or {}
         priority = delivery_info.get('priority')
         if priority is not None:
@@ -755,6 +891,43 @@ class Task:
         if not eta and countdown is None:
             countdown = self.default_retry_delay
 
+        # Explicit args/kwargs can change how a task's parameters are passed
+        # on retry. Keep inherited values that do not conflict with the new
+        # calling convention (see #6494).
+        if ((args is not None and kwargs is None and request.kwargs) or
+                (kwargs is not None and args is None and request.args)):
+            try:
+                signature = inspect.signature(self.run)
+            except (TypeError, ValueError):
+                pass  # Let normal task argument validation handle this case.
+            else:
+                if args is not None:
+                    positional = [
+                        p for p in signature.parameters.values()
+                        if p.kind in (inspect.Parameter.POSITIONAL_ONLY,
+                                      inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    ]
+                    kwargs = dict(request.kwargs)
+                    for p in positional[:len(args)]:
+                        if p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                            kwargs.pop(p.name, None)
+                else:
+                    # An explicit keyword may replace an inherited positional
+                    # argument. Bind inherited values to names so *args and
+                    # positional-only parameters keep their original positions.
+                    try:
+                        bound = signature.bind_partial(*request.args)
+                    except TypeError:
+                        pass  # Let normal task argument validation handle this case.
+                    else:
+                        kwargs = dict(kwargs)
+                        for name in list(kwargs):
+                            if (name in bound.arguments and
+                                    signature.parameters[name].kind ==
+                                    inspect.Parameter.POSITIONAL_OR_KEYWORD):
+                                bound.arguments[name] = kwargs.pop(name)
+                        args, kwargs = bound.args, {**bound.kwargs, **kwargs}
+
         is_eager = request.is_eager
         S = self.signature_from_request(
             request, args, kwargs,
@@ -840,7 +1013,11 @@ class Task:
             'callbacks': maybe_list(link),
             'errbacks': maybe_list(link_error),
             'headers': headers,
-            'ignore_result': options.get('ignore_result', False),
+            'timelimit': (
+                None if self.time_limit is None and self.soft_time_limit is None
+                else [self.time_limit, self.soft_time_limit]
+            ),
+            'ignore_result': options.get('ignore_result', self.ignore_result),
             'delivery_info': {
                 'is_eager': True,
                 'exchange': options.get('exchange'),
@@ -956,7 +1133,6 @@ class Task:
 
         Arguments:
             sig (Signature): signature to replace with.
-            visitor (StampingVisitor): Visitor API object.
 
         Raises:
             ~@Ignore: This is always raised when called in asynchronous context.
@@ -975,16 +1151,20 @@ class Task:
         if isinstance(sig, group):
             # Groups get uplifted to a chord so that we can link onto the body
             sig |= self.app.tasks['celery.accumulate'].s(index=0)
+        if isinstance(sig, _chain) and isinstance(sig.tasks[-1], group):
+            sig.tasks = list(sig.tasks)
+            sig.tasks[-1] |= self.app.tasks['celery.accumulate'].s(index=0)
         for callback in maybe_list(self.request.callbacks) or []:
             sig.link(callback)
         for errback in maybe_list(self.request.errbacks) or []:
             sig.link_error(errback)
-        # If the replacement signature is a chain, we need to push callbacks
+        # If the replacement signature is a chain, we need to move callbacks
         # down to the final task so they run at the right time even if we
-        # proceed to link further tasks from the original request below
+        # proceed to link further tasks from the original request below.
+        # Leaving them on the chain as well would link them twice.
         if isinstance(sig, _chain) and "link" in sig.options:
             final_task_links = sig.tasks[-1].options.setdefault("link", [])
-            final_task_links.extend(maybe_list(sig.options["link"]))
+            final_task_links.extend(maybe_list(sig.options.pop("link")))
         # We need to freeze the replacement signature with the current task's
         # ID to ensure that we don't disassociate it from the existing task IDs
         # which would break previously constructed results objects.

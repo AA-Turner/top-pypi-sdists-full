@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uiprotect
-Version: 25.0.0
+Version: 25.0.1
 Summary: Python API for Unifi Protect (Unofficial)
 License-Expression: MIT
 License-File: LICENSE
@@ -27,8 +27,8 @@ Requires-Dist: av (>=19.0.0) ; python_version >= "3.12"
 Requires-Dist: convertertools (>=0.5.0)
 Requires-Dist: orjson (>=3.13.0)
 Requires-Dist: packaging (>=26.3)
-Requires-Dist: pillow (>=12.3.0) ; extra == "cli"
-Requires-Dist: platformdirs (>=4.13.0)
+Requires-Dist: pillow (>=13.0.0) ; extra == "cli"
+Requires-Dist: platformdirs (>=4.13.6)
 Requires-Dist: propcache (>=0.5.4)
 Requires-Dist: pydantic (>=2.13.5)
 Requires-Dist: rich (>=15.0.0) ; extra == "cli"

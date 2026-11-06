@@ -1920,6 +1920,17 @@ repos:
       # job whose runs-on is, or can resolve to, a self-hosted label; there is no
       # baseline (OMN-21280). Mirror the CI step in the lint-imports job and
       # .github/workflows/version-drift.yml.
+      # OMN-19998: a public workflow selects no lab runner. Mirror the CI step in the
+      # lint-imports job and .github/workflows/version-drift.yml.
+      - id: check-public-lab-selection
+        name: A public workflow selects no lab runner (OMN-19998)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validation.validator_public_lab_selection
+        language: system
+        args: [--repo, omnibase_core]
+        files: ^\.github/workflows/[^/]+\.ya?ml$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
       - id: check-public-runner-placement
         name: Public repositories add no self-hosted CI job (OMN-19998)
         entry: env -u PYTHONPATH uv run python -m omnibase_core.validation.validator_public_runner_placement
@@ -2036,6 +2047,16 @@ repos:
         require_serial: true
         stages: [pre-commit]
 
+      - id: check-chain-scenarios
+        name: Refuse chain scenarios that cannot yield a test that fails (OMN-22478)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_chain_scenario:ValidatorChainScenario src
+        language: system
+        files: (^|/)([^/]*contract\.yaml|chain_scenario_receipts\.json)$
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
       - id: check-dev-tag-lineage
         name: Verify dev-merge tag lineage (OMN-17427)
         entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_dev_tag_lineage_effect.runtime_dev_tag_lineage
@@ -2050,6 +2071,18 @@ repos:
       # binding site, and no setting with a literal value in two node contracts. Binding sites, class
       # lists and the shrink-only baseline (.onex_ratchets/protocol_binding_baseline.txt) are rule
       # data of protocol_binding.validation.yaml. Runs in CI through the precommit-suite job.
+      # OMN-19998: section 4 table validation uses the existing report/event node.
+      # The existing precommit-suite CI job runs the same hook; no gate is widened.
+      - id: check-error-rule-table
+        name: Validate error-rule rows and action-contract closures (OMN-19998)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_error_rule_table:ValidatorErrorRuleTable
+        language: system
+        files: '(^|/)(error_rules/.*\.ya?ml|error_rules\.ya?ml|.*\.error_rules\.ya?ml)$'
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
       - id: check-protocol-binding
         name: No protocol bound to its implementation in code (OMN-21533, K5)
         entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run

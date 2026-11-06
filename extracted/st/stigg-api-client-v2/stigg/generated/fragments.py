@@ -73,44 +73,55 @@ class AddonDependencyFragment(BaseModel):
     description: Optional[str] = Field(default=None)
 
 
-class PackageFeatureEntitlementFragment(BaseModel):
+class PackageCreditEntitlementFragment(BaseModel):
     typename__: str = Field(alias="__typename")
     id: Any
+    amount: Optional[float] = Field(default=None)
     behavior: EntitlementBehavior
+    cadence: CreditCadence
+    custom_currency_id: str = Field(alias="customCurrencyId")
     description: Optional[str] = Field(default=None)
     display_name_override: Optional[str] = Field(
         alias="displayNameOverride", default=None
     )
-    enum_values: Optional[List[str]] = Field(alias="enumValues", default=None)
-    feature_id: str = Field(alias="featureId")
     has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
-    has_unlimited_usage: Optional[bool] = Field(alias="hasUnlimitedUsage", default=None)
     hidden_from_widgets: Optional[List[WidgetType]] = Field(
         alias="hiddenFromWidgets", default=None
     )
     is_custom: Optional[bool] = Field(alias="isCustom", default=None)
     is_granted: bool = Field(alias="isGranted")
     order: Optional[float] = Field(default=None)
-    reset_period: Optional[EntitlementResetPeriod] = Field(
-        alias="resetPeriod", default=None
+    dependency_feature: Optional[
+        "PackageCreditEntitlementFragmentDependencyFeature"
+    ] = Field(alias="dependencyFeature", default=None)
+    custom_currency: "PackageCreditEntitlementFragmentCustomCurrency" = Field(
+        alias="customCurrency"
     )
-    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
-    feature: "PackageFeatureEntitlementFragmentFeature"
 
 
-class PackageFeatureEntitlementFragmentFeature(BaseModel):
+class PackageCreditEntitlementFragmentDependencyFeature(BaseModel):
+    ref_id: str = Field(alias="refId")
+    display_name: str = Field(alias="displayName")
+    description: Optional[str] = Field(default=None)
     feature_type: FeatureType = Field(alias="featureType")
-    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
     feature_units: Optional[str] = Field(alias="featureUnits", default=None)
     feature_units_plural: Optional[str] = Field(
         alias="featureUnitsPlural", default=None
     )
+
+
+class PackageCreditEntitlementFragmentCustomCurrency(BaseModel):
+    currency_id: str = Field(alias="currencyId")
     display_name: str = Field(alias="displayName")
-    description: Optional[str] = Field(default=None)
-    ref_id: str = Field(alias="refId")
-    additional_meta_data: Optional[Any] = Field(
-        alias="additionalMetaData", default=None
+    symbol: Optional[str] = Field(default=None)
+    units: Optional["PackageCreditEntitlementFragmentCustomCurrencyUnits"] = Field(
+        default=None
     )
+
+
+class PackageCreditEntitlementFragmentCustomCurrencyUnits(BaseModel):
+    singular: Optional[str] = Field(default=None)
+    plural: Optional[str] = Field(default=None)
 
 
 class PriceTierFragment(BaseModel):
@@ -165,55 +176,44 @@ class OveragePriceFragmentFeature(BaseModel):
     description: Optional[str] = Field(default=None)
 
 
-class PackageCreditEntitlementFragment(BaseModel):
+class PackageFeatureEntitlementFragment(BaseModel):
     typename__: str = Field(alias="__typename")
     id: Any
-    amount: Optional[float] = Field(default=None)
     behavior: EntitlementBehavior
-    cadence: CreditCadence
-    custom_currency_id: str = Field(alias="customCurrencyId")
     description: Optional[str] = Field(default=None)
     display_name_override: Optional[str] = Field(
         alias="displayNameOverride", default=None
     )
+    enum_values: Optional[List[str]] = Field(alias="enumValues", default=None)
+    feature_id: str = Field(alias="featureId")
     has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
+    has_unlimited_usage: Optional[bool] = Field(alias="hasUnlimitedUsage", default=None)
     hidden_from_widgets: Optional[List[WidgetType]] = Field(
         alias="hiddenFromWidgets", default=None
     )
     is_custom: Optional[bool] = Field(alias="isCustom", default=None)
     is_granted: bool = Field(alias="isGranted")
     order: Optional[float] = Field(default=None)
-    dependency_feature: Optional[
-        "PackageCreditEntitlementFragmentDependencyFeature"
-    ] = Field(alias="dependencyFeature", default=None)
-    custom_currency: "PackageCreditEntitlementFragmentCustomCurrency" = Field(
-        alias="customCurrency"
+    reset_period: Optional[EntitlementResetPeriod] = Field(
+        alias="resetPeriod", default=None
     )
+    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
+    feature: "PackageFeatureEntitlementFragmentFeature"
 
 
-class PackageCreditEntitlementFragmentDependencyFeature(BaseModel):
-    ref_id: str = Field(alias="refId")
-    display_name: str = Field(alias="displayName")
-    description: Optional[str] = Field(default=None)
+class PackageFeatureEntitlementFragmentFeature(BaseModel):
     feature_type: FeatureType = Field(alias="featureType")
+    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
     feature_units: Optional[str] = Field(alias="featureUnits", default=None)
     feature_units_plural: Optional[str] = Field(
         alias="featureUnitsPlural", default=None
     )
-
-
-class PackageCreditEntitlementFragmentCustomCurrency(BaseModel):
-    currency_id: str = Field(alias="currencyId")
     display_name: str = Field(alias="displayName")
-    symbol: Optional[str] = Field(default=None)
-    units: Optional["PackageCreditEntitlementFragmentCustomCurrencyUnits"] = Field(
-        default=None
+    description: Optional[str] = Field(default=None)
+    ref_id: str = Field(alias="refId")
+    additional_meta_data: Optional[Any] = Field(
+        alias="additionalMetaData", default=None
     )
-
-
-class PackageCreditEntitlementFragmentCustomCurrencyUnits(BaseModel):
-    singular: Optional[str] = Field(default=None)
-    plural: Optional[str] = Field(default=None)
 
 
 class PriceFragment(BaseModel):
@@ -385,6 +385,138 @@ class AirwallexCheckoutCredentialsFragmentMetadata(BaseModel):
     customer_id: Optional[str] = Field(alias="customerId", default=None)
 
 
+class FeatureFragment(BaseModel):
+    typename__: str = Field(alias="__typename")
+    feature_type: FeatureType = Field(alias="featureType")
+    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
+    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
+    feature_units_plural: Optional[str] = Field(
+        alias="featureUnitsPlural", default=None
+    )
+    description: Optional[str] = Field(default=None)
+    display_name: str = Field(alias="displayName")
+    ref_id: str = Field(alias="refId")
+    unit_transformation: Optional["FeatureFragmentUnitTransformation"] = Field(
+        alias="unitTransformation", default=None
+    )
+
+
+class FeatureFragmentUnitTransformation(BaseModel):
+    divide: float
+    round: UnitTransformationRound
+
+
+class FeatureEntitlementFragment(BaseModel):
+    typename__: str = Field(alias="__typename")
+    is_granted: bool = Field(alias="isGranted")
+    access_denied_reason: Optional[AccessDeniedReason] = Field(
+        alias="accessDeniedReason", default=None
+    )
+    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
+    has_unlimited_usage: bool = Field(alias="hasUnlimitedUsage")
+    has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
+    current_usage: Optional[float] = Field(alias="currentUsage", default=None)
+    enum_values: Optional[List[str]] = Field(alias="enumValues", default=None)
+    entitlement_updated_at: Optional[Any] = Field(
+        alias="entitlementUpdatedAt", default=None
+    )
+    usage_updated_at: Optional[Any] = Field(alias="usageUpdatedAt", default=None)
+    usage_period_anchor: Optional[Any] = Field(alias="usagePeriodAnchor", default=None)
+    usage_period_start: Optional[Any] = Field(alias="usagePeriodStart", default=None)
+    usage_period_end: Optional[Any] = Field(alias="usagePeriodEnd", default=None)
+    reset_period: Optional[EntitlementResetPeriod] = Field(
+        alias="resetPeriod", default=None
+    )
+    reset_period_configuration: Optional[
+        Annotated[
+            Union[
+                "FeatureEntitlementFragmentResetPeriodConfigurationMonthlyResetPeriodConfig",
+                "FeatureEntitlementFragmentResetPeriodConfigurationWeeklyResetPeriodConfig",
+                "FeatureEntitlementFragmentResetPeriodConfigurationYearlyResetPeriodConfig",
+            ],
+            Field(discriminator="typename__"),
+        ]
+    ] = Field(alias="resetPeriodConfiguration", default=None)
+    feature: Optional["FeatureEntitlementFragmentFeature"] = Field(default=None)
+    credit_rate: Optional["FeatureEntitlementFragmentCreditRate"] = Field(
+        alias="creditRate", default=None
+    )
+    valid_until: Optional[Any] = Field(alias="validUntil", default=None)
+
+
+class FeatureEntitlementFragmentResetPeriodConfigurationMonthlyResetPeriodConfig(
+    BaseModel
+):
+    typename__: Literal["MonthlyResetPeriodConfig"] = Field(alias="__typename")
+    monthly_according_to: Optional[MonthlyAccordingTo] = Field(
+        alias="monthlyAccordingTo", default=None
+    )
+
+
+class FeatureEntitlementFragmentResetPeriodConfigurationWeeklyResetPeriodConfig(
+    BaseModel
+):
+    typename__: Literal["WeeklyResetPeriodConfig"] = Field(alias="__typename")
+    weekly_according_to: Optional[WeeklyAccordingTo] = Field(
+        alias="weeklyAccordingTo", default=None
+    )
+
+
+class FeatureEntitlementFragmentResetPeriodConfigurationYearlyResetPeriodConfig(
+    BaseModel
+):
+    typename__: Literal["YearlyResetPeriodConfig"] = Field(alias="__typename")
+    yearly_according_to: Optional[YearlyAccordingTo] = Field(
+        alias="yearlyAccordingTo", default=None
+    )
+
+
+class FeatureEntitlementFragmentFeature(FeatureFragment):
+    pass
+
+
+class FeatureEntitlementFragmentCreditRate(BaseModel):
+    amount: float
+    currency_id: str = Field(alias="currencyId")
+
+
+class SubscriptionInvoiceFragment(BaseModel):
+    billing_id: str = Field(alias="billingId")
+    status: SubscriptionInvoiceStatus
+    created_at: Any = Field(alias="createdAt")
+    due_date: Optional[Any] = Field(alias="dueDate", default=None)
+    updated_at: Any = Field(alias="updatedAt")
+    error_message: Optional[str] = Field(alias="errorMessage", default=None)
+    error_code: Optional[str] = Field(alias="errorCode", default=None)
+    requires_action: bool = Field(alias="requiresAction")
+    payment_secret: Optional[str] = Field(alias="paymentSecret", default=None)
+    payment_url: Optional[str] = Field(alias="paymentUrl", default=None)
+    pdf_url: Optional[str] = Field(alias="pdfUrl", default=None)
+    billing_reason: Optional[SubscriptionInvoiceBillingReason] = Field(
+        alias="billingReason", default=None
+    )
+    currency: Optional[str] = Field(default=None)
+    sub_total: Optional[float] = Field(alias="subTotal", default=None)
+    sub_total_excluding_tax: Optional[float] = Field(
+        alias="subTotalExcludingTax", default=None
+    )
+    total: Optional[float] = Field(default=None)
+    total_excluding_tax: Optional[float] = Field(
+        alias="totalExcludingTax", default=None
+    )
+    tax: Optional[float] = Field(default=None)
+    amount_due: Optional[float] = Field(alias="amountDue", default=None)
+    attempt_count: Optional[float] = Field(alias="attemptCount", default=None)
+
+
+class SubscriptionTrialConfigurationFragment(BaseModel):
+    trial_end_behavior: TrialEndBehavior = Field(alias="trialEndBehavior")
+
+
+class CustomerResourceFragment(BaseModel):
+    resource_id: str = Field(alias="resourceId")
+
+
 class SlimCustomerFragment(BaseModel):
     id: Any
     name: Optional[str] = Field(default=None)
@@ -400,175 +532,6 @@ class SlimCustomerFragment(BaseModel):
     aws_marketplace_customer_id: Optional[str] = Field(
         alias="awsMarketplaceCustomerId", default=None
     )
-
-
-class CustomerResourceFragment(BaseModel):
-    resource_id: str = Field(alias="resourceId")
-
-
-class SubscriptionFutureUpdateData(BaseModel):
-    subscription_schedule_type: SubscriptionScheduleType = Field(
-        alias="subscriptionScheduleType"
-    )
-    schedule_status: SubscriptionScheduleStatus = Field(alias="scheduleStatus")
-    scheduled_execution_time: Any = Field(alias="scheduledExecutionTime")
-    target_package: Optional["SubscriptionFutureUpdateDataTargetPackage"] = Field(
-        alias="targetPackage", default=None
-    )
-    schedule_variables: Optional[
-        Annotated[
-            Union[
-                "SubscriptionFutureUpdateDataScheduleVariablesAddonChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesAddonPriceOverrideChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesBillingPeriodChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesCouponChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesPlanPriceOverrideChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesRecurringCreditsChangeVariables",
-                "SubscriptionFutureUpdateDataScheduleVariablesUnitAmountChangeVariables",
-            ],
-            Field(discriminator="typename__"),
-        ]
-    ] = Field(alias="scheduleVariables", default=None)
-
-
-class SubscriptionFutureUpdateDataTargetPackage(BaseModel):
-    id: Any
-    ref_id: str = Field(alias="refId")
-    display_name: str = Field(alias="displayName")
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesAddonChangeVariables(BaseModel):
-    typename__: Literal["AddonChangeVariables"] = Field(alias="__typename")
-    addon_ref_id: str = Field(alias="addonRefId")
-    new_quantity: float = Field(alias="newQuantity")
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesAddonPriceOverrideChangeVariables(
-    BaseModel
-):
-    typename__: Literal["AddonPriceOverrideChangeVariables"] = Field(alias="__typename")
-    addon_ref_id: str = Field(alias="addonRefId")
-    feature_id: Optional[str] = Field(alias="featureId", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesBillingPeriodChangeVariables(
-    BaseModel
-):
-    typename__: Literal["BillingPeriodChangeVariables"] = Field(alias="__typename")
-    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesCouponChangeVariables(BaseModel):
-    typename__: Literal["CouponChangeVariables"] = Field(alias="__typename")
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariables(BaseModel):
-    typename__: Literal["DowngradeChangeVariables"] = Field(alias="__typename")
-    downgrade_plan_ref_id: str = Field(alias="downgradePlanRefId")
-    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
-    billable_features: Optional[
-        List[
-            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesBillableFeatures"
-        ]
-    ] = Field(alias="billableFeatures", default=None)
-    addons: Optional[
-        List[
-            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesAddons"
-        ]
-    ] = Field(default=None)
-    price_overrides: Optional[
-        List[
-            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesPriceOverrides"
-        ]
-    ] = Field(alias="priceOverrides", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesBillableFeatures(
-    BaseModel
-):
-    feature_id: str = Field(alias="featureId")
-    quantity: float
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesAddons(
-    BaseModel
-):
-    addon_ref_id: str = Field(alias="addonRefId")
-    quantity: float
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesPriceOverrides(
-    BaseModel
-):
-    plan_ref_id: Optional[str] = Field(alias="planRefId", default=None)
-    addon_ref_id: Optional[str] = Field(alias="addonRefId", default=None)
-    feature_id: Optional[str] = Field(alias="featureId", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariables(BaseModel):
-    typename__: Literal["PlanChangeVariables"] = Field(alias="__typename")
-    plan_ref_id: str = Field(alias="planRefId")
-    change_type: PlanChangeType = Field(alias="changeType")
-    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
-    billable_features: Optional[
-        List[
-            "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesBillableFeatures"
-        ]
-    ] = Field(alias="billableFeatures", default=None)
-    addons: Optional[
-        List["SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesAddons"]
-    ] = Field(default=None)
-    price_overrides: Optional[
-        List[
-            "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesPriceOverrides"
-        ]
-    ] = Field(alias="priceOverrides", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesBillableFeatures(
-    BaseModel
-):
-    feature_id: str = Field(alias="featureId")
-    quantity: float
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesAddons(BaseModel):
-    addon_ref_id: str = Field(alias="addonRefId")
-    quantity: float
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesPriceOverrides(
-    BaseModel
-):
-    plan_ref_id: Optional[str] = Field(alias="planRefId", default=None)
-    addon_ref_id: Optional[str] = Field(alias="addonRefId", default=None)
-    feature_id: Optional[str] = Field(alias="featureId", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesPlanPriceOverrideChangeVariables(
-    BaseModel
-):
-    typename__: Literal["PlanPriceOverrideChangeVariables"] = Field(alias="__typename")
-    plan_ref_id: str = Field(alias="planRefId")
-    feature_id: Optional[str] = Field(alias="featureId", default=None)
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesRecurringCreditsChangeVariables(
-    BaseModel
-):
-    typename__: Literal["RecurringCreditsChangeVariables"] = Field(alias="__typename")
-
-
-class SubscriptionFutureUpdateDataScheduleVariablesUnitAmountChangeVariables(BaseModel):
-    typename__: Literal["UnitAmountChangeVariables"] = Field(alias="__typename")
-    new_unit_amount: Optional[float] = Field(alias="newUnitAmount", default=None)
-    feature_id: Optional[str] = Field(alias="featureId", default=None)
-
-
-class SubscriptionTrialConfigurationFragment(BaseModel):
-    trial_end_behavior: TrialEndBehavior = Field(alias="trialEndBehavior")
 
 
 class SubscriptionScheduledUpdateData(BaseModel):
@@ -740,39 +703,6 @@ class SubscriptionScheduledUpdateDataScheduleVariablesUnitAmountChangeVariables(
     feature_id: Optional[str] = Field(alias="featureId", default=None)
 
 
-class TotalPriceFragment(BaseModel):
-    sub_total: "TotalPriceFragmentSubTotal" = Field(alias="subTotal")
-    total: "TotalPriceFragmentTotal"
-
-
-class TotalPriceFragmentSubTotal(BaseModel):
-    amount: float
-    currency: Currency
-
-
-class TotalPriceFragmentTotal(BaseModel):
-    amount: float
-    currency: Currency
-
-
-class PlanCompatiblePackageGroupsFragment(BaseModel):
-    package_group_id: str = Field(alias="packageGroupId")
-    display_name: str = Field(alias="displayName")
-    addons: Optional[List["PlanCompatiblePackageGroupsFragmentAddons"]] = Field(
-        default=None
-    )
-    options: "PlanCompatiblePackageGroupsFragmentOptions"
-
-
-class PlanCompatiblePackageGroupsFragmentAddons(AddonFragment):
-    pass
-
-
-class PlanCompatiblePackageGroupsFragmentOptions(BaseModel):
-    min_items: Optional[float] = Field(alias="minItems", default=None)
-    free_items: Optional[float] = Field(alias="freeItems", default=None)
-
-
 class ProductFragment(BaseModel):
     ref_id: str = Field(alias="refId")
     display_name: Optional[str] = Field(alias="displayName", default=None)
@@ -795,6 +725,24 @@ class ProductFragmentProductSettings(BaseModel):
 class ProductFragmentProductSettingsDowngradePlan(BaseModel):
     ref_id: str = Field(alias="refId")
     display_name: str = Field(alias="displayName")
+
+
+class PlanCompatiblePackageGroupsFragment(BaseModel):
+    package_group_id: str = Field(alias="packageGroupId")
+    display_name: str = Field(alias="displayName")
+    addons: Optional[List["PlanCompatiblePackageGroupsFragmentAddons"]] = Field(
+        default=None
+    )
+    options: "PlanCompatiblePackageGroupsFragmentOptions"
+
+
+class PlanCompatiblePackageGroupsFragmentAddons(AddonFragment):
+    pass
+
+
+class PlanCompatiblePackageGroupsFragmentOptions(BaseModel):
+    min_items: Optional[float] = Field(alias="minItems", default=None)
+    free_items: Optional[float] = Field(alias="freeItems", default=None)
 
 
 class PlanFragment(BaseModel):
@@ -927,32 +875,180 @@ class PlanFragmentInheritedPackageEntitlementsPackageFeatureEntitlement(
     typename__: Literal["PackageFeatureEntitlement"] = Field(alias="__typename")
 
 
-class SubscriptionInvoiceFragment(BaseModel):
-    billing_id: str = Field(alias="billingId")
-    status: SubscriptionInvoiceStatus
-    created_at: Any = Field(alias="createdAt")
-    due_date: Optional[Any] = Field(alias="dueDate", default=None)
-    updated_at: Any = Field(alias="updatedAt")
-    error_message: Optional[str] = Field(alias="errorMessage", default=None)
-    requires_action: bool = Field(alias="requiresAction")
-    payment_secret: Optional[str] = Field(alias="paymentSecret", default=None)
-    payment_url: Optional[str] = Field(alias="paymentUrl", default=None)
-    pdf_url: Optional[str] = Field(alias="pdfUrl", default=None)
-    billing_reason: Optional[SubscriptionInvoiceBillingReason] = Field(
-        alias="billingReason", default=None
+class TotalPriceFragment(BaseModel):
+    sub_total: "TotalPriceFragmentSubTotal" = Field(alias="subTotal")
+    total: "TotalPriceFragmentTotal"
+
+
+class TotalPriceFragmentSubTotal(BaseModel):
+    amount: float
+    currency: Currency
+
+
+class TotalPriceFragmentTotal(BaseModel):
+    amount: float
+    currency: Currency
+
+
+class SubscriptionFutureUpdateData(BaseModel):
+    subscription_schedule_type: SubscriptionScheduleType = Field(
+        alias="subscriptionScheduleType"
     )
-    currency: Optional[str] = Field(default=None)
-    sub_total: Optional[float] = Field(alias="subTotal", default=None)
-    sub_total_excluding_tax: Optional[float] = Field(
-        alias="subTotalExcludingTax", default=None
+    schedule_status: SubscriptionScheduleStatus = Field(alias="scheduleStatus")
+    scheduled_execution_time: Any = Field(alias="scheduledExecutionTime")
+    target_package: Optional["SubscriptionFutureUpdateDataTargetPackage"] = Field(
+        alias="targetPackage", default=None
     )
-    total: Optional[float] = Field(default=None)
-    total_excluding_tax: Optional[float] = Field(
-        alias="totalExcludingTax", default=None
-    )
-    tax: Optional[float] = Field(default=None)
-    amount_due: Optional[float] = Field(alias="amountDue", default=None)
-    attempt_count: Optional[float] = Field(alias="attemptCount", default=None)
+    schedule_variables: Optional[
+        Annotated[
+            Union[
+                "SubscriptionFutureUpdateDataScheduleVariablesAddonChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesAddonPriceOverrideChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesBillingPeriodChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesCouponChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesPlanPriceOverrideChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesRecurringCreditsChangeVariables",
+                "SubscriptionFutureUpdateDataScheduleVariablesUnitAmountChangeVariables",
+            ],
+            Field(discriminator="typename__"),
+        ]
+    ] = Field(alias="scheduleVariables", default=None)
+
+
+class SubscriptionFutureUpdateDataTargetPackage(BaseModel):
+    id: Any
+    ref_id: str = Field(alias="refId")
+    display_name: str = Field(alias="displayName")
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesAddonChangeVariables(BaseModel):
+    typename__: Literal["AddonChangeVariables"] = Field(alias="__typename")
+    addon_ref_id: str = Field(alias="addonRefId")
+    new_quantity: float = Field(alias="newQuantity")
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesAddonPriceOverrideChangeVariables(
+    BaseModel
+):
+    typename__: Literal["AddonPriceOverrideChangeVariables"] = Field(alias="__typename")
+    addon_ref_id: str = Field(alias="addonRefId")
+    feature_id: Optional[str] = Field(alias="featureId", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesBillingPeriodChangeVariables(
+    BaseModel
+):
+    typename__: Literal["BillingPeriodChangeVariables"] = Field(alias="__typename")
+    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesCouponChangeVariables(BaseModel):
+    typename__: Literal["CouponChangeVariables"] = Field(alias="__typename")
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariables(BaseModel):
+    typename__: Literal["DowngradeChangeVariables"] = Field(alias="__typename")
+    downgrade_plan_ref_id: str = Field(alias="downgradePlanRefId")
+    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
+    billable_features: Optional[
+        List[
+            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesBillableFeatures"
+        ]
+    ] = Field(alias="billableFeatures", default=None)
+    addons: Optional[
+        List[
+            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesAddons"
+        ]
+    ] = Field(default=None)
+    price_overrides: Optional[
+        List[
+            "SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesPriceOverrides"
+        ]
+    ] = Field(alias="priceOverrides", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesBillableFeatures(
+    BaseModel
+):
+    feature_id: str = Field(alias="featureId")
+    quantity: float
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesAddons(
+    BaseModel
+):
+    addon_ref_id: str = Field(alias="addonRefId")
+    quantity: float
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesDowngradeChangeVariablesPriceOverrides(
+    BaseModel
+):
+    plan_ref_id: Optional[str] = Field(alias="planRefId", default=None)
+    addon_ref_id: Optional[str] = Field(alias="addonRefId", default=None)
+    feature_id: Optional[str] = Field(alias="featureId", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariables(BaseModel):
+    typename__: Literal["PlanChangeVariables"] = Field(alias="__typename")
+    plan_ref_id: str = Field(alias="planRefId")
+    change_type: PlanChangeType = Field(alias="changeType")
+    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
+    billable_features: Optional[
+        List[
+            "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesBillableFeatures"
+        ]
+    ] = Field(alias="billableFeatures", default=None)
+    addons: Optional[
+        List["SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesAddons"]
+    ] = Field(default=None)
+    price_overrides: Optional[
+        List[
+            "SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesPriceOverrides"
+        ]
+    ] = Field(alias="priceOverrides", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesBillableFeatures(
+    BaseModel
+):
+    feature_id: str = Field(alias="featureId")
+    quantity: float
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesAddons(BaseModel):
+    addon_ref_id: str = Field(alias="addonRefId")
+    quantity: float
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesPlanChangeVariablesPriceOverrides(
+    BaseModel
+):
+    plan_ref_id: Optional[str] = Field(alias="planRefId", default=None)
+    addon_ref_id: Optional[str] = Field(alias="addonRefId", default=None)
+    feature_id: Optional[str] = Field(alias="featureId", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesPlanPriceOverrideChangeVariables(
+    BaseModel
+):
+    typename__: Literal["PlanPriceOverrideChangeVariables"] = Field(alias="__typename")
+    plan_ref_id: str = Field(alias="planRefId")
+    feature_id: Optional[str] = Field(alias="featureId", default=None)
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesRecurringCreditsChangeVariables(
+    BaseModel
+):
+    typename__: Literal["RecurringCreditsChangeVariables"] = Field(alias="__typename")
+
+
+class SubscriptionFutureUpdateDataScheduleVariablesUnitAmountChangeVariables(BaseModel):
+    typename__: Literal["UnitAmountChangeVariables"] = Field(alias="__typename")
+    new_unit_amount: Optional[float] = Field(alias="newUnitAmount", default=None)
+    feature_id: Optional[str] = Field(alias="featureId", default=None)
 
 
 class SubscriptionFragment(BaseModel):
@@ -1093,27 +1189,6 @@ class CreditEntitlementFragmentCurrency(BaseModel):
     )
 
 
-class FeatureFragment(BaseModel):
-    typename__: str = Field(alias="__typename")
-    feature_type: FeatureType = Field(alias="featureType")
-    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
-    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
-    feature_units_plural: Optional[str] = Field(
-        alias="featureUnitsPlural", default=None
-    )
-    description: Optional[str] = Field(default=None)
-    display_name: str = Field(alias="displayName")
-    ref_id: str = Field(alias="refId")
-    unit_transformation: Optional["FeatureFragmentUnitTransformation"] = Field(
-        alias="unitTransformation", default=None
-    )
-
-
-class FeatureFragmentUnitTransformation(BaseModel):
-    divide: float
-    round: UnitTransformationRound
-
-
 class EntitlementFragment(BaseModel):
     typename__: str = Field(alias="__typename")
     is_granted: bool = Field(alias="isGranted")
@@ -1183,80 +1258,6 @@ class EntitlementFragmentFeature(FeatureFragment):
 
 
 class EntitlementFragmentCreditRate(BaseModel):
-    amount: float
-    currency_id: str = Field(alias="currencyId")
-
-
-class FeatureEntitlementFragment(BaseModel):
-    typename__: str = Field(alias="__typename")
-    is_granted: bool = Field(alias="isGranted")
-    access_denied_reason: Optional[AccessDeniedReason] = Field(
-        alias="accessDeniedReason", default=None
-    )
-    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
-    has_unlimited_usage: bool = Field(alias="hasUnlimitedUsage")
-    has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
-    current_usage: Optional[float] = Field(alias="currentUsage", default=None)
-    enum_values: Optional[List[str]] = Field(alias="enumValues", default=None)
-    entitlement_updated_at: Optional[Any] = Field(
-        alias="entitlementUpdatedAt", default=None
-    )
-    usage_updated_at: Optional[Any] = Field(alias="usageUpdatedAt", default=None)
-    usage_period_anchor: Optional[Any] = Field(alias="usagePeriodAnchor", default=None)
-    usage_period_start: Optional[Any] = Field(alias="usagePeriodStart", default=None)
-    usage_period_end: Optional[Any] = Field(alias="usagePeriodEnd", default=None)
-    reset_period: Optional[EntitlementResetPeriod] = Field(
-        alias="resetPeriod", default=None
-    )
-    reset_period_configuration: Optional[
-        Annotated[
-            Union[
-                "FeatureEntitlementFragmentResetPeriodConfigurationMonthlyResetPeriodConfig",
-                "FeatureEntitlementFragmentResetPeriodConfigurationWeeklyResetPeriodConfig",
-                "FeatureEntitlementFragmentResetPeriodConfigurationYearlyResetPeriodConfig",
-            ],
-            Field(discriminator="typename__"),
-        ]
-    ] = Field(alias="resetPeriodConfiguration", default=None)
-    feature: Optional["FeatureEntitlementFragmentFeature"] = Field(default=None)
-    credit_rate: Optional["FeatureEntitlementFragmentCreditRate"] = Field(
-        alias="creditRate", default=None
-    )
-    valid_until: Optional[Any] = Field(alias="validUntil", default=None)
-
-
-class FeatureEntitlementFragmentResetPeriodConfigurationMonthlyResetPeriodConfig(
-    BaseModel
-):
-    typename__: Literal["MonthlyResetPeriodConfig"] = Field(alias="__typename")
-    monthly_according_to: Optional[MonthlyAccordingTo] = Field(
-        alias="monthlyAccordingTo", default=None
-    )
-
-
-class FeatureEntitlementFragmentResetPeriodConfigurationWeeklyResetPeriodConfig(
-    BaseModel
-):
-    typename__: Literal["WeeklyResetPeriodConfig"] = Field(alias="__typename")
-    weekly_according_to: Optional[WeeklyAccordingTo] = Field(
-        alias="weeklyAccordingTo", default=None
-    )
-
-
-class FeatureEntitlementFragmentResetPeriodConfigurationYearlyResetPeriodConfig(
-    BaseModel
-):
-    typename__: Literal["YearlyResetPeriodConfig"] = Field(alias="__typename")
-    yearly_according_to: Optional[YearlyAccordingTo] = Field(
-        alias="yearlyAccordingTo", default=None
-    )
-
-
-class FeatureEntitlementFragmentFeature(FeatureFragment):
-    pass
-
-
-class FeatureEntitlementFragmentCreditRate(BaseModel):
     amount: float
     currency_id: str = Field(alias="currencyId")
 
@@ -1377,39 +1378,8 @@ class CheckoutConfigurationFragmentContent(BaseModel):
     )
 
 
-class StripeCheckoutCredentialsFragment(BaseModel):
-    account_id: Optional[str] = Field(alias="accountId", default=None)
-    setup_secret: str = Field(alias="setupSecret")
-    public_key: Optional[str] = Field(alias="publicKey", default=None)
-
-
-class PromotionalEntitlementFragment(BaseModel):
-    status: PromotionalEntitlementStatus
-    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
-    feature_id: Any = Field(alias="featureId")
-    has_unlimited_usage: Optional[bool] = Field(alias="hasUnlimitedUsage", default=None)
-    has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
-    reset_period: Optional[EntitlementResetPeriod] = Field(
-        alias="resetPeriod", default=None
-    )
-    end_date: Optional[Any] = Field(alias="endDate", default=None)
-    is_visible: bool = Field(alias="isVisible")
-    feature: "PromotionalEntitlementFragmentFeature"
-
-
-class PromotionalEntitlementFragmentFeature(BaseModel):
-    feature_type: FeatureType = Field(alias="featureType")
-    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
-    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
-    feature_units_plural: Optional[str] = Field(
-        alias="featureUnitsPlural", default=None
-    )
-    display_name: str = Field(alias="displayName")
-    description: Optional[str] = Field(default=None)
-    ref_id: str = Field(alias="refId")
-    additional_meta_data: Optional[Any] = Field(
-        alias="additionalMetaData", default=None
-    )
+class ZuoraCheckoutCredentialsFragment(BaseModel):
+    publishable_key: str = Field(alias="publishableKey")
 
 
 class CouponFragment(BaseModel):
@@ -1444,6 +1414,35 @@ class CouponFragmentAmountsOff(BaseModel):
 class CouponFragmentSyncStates(BaseModel):
     vendor_identifier: VendorIdentifier = Field(alias="vendorIdentifier")
     status: SyncStatus
+
+
+class PromotionalEntitlementFragment(BaseModel):
+    status: PromotionalEntitlementStatus
+    usage_limit: Optional[float] = Field(alias="usageLimit", default=None)
+    feature_id: Any = Field(alias="featureId")
+    has_unlimited_usage: Optional[bool] = Field(alias="hasUnlimitedUsage", default=None)
+    has_soft_limit: Optional[bool] = Field(alias="hasSoftLimit", default=None)
+    reset_period: Optional[EntitlementResetPeriod] = Field(
+        alias="resetPeriod", default=None
+    )
+    end_date: Optional[Any] = Field(alias="endDate", default=None)
+    is_visible: bool = Field(alias="isVisible")
+    feature: "PromotionalEntitlementFragmentFeature"
+
+
+class PromotionalEntitlementFragmentFeature(BaseModel):
+    feature_type: FeatureType = Field(alias="featureType")
+    meter_type: Optional[MeterType] = Field(alias="meterType", default=None)
+    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
+    feature_units_plural: Optional[str] = Field(
+        alias="featureUnitsPlural", default=None
+    )
+    display_name: str = Field(alias="displayName")
+    description: Optional[str] = Field(default=None)
+    ref_id: str = Field(alias="refId")
+    additional_meta_data: Optional[Any] = Field(
+        alias="additionalMetaData", default=None
+    )
 
 
 class CustomerFragment(SlimCustomerFragment):
@@ -1510,8 +1509,10 @@ class CustomerFragmentPromotionalEntitlements(PromotionalEntitlementFragment):
     pass
 
 
-class ZuoraCheckoutCredentialsFragment(BaseModel):
-    publishable_key: str = Field(alias="publishableKey")
+class StripeCheckoutCredentialsFragment(BaseModel):
+    account_id: Optional[str] = Field(alias="accountId", default=None)
+    setup_secret: str = Field(alias="setupSecret")
+    public_key: Optional[str] = Field(alias="publicKey", default=None)
 
 
 class CheckoutStateFragment(BaseModel):
@@ -1914,48 +1915,6 @@ class CustomerPortalPromotionalEntitlementFragment(BaseModel):
     end_date: Optional[Any] = Field(alias="endDate", default=None)
 
 
-class CustomerPortalSubscriptionPriceFragment(BaseModel):
-    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
-    billing_model: Optional[BillingModel] = Field(alias="billingModel", default=None)
-    block_size: Optional[float] = Field(alias="blockSize", default=None)
-    price: Optional["CustomerPortalSubscriptionPriceFragmentPrice"] = Field(
-        default=None
-    )
-    credit_rate: Optional["CustomerPortalSubscriptionPriceFragmentCreditRate"] = Field(
-        alias="creditRate", default=None
-    )
-    feature: Optional["CustomerPortalSubscriptionPriceFragmentFeature"] = Field(
-        default=None
-    )
-
-
-class CustomerPortalSubscriptionPriceFragmentPrice(BaseModel):
-    amount: float
-    currency: Currency
-
-
-class CustomerPortalSubscriptionPriceFragmentCreditRate(BaseModel):
-    amount: float
-    currency_id: str = Field(alias="currencyId")
-
-
-class CustomerPortalSubscriptionPriceFragmentFeature(BaseModel):
-    id: Any
-    ref_id: str = Field(alias="refId")
-    display_name: str = Field(alias="displayName")
-    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
-    feature_units_plural: Optional[str] = Field(
-        alias="featureUnitsPlural", default=None
-    )
-
-
-class CustomerPortalSubscriptionAddonFragment(BaseModel):
-    addon_id: str = Field(alias="addonId")
-    description: Optional[str] = Field(default=None)
-    display_name: str = Field(alias="displayName")
-    quantity: int
-
-
 class CustomerPortalSubscriptionScheduledUpdateDataFragment(BaseModel):
     subscription_schedule_type: SubscriptionScheduleType = Field(
         alias="subscriptionScheduleType"
@@ -2130,6 +2089,48 @@ class CustomerPortalSubscriptionScheduledUpdateDataFragmentScheduleVariablesUnit
     typename__: Literal["UnitAmountChangeVariables"] = Field(alias="__typename")
     new_unit_amount: Optional[float] = Field(alias="newUnitAmount", default=None)
     feature_id: Optional[str] = Field(alias="featureId", default=None)
+
+
+class CustomerPortalSubscriptionPriceFragment(BaseModel):
+    billing_period: Optional[BillingPeriod] = Field(alias="billingPeriod", default=None)
+    billing_model: Optional[BillingModel] = Field(alias="billingModel", default=None)
+    block_size: Optional[float] = Field(alias="blockSize", default=None)
+    price: Optional["CustomerPortalSubscriptionPriceFragmentPrice"] = Field(
+        default=None
+    )
+    credit_rate: Optional["CustomerPortalSubscriptionPriceFragmentCreditRate"] = Field(
+        alias="creditRate", default=None
+    )
+    feature: Optional["CustomerPortalSubscriptionPriceFragmentFeature"] = Field(
+        default=None
+    )
+
+
+class CustomerPortalSubscriptionPriceFragmentPrice(BaseModel):
+    amount: float
+    currency: Currency
+
+
+class CustomerPortalSubscriptionPriceFragmentCreditRate(BaseModel):
+    amount: float
+    currency_id: str = Field(alias="currencyId")
+
+
+class CustomerPortalSubscriptionPriceFragmentFeature(BaseModel):
+    id: Any
+    ref_id: str = Field(alias="refId")
+    display_name: str = Field(alias="displayName")
+    feature_units: Optional[str] = Field(alias="featureUnits", default=None)
+    feature_units_plural: Optional[str] = Field(
+        alias="featureUnitsPlural", default=None
+    )
+
+
+class CustomerPortalSubscriptionAddonFragment(BaseModel):
+    addon_id: str = Field(alias="addonId")
+    description: Optional[str] = Field(default=None)
+    display_name: str = Field(alias="displayName")
+    quantity: int
 
 
 class CustomerPortalSubscriptionFragment(BaseModel):
@@ -3837,39 +3838,39 @@ class UsageUpdatedV2PayloadUsage(UsageV2Fragment):
 
 
 AddonDependencyFragment.model_rebuild()
-PackageFeatureEntitlementFragment.model_rebuild()
+PackageCreditEntitlementFragment.model_rebuild()
 PriceTierFragment.model_rebuild()
 OveragePriceFragment.model_rebuild()
-PackageCreditEntitlementFragment.model_rebuild()
+PackageFeatureEntitlementFragment.model_rebuild()
 PriceFragment.model_rebuild()
 PackageEntitlementFragment.model_rebuild()
 AddonFragment.model_rebuild()
 AirwallexCheckoutCredentialsFragment.model_rebuild()
-SlimCustomerFragment.model_rebuild()
-CustomerResourceFragment.model_rebuild()
-SubscriptionFutureUpdateData.model_rebuild()
-SubscriptionTrialConfigurationFragment.model_rebuild()
-SubscriptionScheduledUpdateData.model_rebuild()
-TotalPriceFragment.model_rebuild()
-PlanCompatiblePackageGroupsFragment.model_rebuild()
-ProductFragment.model_rebuild()
-PlanFragment.model_rebuild()
+FeatureFragment.model_rebuild()
+FeatureEntitlementFragment.model_rebuild()
 SubscriptionInvoiceFragment.model_rebuild()
+SubscriptionTrialConfigurationFragment.model_rebuild()
+CustomerResourceFragment.model_rebuild()
+SlimCustomerFragment.model_rebuild()
+SubscriptionScheduledUpdateData.model_rebuild()
+ProductFragment.model_rebuild()
+PlanCompatiblePackageGroupsFragment.model_rebuild()
+PlanFragment.model_rebuild()
+TotalPriceFragment.model_rebuild()
+SubscriptionFutureUpdateData.model_rebuild()
 SubscriptionFragment.model_rebuild()
 CreditEntitlementFragment.model_rebuild()
-FeatureFragment.model_rebuild()
 EntitlementFragment.model_rebuild()
-FeatureEntitlementFragment.model_rebuild()
 ApplySubscriptionFragment.model_rebuild()
 AutoRechargeSettingsFragment.model_rebuild()
 FontVariantFragment.model_rebuild()
 TypographyConfigurationFragment.model_rebuild()
 CheckoutConfigurationFragment.model_rebuild()
-StripeCheckoutCredentialsFragment.model_rebuild()
-PromotionalEntitlementFragment.model_rebuild()
-CouponFragment.model_rebuild()
-CustomerFragment.model_rebuild()
 ZuoraCheckoutCredentialsFragment.model_rebuild()
+CouponFragment.model_rebuild()
+PromotionalEntitlementFragment.model_rebuild()
+CustomerFragment.model_rebuild()
+StripeCheckoutCredentialsFragment.model_rebuild()
 CheckoutStateFragment.model_rebuild()
 CreditBalanceFragment.model_rebuild()
 CreditBalanceUpdatedPayload.model_rebuild()
@@ -3886,9 +3887,9 @@ CustomerPortalBillingInformationFragment.model_rebuild()
 CustomerPortalConfigurationFragment.model_rebuild()
 CustomerPortalEntitlementFragment.model_rebuild()
 CustomerPortalPromotionalEntitlementFragment.model_rebuild()
+CustomerPortalSubscriptionScheduledUpdateDataFragment.model_rebuild()
 CustomerPortalSubscriptionPriceFragment.model_rebuild()
 CustomerPortalSubscriptionAddonFragment.model_rebuild()
-CustomerPortalSubscriptionScheduledUpdateDataFragment.model_rebuild()
 CustomerPortalSubscriptionFragment.model_rebuild()
 CustomerPortalFragment.model_rebuild()
 CustomerStatisticsFragment.model_rebuild()

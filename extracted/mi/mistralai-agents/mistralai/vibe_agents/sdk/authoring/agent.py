@@ -370,7 +370,52 @@ class Agent(AgentAuthoring):
 
     ``Agent.run()`` runs one turn in a new session, ``Agent.start_session()`` starts a session for many
     turns, and ``Agent.session(session_id)`` binds a handle to a session that exists. ``Agent.load_from()``
-    reaches an agent deployed on the control plane.
+    reaches an agent you deployed.
+
+    Args:
+        model: The model, such as ``"mistral-large-4"``.
+        instructions: Your instructions to the model, added to the agent loop's default system prompt.
+        provider: The built-in completion provider: ``"mistral"``, the default, ``"openai"`` or ``"anthropic"``.
+            It tries a model call up to 5 times when the call fails with a rate limit, a server error such
+            as a 503, or a network error, and waits as long as a ``Retry-After`` header asks.
+        completion: A completion configuration, built-in or your own, used instead of ``provider``.
+        name: The agent's name. ``agents serve`` and ``agents deploy`` register the agent under it, and
+            your app loads it by it. A name with a dot is reserved for Mistral's own agents.
+        max_iterations: The most steps of the agent loop in one turn. ``None`` sets no limit.
+        first_output_timeout_seconds: How long one model call waits for its first output. Defaults to 720
+            seconds. A call stopped this way, or after 300 seconds without output once it started, is
+            retried once.
+        builtins: The built-in features to turn off, such as subagents or background processes.
+        permission_mode: Which tool calls need an approval: ``"auto"`` runs every call that
+            ``permission_policy`` allows (every call without one), ``"ask"`` opens an approval for each call,
+            and ``"deny"`` refuses them.
+        permission_policy: Rules that decide per tool, and per argument, whether a call runs, asks or is
+            refused. It needs ``permission_mode="auto"``.
+        auto_compact_threshold: The number of tokens at which the loop summarizes older turns. Defaults to
+            a value set from the model's context window.
+        description: What the agent does, in a sentence. A deployed agent shows it, and its traces record it.
+        reasoning_effort: How much the model reasons, from ``"off"`` to ``"max"``. Defaults to the model's
+            own.
+        temperature: The sampling temperature, from ``0`` to ``2``. Defaults to the model's own.
+        output_type: A Pydantic model that the final answer of every turn must match.
+        subagents: The child agents that the agent can start, each an ``agents.Subagent``.
+        subagent_policy: Limits on the subagents of a session tree: how many turns run at once and how
+            deep the tree goes.
+        tool_errors: What the model reads when a tool raises an unexpected error: ``"hide"``, the
+            default, a generic message, ``"show"`` the exception's type and message, and ``"raise"``
+            fails the turn; for a client tool, with ``"raise"``, the exception raises in your program
+            instead, and the call stays open.
+        tools: Your functions, each a plain or ``@agents.tool`` function, and client tools.
+        environment: The sandbox where the agent runs shell commands and edits files. Defaults to
+            ``NoSandbox()``: no shell and no files.
+        connectors: The connectors your workspace set up in Studio, each with ``agents.connector(name)``.
+        mcps: MCP servers that are not Studio connectors, by name.
+        skills: Instructions that the agent loads only when it needs them.
+        hooks: Code that runs before a turn, around model and tool calls, or after the answer.
+        guardrails: Hooks for safety checks, which run before ``hooks`` at every hook point.
+        secrets: The credentials that the agent reads, by name, each with where its value comes from.
+        redaction: How the agent's traces mask secrets and personal data: a redaction policy, a
+            ``(key, value)`` function, or a list of them, applied in order. ``[]`` turns redaction off.
     """
 
     def __init__(
@@ -517,82 +562,48 @@ class Agent(AgentAuthoring):
     ) -> TurnState[Any] | Busy:
         """Start a session, run one turn in it, and return the turn's record.
 
-        One request starts the session with the turn as its first, then the run waits on that turn.
-        The record is one of ``Completed``, ``Blocked``, ``Interrupted``, ``Failed``,
-        ``UnknownOutcome`` (an outcome a newer host added) or ``Running``,
-        each a value: a failed turn returns ``Failed`` and does not raise. Every record has
-        ``session_id`` and ``turn_id``, so you can reach the session and the turn later with
+        The record is a value, never raised: ``Completed``, ``Blocked``, ``Interrupted``, ``Failed``,
+        ``Running``, or ``UnknownOutcome`` for an outcome added after your SDK version. With ``output_type=T``, it is
+        a ``TurnState[T]``. Its ``session_id`` and ``turn_id`` reach the session and the turn again, as in
         ``agent.session(state.session_id)``.
 
-        ``output_type`` overrides the Agent's own ``output_type`` for this run only. A
-        ``Completed`` record's ``output`` is validated against it, is ``InvalidOutput`` when it does
-        not validate, or is ``None`` when the turn ended early (see ``stop_reason``). On a
-        deployment-backed Agent it only parses the reply: the deployed Agent fixes the completion
-        config, so the model gets the deployed Agent's format.
+        On a deployed agent, ``output_type`` only parses the answer, and the model gets the deployed
+        agent's format. ``output`` is ``InvalidOutput`` when the answer does not validate, and ``None``
+        when the turn ended early.
 
-        ``on_approval``, a plain or async function, answers the approvals of the run's session and
-        its subagents with ``AllowApproval`` or ``DenyApproval`` (see ``Session``). Without it, or
-        when it returns ``KeepCallbackOpen()``, the run returns ``Blocked`` while the turn waits for
-        the answer. Answer each of its callbacks, a subagent's too, on the run's turn:
-        ``agent.session(state.session_id).turn(state.turn_id).answer(cb.id, ...)``. A handler that
-        raises makes the run raise its error, and one that returns anything else, ``None`` included,
-        makes it raise ``SdkError``; the approval stays open and the turn goes on.
+        A callback with no handler for it, or one whose handler returns ``KeepCallbackOpen()``, makes
+        the run return ``Blocked``. Answer it with
+        ``agent.session(state.session_id).turn(state.turn_id).answer(cb.id, ...)``. An approval or
+        sign-in handler that raises makes the run raise its error. An approval handler that returns
+        anything else, ``None`` included, raises ``SdkError``. A sign-in handler that returns ``None``,
+        ``KeepCallbackOpen()``, or an answer that leaves a source out raises ``SdkError``. A client
+        tool answer that cannot be sent raises ``ClientToolAnswerError``. In each case the callback
+        stays open and the turn keeps running. A client tool answer or ``on_client_tool`` handler
+        that raises follows the agent's ``tool_errors``: by default the model reads that the call
+        failed and the run goes on. With ``"raise"``, the run raises the error and the call stays
+        open: the turn stays blocked on it, and the session takes no new turn, until the callback
+        times out (one hour by default).
 
-        ``on_sign_in`` answers the sign-ins of the run's session and its subagents the same way: it
-        gets an ``OpenSignIn``, the sources the agent asks the user to connect, and returns a
-        ``SignInAnswer`` with those the user connected and those they refused; ``None``, or an
-        answer that leaves a source out, raises ``SdkError``. Without it, the run returns ``Blocked``
-        on the ``OpenSignIn``: answer it with ``turn.answer(cb.id, SignInAnswer(...))``.
-        ``on_client_tool`` never gets a sign-in.
-
-        Without ``on_client_tool``, the run returns ``Blocked`` when the model calls a client tool:
-        the call is in ``state.callbacks`` as an ``OpenClientToolCall``. Find it with
-        ``<stub>.called(cb)`` and answer it with your function's result:
-        ``agent.session(state.session_id).turn(state.turn_id).answer(cb.id, await cb.run(fn))``. With
-        it, the run answers the client tools of the session and its subagents from this process
-        while it waits on its turn.
-        ``on_client_tool`` takes a plain or async function, which gets each call as an
-        ``agents.ClientToolCall`` and returns the result the model reads, or
-        ``agents.ClientToolAnswers``, which holds one answer per tool, each bound with
-        ``<tool>.answer(function)``, and a ``default`` function for every other call: a tool's own
-        answer wins over ``default``. An answer to a stub that is not a tool of this Agent or of its
-        subagents raises ``SdkError`` before the session starts. Before the run returns, it waits for
-        the answers already running and sends them; it does not start new ones. When an answer
-        cannot be sent, the run raises ``ClientToolAnswerError`` at once, which names the call and
-        has the send error as its ``__cause__``; the turn goes on, and its host fails the call at its
-        callback timeout. An answer the host already settled is not an error.
-        Neither gets a connector sign-in: ``on_sign_in`` answers it, as above.
-
-        ``on_event`` gets each event of the turn as it comes (see ``Turn.result``).
-
-        ``timeout`` is the time the SDK waits for the host, in seconds. Time spent in your own
-        client-tool code does not count. Once it has passed, the run returns the turn's record,
-        ``Running`` or ``Blocked``, and the turn goes on. For example, with ``timeout=5``, a turn that
-        works 3 seconds on the host, calls a client tool whose answer takes 20 seconds, then works 4
-        more seconds returns ``Running`` 2 seconds into those 4. The time an ``on_approval`` or
-        ``on_sign_in`` handler takes counts. ``timeout`` bounds the wait on the turn, not the
-        session's start. An answer that never returns keeps the run waiting: bound it in its own
-        code, for example with ``asyncio.timeout``. Leaving the run in any other way, for example by a cancelled task,
-        also leaves the turn running; once the turn has started, the error says which turn it is
-        and how to stop it.
-
-        ``idempotency_key`` (1 to 256 characters) makes the run safe to retry: a second run with
-        the same key reaches the same session and the same turn, and returns that turn's record,
-        even once the turn has ended. A run with an earlier run's key and another message, or other
-        Agent settings, raises ``agents.SessionIdempotencyConflictError``. Generate the key once per
-        request, for example as a UUID, and reuse it only on that request's retries. On an older
-        server, a run with a key can also return ``Busy``: the key's session is running another
-        turn, so the run started none.
-
-        A local run's session runs in this event loop's runtime. Without ``idempotency_key``, it
-        is closed once its turn and its subagents are done, and stays readable. Without
-        ``on_approval`` or ``on_sign_in`` either, on an Agent without subagents, it ends with its
-        turn: a finished turn's record is returned once its sandbox is freed. With one, it stays
-        open, like a session from ``start_session(idempotency_key=...)``, until the event loop
-        stops. Subagents still working when the turn ends keep running. Inside an
-        ``async with agents.local_runtime()`` block, no local run's session is closed for being
-        idle: ``agent.session(state.session_id)`` drives it again until the block exits or
-        ``session.cancel()``.
+        Args:
+            content: The user's message: a string, or a list of content blocks.
+            output_type: A Pydantic model that this run's answer must match, instead of the agent's own
+                ``output_type``; ``Completed.output`` is validated against it.
+            on_approval: A plain or async function that answers each approval of the session and its
+                subagents with ``AllowApproval`` or ``DenyApproval``.
+            on_sign_in: A function that answers each connector sign-in of the session and its subagents
+                with a ``SignInAnswer``.
+            on_client_tool: A function that answers each client tool call of the session and its
+                subagents, or an ``agents.ClientToolAnswers``.
+            on_event: A function that gets each event of the turn as it comes. When the turn has ended,
+                the last event is ``TurnEnded``.
+            idempotency_key: A key of 1 to 256 characters that makes the run safe to retry: a second run with
+                the same key returns the same turn's record, even once the turn has ended. The same key with
+                another message or other agent settings raises ``SessionIdempotencyConflictError``. Generate
+                it once per request, for example as a UUID. A run with a key can return ``Busy`` while
+                another turn runs.
+            timeout: How long the run waits for the turn, in seconds. An ``on_approval`` or ``on_sign_in``
+                handler's time counts; your client-tool code does not. Then the run returns ``Running`` or
+                ``Blocked``, and the turn keeps running. ``None`` waits until the turn ends or waits on you.
         """
 
         # An empty message raises ``SdkError`` before a Session opens, as on a session handle.
@@ -722,7 +733,7 @@ class Agent(AgentAuthoring):
         committed event is appended as one JSON line to ``<event_log_directory>/<session id>/events.jsonl``,
         and the file stays after the process stops. Without it, no file is written.
         ``journal_factory`` is experimental: a minor release may change it, and passing it warns
-        ``ExperimentalWarning`` once per process. It returns the journal of each Session from its id.
+        ``ExperimentalWarning`` once per process. It returns the journal of each Session from its ID.
         Without it, Sessions are kept in memory, so they end with the process. With
         ``experimental.JsonFileSessionJournal.in_directory(path)``, each root Session is saved on
         disk, and ``get_session(session_id)`` or ``session(session_id)`` in a later process reopens
@@ -755,7 +766,13 @@ class Agent(AgentAuthoring):
             await runtime.close()
 
     def override(self, *, model: testing.ScriptedModel) -> Self:
-        """Return a copy of this Agent that sends its model calls to ``model``. This Agent is unchanged."""
+        """Return a copy of this agent that sends its model calls to ``model``. This agent is unchanged.
+
+        Call it on a local agent: on a deployed agent, it raises ``SdkError``.
+
+        Args:
+            model: The scripted model that answers the copy's model calls, in tests.
+        """
         if self._bundle.remote_deployment is not None:
             raise SdkError("Agent.override works only on a local Agent, not on a deployment handle")
         if self._bundle.local_runtime is not None:
@@ -837,37 +854,37 @@ class Agent(AgentAuthoring):
         """Start a session and return its handle.
 
         A local session runs in this process until its event loop shuts down, and its handle binds
-        again only inside that event loop. A deployment-backed session runs on the control plane,
-        and its handle binds again from any process.
+        again only inside that event loop. A session of a deployed agent is kept by Mistral, and its
+        handle binds again from any process.
 
-        ``history`` seeds the conversation with existing entries. Only a local session takes it: a
-        deployment-backed start cannot import history yet.
+        A second call with the same ``idempotency_key`` and the same options returns the same
+        session, even once it is running a turn or has ended. The same key with other
+        ``session_inputs`` or ``agent``, or from an agent with other settings such as
+        ``permission_mode``, raises ``agents.SessionIdempotencyConflictError``; another ``history`` is
+        not checked, and returns the first session. Generate the key once per request, for example
+        as a UUID, and reuse it only on that request's retries.
 
-        ``session_inputs`` supplies the session inputs keyed by each value's ``input_id``. They are
-        fixed for the session's lifetime and delivered only to the tools, hooks and sandbox hooks
-        that declare them with ``agents.Depends()``.
+        The handlers stay in this process: they are not part of the start, so the same
+        ``idempotency_key`` takes other ones. An answer to a stub that is not a tool of this agent, of
+        its guardrails and hooks, or of its subagents raises ``SdkError`` before the start.
 
-        ``agent`` (an ``agents.SessionAgentCustomization`` or the same keys as a dict) customizes this
-        Agent for this session only: ``additional_instructions`` append to its instructions, and
-        ``model`` and ``reasoning_effort`` override its completion defaults. A deployment keeps its
-        saved Agent unchanged. Permissions are not customized per session: set ``permission_mode=``
-        or ``permission_policy=`` on the Agent.
-
-        ``idempotency_key`` (1 to 256 characters) makes the start safe to retry: a second call with
-        the same key and the same options returns the same session, even once it is running a turn or
-        has ended. The same key with other ``session_inputs`` or ``agent``, or from an Agent with other
-        settings such as ``permission_mode``, raises ``agents.SessionIdempotencyConflictError``; another
-        ``history`` is not checked, and returns the first session. Generate it once per request,
-        for example as a UUID, and reuse it only on that request's retries.
-
-        ``on_approval`` answers approvals while a call waits on the handle (see ``Session``),
-        ``on_sign_in`` sign-ins, and ``on_client_tool`` client tools, as on ``run``. They stay in
-        this process: they are not part of the start, so the same ``idempotency_key`` takes other
-        ones. An answer to a stub that is not a tool of this Agent, of its guardrails and hooks, or
-        of its subagents raises ``SdkError`` before the start.
-
-        The handle keeps this Agent's ``output_type``: ``session.run()``, ``turn.get()`` and
+        The handle keeps this agent's ``output_type``: ``session.run()``, ``turn.get()`` and
         ``turn.result()`` parse a ``Completed`` output with it when given none.
+
+        Args:
+            history: Existing entries that seed the conversation. Only a local session takes it.
+            session_inputs: The session inputs, keyed by each value's ``input_id``. They are fixed for the
+                session's lifetime and delivered only to the tools, hooks and sandbox hooks that declare
+                them with ``agents.Depends()``.
+            agent: Changes to this agent for this session only, as an ``agents.SessionAgentCustomization``
+                or the same keys as a dict: ``additional_instructions`` append to its instructions, and
+                ``model`` and ``reasoning_effort`` override its completion defaults. A deployment keeps its
+                saved agent unchanged. Permissions are not customized per session: set ``permission_mode=``
+                or ``permission_policy=`` on the agent.
+            idempotency_key: A key of 1 to 256 characters that makes the start safe to retry.
+            on_approval: Answers approvals while a call waits on the handle (see ``Session``).
+            on_sign_in: Answers sign-ins while a call waits on the handle, as on ``run``.
+            on_client_tool: Answers client tool calls while a call waits on the handle, as on ``run``.
         """
         session, _turn_id = await self._start_session(
             history=history,
@@ -1010,20 +1027,25 @@ class Agent(AgentAuthoring):
         on_sign_in: sign_ins.SignInHandler | None = None,
         on_client_tool: client_tools_registry.OnClientTool | None = None,
     ) -> handles.Session:
-        """Return the handle of a session of this Agent's host by its ID. Sends no request.
+        """Return the handle of one of this agent's sessions by its ID. Sends no request.
 
-        An ID the host does not know binds too: the first request through the handle fails. The
-        handle keeps this Agent's ``output_type``, as ``start_session()``'s does.
-        ``on_approval`` answers approvals while a call waits on the handle (see ``Session``),
-        ``on_sign_in`` sign-ins, and ``on_client_tool`` client tools, as on ``run``. An answer to a
-        stub that is not a tool of this Agent, of its guardrails and hooks, or of its subagents
-        raises ``SdkError`` here.
+        For a deployed agent, an ID that is not a UUID raises ``SdkError`` at once. An unknown ID
+        binds too: the first request through the handle raises ``SessionNotFoundError``. The handle
+        keeps this agent's ``output_type``, as ``start_session()``'s does. An answer to a stub that
+        is not a tool of this agent, of its guardrails and hooks, or of its subagents raises
+        ``SdkError`` here.
 
         In an ``async with agents.local_runtime(journal_factory=...)`` block, a local session that
         an earlier process saved there reopens on the handle's first request, and keeps running in
-        this process until the block exits. It must be a session of this Agent: one with other
+        this process until the block exits. It must be a session of this agent: one with other
         tools, hooks, MCP servers, connectors or sandbox raises ``SessionConfigMismatchError``,
         and one that another process holds open raises ``SessionInUseError``.
+
+        Args:
+            session_id: The ID of the session.
+            on_approval: Answers approvals while a call waits on the handle (see ``Session``).
+            on_sign_in: Answers sign-ins while a call waits on the handle, as on ``run``.
+            on_client_tool: Answers client tool calls while a call waits on the handle, as on ``run``.
         """
         return self._session(
             session_id,
@@ -1249,16 +1271,21 @@ class Agent(AgentAuthoring):
         api_key: str | None = None,
         client: Client | None = None,
     ) -> Agent:
-        """Build a lazy handle to an agent of the control plane, by its name or its ID.
+        """Build a lazy handle to a deployed agent, by its name or its ID.
 
-        Pass exactly one of ``agent_name`` or ``agent_id``. The control plane finds the worker that
-        serves the agent. To continue a session, bind a handle to it with ``.session(session_id)``.
+        Pass exactly one of ``agent_name`` or ``agent_id``, of an agent deployed with Studio,
+        self-hosted or Mistral-managed. To continue a session, bind a handle to it with ``.session(session_id)``.
 
+        Without ``client``, ``server_url`` and ``api_key`` build one with no shared connection pool:
+        each session then opens its own, which closes with the session and serves the event loop
+        that opened it. Pass either ``client`` or them, not both.
 
-        The agent and its sessions send their requests through ``client``. ``server_url`` and
-        ``api_key`` are those of ``agents.Client``, which they build without a shared connection
-        pool: each session then opens its own, which closes with the session and serves the event
-        loop that opened it. Pass either ``client`` or them, not both.
+        Args:
+            agent_name: The name the agent was deployed under.
+            agent_id: The ID of the deployed agent, a UUID.
+            server_url: The Mistral API root, as ``agents.Client`` takes it.
+            api_key: The API key, as ``agents.Client`` takes it.
+            client: The client that the agent and its sessions send their requests through.
         """
         if (agent_name is None) == (agent_id is None):
             raise SdkError("Pass exactly one of agent_name or agent_id")
@@ -1297,7 +1324,7 @@ class Agent(AgentAuthoring):
 
         Deprecated: use ``Agent.start_session``. This method still works as before and returns the
         raw Session client, but warns, and so does the client's ``run_turn``. ``permission_mode``
-        overrides the Agent's permission mode for a local Session and is deprecated too: set
+        overrides the agent's permission mode for a local session and is deprecated too: set
         ``permission_mode=`` or ``permission_policy=`` on the Agent.
 
         A deployment-backed Session speaks the Session v1 stream, which serves history entries,
@@ -1324,7 +1351,7 @@ class Agent(AgentAuthoring):
         state holds once this returns. A deployment-backed Session needs Session v1. A control plane
         or an Agent that predates ``initial_turn`` starts the Session idle, with no Turn.
 
-        ``on_client_tool`` answers the Agent's client tools for every Turn run with ``run_turn``, its
+        ``on_client_tool`` answers the agent's client tools for every turn run with ``run_turn``, its
         subagents' included. A function takes an ``agents.ClientToolCall`` and returns the result
         the model reads, synchronously or not. ``agents.ClientToolAnswers`` holds one answer per
         tool, each bound with ``<tool>.answer(function)``, and a ``default`` function for every other

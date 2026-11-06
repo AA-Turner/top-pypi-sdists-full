@@ -235,3 +235,57 @@ fn run_benchmark(enable_id_list_elias_fano: bool) {
     checkpoint("lookup_distributed", lookup_ms);
     black_box(data);
 }
+
+/// Worker for benchmarking/eager_id_list_init.py. The controller owns the HTTP
+/// fixture so its response bodies and request counters are outside worker RSS.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the loopback fixture and a fresh worker process"]
+async fn eager_id_list_init_benchmark() {
+    use crate::{Statsig, StatsigBootstrapSpecsAdapter};
+
+    let specs = json!({
+        "time": 1, "has_updates": true, "feature_gates": {}, "dynamic_configs": {},
+        "layer_configs": {}, "condition_map": {}, "experiment_to_layer": {},
+        "response_format": "dcs-v2"
+    });
+    let compact = std::env::var("BENCH_ENCODING").unwrap() == "ef";
+    let options = StatsigOptions {
+        enable_id_lists: Some(true),
+        enable_id_list_elias_fano: Some(compact),
+        id_lists_url: Some(std::env::var("BENCH_MANIFEST_URL").unwrap()),
+        id_list_init_build_concurrency: std::env::var("BENCH_BUILD_LIMIT")
+            .ok()
+            .map(|s| s.parse().unwrap()),
+        specs_adapter: Some(Arc::new(StatsigBootstrapSpecsAdapter::new(
+            specs.to_string(),
+        ))),
+        disable_country_lookup: Some(true),
+        disable_all_logging: Some(true),
+        use_third_party_ua_parser: Some(false),
+        ..StatsigOptions::default()
+    };
+    let sdk = Statsig::new("secret-local-benchmark", Some(Arc::new(options)));
+    let start = Instant::now();
+    let details = sdk.initialize_with_details().await.unwrap();
+    let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
+    assert!(
+        details.init_success && details.is_id_list_ready == Some(true),
+        "{details:?}"
+    );
+
+    let lists = sdk.get_context().spec_store.load_data();
+    let expected: Vec<(usize, String, String)> =
+        serde_json::from_str(&std::env::var("BENCH_EXPECTED").unwrap()).unwrap();
+    assert_eq!(lists.id_lists.len(), expected.len());
+    for (index, (count, first, last)) in expected.iter().enumerate() {
+        let list = &lists.id_lists[&format!("list-{index}")];
+        assert_eq!(list.metadata.size, (count * 10) as u64);
+        assert_eq!(list.metadata.file_id.as_deref(), Some("initial"));
+        assert_eq!(list.ids.has_compact_base(), compact, "list-{index}");
+        assert_eq!(list.ids.len(), *count);
+        assert!(list.ids.contains(first) && list.ids.contains(last));
+        assert!(!list.ids.contains("missing!"));
+    }
+    println!("EAGER_INIT_MS={elapsed_ms:.3}");
+    sdk.shutdown().await.unwrap();
+}

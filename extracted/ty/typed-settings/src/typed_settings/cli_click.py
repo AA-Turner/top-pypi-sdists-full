@@ -5,7 +5,7 @@ Utilities for generating Click options.
 import re
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
-from enum import Enum
+from enum import Enum, IntEnum, StrEnum
 from functools import partial, update_wrapper
 from pathlib import Path
 from typing import (
@@ -22,7 +22,6 @@ import click
 from click.core import ParameterSource
 
 from . import _core, cls_utils, converters
-from ._compat import PY_311
 from .cli_utils import (
     NO_DEFAULT,
     Default,
@@ -50,12 +49,6 @@ from .types import (
 )
 
 
-if PY_311:
-    from enum import IntEnum, StrEnum
-else:
-    IntEnum = StrEnum = None  # type: ignore
-
-
 __all__ = [
     "DEFAULT_TYPES",
     "ClickHandler",
@@ -74,7 +67,12 @@ __all__ = [
 ]
 
 
-CTX_KEY = "settings"
+SETTINGS_DEFAULT_ARG = "settings"
+
+META_KEY = "typed_settings"
+"""
+Main key name that we use for :data:`click.Context.meta`.
+"""
 
 
 Callback = Callable[[click.Context, click.Option, Any], Any]
@@ -227,6 +225,7 @@ def _get_ts_decorator(  # noqa: C901
     Return a wrapper function that decorates the wrapped function with the Click
     decorators.
     """
+    option_meta_key = f"{META_KEY}.options.{argname or SETTINGS_DEFAULT_ARG}"
 
     def _load_cli_settings(
         ctx: click.Context, initial_default_settings: dict[str, LoadedValue]
@@ -240,7 +239,7 @@ def _get_ts_decorator(  # noqa: C901
         else:
             default_settings = initial_default_settings
         meta = LoaderMeta("Command line args")
-        cli_options = ctx.obj.get(CTX_KEY, {})
+        cli_options = ctx.meta.pop(option_meta_key, {})
         cli_settings: MergedSettings = {}
         for option in state.options:
             path = option.path
@@ -271,6 +270,7 @@ def _get_ts_decorator(  # noqa: C901
                 default = get_default(oinfo, initial_default_settings, state.converter)
                 envvar = env_loader.get_envvar(oinfo) if env_loader else None
                 option = _mk_option(
+                    option_meta_key,
                     option_decorator,  # type: ignore[arg-type]
                     oinfo,
                     default,
@@ -296,24 +296,17 @@ def _get_ts_decorator(  # noqa: C901
         # def new_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
         def new_func(*args: Any, **kwargs: Any) -> Any:
             ctx = click.get_current_context()
-            if ctx.obj is None:
-                ctx.obj = {}
-            elif not isinstance(ctx.obj, dict):
-                raise RuntimeError(
-                    f"'ctx.obj' must be a dict when you use Typed Settings, got: "
-                    f"{type(ctx.obj).__name__}"
-                )
 
             # Load settings and determine how to pass them to "orig_f()"
             settings = _load_cli_settings(ctx, initial_default_settings)
             if argname:
-                ctx_key = argname
+                settings_key = argname
                 kwargs = {argname: settings, **kwargs}  # type: ignore
             else:
-                ctx_key = CTX_KEY
+                settings_key = SETTINGS_DEFAULT_ARG
                 args = (settings, *args)  # type: ignore
 
-            ctx.obj[ctx_key] = settings
+            ctx.meta[f"{META_KEY}.settings.{settings_key}"] = settings
 
             return orig_f(*args, **kwargs)
 
@@ -378,18 +371,19 @@ def pass_settings(
     .. versionchanged:: 1.1.0
        Add the *argname* parameter.
     """
-    ctx_key = argname or CTX_KEY
+    meta_key = f"{META_KEY}.settings.{argname or SETTINGS_DEFAULT_ARG}"
 
     def decorator(f: F) -> F:
         def new_func(*args: Any, **kwargs: Any) -> Any:
             ctx = click.get_current_context()
-            node: click.Context | None = ctx
-            settings = None
-            while node is not None:
-                if isinstance(node.obj, dict) and ctx_key in node.obj:
-                    settings = node.obj[ctx_key]
-                    break
-                node = node.parent
+            try:
+                settings = ctx.meta[meta_key]
+            except KeyError:
+                if argname:
+                    msg = f"There are no settings for {argname!r}"
+                else:
+                    msg = "There are no settings defined"
+                raise RuntimeError(msg) from None
 
             if argname:
                 kwargs = {argname: settings, **kwargs}
@@ -645,14 +639,8 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
     datetime: handle_datetime,
     date: handle_date,
     timedelta: handle_timedelta,
-    **(
-        {
-            IntEnum: handle_enum_by_value,
-            StrEnum: handle_enum_by_value,
-        }
-        if PY_311
-        else {}
-    ),
+    IntEnum: handle_enum_by_value,
+    StrEnum: handle_enum_by_value,
     Enum: handle_enum_by_name,
     re.Pattern: handle_pattern,
     Secret: handle_secret,
@@ -771,6 +759,7 @@ class ClickHandler:
 
 
 def _mk_option(
+    option_meta_key: str,
     option_fn: Callable[..., Decorator[F]],
     oinfo: OptionInfo,
     default: Default,
@@ -807,7 +796,10 @@ def _mk_option(
     kwargs["show_default"] = True
     kwargs["expose_value"] = False
     kwargs["callback"] = _make_callback(
-        oinfo.path, kwargs.get("callback"), user_config.pop("callback", None)
+        option_meta_key,
+        oinfo.path,
+        kwargs.get("callback"),
+        user_config.pop("callback", None),
     )
 
     # Get "help" from the user_config *now*, because we may need to update it
@@ -828,6 +820,7 @@ def _mk_option(
 
 
 def _make_callback(
+    option_meta_key: str,
     path: str,
     type_callback: Callback | None,
     user_callback: Callback | None,
@@ -860,17 +853,8 @@ def _make_callback(
         if user_callback is not None:
             value = user_callback(ctx, param, value)
 
-        if ctx.obj is None:
-            ctx.obj = {}
-
-        elif not isinstance(ctx.obj, dict):
-            raise RuntimeError(
-                f"'ctx.obj' must be a dict when you use Typed Settings, got: "
-                f"{type(ctx.obj).__name__}"
-            )
-
-        settings = ctx.obj.setdefault(CTX_KEY, {})
-        settings[path] = value
+        option_values = ctx.meta.setdefault(option_meta_key, {})
+        option_values[path] = value
 
         return value
 

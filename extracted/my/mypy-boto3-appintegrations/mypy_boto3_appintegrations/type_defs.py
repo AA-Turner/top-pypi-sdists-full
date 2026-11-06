@@ -138,6 +138,7 @@ class ApplicationSummaryTypeDef(TypedDict):
     Namespace: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
+    LastModifiedRegion: NotRequired[str]
     IsService: NotRequired[bool]
     ApplicationType: NotRequired[ApplicationTypeType]
 
@@ -476,6 +477,7 @@ class GetApplicationResponseTypeDef(TypedDict):
     Publications: list[PublicationTypeDef]
     CreatedTime: datetime
     LastModifiedTime: datetime
+    LastModifiedRegion: str
     Tags: dict[str, str]
     Permissions: list[str]
     IsService: bool

@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::runtime::Handle;
 use tokio::sync::{Mutex as AsyncMutex, OnceCell};
@@ -455,6 +455,7 @@ pub struct EvaluationClient {
     observability: Option<Arc<dyn ObservabilityClient>>,
     id_lists_sdk_instance_id: String,
     _id_lists_ops_stats: Arc<OpsStatsForInstance>,
+    id_lists_local_ops_stats: OnceLock<Arc<OpsStatsForInstance>>,
     id_lists_observability_runtime: Arc<StatsigRuntime>,
     id_list_membership_service: Option<Arc<ScopedIdListMembershipService>>,
     shared_id_lists: AsyncMutex<HashMap<String, Arc<SharedIdLists>>>,
@@ -506,6 +507,7 @@ impl EvaluationClient {
             observability,
             id_lists_sdk_instance_id,
             _id_lists_ops_stats: id_lists_ops_stats,
+            id_lists_local_ops_stats: OnceLock::new(),
             id_lists_observability_runtime,
             id_list_membership_service,
             shared_id_lists: AsyncMutex::new(HashMap::new()),
@@ -560,6 +562,26 @@ impl EvaluationClient {
                 ));
             }
             return Ok(Arc::clone(owner));
+        }
+
+        if options.disable_remote_telemetry == Some(true) {
+            if let Some(observer) = self.observability.as_ref() {
+                // Keep local callbacks on the same namespace as this adapter without forwarding
+                // its errors to any legacy uploader sharing the ID. Retain one subscription for
+                // all preloads, under the owner lock so shutdown cannot race its creation.
+                self.id_lists_local_ops_stats.get_or_init(|| {
+                    let ops_stats = OPS_STATS.get_for_instance_with_options(
+                        &self.id_lists_sdk_instance_id,
+                        Some(options),
+                    );
+                    let observer = Arc::clone(observer).to_ops_stats_event_observer();
+                    ops_stats.subscribe(
+                        Arc::clone(&self.id_lists_observability_runtime),
+                        Arc::downgrade(&observer),
+                    );
+                    ops_stats
+                });
+            }
         }
 
         let hashing = HashUtil::new();
@@ -1098,7 +1120,7 @@ mod tests {
     }
 
     #[derive(Default)]
-    struct TestObservabilityClient {
+    pub(super) struct TestObservabilityClient {
         metrics: Mutex<Vec<RecordedMetric>>,
     }
 
@@ -3181,3 +3203,7 @@ mod tests {
         instance.shutdown().await.unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "scoped_snapshot_registry_remote_telemetry_tests.rs"]
+mod remote_telemetry_tests;

@@ -16,6 +16,8 @@ and letschatty cannot import api-chatty's `application/`.
 - How a learned phrase resolved a reason (`chatty_asset_triggers`, the shortcut): exact or similar.
 - A delayed entry (`entradas_pendientes.estado`): pending ──claimed──▶ sending ──▶ done; sending ──lease ends──▶
   claimed again; claimed too many times ──▶ failed.
+- An attention migration (`migraciones_de_atencion.estado`): applied ──undo──▶ undoing ──▶ undone; applied or undoing
+  ──past its 30 days──▶ expired; a failed apply that was reverted ──▶ failed (it does not block a new one).
 - Who cut the follow-ups of a chat (`atencion_en_chat.cortados.por`): a person with «Cortar», «No contactar», the chat
   archived or blocked when the closing came, or the system.
 """
@@ -43,3 +45,13 @@ ENTRY_PENDING = "pendiente"
 ENTRY_SENDING = "enviando"
 ENTRY_DONE = "hecha"
 ENTRY_FAILED = "fallida"
+
+MIGRATION_APPLIED = "aplicada"
+MIGRATION_UNDOING = "deshaciendo"
+MIGRATION_UNDONE = "deshecha"
+MIGRATION_EXPIRED = "vencida"
+MIGRATION_FAILED = "fallida"
+
+SUGGESTION_PENDING = "pendiente"
+SUGGESTION_READY = "listo"
+SUGGESTION_ERROR = "error"

@@ -1,7 +1,8 @@
 use std::{
     env,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex, mpsc},
+    time::Duration,
 };
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike, Utc};
@@ -17,6 +18,7 @@ use std::collections::HashMap;
 use typst::diag::SourceDiagnostic;
 use typst::foundations::{Datetime, Dict, Value};
 use typst::text::FontStyle;
+use typst_kit::watcher::Watcher;
 use world::SystemWorld;
 
 mod compiler;
@@ -319,7 +321,7 @@ fn extract_sys_inputs_option(obj: &Bound<'_, PyAny>) -> PyResult<SysInputsOption
 }
 
 /// Immutable information about a single font variant
-#[pyclass(module = "typst._typst", frozen, skip_from_py_object)]
+#[pyclass(module = "typst._typst", frozen)]
 #[derive(Clone)]
 pub struct FontInfo {
     /// The font family name
@@ -455,6 +457,8 @@ pub enum FontsOrPaths {
 #[pyclass(module = "typst._typst")]
 pub struct Compiler {
     world: SystemWorld,
+    /// Project files read during the most recent compilation.
+    dependencies: Vec<PathBuf>,
 }
 
 impl Compiler {
@@ -503,6 +507,7 @@ impl Compiler {
         pdf_standards: &[typst_pdf::PdfStandard],
         creation_timestamp: Option<&CreationTimestamp>,
         pretty: bool,
+        pdf_tags: bool,
     ) -> Result<Vec<Vec<u8>>, TypstDiagnosticDetails> {
         let ret = match self.world.compile_with_diagnostics(
             format,
@@ -510,6 +515,7 @@ impl Compiler {
             pdf_standards,
             creation_timestamp,
             pretty,
+            pdf_tags,
         ) {
             Ok((buffer, _warnings)) => Ok(buffer), // Ignore warnings for backward compatibility
             Err((errors, warnings)) => Err(create_typst_diagnostic_details(
@@ -518,6 +524,7 @@ impl Compiler {
                 &warnings,
             )),
         };
+        self.dependencies = self.world.dependencies();
         // Reset the world state after compilation to ensure file changes are detected in next compilation
         self.world.reset();
         ret
@@ -530,6 +537,7 @@ impl Compiler {
         pdf_standards: &[typst_pdf::PdfStandard],
         creation_timestamp: Option<&CreationTimestamp>,
         pretty: bool,
+        pdf_tags: bool,
     ) -> Result<CompilationResult, TypstDiagnosticDetails> {
         let ret = match self.world.compile_with_diagnostics(
             format,
@@ -537,6 +545,7 @@ impl Compiler {
             pdf_standards,
             creation_timestamp,
             pretty,
+            pdf_tags,
         ) {
             Ok((buffer, warnings)) => {
                 let warning_details =
@@ -552,6 +561,7 @@ impl Compiler {
                 &warnings,
             )),
         };
+        self.dependencies = self.world.dependencies();
         // Reset the world state after compilation to ensure file changes are detected in next compilation
         self.world.reset();
         ret
@@ -579,6 +589,8 @@ impl Compiler {
                 format,
             },
         );
+        // Reset the world state after query to ensure file changes are detected in next compilation
+        self.world.reset();
         match result {
             Ok(data) => Ok(data),
             Err(msg) => {
@@ -598,6 +610,8 @@ impl Compiler {
                 pretty,
             },
         );
+        // Reset the world state after eval to ensure file changes are detected in next compilation
+        self.world.reset();
         match result {
             Ok(data) => Ok(data),
             Err(msg) => Err(PyRuntimeError::new_err(msg.to_string())),
@@ -666,12 +680,15 @@ impl Compiler {
             .package_cache_path(package_cache_path)
             .build()
             .map_err(|msg| PyRuntimeError::new_err(msg.to_string()))?;
-        Ok(Self { world })
+        Ok(Self {
+            world,
+            dependencies: Vec::new(),
+        })
     }
 
     /// Compile a typst file to PDF
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(name = "compile", signature = (input = None, output = None, format = None, ppi = None, sys_inputs = SysInputsOption::Keep, pdf_standards = Vec::new(), root = None, timestamp = None, pretty = false))]
+    #[pyo3(name = "compile", signature = (input = None, output = None, format = None, ppi = None, sys_inputs = SysInputsOption::Keep, pdf_standards = Vec::new(), root = None, timestamp = None, pretty = false, pdf_tags = true))]
     fn py_compile(
         &mut self,
         py: Python<'_>,
@@ -684,6 +701,7 @@ impl Compiler {
         root: Option<PathBuf>,
         #[pyo3(from_py_with = extract_creation_timestamp)] timestamp: Option<CreationTimestamp>,
         pretty: bool,
+        pdf_tags: bool,
     ) -> PyResult<Py<PyAny>> {
         self.apply_root(root)?;
         self.apply_input(input)?;
@@ -710,7 +728,16 @@ impl Compiler {
             };
 
             let buffers = py
-                .detach(|| self.compile(format, ppi, &pdf_standards, timestamp.as_ref(), pretty))
+                .detach(|| {
+                    self.compile(
+                        format,
+                        ppi,
+                        &pdf_standards,
+                        timestamp.as_ref(),
+                        pretty,
+                        pdf_tags,
+                    )
+                })
                 .map_err(|err_details| err_details.into_py_err(py).unwrap())?;
 
             let can_handle_multiple =
@@ -734,7 +761,16 @@ impl Compiler {
             Ok(py.None())
         } else {
             let buffers = py
-                .detach(|| self.compile(format, ppi, &pdf_standards, timestamp.as_ref(), pretty))
+                .detach(|| {
+                    self.compile(
+                        format,
+                        ppi,
+                        &pdf_standards,
+                        timestamp.as_ref(),
+                        pretty,
+                        pdf_tags,
+                    )
+                })
                 .map_err(|err_details| err_details.into_py_err(py).unwrap())?;
             if buffers.len() == 1 {
                 // Return a single buffer as a single byte string
@@ -749,9 +785,94 @@ impl Compiler {
         }
     }
 
+    /// Compile to `output` and recompile whenever the input or a file it
+    /// depends on changes. Compilation errors are printed and do not stop
+    /// watching. Runs until interrupted.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(name = "watch", signature = (output, format = None, ppi = None, pdf_standards = Vec::new(), timestamp = None, pretty = false, pdf_tags = true))]
+    fn py_watch(
+        &mut self,
+        py: Python<'_>,
+        output: PathBuf,
+        format: Option<&str>,
+        ppi: Option<f32>,
+        #[pyo3(from_py_with = extract_pdf_standards)] pdf_standards: Vec<typst_pdf::PdfStandard>,
+        #[pyo3(from_py_with = extract_creation_timestamp)] timestamp: Option<CreationTimestamp>,
+        pretty: bool,
+        pdf_tags: bool,
+    ) -> PyResult<()> {
+        // The compile/update/wait cycle is modelled on `typst watch`
+        // (typst-cli/src/watch.rs, Apache-2.0, The Typst Project Developers).
+        let mut watcher = Watcher::new(Some(output.clone()))
+            .map_err(|err| PyRuntimeError::new_err(err.to_string()))?;
+
+        // `Watcher::wait` cannot be interrupted, so it runs on its own thread
+        // and this one polls for Ctrl-C.
+        let (deps_tx, deps_rx) = mpsc::channel::<Vec<PathBuf>>();
+        let (changed_tx, changed_rx) = mpsc::channel::<Result<(), String>>();
+        std::thread::spawn(move || {
+            while let Ok(deps) = deps_rx.recv() {
+                let res = watcher
+                    .update(deps)
+                    .and_then(|_| watcher.wait())
+                    .map_err(|err| err.to_string());
+                if changed_tx.send(res).is_err() {
+                    break;
+                }
+            }
+        });
+        let changed_rx = Mutex::new(changed_rx);
+
+        loop {
+            match self.py_compile(
+                py,
+                None,
+                Some(output.clone()),
+                format,
+                ppi,
+                SysInputsOption::Keep,
+                pdf_standards.clone(),
+                None,
+                timestamp.clone(),
+                pretty,
+                pdf_tags,
+            ) {
+                Ok(_) => eprintln!("[typst] compiled {}", output.display()),
+                Err(err) => eprintln!("[typst] compilation failed:\n{}", err.value(py)),
+            }
+            // Drop cached results unused for 10 compilations so the cache
+            // does not grow forever.
+            comemo::evict(10);
+
+            // Recorded even if compilation failed, so fixing a broken import
+            // triggers a rebuild.
+            deps_tx
+                .send(self.dependencies.clone())
+                .map_err(|_| PyRuntimeError::new_err("file watcher stopped unexpectedly"))?;
+            loop {
+                let res = py.detach(|| {
+                    changed_rx
+                        .lock()
+                        .unwrap()
+                        .recv_timeout(Duration::from_millis(100))
+                });
+                match res {
+                    Ok(res) => {
+                        res.map_err(PyRuntimeError::new_err)?;
+                        break;
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => py.check_signals()?,
+                    Err(mpsc::RecvTimeoutError::Disconnected) => {
+                        return Err(PyRuntimeError::new_err("file watcher stopped unexpectedly"));
+                    }
+                }
+            }
+        }
+    }
+
     /// Compile a typst file and return both result and warnings
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(name = "compile_with_warnings", signature = (input = None, output = None, format = None, ppi = None, sys_inputs = SysInputsOption::Keep, pdf_standards = Vec::new(), root = None, timestamp = None, pretty = false))]
+    #[pyo3(name = "compile_with_warnings", signature = (input = None, output = None, format = None, ppi = None, sys_inputs = SysInputsOption::Keep, pdf_standards = Vec::new(), root = None, timestamp = None, pretty = false, pdf_tags = true))]
     fn py_compile_with_warnings(
         &mut self,
         py: Python<'_>,
@@ -764,13 +885,21 @@ impl Compiler {
         root: Option<PathBuf>,
         #[pyo3(from_py_with = extract_creation_timestamp)] timestamp: Option<CreationTimestamp>,
         pretty: bool,
+        pdf_tags: bool,
     ) -> PyResult<Py<PyAny>> {
         self.apply_root(root)?;
         self.apply_input(input)?;
         self.apply_sys_inputs(sys_inputs);
         let result = py
             .detach(|| {
-                self.compile_with_warnings(format, ppi, &pdf_standards, timestamp.as_ref(), pretty)
+                self.compile_with_warnings(
+                    format,
+                    ppi,
+                    &pdf_standards,
+                    timestamp.as_ref(),
+                    pretty,
+                    pdf_tags,
+                )
             })
             .map_err(|err_details| err_details.into_py_err(py).unwrap())?;
 
@@ -867,6 +996,7 @@ impl Compiler {
     timestamp = None,
     pretty = false,
     package_cache_path = None,
+    pdf_tags = true,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn compile(
@@ -884,6 +1014,7 @@ fn compile(
     #[pyo3(from_py_with = extract_creation_timestamp)] timestamp: Option<CreationTimestamp>,
     pretty: bool,
     package_cache_path: Option<PathBuf>,
+    pdf_tags: bool,
 ) -> PyResult<Py<PyAny>> {
     let mut compiler = Compiler::new(
         Some(input),
@@ -905,6 +1036,7 @@ fn compile(
         None,
         timestamp,
         pretty,
+        pdf_tags,
     )
 }
 
@@ -923,6 +1055,7 @@ fn compile(
     timestamp = None,
     pretty = false,
     package_cache_path = None,
+    pdf_tags = true,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn compile_with_warnings(
@@ -940,6 +1073,7 @@ fn compile_with_warnings(
     #[pyo3(from_py_with = extract_creation_timestamp)] timestamp: Option<CreationTimestamp>,
     pretty: bool,
     package_cache_path: Option<PathBuf>,
+    pdf_tags: bool,
 ) -> PyResult<Py<PyAny>> {
     let mut compiler = Compiler::new(
         Some(input),
@@ -961,6 +1095,7 @@ fn compile_with_warnings(
         None,
         timestamp,
         pretty,
+        pdf_tags,
     )
 }
 

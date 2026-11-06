@@ -6064,6 +6064,10 @@ class OperatingSystem(System.Object, System.Runtime.Serialization.ISerializable,
         ...
 
     @staticmethod
+    def is_apple_platform() -> bool:
+        ...
+
+    @staticmethod
     def is_browser() -> bool:
         ...
 

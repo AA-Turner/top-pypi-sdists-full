@@ -26,6 +26,7 @@ classifiers = [
     'Programming Language :: Python',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
+    'Programming Language :: Python :: Implementation :: GraalPy',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
     'Programming Language :: Python :: 3.10',
@@ -37,6 +38,7 @@ classifiers = [
     'Intended Audience :: Developers',
     'Intended Audience :: Information Technology',
     'Operating System :: OS Independent',
+    'Environment :: WebAssembly :: Emscripten',
     'Framework :: Hypothesis',
     'Framework :: Pydantic',
     'Topic :: Software Development :: Libraries :: Python Modules',
@@ -47,7 +49,7 @@ dependencies = [
     'typing-extensions>=4.16.0',
     'annotated-types>=0.6.0',
     # Keep this in sync with the version in the `check_pydantic_core_version()` function:
-    'pydantic-core==2.50.2',
+    'pydantic-core==2.50.4',
     'typing-inspection>=0.4.4',
 ]
 dynamic = ['version', 'readme']
@@ -82,6 +84,13 @@ dev = [
     'packaging',
     'jsonschema',
     'time-machine; platform_python_implementation != "PyPy"',
+]
+benchmark-startup = [
+    # Note: bumping deps here can change benchmarks results (see tests/benchmarks/library_startup/README.md):
+    'mcp==2.3.0',
+    'openai==3.41.0',
+    'anthropic==2.3.0',
+    'google-genai==2.34.0; python_version >= "3.11"',
 ]
 coverage = [
     'coverage[toml]',

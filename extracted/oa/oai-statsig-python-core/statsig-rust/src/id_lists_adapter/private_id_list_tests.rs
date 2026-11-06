@@ -1,6 +1,6 @@
 use super::*;
 use crate::id_lists_adapter::{
-    IdList, IdListMetadata, IdListUpdate, IdListsUpdateListener, SharedIdListStore,
+    IdList, IdListEncoding, IdListMetadata, IdListUpdate, IdListsUpdateListener, SharedIdListStore,
 };
 use crate::sdk_event_emitter::SdkEventEmitter;
 use crate::{SpecStore, Statsig, StatsigOptions, StatsigRuntime};
@@ -16,10 +16,13 @@ fn metadata() -> IdListMetadata {
 }
 
 fn append(list: &mut IdList, body: &str) {
-    list.apply_update_with_elias_fano(IdListUpdate {
-        new_metadata: list.metadata.clone(),
-        raw_changeset: Some(body.to_owned()),
-    });
+    list.apply_update_with_encoding(
+        IdListEncoding::EliasFano,
+        IdListUpdate {
+            new_metadata: list.metadata.clone(),
+            raw_changeset: Some(body.to_owned()),
+        },
+    );
 }
 
 fn image(ids: &IdListIds) -> &Arc<IdListImage> {
@@ -109,13 +112,16 @@ fn private_file_recreation_drops_the_overlay_and_resets_the_cursor() {
     next.file_id = Some("replacement".into());
     let adds = "+BBBBBBBB\n".repeat(1000);
     for (creation_time, body) in [(0, Some(adds.as_str())), (1, None)] {
-        list.apply_update_with_elias_fano(IdListUpdate {
-            new_metadata: IdListMetadata {
-                creation_time,
-                ..next.clone()
+        list.apply_update_with_encoding(
+            IdListEncoding::EliasFano,
+            IdListUpdate {
+                new_metadata: IdListMetadata {
+                    creation_time,
+                    ..next.clone()
+                },
+                raw_changeset: body.map(str::to_owned),
             },
-            raw_changeset: body.map(str::to_owned),
-        });
+        );
         assert!(Arc::ptr_eq(&list.ids, &pinned.ids));
         assert_eq!(list.metadata.size, pinned.metadata.size);
         assert_eq!(list.metadata.file_id, pinned.metadata.file_id);
@@ -130,10 +136,13 @@ fn private_file_recreation_drops_the_overlay_and_resets_the_cursor() {
         (&next, ""),
     ] {
         let mut replacement = list.clone();
-        replacement.apply_update_with_elias_fano(IdListUpdate {
-            new_metadata: next.clone(),
-            raw_changeset: Some(body.into()),
-        });
+        replacement.apply_update_with_encoding(
+            IdListEncoding::EliasFano,
+            IdListUpdate {
+                new_metadata: next.clone(),
+                raw_changeset: Some(body.into()),
+            },
+        );
         assert_eq!(replacement.metadata.file_id, next.file_id);
         assert_eq!(replacement.metadata.creation_time, next.creation_time);
         assert_eq!(replacement.metadata.size, body.len() as u64);

@@ -32,7 +32,7 @@
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '3.8'
+__version__ = '3.9'
 __website__ = 'https://github.com/stefankoegl/python-json-pointer'
 __license__ = 'Modified BSD License'
 
@@ -275,8 +275,9 @@ class JsonPointer:
         elif isinstance(parent, Sequence) and part == '-':
             try:
                 parent.append(value)
-            except AttributeError as e:
-                # immutable sequences, such as tuples, can't be appended to
+            except (AttributeError, TypeError) as e:
+                # Immutable sequences can't be appended to; typed sequences
+                # can reject the value just like an indexed assignment.
                 raise JsonPointerException("Invalid assignment target: %s" % (e,))
         else:
             try:

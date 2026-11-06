@@ -1,0 +1,1 @@
+import{t as e}from"./createLoad3d-DKYE_NhP.js";export{e as createLoad3d};

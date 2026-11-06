@@ -42,6 +42,14 @@ class ConsumerServiceStub:
     ]
     """Update the status of multiple activations"""
 
+    UpdateHeartbeat: grpc.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatResponse,
+    ]
+    """Signal that an activation is still being processed.
+    Returns NOT_FOUND if the activation is no longer processing.
+    """
+
 class ConsumerServiceAsyncStub:
     """//////////////////////////
     RPC messages and services
@@ -65,6 +73,14 @@ class ConsumerServiceAsyncStub:
         sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse,
     ]
     """Update the status of multiple activations"""
+
+    UpdateHeartbeat: grpc.aio.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatResponse,
+    ]
+    """Signal that an activation is still being processed.
+    Returns NOT_FOUND if the activation is no longer processing.
+    """
 
 class ConsumerServiceServicer(metaclass=abc.ABCMeta):
     """//////////////////////////
@@ -95,6 +111,16 @@ class ConsumerServiceServicer(metaclass=abc.ABCMeta):
         context: _ServicerContext,
     ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.SetBatchActivationStatusResponse]]:
         """Update the status of multiple activations"""
+
+    @abc.abstractmethod
+    def UpdateHeartbeat(
+        self,
+        request: sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatRequest,
+        context: _ServicerContext,
+    ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.UpdateHeartbeatResponse]]:
+        """Signal that an activation is still being processed.
+        Returns NOT_FOUND if the activation is no longer processing.
+        """
 
 def add_ConsumerServiceServicer_to_server(servicer: ConsumerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...
 

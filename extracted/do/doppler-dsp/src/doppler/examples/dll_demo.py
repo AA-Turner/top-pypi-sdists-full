@@ -21,6 +21,7 @@ import sys
 # --8<-- [start:loop]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import Dll
 from doppler.wfm import PN
 
@@ -70,6 +71,7 @@ assert d.locked, "DLL lock detector never declared lock"
 
 
 def main(out_path="dll_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

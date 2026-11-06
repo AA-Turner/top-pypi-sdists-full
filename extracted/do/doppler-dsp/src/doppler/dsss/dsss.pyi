@@ -1330,8 +1330,8 @@ class PolynomialPhaseEstimator:
 
 @final
 class BurstDemod:
-    """The Python binding's constructor: dp_burst_demod_create_desc without the
-    `why` out-parameter.
+    """Demodulate one captured burst's frame, feedforward and with no tracking
+    loops.
 
     Parameters
     ----------
@@ -2962,9 +2962,14 @@ class AsyncDsssReceiver:
 
         Raises
         ------
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``set_telemetry: the attach could not allocate (its scratch
+            context, or a loop's own); the receiver is unchanged``.
         ValueError
-            If the C call returns a non-zero status. The exception message is
-            ``set_telemetry failed``, with the return code appended (gh-869).
+            If the C call returns any other non-zero status. The exception
+            message is ``set_telemetry failed``, with the return code appended
+            (gh-869).
 
         Examples
         --------
@@ -2994,10 +2999,11 @@ class AsyncDsssReceiver:
         call and nothing about its output. A pool that steps its receivers in
         parallel sets each one to 1. A mutator's value, so it travels in the
         state blob (#2022). The blob carries the count that RAN, not the
-        request: set_threads(0) on a 20-core writer restores as 20 workers on
-        any reader, by design -- a resumed receiver runs as the one that was
-        checkpointed, and a pool's 1 is 1 everywhere. Setup path; not while
-        another thread is inside steps().
+        request: set_threads(0) on a writer restores as the count the writer
+        ran (its online cores, at most one worker a tile) on any reader, by
+        design -- a resumed receiver runs as the one that was checkpointed, and
+        a pool's 1 is 1 everywhere. Setup path; not while another thread is
+        inside steps().
 
         Parameters
         ----------
@@ -3465,9 +3471,10 @@ class AsyncDsssPool:
     threads : int, default 0
         Workers push() steps the receivers on, the calling thread included: 1 =
         serial, 0 = the online cores (default). The receivers' step uses at
-        most n_receivers of them; the controller's search runs before them,
-        serially (fanning its tiles out was measured not to pay,
-        async-dsss-receiver.md §5).
+        most n_receivers of them; the controller's search runs before them on
+        the same request, at most one worker a Doppler tile, with its
+        once-an-epoch stages inline and its once-a-block ones fanned when a
+        block is more than one epoch (async-dsss-receiver.md §5).
 
     Raises
     ------
@@ -3906,8 +3913,8 @@ class AsyncDsssPool:
 
 @final
 class DsssBurstReceiver:
-    """The Python binding's constructor: dp_dsss_burst_receiver_create_desc
-    without the `why` out-parameter.
+    """Find each burst by its preamble, capture it and demodulate its frame,
+    all behind one push().
 
     Parameters
     ----------

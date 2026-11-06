@@ -59,6 +59,57 @@ fn every_variant() -> Vec<Schema> {
     ]
 }
 
+/// `patterns` reads every pattern a tree holds, under every constructor that
+/// holds a schema, and hands each back where the tree holds it.
+#[test]
+fn patterns_are_read_from_every_node_that_holds_one() {
+    let refined = |pattern: &str| {
+        Schema::refine(
+            Schema::Str,
+            vec![Constraint::Regex(pattern.to_owned()), Constraint::MinLen(1)],
+        )
+    };
+    let tree = Schema::Union(
+        vec![
+            refined("a"),
+            Schema::Complement(Arc::new(refined("b"))),
+            Schema::set(refined("c")),
+            Schema::Intersection(vec![refined("d"), Schema::Ref(DefIx::new(0))].into()),
+        ]
+        .into(),
+    );
+    let mut found = tree.patterns();
+    found.sort_unstable();
+    assert_eq!(found, ["a", "b", "c", "d"]);
+    assert_eq!(Schema::Str.patterns(), Vec::<&str>::new());
+    // The walk that measures a tree says whether it holds one, at its root, in
+    // a node below it, or nowhere.
+    let holds = |schema: &Schema| schema.measure(&|_| true).holds_a_pattern;
+    assert!(holds(&tree));
+    assert!(holds(&refined("a")));
+    assert!(!holds(&Schema::refine(
+        Schema::Str,
+        vec![Constraint::MinLen(1)]
+    )));
+    assert!(!holds(&Schema::set(Schema::Str)));
+    let held = refined("e");
+    let Schema::Refine { constraints, .. } = &held else {
+        panic!("a refinement");
+    };
+    let text = constraints
+        .iter()
+        .find_map(|constraint| match constraint {
+            Constraint::Regex(text) => Some(text),
+            _ => None,
+        })
+        .expect("the pattern");
+    assert_eq!(
+        held.patterns()[0].as_ptr(),
+        text.as_ptr(),
+        "the tree's own text"
+    );
+}
+
 /// `node_count` sizes the whole tree, and the binding's schema-size limit is
 /// the only consumer: an undercount admits a schema past the cap. Each arm
 /// carries a distinct total so a wrong operator cannot coincide with a right
@@ -697,6 +748,38 @@ fn opening_drops_a_field_the_record_already_said() {
         demanded.with_records_open(Openness::Open),
         empty_closed.with_records_open(Openness::Open)
     );
+}
+
+/// The operators are idempotent as terms, not only as sets: a name the
+/// rewritten clauses say is dropped in the rewrite, where a second pass would
+/// drop it.
+///
+/// Closed, `{"b?": anything}` says something of `b`; opened, the catch-all
+/// frees `b` too, so the field is said twice. Kept by the first opening and
+/// judged by the second, it parted `open` from `open` twice by `==`.
+#[test]
+fn the_projections_are_idempotent_as_terms() {
+    let required = Field {
+        name: "a".into(),
+        schema: Schema::Int,
+        required: true,
+    };
+    let free = Field {
+        name: "b".into(),
+        schema: Schema::ANYTHING,
+        required: false,
+    };
+    let closed = Schema::record(vec![required.clone(), free], Openness::Closed);
+    let opened = closed.with_records_open(Openness::Open);
+    assert_eq!(
+        opened,
+        Schema::record(vec![required.clone()], Openness::Open)
+    );
+    assert_eq!(opened.with_records_open(Openness::Open), opened);
+    let shut = opened.with_records_open(Openness::Closed);
+    assert_eq!(shut, Schema::record(vec![required], Openness::Closed));
+    assert_eq!(shut.with_records_open(Openness::Closed), shut);
+    assert_eq!(closed.with_records_open(Openness::Closed), closed);
 }
 
 /// Whether a name survives `open` or `close` turns on that name alone.
@@ -2137,13 +2220,12 @@ fn the_complement_laws_fold_a_member_the_constructor_flattened() {
 /// and folds it into the clause that already carries every value: the key is
 /// the claimed keys beside the complement of every claimed key. `close` takes
 /// the complement out and keeps the claimed keys, so the round trip gives
-/// what `close` gives, over a class the fold cannot read and beside a clause
-/// carrying another value.
+/// what `close` gives beside a clause carrying another value, over a class as
+/// over a kind.
 #[test]
 fn closing_an_opened_mapping_takes_out_only_the_region_open_freed() {
     let clause = |key: Schema, value: Schema| MapClause { key, value };
     for clauses in [
-        vec![clause(Schema::Instance(ClassIx::new(0)), Schema::ANYTHING)],
         vec![
             clause(Schema::Int, Schema::ANYTHING),
             clause(Schema::Str, Schema::Int),
@@ -2189,21 +2271,23 @@ fn closing_an_opened_mapping_takes_out_only_the_region_open_freed() {
         )
     );
 
-    // Where the complement law folds the opened key to the top, the claimed
-    // keys are not in the term to keep, and closing lands on the smaller term.
-    let folded = Schema::mapping(clause(
+    // Where the opened key is every key, the claimed keys are not in the term to
+    // keep, and closing lands on the smaller term.
+    for key in [
         Schema::union([Schema::Int, Schema::Str]),
-        Schema::ANYTHING,
-    ));
-    let opened = folded.with_records_open(Openness::Open);
-    assert_eq!(
-        opened,
-        Schema::keyed_map(Vec::new(), vec![MapClause::top()])
-    );
-    assert_eq!(
-        opened.with_records_open(Openness::Closed),
-        Schema::keyed_map(Vec::new(), Vec::new())
-    );
+        Schema::Instance(ClassIx::new(0)),
+    ] {
+        let folded = Schema::mapping(clause(key, Schema::ANYTHING));
+        let opened = folded.with_records_open(Openness::Open);
+        assert_eq!(
+            opened,
+            Schema::keyed_map(Vec::new(), vec![MapClause::top()])
+        );
+        assert_eq!(
+            opened.with_records_open(Openness::Closed),
+            Schema::keyed_map(Vec::new(), Vec::new())
+        );
+    }
 
     // The clause is recognized by its shape, whoever wrote it.
     let written = Schema::keyed_map(

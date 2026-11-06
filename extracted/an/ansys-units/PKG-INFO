@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: ansys-units
-Version: 0.15.0
+Version: 0.16.0
 Summary: Pythonic interface for units, unit systems, and unit conversions.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.12,<3.15
 Description-Content-Type: text/x-rst
 License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
@@ -16,26 +16,24 @@ License-File: LICENSE
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: numpy>=1.24,<3 ; extra == "additional"
-Requires-Dist: pandas>=3.0.0 ; extra == "additional" and ( python_version >= '3.11')
-Requires-Dist: pandas>=2.2,<3.0 ; extra == "additional" and ( python_version < '3.11')
+Requires-Dist: pandas>=3.0.0 ; extra == "additional"
 Requires-Dist: pandas-stubs>=2 ; extra == "additional"
 Requires-Dist: pydantic>=2.11.7 ; extra == "additional"
 Requires-Dist: pydantic_core>=2.33.2 ; extra == "additional"
 Requires-Dist: basedpyright ; extra == "ci-types"
 Requires-Dist: matplotlib==3.10.9 ; extra == "ci-types"
-Requires-Dist: pandas>=3.0.0 ; extra == "ci-types" and ( python_version >= '3.11')
-Requires-Dist: pandas>=2.2,<3.0 ; extra == "ci-types" and ( python_version < '3.11')
+Requires-Dist: pandas>=3.0.0 ; extra == "ci-types"
 Requires-Dist: pandas-stubs>=2 ; extra == "ci-types"
 Requires-Dist: pydantic>=2.11.7 ; extra == "ci-types"
 Requires-Dist: pydantic_core>=2.33.2 ; extra == "ci-types"
 Requires-Dist: pytest==9.1.1 ; extra == "ci-types"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "ci-types"
-Requires-Dist: pytest-mock==3.15.1 ; extra == "ci-types"
+Requires-Dist: pytest-mock==3.17.0 ; extra == "ci-types"
 Requires-Dist: pint==0.24.4 ; extra == "ci-types"
-Requires-Dist: black==26.5.1 ; extra == "ci-types"
+Requires-Dist: black==26.10.1 ; extra == "ci-types"
 Requires-Dist: ansys-sphinx-theme==1.9.0 ; extra == "doc"
 Requires-Dist: pdf2image==1.17.0 ; extra == "doc"
-Requires-Dist: quarto-cli==1.10.18 ; extra == "doc"
+Requires-Dist: quarto-cli==1.10.19 ; extra == "doc"
 Requires-Dist: matplotlib==3.10.9 ; extra == "doc"
 Requires-Dist: numpydoc==1.11.0 ; extra == "doc"
 Requires-Dist: Sphinx==7.4.7 ; extra == "doc"
@@ -43,12 +41,11 @@ Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
 Requires-Dist: sphinx-gallery==0.22.1 ; extra == "doc"
 Requires-Dist: sphinx-toggleprompt==0.6.0 ; extra == "doc"
 Requires-Dist: numpy>=1.24,<3 ; extra == "tests"
-Requires-Dist: pandas>=3.0.0 ; extra == "tests" and ( python_version >= '3.11')
-Requires-Dist: pandas>=2.2,<3.0 ; extra == "tests" and ( python_version < '3.11')
+Requires-Dist: pandas>=3.0.0 ; extra == "tests"
 Requires-Dist: pandas-stubs>=2 ; extra == "tests"
 Requires-Dist: pytest==9.1.1 ; extra == "tests"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
-Requires-Dist: pytest-mock==3.15.1 ; extra == "tests"
+Requires-Dist: pytest-mock==3.17.0 ; extra == "tests"
 Requires-Dist: pint==0.24.4 ; extra == "tests"
 Project-URL: Documentation, https://units.docs.pyansys.com/
 Project-URL: Issues, https://github.com/ansys/pyansys-units/issues
@@ -132,7 +129,7 @@ To reach the project support team, email `pyansys.core@ansys.com <pyansys.core@a
 Installation
 ------------
 
-The ``ansys.units`` package supports Python 3.10 through Python 3.14 on Windows
+The ``ansys.units`` package supports Python 3.12 through Python 3.14 on Windows
 and Linux.
 
 

@@ -16,8 +16,6 @@ tonic = { version = "0.14.6", features = ["tls-ring"] }
 parking_lot = "0.12.5"
 prost = "0.14.4"
 tonic-prost = "0.14.6"
-log = "0.4.34"
-chrono = "0.4.45"
 lazy_static = "1.5.0"
 
 [build-dependencies]

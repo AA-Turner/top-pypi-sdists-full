@@ -41,8 +41,11 @@ from twisted.internet.interfaces import (
     IReactorSSL,
     IReactorTCP,
     IReactorUNIX,
+    IReadDescriptor,
     IResolutionReceiver,
     ITransport,
+    IUDPTransport,
+    IWriteDescriptor,
 )
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.task import Clock
@@ -148,7 +151,9 @@ class LineSendingProtocol(basic.LineReceiver):
         self.lostConn = True
 
 
-class FakeDatagramTransport:
+@implementer(IUDPTransport)
+# Implementation is incomplete; please add additional methods as time allows.
+class FakeDatagramTransport:  # type:ignore[misc]
     noAddr = object()
 
     def __init__(self):
@@ -823,13 +828,15 @@ class MemoryReactor:
         """
         return list(self.writers)
 
-    def removeAll(self):
+    def removeAll(self) -> list[IReadDescriptor | IWriteDescriptor]:
         """
         Fake L{IReactorFDSet.removeAll} which removed all readers and writers
         from the local sets.
         """
+        result = list(self.readers | self.writers)
         self.readers.clear()
         self.writers.clear()
+        return result
 
 
 for iface in implementedBy(MemoryReactor):

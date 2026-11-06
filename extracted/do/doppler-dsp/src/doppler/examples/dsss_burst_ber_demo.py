@@ -51,6 +51,7 @@ import numpy as np
 
 from doppler.ber import BerMeter, ber_esn0_db_for_ser, ber_theory_ber
 from doppler.dsss import DsssBurstReceiver
+from doppler.examples._extra import require
 from doppler.wfm import Composer, FrameDesc, field_bits, prepare
 
 FULL = "--full" in sys.argv
@@ -317,6 +318,7 @@ def main(out: str = "dsss_burst_ber_demo.png") -> None:
         f"({elapsed / total * 1e3:.1f} ms per render + decode)"
     )
 
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

@@ -2515,9 +2515,10 @@ class CostFindingChange(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
-    * `CHANGED`None
-    * `NEW`None
-    * `UNCHANGED`None
+    * `CHANGED`: In the previous run, with different evidence or
+      figures.
+    * `NEW`: Not in the previous run.
+    * `UNCHANGED`: In the previous run, unchanged.
     """
 
     __schema__ = schema
@@ -2576,15 +2577,14 @@ class CostFindingFixType(pycarlo.lib.types.Enum):
 
 
 class CostFindingPreviousRunStatus(pycarlo.lib.types.Enum):
-    """Whether a run's findings were compared with a previous run:
-    compared, no previous run     to compare with, or the previous run
-    could not be read.
+    """Whether a run's findings were compared with the previous run.
 
     Enumeration Choices:
 
-    * `COMPARED`None
-    * `NO_PREVIOUS_RUN`None
-    * `UNAVAILABLE`None
+    * `COMPARED`: Compared with the previous run.
+    * `NO_PREVIOUS_RUN`: No previous run to compare with.
+    * `UNAVAILABLE`: The previous run couldn't be read, or every
+      recent run failed.
     """
 
     __schema__ = schema
@@ -2650,6 +2650,7 @@ class CostFindingWithheldReason(pycarlo.lib.types.Enum):
     * `NO_PRICE`None
     * `OUTSIDE_TOP_WAREHOUSES`None
     * `PER_QUERY_COST`None
+    * `RESERVED_CAPACITY`None
     * `SAVING_NOT_CALCULATED`None
     * `USAGE_UNAVAILABLE`None
     """
@@ -2665,9 +2666,26 @@ class CostFindingWithheldReason(pycarlo.lib.types.Enum):
         "NO_PRICE",
         "OUTSIDE_TOP_WAREHOUSES",
         "PER_QUERY_COST",
+        "RESERVED_CAPACITY",
         "SAVING_NOT_CALCULATED",
         "USAGE_UNAVAILABLE",
     )
+
+
+class CostInsightsShadowRunStatus(pycarlo.lib.types.Enum):
+    """Whether the shown run kept a new-pipeline result, and if so
+    whether it is readable.
+
+    Enumeration Choices:
+
+    * `COMPLETED`: The run stored the new pipeline's findings.
+    * `FAILED`: The new pipeline ran and stored no findings.
+    * `NO_SHADOW_RUN`: The run shown didn't run the new pipeline.
+    * `UNAVAILABLE`: The run couldn't be read.
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "FAILED", "NO_SHADOW_RUN", "UNAVAILABLE")
 
 
 class CostRateUnit(pycarlo.lib.types.Enum):
@@ -7086,6 +7104,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `AiAgentsMcpServersAccess`None
     * `AiAgentsMemoriesAccess`None
     * `AiAgentsMemoriesEdit`None
+    * `AiAgentsTriageAccess`None
     * `AiAgentsTriageEdit`None
     * `AiAgentsTroubleshootingAccess`None
     * `AlertsAccess`None
@@ -7230,6 +7249,7 @@ class Permission(pycarlo.lib.types.Enum):
         "AiAgentsMcpServersAccess",
         "AiAgentsMemoriesAccess",
         "AiAgentsMemoriesEdit",
+        "AiAgentsTriageAccess",
         "AiAgentsTriageEdit",
         "AiAgentsTroubleshootingAccess",
         "AlertsAccess",
@@ -8278,17 +8298,20 @@ class ReinforcementLoopIssueDispositionReason(pycarlo.lib.types.Enum):
 class ReinforcementLoopIssueFixSource(pycarlo.lib.types.Enum):
     """What recorded an RL V2 issue's fix. MANUAL = a user marked it
     fixed. RL_PR = its draft PR merged. LINEAR = its Linear ticket was
-    completed.
+    completed. JIRA = its Jira ticket moved to a done status.
+    SERVICENOW = its ServiceNow incident was resolved or closed.
 
     Enumeration Choices:
 
+    * `JIRA`None
     * `LINEAR`None
     * `MANUAL`None
     * `RL_PR`None
+    * `SERVICENOW`None
     """
 
     __schema__ = schema
-    __choices__ = ("LINEAR", "MANUAL", "RL_PR")
+    __choices__ = ("JIRA", "LINEAR", "MANUAL", "RL_PR", "SERVICENOW")
 
 
 class ReinforcementLoopIssueStatus(pycarlo.lib.types.Enum):
@@ -10481,8 +10504,9 @@ class TraceSortField(pycarlo.lib.types.Enum):
     the freshest traces sort by a lower bound of their query and total
     cost. FEEDBACK orders by each trace's newest end-user rating:
     negative, unrated, then positive ascending. Traces with no
-    feedback sort last in both directions. Only Snowflake Cortex and
-    Genie agents have feedback.
+    feedback sort last in both directions. Feedback is available for
+    Snowflake Cortex and Databricks Genie agents, and code-based
+    agents that send feedback to Agent Observability ClickHouse.
 
     Enumeration Choices:
 
@@ -11005,6 +11029,7 @@ class UserDefinedMonitorSearchFields(pycarlo.lib.types.Enum):
     * `CREATOR_ID`None
     * `ENTITIES`None
     * `MONITOR_FIELDS`None
+    * `NAME`None
     * `NAMESPACE`None
     * `RULE_DESCRIPTION`None
     * `RULE_NAME`None
@@ -11016,6 +11041,7 @@ class UserDefinedMonitorSearchFields(pycarlo.lib.types.Enum):
         "CREATOR_ID",
         "ENTITIES",
         "MONITOR_FIELDS",
+        "NAME",
         "NAMESPACE",
         "RULE_DESCRIPTION",
         "RULE_NAME",
@@ -13906,8 +13932,9 @@ class ConversationFiltersInput(sgqlc.types.Input):
     )
     """Filter by end-user feedback (OR logic). A conversation matches a
     rating when any turn's newest feedback has it. NO_FEEDBACK matches
-    a conversation when no turn has feedback. Only Snowflake Cortex
-    and Genie agents have feedback. Not supported on ClickHouse.
+    a conversation when no turn has feedback. Supported for Snowflake
+    Cortex and Databricks Genie agents on Timescale, and code-based
+    agents on ClickHouse that have sent feedback.
     """
 
     has_feedback_comment = sgqlc.types.Field(
@@ -13916,8 +13943,9 @@ class ConversationFiltersInput(sgqlc.types.Input):
     )
     """Filter by whether any turn's newest end-user feedback carries a
     comment (OR logic). NO_COMMENT matches a conversation when no turn
-    has a comment, including one with no feedback. Not supported on
-    ClickHouse.
+    has a comment, including one with no feedback. Supported for
+    Snowflake Cortex and Databricks Genie agents on Timescale, and
+    code-based agents on ClickHouse that have sent feedback.
     """
 
 
@@ -16594,8 +16622,9 @@ class GetConversationsInput(sgqlc.types.Input):
     extra inputs required. NEGATIVE_FEEDBACK_COUNT sorts by how many
     turns' newest end-user feedback is negative. A conversation with
     feedback but no negative turns sorts as 0. Conversations with no
-    feedback sort last in both directions. Only Snowflake Cortex and
-    Genie agents have feedback. Not supported on ClickHouse.
+    feedback sort last in both directions. Supported for Snowflake
+    Cortex and Databricks Genie agents on Timescale, and code-based
+    agents on ClickHouse that have sent feedback.
     """
 
     sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
@@ -21132,9 +21161,11 @@ class TraceFiltersInput(sgqlc.types.Input):
         graphql_name="feedbackRatings",
     )
     """Filter by the rating of each trace's newest end-user feedback (OR
-    logic). Only Snowflake Cortex and Genie agents have feedback. On
-    ClickHouse it needs the agent's feedback collected there, and the
-    tool overview, tool time series and top tools refuse it.
+    logic). Supported for Snowflake Cortex and Databricks Genie
+    agents, and code-based agents that send feedback to Agent
+    Observability ClickHouse. On ClickHouse, the agent's feedback must
+    be stored there. The tool overview, tool time series and top tools
+    do not support this filter on ClickHouse.
     """
 
     has_feedback_comment = sgqlc.types.Field(
@@ -21142,10 +21173,11 @@ class TraceFiltersInput(sgqlc.types.Input):
         graphql_name="hasFeedbackComment",
     )
     """Filter by whether each trace's newest end-user feedback carries a
-    comment (OR logic). Only Snowflake Cortex and Genie agents have
-    feedback. On ClickHouse it needs the agent's feedback collected
-    there, and the tool overview, tool time series and top tools
-    refuse it.
+    comment (OR logic). Supported for Snowflake Cortex and Databricks
+    Genie agents, and code-based agents that send feedback to Agent
+    Observability ClickHouse. On ClickHouse, the agent's feedback must
+    be stored there. The tool overview, tool time series and top tools
+    do not support this filter on ClickHouse.
     """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
@@ -22976,14 +23008,14 @@ class IMonitor(sgqlc.types.Interface):
     creator_id = sgqlc.types.Field(String, graphql_name="creatorId")
     """Display label for the user who created the monitor. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
     updater_id = sgqlc.types.Field(String, graphql_name="updaterId")
     """Display label for the user who last updated the monitor. Returns
     the user's email for human users; for agent users, returns a
-    derived display label (e.g. ``Agent on <domain>``) — never the
+    derived display label (e.g. ``Bayes on <domain>``) — never the
     agent's internal address.
     """
 
@@ -24857,7 +24889,7 @@ class AccountSecretOutput(sgqlc.types.Type):
     created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
     """Display label for the user that created the secret. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -24867,7 +24899,7 @@ class AccountSecretOutput(sgqlc.types.Type):
     updated_by = sgqlc.types.Field(String, graphql_name="updatedBy")
     """Display label for the user that last updated the secret. Returns
     the user's email for human users; for agent users, returns a
-    derived display label (e.g. ``Agent on <domain>``) — never the
+    derived display label (e.g. ``Bayes on <domain>``) — never the
     agent's internal address.
     """
 
@@ -26117,6 +26149,31 @@ class AgentFeedbackComments(sgqlc.types.Type):
     )
 
 
+class AgentFeedbackStatus(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("supported", "has_feedback", "unmatched_feedback_count", "check_complete")
+    supported = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="supported")
+    """Whether code feedback is supported for this agent and store. False
+    also applies while support cannot be checked.
+    """
+
+    has_feedback = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasFeedback")
+    """Whether this agent has stored code feedback, including
+    retractions.
+    """
+
+    unmatched_feedback_count = sgqlc.types.Field(Int, graphql_name="unmatchedFeedbackCount")
+    """Feedback targets older than 24 hours with no retained normal
+    trace. Null means the count is unavailable or unsupported; zero
+    means a completed check found none.
+    """
+
+    check_complete = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="checkComplete")
+    """Whether the status is known. A supported agent's unmatched count
+    is available only after a complete, recent check.
+    """
+
+
 class AgentGraph(sgqlc.types.Type):
     """A directed graph fused from multiple traces of the same workflow."""
 
@@ -26571,7 +26628,7 @@ class AgentMemory(sgqlc.types.Type):
     created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
     """Display label for the user who asked to remember this. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -27620,7 +27677,7 @@ class AgenticDomainOutput(sgqlc.types.Type):
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Display label for the user who created the domain. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -27939,6 +27996,11 @@ class AggregatedQuery(sgqlc.types.Type):
         "latest_query_timestamp",
         "count",
         "average_run_time",
+        "on_demand_runs",
+        "on_demand_bytes_billed",
+        "reserved_runs",
+        "reserved_slot_ms",
+        "failed_runs",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """Date the queries occurred on"""
@@ -27972,6 +28034,32 @@ class AggregatedQuery(sgqlc.types.Type):
 
     average_run_time = sgqlc.types.Field(Int, graphql_name="averageRunTime")
     """Average run time of the aggregated queries in milliseconds"""
+
+    on_demand_runs = sgqlc.types.Field(Int, graphql_name="onDemandRuns")
+    """Successful runs billed on demand, by bytes billed. Excludes runs
+    collected before slot time and reservations were recorded. Runs
+    not counted as on demand, reserved or failed have an unknown
+    billing model. Null unless the queries write a BigQuery table
+    """
+
+    on_demand_bytes_billed = sgqlc.types.Field(BigInt, graphql_name="onDemandBytesBilled")
+    """Bytes billed across the on-demand runs. Null unless the queries
+    write a BigQuery table
+    """
+
+    reserved_runs = sgqlc.types.Field(Int, graphql_name="reservedRuns")
+    """Successful runs on reserved BigQuery capacity, which is paid for
+    whether or not it is used. Excludes free load jobs. Null unless
+    the queries write a BigQuery table
+    """
+
+    reserved_slot_ms = sgqlc.types.Field(BigInt, graphql_name="reservedSlotMs")
+    """Slot time the reserved runs used, in milliseconds. Null unless the
+    queries write a BigQuery table
+    """
+
+    failed_runs = sgqlc.types.Field(Int, graphql_name="failedRuns")
+    """Runs that failed. Null unless the queries write a BigQuery table"""
 
 
 class AggregatedQueryResults(sgqlc.types.Type):
@@ -29934,7 +30022,7 @@ class AzureDevOpsWorkItemOutput(sgqlc.types.Type):
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Display label for the user who created the work item. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -32772,8 +32860,9 @@ class Conversation(sgqlc.types.Type):
 
     feedback = sgqlc.types.Field("ConversationFeedbackCounts", graphql_name="feedback")
     """End-user feedback counts across the conversation's turns. Null
-    when no turn has feedback. Only Snowflake Cortex and Genie agents
-    on Timescale have feedback.
+    when feedback is unavailable or no turn has feedback. Supported
+    for Snowflake Cortex and Databricks Genie agents on Timescale, and
+    code-based agents on ClickHouse that have sent feedback.
     """
 
 
@@ -32995,7 +33084,7 @@ class ConversationClusterType(sgqlc.types.Type):
     created_by = sgqlc.types.Field(String, graphql_name="createdBy")
     """Display label for the user who created this cluster. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address. Null on discovered clusters.
     """
 
@@ -34397,7 +34486,14 @@ class CostFindingDisappearedOutput(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("fix_type", "warehouse_uuids", "targets", "stable_key", "key_version")
+    __field_names__ = (
+        "fix_type",
+        "warehouse_uuids",
+        "targets",
+        "stable_key",
+        "key_version",
+        "finding",
+    )
     fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
 
     warehouse_uuids = sgqlc.types.Field(
@@ -34415,6 +34511,11 @@ class CostFindingDisappearedOutput(sgqlc.types.Type):
     """The finding's key, in the current run's 'keyVersion'."""
 
     key_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="keyVersion")
+
+    finding = sgqlc.types.Field("CostFindingOutput", graphql_name="finding")
+    """The finding as the previous run showed it. Its 'change' is null.
+    Null on runs from before the field existed.
+    """
 
 
 class CostFindingEvidenceOutput(sgqlc.types.Type):
@@ -34552,7 +34653,7 @@ class CostFindingOutput(sgqlc.types.Type):
 
     change = sgqlc.types.Field(CostFindingChange, graphql_name="change")
     """How the finding compares with the same finding in the previous
-    run. Null when the run could not be compared.
+    run. Null when the finding wasn't compared.
     """
 
     current_spend = sgqlc.types.Field(
@@ -34682,6 +34783,67 @@ class CostFindingWithheldFigureOutput(sgqlc.types.Type):
     """The customer-facing line for 'reasonCode'."""
 
 
+class CostInsightsShadowRunOutput(sgqlc.types.Type):
+    """Temporary, for Monte Carlo internal use only."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "failure_reason",
+        "failed_step",
+        "contract_version",
+        "insights",
+        "insights_count",
+        "lost_analyses",
+        "previous_run",
+        "disappeared_findings",
+    )
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(CostInsightsShadowRunStatus), graphql_name="status"
+    )
+
+    failure_reason = sgqlc.types.Field(String, graphql_name="failureReason")
+    """Why the new pipeline stored no findings. Set only when status is
+    FAILED.
+    """
+
+    failed_step = sgqlc.types.Field(String, graphql_name="failedStep")
+    """The step the new pipeline failed at. Set only when status is
+    FAILED.
+    """
+
+    contract_version = sgqlc.types.Field(Int, graphql_name="contractVersion")
+
+    insights = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("PerformancePageInsightOutput"))
+        ),
+        graphql_name="insights",
+    )
+
+    insights_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="insightsCount")
+    """Total number of insights the shadow run produced in the account's
+    scope, whether or not the account's tier lets it see them all. On
+    the free tier it can exceed the number in 'insights'.
+    """
+
+    lost_analyses = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(CostFindingLostAnalysisOutput))
+        ),
+        graphql_name="lostAnalyses",
+    )
+
+    previous_run = sgqlc.types.Field(CostFindingPreviousRunOutput, graphql_name="previousRun")
+
+    disappeared_findings = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(CostFindingDisappearedOutput))
+        ),
+        graphql_name="disappearedFindings",
+    )
+
+
 class CostTimeSeriesPointOutput(sgqlc.types.Type):
     """Storage and query cost totals for one bucket of the series."""
 
@@ -34746,14 +34908,14 @@ class CoverageDraft(sgqlc.types.Type):
     created_by = sgqlc.types.Field(String, graphql_name="createdBy")
     """Display label for the person who started a chat draft. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address. Null for a scheduled draft.
     """
 
     resolved_by = sgqlc.types.Field(String, graphql_name="resolvedBy")
     """Display label for the person who approved or declined the draft.
     Returns the user's email for human users; for agent users, returns
-    a derived display label (e.g. ``Agent on <domain>``) — never the
+    a derived display label (e.g. ``Bayes on <domain>``) — never the
     agent's internal address.
     """
 
@@ -40679,6 +40841,18 @@ class DomainCriterionOutput(sgqlc.types.Type):
     """Whether matching assets are excluded."""
 
 
+class DomainDefaultAudience(sgqlc.types.Type):
+    """An audience that new monitors in a domain start with"""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "label")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Audience UUID"""
+
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+    """Audience name"""
+
+
 class DomainMembershipOutput(sgqlc.types.Type):
     """A single domain an mcon belongs to."""
 
@@ -40800,6 +40974,7 @@ class DomainOutput(sgqlc.types.Type):
         "obj_assignment_update_time",
         "reference_domains",
         "criteria",
+        "default_audiences",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """Domain UUID"""
@@ -40818,7 +40993,7 @@ class DomainOutput(sgqlc.types.Type):
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Display label for the user who created the domain. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -40867,6 +41042,14 @@ class DomainOutput(sgqlc.types.Type):
     )
     """Criteria scoping this domain to a location, a tag filter, or a
     location narrowed by tags.
+    """
+
+    default_audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainDefaultAudience))),
+        graphql_name="defaultAudiences",
+    )
+    """Audiences that new monitors in this domain start with, sorted by
+    label. Each monitor can still use its own audiences.
     """
 
 
@@ -41724,6 +41907,7 @@ class EtlJobRunV3(sgqlc.types.Type):
         "raw_status",
         "event_time",
         "started_at",
+        "effective_started_at",
         "queued_at",
         "end_time",
         "heartbeat_at",
@@ -41764,6 +41948,19 @@ class EtlJobRunV3(sgqlc.types.Type):
     event_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="eventTime")
 
     started_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startedAt")
+    """Stable run key. Some producers set it to a value other than the
+    real start (Airflow DAG runs use the logical date). Use
+    `effectiveStartedAt` for displayed start times and durations.
+    """
+
+    effective_started_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="effectiveStartedAt"
+    )
+    """The producer-reported real start when there is one, otherwise
+    `startedAt`; use it for displayed start times and durations.
+    Differs from `startedAt` only for Airflow DAG runs, whose
+    `startedAt` is the logical date.
+    """
 
     queued_at = sgqlc.types.Field(DateTime, graphql_name="queuedAt")
 
@@ -41904,7 +42101,9 @@ class EtlJobV3(sgqlc.types.Type):
 
     last_run_date = sgqlc.types.Field(DateTime, graphql_name="lastRunDate")
     """Most recent `EtlJobRunV3.startedAt` within the 6-month retention
-    window. Null when the job has no runs in that window.
+    window. Null when the job has no runs in that window. For Airflow
+    DAG runs `startedAt` is the logical date; use the run's
+    `effectiveStartedAt` for when it actually ran.
     """
 
     recent_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="recentRunCount")
@@ -44918,7 +45117,7 @@ class GithubActionTriggerDispatch(sgqlc.types.Type):
     dispatched_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="dispatchedBy")
     """Display label for the user that triggered the dispatch. Returns
     the user's email for human users; for agent users, returns a
-    derived display label (e.g. ``Agent on <domain>``) — never the
+    derived display label (e.g. ``Bayes on <domain>``) — never the
     agent's internal address.
     """
 
@@ -55544,23 +55743,25 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Links a pasted ticket or PR URL to a live RL V2
-    issue. When the account's Linear integration is in the URL's
-    workspace, a Linear issue URL becomes the issue's Linear ticket,
-    which replaces any other, and the issue's status then follows the
-    ticket. A completed ticket marks the issue FIXED. A canceled or
-    duplicate ticket is refused. Any other URL, or a Linear URL that
+    issue. A Linear, Jira or ServiceNow ticket URL that one of the
+    account's integrations owns becomes the issue's ticket in that
+    system, which replaces its other ticket there, and the issue's
+    status then follows the ticket. A ticket closed as done marks the
+    issue FIXED. A ticket closed without being done, such as a
+    canceled one, is refused. Any other URL, or a ticket URL that
     can't sync, marks the issue in progress with the link, as
     markReinforcementLoopIssueInProgress does, and
-    undoReinforcementLoopIssueStatus reverts it. A linked Linear
-    ticket clears the undo. Monte Carlo staff can't change the status
-    of issues.
+    undoReinforcementLoopIssueStatus reverts it. A linked ticket
+    clears the undo. The payload's linearTicket is set for a Linear
+    ticket only. Read jiraTicket and serviceNowTicket from the issue.
+    Monte Carlo staff can't change the status of issues.
 
     Arguments:
 
     * `issue_uuid` (`UUID!`): The issueUuid of a
       getReinforcementLoopV2Issues node.
     * `url` (`String!`): An http(s) link to a ticket or PR, such as a
-      Linear issue.
+      Linear issue, a Jira ticket or a ServiceNow incident.
     """
 
     undo_reinforcement_loop_issue_status = sgqlc.types.Field(
@@ -73192,6 +73393,14 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "default_audience_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="defaultAudienceUuids",
+                        default=None,
+                    ),
+                ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
@@ -73247,6 +73456,11 @@ class Mutation(sgqlc.types.Type):
       an update that sends any one of them replaces all five, so send
       the domain's full selection together. An update that sends none
       of them leaves the selection untouched.
+    * `default_audience_uuids` (`[UUID!]`): UUIDs of the audiences
+      that new monitors in this domain start with. On update, leaving
+      it out keeps the current audiences, a list replaces them, and an
+      empty list clears them. Every uuid must be an audience in the
+      same account. Ignored on a dry run.
     * `description` (`String`): Description of the domain
     * `dry_run` (`Boolean`): When true, do not persist anything.
       Instead, resolve the given selection rules and return how many
@@ -82182,7 +82396,7 @@ class PerformanceInsightTicket(sgqlc.types.Type):
     created_by = sgqlc.types.Field("UserInfoOutput", graphql_name="createdBy")
     """Display label for the user who created the ticket. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -82323,6 +82537,7 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         "previous_run",
         "disappeared_findings",
         "latest_run_failed",
+        "shadow_run",
     )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether cost insights are fully enabled for the caller's account.
@@ -82350,9 +82565,9 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     """
 
     insights_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="insightsCount")
-    """How many insights the run shown produced, which can exceed the
-    number in 'insights' when the account does not have the
-    Performance & Cost agent feature enabled.
+    """Total number of insights the run shown produced in the account's
+    scope, whether or not the account's tier lets it see them all. On
+    the free tier it can exceed the number in 'insights'.
     """
 
     thread_id = sgqlc.types.Field(String, graphql_name="threadId")
@@ -82408,6 +82623,12 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     earlier run that succeeded, and 'createdTime' is when that run
     started. With no such run, 'insights' is empty. False for a failed
     old-flow run, which is shown as it is.
+    """
+
+    shadow_run = sgqlc.types.Field(CostInsightsShadowRunOutput, graphql_name="shadowRun")
+    """Temporary, for Monte Carlo internal use only. The new pipeline's
+    findings from a shadow run, which customers don't see. Null for
+    any other caller.
     """
 
 
@@ -84285,6 +84506,7 @@ class Query(sgqlc.types.Type):
         "get_llm_price_book_overrides",
         "get_agent_cost_rates",
         "get_agent_cost",
+        "get_agent_feedback_status",
         "get_agent_feedback",
         "get_agent_feedback_comments",
         "get_agent_cost_totals",
@@ -86860,6 +87082,36 @@ class Query(sgqlc.types.Type):
       conversationIds. (default: `false`)
     """
 
+    get_agent_feedback_status = sgqlc.types.Field(
+        AgentFeedbackStatus,
+        graphql_name="getAgentFeedbackStatus",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Whether code-agent feedback is available and
+    whether stored feedback has unmatched targets older than 24 hours.
+    An incomplete check reports checkComplete false.
+
+    Arguments:
+
+    * `agent_name` (`String!`)None
+    * `trace_table_mcon` (`String!`)None
+    """
+
     get_agent_feedback = sgqlc.types.Field(
         AgentFeedback,
         graphql_name="getAgentFeedback",
@@ -86889,13 +87141,14 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) End-user feedback on a page of an agent's traces.
-    Collected from the warehouse after each span collection. On a
-    ClickHouse trace store, AGENT_FEEDBACK_UNAVAILABLE means the check
-    for the agent's feedback got no answer or ran out of time, the
-    store does not hold the newest feedback yet, or feedback
-    collection is turned off for the account. REQUEST_TIMEOUT means
-    the feedback read ran out of time. Other query failures are
-    returned unchanged.
+    Cortex and Genie feedback is collected from the warehouse. Code-
+    based agents send feedback spans to Agent Observability
+    ClickHouse. On a ClickHouse trace store,
+    AGENT_FEEDBACK_UNAVAILABLE means the check for the agent's
+    feedback got no answer or ran out of time, the store does not hold
+    the newest feedback yet, or feedback collection is turned off for
+    the account. REQUEST_TIMEOUT means the feedback read ran out of
+    time. Other query failures are returned unchanged.
 
     Arguments:
 
@@ -86935,9 +87188,9 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) The comment and user on each trace's newest end-
-    user feedback, read live from the warehouse. Traces whose comments
-    are withheld are left out, and contentWithheldReason says why: the
-    user may not read raw content, or the read fails.
+    user feedback. Traces whose comments are withheld are left out,
+    and contentWithheldReason says why: the user may not read raw
+    content, or the read fails.
 
     Arguments:
 
@@ -92973,11 +93226,25 @@ class Query(sgqlc.types.Type):
     get_performance_page_insights = sgqlc.types.Field(
         sgqlc.types.non_null(PerformancePageInsightsOutput),
         graphql_name="getPerformancePageInsights",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mc_internal_view",
+                    sgqlc.types.Arg(Boolean, graphql_name="mcInternalView", default=False),
+                ),
+            )
+        ),
     )
     """(experimental) Cost insights for the caller's account, shown on
     the Performance Page: whether the feature is enabled and the
     insights of the latest completed run, or of the newest earlier one
     that succeeded when that run failed.
+
+    Arguments:
+
+    * `mc_internal_view` (`Boolean`): Temporary, for Monte Carlo
+      internal use only. For any other caller it has no effect.
+      (default: `false`)
     """
 
     get_indexed_field_specs = sgqlc.types.Field(
@@ -112363,7 +112630,7 @@ class ReinforcementLoopIssueFeedbackEntry(sgqlc.types.Type):
     user_email = sgqlc.types.Field(String, graphql_name="userEmail")
     """Display label for the person who left the feedback. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address. Null once that user is deleted.
     """
 
@@ -113391,7 +113658,7 @@ class RequiredMonitorFields(sgqlc.types.Type):
     updated_by = sgqlc.types.Field("UserInfoOutput", graphql_name="updatedBy")
     """Display label for the user who last changed the required field
     list. Returns the user's email for human users; for agent users,
-    returns a derived display label (e.g. ``Agent on <domain>``) —
+    returns a derived display label (e.g. ``Bayes on <domain>``) —
     never the agent's internal address.
     """
 
@@ -116699,7 +116966,7 @@ class StorageCandidateTicket(sgqlc.types.Type):
     created_by = sgqlc.types.Field("UserInfoOutput", graphql_name="createdBy")
     """Display label for the user who created the ticket. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -120494,7 +120761,7 @@ class TokenMetadata(sgqlc.types.Type):
     email = sgqlc.types.Field(String, graphql_name="email")
     """Display label for the owner of the token. Returns the user's email
     for human users; for agent users, returns a derived display label
-    (e.g. ``Agent on <domain>``) — never the agent's internal address.
+    (e.g. ``Bayes on <domain>``) — never the agent's internal address.
     """
 
     creation_time = sgqlc.types.Field(DateTime, graphql_name="creationTime")
@@ -120503,7 +120770,7 @@ class TokenMetadata(sgqlc.types.Type):
     created_by = sgqlc.types.Field(String, graphql_name="createdBy")
     """Display label for the user who created the token. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -122197,7 +122464,7 @@ class TsaInvestigation(sgqlc.types.Type):
     """The investigated alert"""
 
     triggered_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="triggeredBy")
-    """Email of the user who started the investigation, or 'Agent on
+    """Email of the user who started the investigation, or 'Bayes on
     <domain>' for agents
     """
 
@@ -124113,7 +124380,7 @@ class UserOutput(sgqlc.types.Type):
     email = sgqlc.types.Field(String, graphql_name="email")
     """Display label for this user. Returns the user's email for human
     users; for agent users, returns a derived display label (e.g.
-    ``Agent on <domain>``) — never the agent's internal address.
+    ``Bayes on <domain>``) — never the agent's internal address.
     """
 
     full_name = sgqlc.types.Field(String, graphql_name="fullName")
@@ -128692,14 +128959,14 @@ class CustomRule(sgqlc.types.Type, Node):
     creator_id = sgqlc.types.Field(String, graphql_name="creatorId")
     """Display label for the user who created the rule. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
     updater_id = sgqlc.types.Field(String, graphql_name="updaterId")
     """Display label for the user who last updated the rule. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -130762,6 +131029,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "excluded_assignments_with_properties",
         "criteria",
         "reference_domains",
+        "default_audiences",
         "effective_triage_enabled",
         "triage_enabled_override",
         "tsa_threshold_override",
@@ -130789,7 +131057,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Display label for the user who created the domain. Returns the
     user's email for human users; for agent users, returns a derived
-    display label (e.g. ``Agent on <domain>``) — never the agent's
+    display label (e.g. ``Bayes on <domain>``) — never the agent's
     internal address.
     """
 
@@ -130838,6 +131106,14 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         graphql_name="referenceDomains",
     )
     """Domains whose owned assets this domain's monitors may read"""
+
+    default_audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainDefaultAudience))),
+        graphql_name="defaultAudiences",
+    )
+    """Audiences that new monitors in this domain start with, sorted by
+    label. Each monitor can still use its own audiences.
+    """
 
     effective_triage_enabled = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="effectiveTriageEnabled"
@@ -134565,7 +134841,7 @@ class User(sgqlc.types.Type, Node):
     email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
     """Display label for this user. Returns the user's email for human
     users; for agent users, returns a derived display label (e.g.
-    ``Agent on <domain>``) — never the agent's internal address.
+    ``Bayes on <domain>``) — never the agent's internal address.
     """
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")
@@ -135981,7 +136257,7 @@ class UserBasicInfo(sgqlc.types.Type, Node):
     email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
     """Display label for this user. Returns the user's email for human
     users; for agent users, returns a derived display label (e.g.
-    ``Agent on <domain>``) — never the agent's internal address.
+    ``Bayes on <domain>``) — never the agent's internal address.
     """
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")

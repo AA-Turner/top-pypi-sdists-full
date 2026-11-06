@@ -8,6 +8,7 @@ use super::{
     exposure_sampling::ExposureSampling,
     flush_interval::FlushInterval,
     flush_type::FlushType,
+    id_list_accesses::{IdListAccessRecorder, IdListAccesses},
     sec_expo_as_primary_experiment::SecExpoAsPrimaryExperiment,
     statsig_event_internal::StatsigEventInternal,
 };
@@ -16,9 +17,11 @@ use crate::{
     event_logging::{
         event_logger_constants::EventLoggerConstants, event_queue::queue::QueueAddResult,
     },
+    global_configs::GlobalConfigs,
     log_d, log_e, log_w,
     networking::NetworkError,
     observability::ops_stats::{OPS_STATS, OpsStatsForInstance},
+    output_policy::OutputPolicy,
     statsig_metadata::StatsigMetadata,
     write_lock_or_noop,
 };
@@ -60,6 +63,8 @@ pub struct EventLogger {
     logging_adapter: Arc<dyn EventLoggingAdapter>,
     event_sampler: ExposureSampling,
     non_exposed_checks: RwLock<HashMap<String, u64>>,
+    id_list_accesses: RwLock<IdListAccesses>,
+    global_configs: Arc<GlobalConfigs>,
     limit_flush_notify: Notify,
     limit_flush_semaphore: Arc<Semaphore>,
     flush_interval: FlushInterval,
@@ -92,11 +97,13 @@ impl EventLogger {
             options: options.clone(),
             logging_adapter: event_logging_adapter.clone(),
             non_exposed_checks: RwLock::new(HashMap::new()),
+            id_list_accesses: RwLock::new(IdListAccesses::default()),
+            global_configs: GlobalConfigs::get_instance(sdk_instance_id),
             shutdown_notify: Notify::new(),
             background_flush_stopped: tokio::sync::RwLock::new(false),
             limit_flush_notify: Notify::new(),
             limit_flush_semaphore: Arc::new(Semaphore::new(MAX_LIMIT_FLUSH_TASKS)),
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options)),
             sec_expo_experiment: SecExpoAsPrimaryExperiment::new(sdk_instance_id, options),
             enqueue_dropped_events_count: AtomicU64::new(0),
         });
@@ -105,6 +112,10 @@ impl EventLogger {
             me.spawn_background_task(statsig_rt);
         }
         me
+    }
+
+    pub(crate) fn remote_telemetry_disabled(&self) -> bool {
+        self.ops_stats.remote_telemetry_disabled()
     }
 
     pub fn enqueue(self: &Arc<Self>, operation: impl EnqueueOperation) {
@@ -225,6 +236,24 @@ impl EventLogger {
             None => {
                 non_exposed_checks.insert(name.into(), 1);
             }
+        }
+    }
+
+    pub(crate) fn id_list_access_recorder(
+        &self,
+        output_policy: OutputPolicy,
+    ) -> &dyn IdListAccessRecorder {
+        if self.options.enable_id_list_access_metrics == Some(true)
+            && !output_policy.is_silent()
+            && self
+                .options
+                .observability_client
+                .as_ref()
+                .is_some_and(|client| client.strong_count() > 0)
+        {
+            self
+        } else {
+            &()
         }
     }
 
@@ -458,6 +487,7 @@ impl EventLogger {
 
     fn prepare_event_queue_for_flush(&self, flush_type: FlushType) {
         self.try_add_non_exposed_checks_event();
+        self.try_log_id_list_accesses();
         self.try_log_enqueue_dropped_events();
 
         let dropped_events_count = match self.queue.reconcile_batching() {
@@ -572,6 +602,23 @@ impl EventLogger {
         }
     }
 
+    fn try_log_id_list_accesses(&self) {
+        if self.options.enable_id_list_access_metrics != Some(true) {
+            return;
+        }
+        let accesses = {
+            let mut accesses = write_lock_or_noop!(TAG, self.id_list_accesses);
+            if !self.global_configs.is_id_list_access_metrics_enabled() {
+                accesses.discard_pending();
+                return;
+            }
+            std::mem::take(&mut accesses.pending)
+        };
+        for name in accesses {
+            self.ops_stats.log_id_list_accessed(name);
+        }
+    }
+
     fn try_log_enqueue_dropped_events(&self) {
         let dropped_events_count = self.enqueue_dropped_events_count.swap(0, Ordering::Relaxed);
         if dropped_events_count == 0 {
@@ -601,5 +648,13 @@ impl EventLogger {
             self.queue.max_pending_batches,
             self.queue.batch_size
         );
+    }
+}
+
+impl IdListAccessRecorder for EventLogger {
+    fn record(&self, name: &str) {
+        if self.global_configs.is_id_list_access_metrics_enabled() {
+            self.id_list_accesses.record(name);
+        }
     }
 }

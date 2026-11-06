@@ -224,20 +224,66 @@ def test_color_gradient() -> None:
     assert gradient.get_color(0.5) == colors.red
 
 
+def test_hue_gradient_wraps_around_the_color_wheel() -> None:
+    gradient: terminal.HueGradient = terminal.HueGradient()
+    assert gradient.get_color(0) == gradient.get_color(1)
+    assert gradient.get_color(0.25) == gradient.get_color(1.25)
+    assert gradient.get_color(0).rgb == terminal.RGB(255, 51, 51)
+    assert gradient.get_color(1 / 3).rgb == terminal.RGB(51, 255, 51)
+    assert gradient.get_color(2 / 3).rgb == terminal.RGB(51, 51, 255)
+
+
+def test_hue_gradient_saturation_and_lightness() -> None:
+    gradient: terminal.HueGradient = terminal.HueGradient(
+        saturation=100, lightness=50
+    )
+    assert gradient.get_color(0).rgb == terminal.RGB(255, 0, 0)
+    assert gradient.get_color(0).hls == terminal.HSL(0, 100, 50)
+    assert gradient.get_color(0.5).hls == terminal.HSL(180, 100, 50)
+
+
+def test_hue_gradient_colors_carry_no_xterm_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    color: Color = terminal.HueGradient().get_color(0.5)
+    assert color.xterm is None
+    monkeypatch.setattr(env, 'COLOR_SUPPORT', env.ColorSupport.XTERM_256)
+    assert color.ansi == f'5;{color.rgb.to_ansi_256}'
+    monkeypatch.setattr(env, 'COLOR_SUPPORT', env.ColorSupport.XTERM_TRUECOLOR)
+    assert color.ansi == '2;51;255;255'
+
+
+def test_hue_gradient_resolves_through_apply_colors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(env, 'COLOR_SUPPORT', env.ColorSupport.XTERM_TRUECOLOR)
+    gradient: terminal.HueGradient = terminal.HueGradient()
+    assert apply_colors('x', 50, fg=gradient) == gradient.get_color(0.5).fg(
+        'x'
+    )
+
+
+def test_rainbow_is_a_hue_gradient() -> None:
+    assert isinstance(colors.rainbow, terminal.HueGradient)
+    assert colors.rainbow.get_color(0).rgb == terminal.RGB(255, 51, 51)
+
+
 @pytest.mark.parametrize(
     'widget',
     [
-        progressbar.Counter,
+        progressbar.FormatCustomText,
     ],
 )
 def test_no_color_widgets(widget) -> None:
-    assert not widget().uses_colors
+    assert not widget(format='text').uses_colors
     print(f'{widget} has colors? {widget.uses_colors}')
 
     assert widget(
+        format='text',
         fixed_colors=_TestFixedColorSupport._fixed_colors,
     ).uses_colors
     assert widget(
+        format='text',
         gradient_colors=_TestFixedGradientSupport._gradient_colors,
     ).uses_colors
 
@@ -592,3 +638,28 @@ def test_registered_color_renders_when_forced_without_support(
     green = colors.green
     assert green.ansi == '5;2'
     assert green.fg('X') == '\x1b[38;5;2mX\x1b[39m'
+
+
+def test_default_bar_fill_uses_the_progress_gradient() -> None:
+    # The Bar widget's default look is a fill that sweeps the red->green
+    # gradient with progress, matching ColoredMixin's percentage/count
+    # defaults. This regressed once before: Bar declared dead `fg`/`bg`
+    # attributes that nothing read, leaving `_gradient_colors` all-None
+    # and the default fill colorless on every terminal.
+    bar_widget = progressbar.widgets.Bar()
+
+    assert bar_widget.uses_colors
+    assert bar_widget._gradient_colors['fg'] is colors.gradient
+    assert bar_widget._gradient_colors['bg'] is None
+
+
+def test_bar_with_colors_opted_out_renders_text_unchanged() -> None:
+    # The gradient default can be switched off per instance. That must
+    # leave `_apply_colors` as a pass-through, and it also keeps the
+    # no-colors branch honest now that the default Bar is colored.
+    bar_widget = progressbar.widgets.Bar(
+        gradient_colors={'fg': None, 'bg': None},
+    )
+
+    assert not bar_widget.uses_colors
+    assert bar_widget._apply_colors('#####', {}) == '#####'

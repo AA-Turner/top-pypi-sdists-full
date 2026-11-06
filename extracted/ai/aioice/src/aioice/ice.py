@@ -282,7 +282,7 @@ class StunProtocol(asyncio.DatagramProtocol):
         self.transport = cast(asyncio.DatagramTransport, transport)
 
     def datagram_received(self, data: bytes | str, addr: tuple[Any, ...]) -> None:
-        # force IPv6 four-tuple to a two-tuple
+        # Force an IPv6 four-tuple to a two-tuple.
         addr = (addr[0], addr[1])
         data = cast(bytes, data)
 
@@ -300,7 +300,7 @@ class StunProtocol(asyncio.DatagramProtocol):
             transaction = self.transactions[message.transaction_id]
             transaction.response_received(message, addr)
         elif message.message_class == stun.Class.REQUEST:
-            self.receiver.request_received(message, addr, self, data)
+            self.receiver.request_received(message, addr, self)
 
     def error_received(self, exc: Exception) -> None:
         self.__log_debug("error_received(%s)", exc)
@@ -327,7 +327,11 @@ class StunProtocol(asyncio.DatagramProtocol):
             request.add_message_integrity(integrity_key)
 
         transaction = stun.Transaction(
-            request, addr, self, retransmissions=retransmissions
+            request,
+            addr,
+            self,
+            retransmissions=retransmissions,
+            integrity_key=integrity_key,
         )
         self.transactions[request.transaction_id] = transaction
         try:
@@ -1032,10 +1036,7 @@ class Connection:
             )
         except stun.TransactionError as exc:
             # Role conflict or failure (RFC 8445 sections 7.2.5.1 and 7.2.5.2).
-            if (
-                exc.response
-                and exc.response.attributes.get("ERROR-CODE", (None, None))[0] == 487
-            ):
+            if exc.response and exc.response.error_code == 487:
                 if "ICE-CONTROLLING" in request.attributes:
                     self.switch_role(ice_controlling=False)
                 elif "ICE-CONTROLLED" in request.attributes:
@@ -1046,19 +1047,19 @@ class Connection:
                 self.check_complete(pair)
                 return
 
-        # check remote address matches
+        # Check that the remote address matches (RFC 8445 section 7.2.5.2.1).
         if addr != pair.remote_addr:
             self.__log_info("Check %s failed : source address mismatch", pair)
             self.check_state(pair, CandidatePair.State.FAILED)
             self.check_complete(pair)
             return
 
-        # success
+        # Success (RFC 8445 section 7.2.5.3).
         if nominate or pair.remote_nominated:
-            # nominated by agressive nomination or the remote party
+            # Nominated by aggressive nomination or by the remote party.
             pair.nominated = True
         elif self.ice_controlling and pair.component not in self._nominating:
-            # perform regular nomination
+            # Perform regular nomination (RFC 8445 section 8.1.1).
             self.__log_info("Check %s nominating pair", pair)
             self._nominating.add(pair.component)
             request = self.build_request(pair, nominate=True)
@@ -1295,7 +1296,6 @@ class Connection:
         message: stun.Message,
         addr: tuple[str, int],
         protocol: StunProtocol,
-        raw_data: bytes,
     ) -> None:
         # Ignore incoming checks once closing, as they would start new checks.
         if self._closing:
@@ -1305,17 +1305,18 @@ class Connection:
             self.respond_error(message, addr, protocol, (400, "Bad Request"))
             return
 
-        # Authenticate the request.
-        try:
-            stun.parse_message(
-                raw_data, integrity_key=self.local_password.encode("utf8")
-            )
-            if self.remote_username is not None:
-                rx_username = f"{self.local_username}:{self.remote_username}"
-                if message.attributes.get("USERNAME") != rx_username:
-                    raise ValueError("Wrong username")
-        except ValueError:
+        # Authenticate the request (RFC 8489 section 9.1.3).
+        if (
+            "MESSAGE-INTEGRITY" not in message.attributes
+            or "USERNAME" not in message.attributes
+        ):
             self.respond_error(message, addr, protocol, (400, "Bad Request"))
+            return
+        if not (
+            self._valid_username(message.attributes["USERNAME"])
+            and message.check_message_integrity(self.local_password.encode("utf8"))
+        ):
+            self.respond_error(message, addr, protocol, (401, "Unauthenticated"))
             return
 
         # Detecting and repairing role conflicts (RFC 8445 section 7.3.1.1).
@@ -1362,7 +1363,14 @@ class Connection:
             transaction_id=request.transaction_id,
         )
         response.attributes["ERROR-CODE"] = error_code
-        response.add_message_integrity(self.local_password.encode("utf8"))
+
+        # 400 and 401 errors report a request which was not authenticated, so
+        # they are not signed (RFC 8489 section 9.1.3). FINGERPRINT is always
+        # added (RFC 8445 section 7.3).
+        if error_code[0] in (400, 401):
+            response.add_fingerprint()
+        else:
+            response.add_message_integrity(self.local_password.encode("utf8"))
         protocol.send_stun(response, addr)
 
     def sort_check_list(self) -> None:
@@ -1397,6 +1405,21 @@ class Connection:
             ):
                 self.check_state(pair, CandidatePair.State.WAITING)
                 seen_foundations.add(pair.local_candidate.foundation)
+
+    def _valid_username(self, username: str) -> bool:
+        """
+        Check the USERNAME of an incoming request.
+
+        It consists of the local and remote username fragments, separated by
+        a colon. The remote username fragment can only be checked once it is
+        known (RFC 8445 section 7.3).
+        """
+        local_username, colon, remote_username = username.partition(":")
+        return (
+            colon == ":"
+            and local_username == self.local_username
+            and self.remote_username in (None, remote_username)
+        )
 
     def __log_info(self, msg: str, *args: object) -> None:
         logger.info("%s " + msg, self, *args)

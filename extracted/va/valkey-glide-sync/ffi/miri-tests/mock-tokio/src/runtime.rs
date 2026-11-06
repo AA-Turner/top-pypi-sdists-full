@@ -13,9 +13,18 @@ pub struct EnterGuard;
 #[derive(Clone)]
 pub struct Handle;
 
+#[derive(Debug)]
+pub struct TryCurrentError;
+
 impl Handle {
     pub fn enter(&self) -> EnterGuard {
         EnterGuard
+    }
+
+    /// The mock never establishes a runtime context, so there is never a
+    /// current handle.
+    pub fn try_current() -> Result<Handle, TryCurrentError> {
+        Err(TryCurrentError)
     }
 }
 
@@ -28,9 +37,11 @@ impl Runtime {
         Handle
     }
 
+    pub fn shutdown_background(self) {}
+
     pub fn block_on<F: Future>(&self, future: F) -> F::Output {
         let waker = std::task::Waker::noop();
-        let context = &mut Context::from_waker(&waker);
+        let context = &mut Context::from_waker(waker);
         match std::pin::pin!(future).poll(context) {
             Poll::Ready(result) => result,
             _ => panic!("No result found")

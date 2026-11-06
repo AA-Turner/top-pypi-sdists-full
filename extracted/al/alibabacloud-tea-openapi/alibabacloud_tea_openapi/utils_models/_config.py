@@ -32,6 +32,7 @@ class Config(DaraModel):
         network: str = None,
         user_agent: str = None,
         suffix: str = None,
+        endpoint_suffix: str = None,
         socks_5proxy: str = None,
         socks_5net_work: str = None,
         endpoint_type: str = None,
@@ -46,6 +47,7 @@ class Config(DaraModel):
         disable_http_2: bool = None,
         retry_options: RetryOptions = None,
         tls_min_version: str = None,
+        ipv4_only: bool = None,
     ):
         # accesskey id
         self.access_key_id = access_key_id
@@ -83,6 +85,8 @@ class Config(DaraModel):
         self.user_agent = user_agent
         # suffix for endpoint
         self.suffix = suffix
+        # domain suffix used by generated POP endpoints
+        self.endpoint_suffix = endpoint_suffix
         # socks5 proxy
         self.socks_5proxy = socks_5proxy
         # socks5 network
@@ -111,6 +115,8 @@ class Config(DaraModel):
         self.retry_options = retry_options
         # TLS Minimum Version
         self.tls_min_version = tls_min_version
+        # only use IPv4 to connect to the endpoint, AAAA records are ignored
+        self.ipv4_only = ipv4_only
 
     def validate(self):
         if self.global_parameters:
@@ -158,6 +164,8 @@ class Config(DaraModel):
             result['userAgent'] = self.user_agent
         if self.suffix is not None:
             result['suffix'] = self.suffix
+        if self.endpoint_suffix is not None:
+            result['endpointSuffix'] = self.endpoint_suffix
         if self.socks_5proxy is not None:
             result['socks5Proxy'] = self.socks_5proxy
         if self.socks_5net_work is not None:
@@ -188,6 +196,8 @@ class Config(DaraModel):
 
         if self.tls_min_version is not None:
             result['tlsMinVersion'] = self.tls_min_version
+        if self.ipv4_only is not None:
+            result['ipv4Only'] = self.ipv4_only
         return result
 
     def from_map(self, m: dict = None):
@@ -228,6 +238,8 @@ class Config(DaraModel):
             self.user_agent = m.get('userAgent')
         if m.get('suffix') is not None:
             self.suffix = m.get('suffix')
+        if m.get('endpointSuffix') is not None:
+            self.endpoint_suffix = m.get('endpointSuffix')
         if m.get('socks5Proxy') is not None:
             self.socks_5proxy = m.get('socks5Proxy')
         if m.get('socks5NetWork') is not None:
@@ -260,5 +272,7 @@ class Config(DaraModel):
 
         if m.get('tlsMinVersion') is not None:
             self.tls_min_version = m.get('tlsMinVersion')
+        if m.get('ipv4Only') is not None:
+            self.ipv4_only = m.get('ipv4Only')
         return self
 

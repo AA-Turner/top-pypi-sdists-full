@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 11.49.5
+Version: 11.50.0
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -73,6 +73,7 @@ Provides-Extra: docs
 Requires-Dist: mkdocs-material>=9.5; python_version >= "3.10" and extra == "docs"
 Requires-Dist: mkdocstrings[python]>=0.26; python_version >= "3.10" and extra == "docs"
 Requires-Dist: mkdocs-llmstxt>=0.5; python_version >= "3.10" and extra == "docs"
+Requires-Dist: mike>=2.1; python_version >= "3.10" and extra == "docs"
 Provides-Extra: full
 Requires-Dist: pymobiledevice3[docs,test]; extra == "full"
 Dynamic: license-file
@@ -88,30 +89,52 @@ Dynamic: license-file
 <!-- markdownlint-enable MD013 -->
 
 `pymobiledevice3` is a pure Python 3 implementation for interacting with iOS devices (iPhone, iPad, ...).
-It ships both a **command-line tool** and a **Python API**, and runs on Windows, Linux, and macOS.
+It ships both a **command-line tool** and a **Python API**, and runs on Windows, Linux, and macOS. Coming
+from Android? Think of it as `adb` for iOS.
 
-Highlights: device discovery, port forwarding, syslog/oslog streaming, app & profile management, AFC
-file access, crash reports, PCAP sniffing, firmware update, recovery/DFU, backup/restore, WebInspector
-automation, a [CDP bridge](https://doronz88.github.io/pymobiledevice3/guides/webview-debugging/) that
-lets Chrome DevTools, VS Code and Playwright debug Safari and WebViews on the device, and DDI/DVT
-developer tooling (iOS 17+ over a tunnel that each command builds in-process: no root, nothing to
-start first).
+Highlights:
+
+- [Screen mirroring and control](https://doronz88.github.io/pymobiledevice3/guides/screen-mirroring/) in any
+  browser or VNC client, with touch, buttons, keyboard, audio and clipboard (iOS 27+)
+- [Per-process packet capture](https://doronz88.github.io/pymobiledevice3/guides/packet-capture/) straight into Wireshark
+- [strace-style syscall tracing](https://doronz88.github.io/pymobiledevice3/guides/kdebug/) of every process, live
+- A [JavaScript shell and a CDP bridge](https://doronz88.github.io/pymobiledevice3/guides/webview-debugging/) for
+  Safari and WebViews (Chrome DevTools, VS Code, Playwright)
+- Developer services without Xcode (screenshots, location simulation, sysmon, DDI mounting); on iOS 17+ over a
+  no-root tunnel each command builds for you, on Windows and Linux too
+- Syslog/oslog, apps & profiles, device files, crash reports, backups, firmware update/restore and recovery/DFU
 
 ## Install
 
+Install with [uv](https://docs.astral.sh/uv/), which fetches a suitable Python for you and puts
+`pymobiledevice3` on your PATH:
+
 ```shell
-python3 -m pip install -U pymobiledevice3
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# then, in a new terminal
+uv tool install --managed-python pymobiledevice3
 ```
+
+Upgrade later with `uv tool upgrade pymobiledevice3`, or try it without installing via
+`uvx --managed-python pymobiledevice3 usbmux list`. Already manage Python yourself? `pipx install pymobiledevice3`
+works too, and for scripting against the [Python API](https://doronz88.github.io/pymobiledevice3/guides/python-api/)
+`pip install pymobiledevice3` inside your project's virtualenv.
 
 PyPI is the only official distribution channel. Third-party packages (for example the AUR's
 `python-pymobiledevice3`) are not maintained by this project and may be outdated.
 
-Then verify connectivity:
+On Windows and Linux, first install the
+[platform prerequisites](https://doronz88.github.io/pymobiledevice3/installation/#platform-notes)
+(iTunes or `usbmuxd`). Then connect the device by USB, unlock it, and verify connectivity:
 
 ```shell
-pymobiledevice3 usbmux list
-pymobiledevice3 syslog live
-pymobiledevice3 apps list
+pymobiledevice3 usbmux list   # lists connected devices
+pymobiledevice3 apps list     # first device command: tap "Trust" on the device if asked
+pymobiledevice3 syslog live   # streams the device log; Ctrl+C to stop
 ```
 
 ## Documentation

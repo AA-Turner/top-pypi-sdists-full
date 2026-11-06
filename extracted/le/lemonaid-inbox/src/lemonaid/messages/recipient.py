@@ -1,9 +1,10 @@
 """Whether a message's recipient will read it, judged at send time from what is running now.
 
-A Codex lemon reads queued messages while its inbox waiter holds the lock, or
-from its active turn; a Claude lemon reads while its inbox waiter holds the
+A Codex lemon reads queued messages while its mailbox waiter holds the lock, or
+from its active turn; a Claude lemon reads while its mailbox waiter holds the
 lock, or when its turn ends and its Stop hook makes it arm one. Neither reads
-anything once its harness has exited.
+anything once its harness has exited, and a Claude lemon reads nothing while
+Claude Code has parked its conversation in a background job.
 """
 
 import subprocess
@@ -13,7 +14,9 @@ from collections import abc
 from pathlib import Path
 
 from .. import handlers
+from ..claude import session_socket
 from ..inbox import db, turns
+from ..inbox.channel import channel_id
 from ..lemon_watchers import owners
 from . import waiter
 
@@ -25,8 +28,9 @@ ASKING = "asking"
 DEAF = "deaf"
 DEAD = "dead"
 MOVED = "moved"  # its harness runs, but not on the terminal its row records
+PARKED = "parked"  # Claude Code moved its conversation to a background job
 
-UNREAD = frozenset({ASKING, DEAF, DEAD})
+UNREAD = frozenset({ASKING, DEAF, DEAD, PARKED})
 
 _HARNESSES = ("claude", "codex")
 
@@ -117,28 +121,47 @@ def harness_alive(
     return any(is_harness(command) for command in running)
 
 
+def parked_jobs() -> dict[str, str]:
+    """The background job of each parked Claude lemon, by channel."""
+    return {
+        channel_id("claude", entry.session_id): entry.parked_job
+        for entry in session_socket.live()
+        if entry.parked_job and entry.session_id
+    }
+
+
 def classify(
-    channel: str, row: db.Notification | None, alive: bool | None, armed: bool, now: float
+    channel: str,
+    row: db.Notification | None,
+    alive: bool | None,
+    armed: bool,
+    now: float,
+    parked: str = "",
 ) -> State:
     """The recipient's state, from facts already gathered.
 
     *alive* is None when the terminal can't be checked; *armed* is whether a
-    waiter holds the recipient's inbox lock.
+    waiter holds the recipient's mailbox lock; *parked* is the background job
+    holding its conversation (see `parked_jobs`). A parked lemon's scout may
+    still hold the lock for a moment, so *parked* outranks *armed*.
     """
     if not channel:
-        return State(NOT_STARTED, "it reads its inbox when it starts")
+        return State(NOT_STARTED, "it reads its mailbox when it starts")
 
     if not channel.startswith(("claude:", "codex:")):
-        return State(UNKNOWN, "lemonaid can't tell whether this harness reads its inbox")
+        return State(UNKNOWN, "lemonaid can't tell whether this harness reads its mailbox")
 
     if row is None or alive is False:
         return State(DEAD, "its harness is not running")
+
+    if parked:
+        return State(PARKED, session_socket.parked_reason(parked))
 
     if turns.mid_turn(row, now):
         detail = (
             "the delivery service queues messages into its thread"
             if channel.startswith("codex:")
-            else "it reads its inbox when this turn ends"
+            else "it reads its mailbox when this turn ends"
         )
         return State(MID_TURN, detail)
 
@@ -146,12 +169,12 @@ def classify(
         return State(ASKING, "it stopped mid-turn to ask its user something")
 
     if armed:
-        return State(LISTENING, "its inbox waiter is armed")
+        return State(LISTENING, "its mailbox waiter is armed")
 
     detail = (
-        "it is idle with no inbox waiter to start a turn from queued messages"
+        "it is idle with no mailbox waiter to start a turn from queued messages"
         if channel.startswith("codex:")
-        else "it is idle with no inbox waiter"
+        else "it is idle with no mailbox waiter"
     )
     return State(DEAF, detail)
 
@@ -182,7 +205,7 @@ def confirmed(row: db.Notification, state: State) -> State:
     return state
 
 
-def probe(channel: str, row: db.Notification | None, inbox: Path) -> State:
+def probe(channel: str, row: db.Notification | None, mailbox: Path) -> State:
     if not channel:
         return classify(channel, row, None, False, time.time())
 
@@ -190,8 +213,9 @@ def probe(channel: str, row: db.Notification | None, inbox: Path) -> State:
         channel,
         row,
         harness_alive(row) if row is not None else False,
-        waiter.is_armed(inbox),
+        waiter.is_armed(mailbox),
         time.time(),
+        parked_jobs().get(channel, "") if channel.startswith("claude:") else "",
     )
 
 

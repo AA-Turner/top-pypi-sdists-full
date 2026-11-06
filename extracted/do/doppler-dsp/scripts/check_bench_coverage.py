@@ -374,9 +374,18 @@ def jm_components() -> set[str]:
     (just-makeit#1023), so this is not the set it runs; it is the set whose
     targets jm writes, and rule 2 holds the rest to having one by hand.
     """
-    from just_makeit import _config as jm_config
+    # jm's own definition of "which top-level keys are components"
+    # (just-makeit#2452). The module `objects` lists are not it in general:
+    # a standalone object is in none.
+    from just_makeit import components, load_manifest
 
-    return set(jm_config.components(jm_config.load(ROOT)))
+    comps = set(components(load_manifest(ROOT)))
+    # An empty set would make rule 1 pass without checking anything.
+    if not comps:
+        raise SystemExit(
+            "check_bench_coverage: the manifest names no components"
+        )
+    return comps
 
 
 def _attribute(path: Path, prefix: str, names: set[str]) -> str | None:

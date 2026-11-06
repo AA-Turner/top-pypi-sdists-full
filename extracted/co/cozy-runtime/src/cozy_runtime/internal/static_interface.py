@@ -25,6 +25,7 @@ import csv
 import email.parser
 import enum
 import hashlib
+import importlib.util
 import json
 import operator
 import os
@@ -66,7 +67,6 @@ from cozy_runtime.author._model_defaults import (
     model_phases,
     model_prepared_use,
 )
-from cozy_runtime.author._project import adapter_result
 from cozy_runtime.author._recipes import CALIBRATED_ENTRYPOINT, canonical, fingerprint, outputs
 from cozy_runtime.author._recipes import ENTRYPOINT as RECIPES_ENTRYPOINT
 from cozy_runtime.author._services import SERVICES
@@ -298,42 +298,11 @@ _ENUM_BASES: dict[str, type[enum.Enum]] = {
 }
 #: The shot and upscale contract (xs-139): types, and bases a package's struct extends.
 _VIDEO_STRUCTS = (
-    "Beat",
-    "ShotReference",
-    "CharacterReference",
-    "PropReference",
-    "EnvironmentReference",
-    "VideoReference",
-    "AudioReference",
     "Plate",
     "ContinueFrom",
-    "ShotRequest",
     "ShotResult",
-    "UpscaleRequest",
     "UpscaleResult",
     "Invocation",
-    "Invocations",
-    "Operation",
-    "OperationFile",
-    "Read",
-    "Write",
-    "Keep",
-    "BeatWrite",
-    "ShotBeat",
-    "ShotPlate",
-    "ShotFields",
-    "ShotOperation",
-    "PictureFields",
-    "PictureOperation",
-    "ProjectBeat",
-    "ProjectContinue",
-    "ProjectEntity",
-    "ProjectPicture",
-    "ProjectReference",
-    "ProjectSetup",
-    "ProjectShot",
-    "ProjectUpscale",
-    "ProjectWorldState",
 )
 #: Author-surface classes that translate to themselves in a TYPE position.
 _AUTHOR_TYPES = (
@@ -353,13 +322,17 @@ _AUTHOR_TYPES = (
     "EncodingRule",
     "ImageRequest",
     "ImageResult",
+    "PictureRequest",
     "Reference",
     "Picture",
+    "PlacedPicture",
     "Box",
     "Region",
     "AspectRatio",
     "Seed",
-    "ShotReferences",
+    "Steps",
+    "Guidance",
+    "NegativePrompt",
     "Follow",
     "Preset",
     "Latents",
@@ -368,7 +341,15 @@ _AUTHOR_TYPES = (
 )
 #: Author-surface structs a package's struct may extend: the image interface (cr-219) and the
 #: named references (xs-135, xs-139).
-_AUTHOR_STRUCTS = ("ImageRequest", "ImageResult", "Reference", "Picture", *_VIDEO_STRUCTS)
+_AUTHOR_STRUCTS = (
+    "ImageRequest",
+    "PictureRequest",
+    "ImageResult",
+    "Reference",
+    "Picture",
+    "PlacedPicture",
+    *_VIDEO_STRUCTS,
+)
 #: Author-surface callables a folded constant may reach: each validates its own arguments.
 #: `data_values` reads committed JSON through the same function as the imported app.
 _AUTHOR_VALUES = (
@@ -381,6 +362,7 @@ _AUTHOR_VALUES = (
     "Bound",
     "Shape",
     "Memoize",
+    "Node",
     "data_values",
     "QuantizationPlan",
     "SelectionPlan",
@@ -435,9 +417,8 @@ _CHILD_TASK_KEYWORDS = frozenset(
     }
 )
 _APP_KEYWORDS = {
-    "entrypoint": _CHILD_TASK_KEYWORDS | {"hidden"},
+    "entrypoint": _CHILD_TASK_KEYWORDS | {"hidden", "node"},
     "child_task": _CHILD_TASK_KEYWORDS,
-    "project_adapter": frozenset({"reserved"}),
 }
 _INVOCABLE_KEYWORDS = frozenset(
     {"memoize", "defaults", "components", "memo_version", "memo_dependencies"}
@@ -504,12 +485,18 @@ class Reader:
         raise StaticRefusal(detail, code="static_module")
 
     def _load(self, name: str, path: Path, is_package: bool, trusted: bool) -> Module:
-        source = path.read_text()
         try:
+            # Decoded as Python decodes a source file: UTF-8 unless it declares its encoding.
+            source = importlib.util.decode_source(path.read_bytes())
             tree = ast.parse(source, filename=str(path))
         except SyntaxError as exc:
             raise StaticRefusal(
                 f"{self.spell(path)}:{exc.lineno}: {exc.msg}", code="static_module"
+            ) from exc
+        except UnicodeDecodeError as exc:
+            raise StaticRefusal(
+                f"{self.spell(path)}: byte {exc.start} is not {exc.encoding}: save it as UTF-8",
+                code="static_module",
             ) from exc
         module = Module(name, path, source, tree, is_package, trusted)
         self.modules[name] = module
@@ -1337,8 +1324,8 @@ class Reader:
             construct = construct[:CONSTRUCT_CHARS] + "…"
         line = getattr(node, "lineno", 0)
         raise StaticRefusal(
-            f"{self.spell(module.path)}:{line}: `{construct}` — {why}; the static interface "
-            "reads a closed vocabulary and never guesses (cr-114)",
+            f"{self.spell(module.path)}:{line}: `{construct}` — {why}; cozy reads a package's "
+            "interface from its source, without running it",
             code=code,
         )
 
@@ -1516,8 +1503,8 @@ class Registration:
     #: Local execution advice, not a client callable/schema field. Source identity covers it.
     phases: tuple[tuple[str, ...], ...] = ()
     model_prepared_use: Mapping[str, str] = field(default_factory=dict)
-    #: A project adapter's `reserved=`.
-    reserved: tuple[str, ...] = ()
+    #: `node=`.
+    node: author.Node | None = None
 
     def declaration(self, **found: Any) -> Declaration:
         """Its record, with what its signature declares (`found`)."""
@@ -1532,7 +1519,7 @@ class Registration:
             memoize=self.memoize,
             child_task=self.child_task,
             accelerator=self.accelerator,
-            reserved=self.reserved,
+            node=self.node,
             model_defaults=self.model_defaults,
             model_components=self.model_components,
             model_on_demand=self.model_on_demand,
@@ -1686,6 +1673,15 @@ def _build(
 ) -> dict[str, Json]:
     module_name, _, attribute = application.partition(":")
     entry = reader.application_module(module_name)
+    if attribute not in entry.bindings:
+        raise StaticRefusal(
+            missing_app(
+                reader.spell(entry.path),
+                attribute,
+                [name for name, stmt in entry.bindings.items() if _assigns_app(stmt)],
+            ),
+            code="missing_application",
+        )
     app = reader.lookup(entry, attribute, entry.tree)
     if not (isinstance(app, Assigned) and _is_app_call(reader, app)):
         raise StaticRefusal(
@@ -1707,7 +1703,22 @@ def _build(
                 f"duplicate registration {registration.name!r}",
                 "static_unsupported",
             )
-        row = _callable(reader, registration)
+        try:
+            row = _callable(reader, registration)
+        except StaticRefusal:
+            raise
+        except author.AuthorError as exc:
+            # The author's declaration, refused by describe's own rule: theirs, at the function.
+            reader.refuse(registration.module, registration.fn, exc.message, exc.code)
+        except Exception as exc:
+            # Not the author's mistake to decode: name what was being read, in their terms.
+            reader.refuse(
+                registration.module,
+                registration.fn,
+                f"cozy-runtime could not read this function's declaration, which is a bug in "
+                f"cozy-runtime ({type(exc).__name__}: {exc})",
+                "static_unsupported",
+            )
         if installed and (registration.memoize or registration.weights):
             identity = _operation_identity(reader, registration)
             if identity is not None:
@@ -2010,6 +2021,25 @@ def _installed_source(reader: Reader, parts: Sequence[str]) -> Path | None:
     return None
 
 
+def missing_app(where: str, attribute: str, others: Sequence[str]) -> str:
+    """What to do about a module with no `attribute = App()`."""
+    if others:
+        return f"{where} has `{others[0]} = App()`: name it `{attribute}`, which is where cozy looks"
+    return (
+        f"{where} has no `{attribute} = App()`: add `from cozy_runtime.author import App` and "
+        f"`{attribute} = App()`, and decorate your function with `@{attribute}.entrypoint`"
+    )
+
+
+def _assigns_app(stmt: ast.stmt) -> bool:
+    """Whether a module-level statement reads as `name = App()`, for a refusal to point at."""
+    call = stmt.value if isinstance(stmt, ast.Assign) else None
+    if not isinstance(call, ast.Call):
+        return False
+    name = call.func.attr if isinstance(call.func, ast.Attribute) else getattr(call.func, "id", "")
+    return name == "App"
+
+
 def _is_app_call(reader: Reader, app: Assigned) -> bool:
     value = app.value
     if not isinstance(value, ast.Call) or value.args or value.keywords:
@@ -2073,53 +2103,6 @@ def _registrations(reader: Reader, modules: Sequence[Module], app: Assigned) -> 
                 if method is None:
                     continue
                 keywords = decorator.keywords if isinstance(decorator, ast.Call) else []
-                if method == "project_adapter":
-                    names = decorator.args if isinstance(decorator, ast.Call) else []
-                    if not names or not all(
-                        isinstance(n, ast.Constant) and isinstance(n.value, str) for n in names
-                    ):
-                        reader.refuse(
-                            module,
-                            decorator,
-                            "a project adapter names its kinds",
-                            "static_unsupported",
-                        )
-                    reserved: tuple[str, ...] = ()
-                    for keyword in keywords:
-                        tags = keyword.value
-                        if (
-                            keyword.arg not in _APP_KEYWORDS[method]
-                            or not isinstance(tags, (ast.List, ast.Tuple))
-                            or not all(
-                                isinstance(tag, ast.Constant) and isinstance(tag.value, str)
-                                for tag in tags.elts
-                            )
-                        ):
-                            reader.refuse(
-                                module,
-                                keyword,
-                                "a project adapter takes only reserved=[...], its tags as written",
-                                "static_unsupported",
-                            )
-                        reserved = tuple(tag.value for tag in tags.elts)
-                    # `App.project_adapter`: an entrypoint by another name, per kind.
-                    for adapted in names:
-                        registration = _registration(
-                            reader,
-                            module,
-                            stmt,
-                            "entrypoint",
-                            [
-                                ast.keyword(
-                                    "name", ast.Constant(f"project-adapter-{adapted.value}")
-                                ),
-                                ast.keyword("accelerator", ast.Constant(False)),
-                            ],
-                            decorator=decorator,
-                        )
-                        if registration is not None:
-                            found.append(replace(registration, reserved=reserved))
-                    continue
                 if isinstance(decorator, ast.Call) and decorator.args:
                     reader.refuse(
                         module, decorator, "positional decorator arguments", "static_unsupported"
@@ -2226,6 +2209,7 @@ def _registration(
     on_demand: tuple[str, ...] = ()
     phases: tuple[tuple[str, ...], ...] = ()
     uses: dict[str, str] = {}
+    node: author.Node | None = None
     for keyword in keywords:
         if keyword.arg not in _APP_KEYWORDS[method]:
             reader.refuse(
@@ -2275,6 +2259,10 @@ def _registration(
             uses = model_prepared_use(value)
         elif keyword.arg == "name":
             name = str(value)
+        elif keyword.arg == "node":
+            if not isinstance(value, author.Node):
+                reader.refuse(module, keyword.value, "node= is a Node(...)")
+            node = value
         elif keyword.arg == "hidden" and value is True:
             hidden = True
         elif keyword.arg == "accelerator":
@@ -2309,6 +2297,7 @@ def _registration(
         emits_media=emits_media,
         phases=phases,
         model_prepared_use=uses,
+        node=node,
     )
 
 
@@ -2415,7 +2404,7 @@ def _callable(reader: Reader, registration: Registration) -> Declaration:
         )
     if fn.returns is None:
         reader.refuse(module, fn, "no return annotation")
-    result = adapter_result(reader.translate(module, fn.returns))
+    result = reader.translate(module, fn.returns)
     if not is_struct(result):
         reader.refuse(
             module, fn.returns, "the return annotation must be a msgspec.Struct result schema"

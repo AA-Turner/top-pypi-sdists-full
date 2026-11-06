@@ -37,6 +37,10 @@ from ..action_state import ActionState
 # Free to import for the same reason: metrics reads CARLA only when a metric
 # is read, so the Metric card's options are the metrics themselves.
 from ..metrics import BUILT_IN_METRICS
+
+# Free to import: `seed` imports nothing but the standard library.  Every
+# seed field is bounded by MAX_SEED, as its constructor's check_seed is.
+from ..seed import MAX_SEED
 from dataclasses import dataclass
 from collections.abc import Iterator
 from typing import Any, Literal, Optional
@@ -1115,6 +1119,35 @@ register_action_spec(
 
 register_action_spec(
     ActionSpec(
+        type_id="emergency",
+        title="Emergency",
+        category="Vehicle / Lights",
+        builder="build_emergency_action",
+        target="..actions:EmergencyAction",
+        actor_kinds=("vehicle",),
+        visual_kind="instant",
+        fields=(
+            FieldSpec(
+                name="active",
+                label="On a call",
+                kind="bool",
+                default=True,
+                help=(
+                    "Checked: the emergency vehicle goes on a call -- siren "
+                    "lights on, through red lights, other traffic making way "
+                    "under SUMO.  Unchecked: it goes off duty again."
+                ),
+            ),
+        ),
+        description=(
+            "Put an emergency vehicle (police car, ambulance, fire engine) on "
+            "a call or off duty; it stays so until set again."
+        ),
+    )
+)
+
+register_action_spec(
+    ActionSpec(
         type_id="communication_loss",
         title="Communication Loss",
         category="Vehicle / HILS",
@@ -1283,6 +1316,7 @@ register_action_spec(
                 label="Seed",
                 kind="int",
                 minimum=0,
+                maximum=MAX_SEED,
                 default=None,
                 required=False,
                 help="Leave empty to follow the run's seed.",
@@ -1559,6 +1593,7 @@ register_action_spec(
                 label="Seed",
                 kind="int",
                 minimum=0,
+                maximum=MAX_SEED,
                 default=0,
                 help="The motion generator's draws.",
             ),
@@ -2482,6 +2517,7 @@ register_action_spec(
                 label="Seed",
                 kind="int",
                 minimum=0,
+                maximum=MAX_SEED,
                 default=None,
                 required=False,
                 help="Leave empty to follow the run's seed.",

@@ -256,7 +256,7 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     `deployment`, when given, adds what keeping it costs in storage (storage(): `weights`, the policy's weights origin,
     and `weights_others`, its other parts' origins, say whether they are copied for it and so billed).
     `idle_s` (its idle timeout: its deployment's idle_timeout, else the platform's capacity.IDLE_S): a scale-to-zero
-    worker's robots done, it runs that long before it stops, billed - once each of the `starts_per_day` times robots
+    worker's robots done, it runs that long before it ends, billed - once each of the `starts_per_day` times robots
     start using it, added to the day - and once a deploy, said apart, its check's machine staying on as its first
     worker, FIRST_SAVE_S with it. Before: the day was the hours in use alone, and every idle tail after them went
     unsaid.
@@ -382,18 +382,17 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
                     f", {in_use} workers ({whom})" if in_use > 1 else "")
                  + f" -> {money(use)}/day")
     if starts:
-        tail = (f"its worker runs {duration(idle_s)} after its robots are done, before it stops (its idle "
+        tail = (f"its worker runs {duration(idle_s)} after its robots are done, before it ends (its idle "
                 "timeout), billed" if beside == 1 else
-                f"its {beside} workers run {duration(idle_s)} after its robots are done, before they stop "
+                f"its {beside} workers run {duration(idle_s)} after its robots are done, before they end "
                 "(the idle timeout), billed")
         echo(f"  plus {money(idle)}/day idle: after each of {starts} start(s) a day {tail}")
 
     on_card = name.lower() != "cpu"
     billed = "billed from its GPU, its start included" if on_card else "billed from when it starts"
 
-    took = ((f"about {duration(start_s)} on a new machine, as this policy's have taken" if start_s else
-             f"{'several minutes' if on_card else 'a minute or more'} on a new machine")
-            + ", less on its stopped machine")
+    took = (f"about {duration(start_s)}, as this policy's have taken" if start_s else
+            "several minutes" if on_card else "a minute or more")
     if uses and start_s:
         who = "its worker is" if beside == 1 else f"each of its {beside} workers is"
         echo(f"  plus {money(boot)}/day starting: on each of {uses} start(s) a day {who} {billed} - {took}")
@@ -402,8 +401,8 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     if hours_per_day is None:
 
         if beside and idle_s:
-            echo(f"  and each time robots stop using it, its worker runs {duration(idle_s)} more before it stops "
-                 "(its idle timeout), billed")
+            echo(f"  and each time its robots disconnect, its worker runs {duration(idle_s)} more before it ends "
+                 "(its idle timeout), billed: a robot connected holds its worker, billed, whether or not it acts")
         if beside:
             echo(f"  and each start is {billed} - {took}")
         if floor:
@@ -419,7 +418,7 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
         stays, minute = (float(idle_s) + FIRST_SAVE_S) / 3600.0 * per_hour, per_hour / 60.0
         out["first_worker_usd"], out["first_worker_usd_per_minute"] = round(stays, 2), round(minute, 4)
         echo(f"  each deploy, apart from these: its check's machine stays on as its first worker, billed - it saves "
-             f"the version's image for its next machines, usually a minute or two, then with no robot acting stops "
+             f"the version's image for its next machines, usually a minute or two, then with no robot connected ends "
              f"after {duration(idle_s)}: ~{money(stays)} with a usual save, ~{money(minute)} a minute")
 
 

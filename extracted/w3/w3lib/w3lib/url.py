@@ -10,15 +10,18 @@ import codecs
 import os
 import posixpath
 import re
+import warnings
 from ipaddress import IPv6Address, ip_address
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast, overload
-from urllib.parse import ParseResult
+from urllib.parse import ParseResult, urljoin
 from urllib.request import pathname2url
 
+from ._infra import _ASCII_WHITESPACE
 from ._url import (
     _PATH_SAFE_CHARS,
     _SAFE_CHARS,
+    _SCHEME_RE,
     _SPECIAL_SCHEMES,
     # reexports
     RFC3986_GEN_DELIMS as RFC3986_GEN_DELIMS,
@@ -26,7 +29,11 @@ from ._url import (
     RFC3986_SUB_DELIMS as RFC3986_SUB_DELIMS,
     RFC3986_UNRESERVED as RFC3986_UNRESERVED,
     RFC3986_USERINFO_SAFE_CHARS as RFC3986_USERINFO_SAFE_CHARS,
+    _check_domain,
+    _domain,
     _idna_bytes,
+    _ipv4_host,
+    _opaque_host,
     _parse_qs,
     _parse_qsl,
     _quote,
@@ -76,7 +83,31 @@ _SPECIAL_QUERY_SAFEST_CHARS = _PATH_SAFEST_CHARS.translate(None, delete=b"'")
 _FRAGMENT_SAFEST_CHARS = _PATH_SAFEST_CHARS
 
 
-def _safe_url_split(
+def _skip_special_authority_slashes(url: str) -> str:
+    """Return *url* with exactly two slashes before the host if its scheme is
+    special and not file."""
+    # Special schemes other than file skip any number of slashes and
+    # backslashes before the host, so "https:example.com", "https:/example.com"
+    # and "https:///example.com" all have the host example.com.
+    # https://url.spec.whatwg.org/#special-authority-ignore-slashes-state
+    colon = url.find(":")
+    if colon < 1 or (
+        url[colon + 1 : colon + 3] == "//"
+        and url[colon + 3 : colon + 4] not in {"/", "\\"}
+    ):
+        return url
+    m = _SCHEME_RE.match(url)
+    if not m or (scheme := m.group(1).lower()) not in _SPECIAL_SCHEMES - {"file"}:
+        return url
+    rest = url[colon + 1 :]
+    authority = rest.lstrip("/\\")
+    # A URL without a host is left as is.
+    if authority[:1] in {"", "?", "#"}:
+        return url
+    return f"{scheme}://{authority}"
+
+
+def _safe_url_split(  # pylint: disable=too-many-statements
     url: str | bytes,
     encoding: str = "utf8",
     path_encoding: str = "utf8",
@@ -88,9 +119,9 @@ def _safe_url_split(
     #     encoded with the supplied encoding (or UTF8 by default)
     #   - if the supplied (or default) encoding chokes,
     #     percent-encode offending bytes
-    parts = _urlsplit(
-        _strip(to_unicode(url, encoding=encoding, errors="percentencode"))
-    )
+    url = _strip(to_unicode(url, encoding=encoding, errors="percentencode"))
+    url = _skip_special_authority_slashes(url)
+    parts = _urlsplit(url)
     tmp_buf = bytearray()  # utf-8 bytes
 
     if parts.username is not None:
@@ -117,13 +148,28 @@ def _safe_url_split(
             tmp_buf.append(91)  # ord("[")
             tmp_buf += parts.hostname.encode("ascii")
             tmp_buf.append(93)  # ord("]")
+        elif parts.scheme not in _SPECIAL_SCHEMES:
+            # The host of a non-special URL is opaque: case-sensitive and
+            # percent-encoded instead of IDNA-encoded. parts.hostname is
+            # lowercased, so take the host from the netloc.
+            host = parts.netloc.rpartition("@")[2].partition(":")[0]
+            if not host and parts.netloc:
+                raise ValueError(f"{url!r} has userinfo or a port but no host")
+            tmp_buf += _opaque_host(host)
         else:
+            # parts.hostname is lowercased with str.lower(), which turns a
+            # final "Σ" into "ς", so take the host from the netloc and let
+            # _domain() lowercase it.
+            host = parts.netloc.rpartition("@")[2]
+            host = _domain(parts.hostname if "[" in host else host.partition(":")[0])
             try:
-                tmp_buf += _idna_bytes(parts.hostname)
+                host = _idna_bytes(host).decode()
             except UnicodeError:
                 # IDNA encoding can fail for too long labels (>63 characters) or
                 # missing labels (e.g. http://.example.com).
-                tmp_buf += parts.hostname.encode()
+                host = parts.hostname
+            _check_domain(host)
+            tmp_buf += _ipv4_host(host).encode()
 
     if parts.port is not None:
         tmp_buf.append(58)  # ord(":")
@@ -138,6 +184,18 @@ def _safe_url_split(
         tmp_buf.clear()
     else:
         path = parts.path
+
+    if path[:1] == "/":
+        path = _remove_dot_segments(path)
+        # A path starting with "//" in a non-special URL without an authority
+        # gets a "/." prefix, so that it does not reparse as an authority.
+        if (
+            path[:2] == "//"
+            and not netloc
+            and parts.scheme not in _SPECIAL_SCHEMES
+            and url[len(parts.scheme) + 1 if parts.scheme else 0 :][:2] != "//"
+        ):
+            path = f"/.{path}"
 
     _quote_into(
         parts.query.encode(encoding),
@@ -156,10 +214,9 @@ def _safe_url_split(
     else:
         fragment = parts.fragment
 
-    # Without a path, the query follows the authority directly, e.g.
-    # “https://example.com?a=b”, and code that builds an HTTP request target
-    # out of the path and the query ends up sending “?a=b” as the target.
-    if not path and query and parts.scheme in _SPECIAL_SCHEMES:
+    # The path of a special URL is never empty, e.g. “https://example.com”
+    # serializes as “https://example.com/”.
+    if not path and parts.scheme in _SPECIAL_SCHEMES:
         path = "/"
 
     return (
@@ -177,17 +234,17 @@ def safe_url_string(
     path_encoding: str = "utf8",
     quote_path: bool = True,
 ) -> str:
-    """Return a URL equivalent to *url* that a wide range of web browsers and
-    web servers consider valid.
+    """Return *url* with its syntax fixed, ready to be sent in a request.
 
-    *url* is parsed according to the rules of the `URL living standard`_,
-    and during serialization additional characters are percent-encoded to make
-    the URL valid by additional URL standards.
+    Use it on URLs found in HTML or given by users before requesting them. To
+    compare or deduplicate URLs, use :func:`canonicalize_url` instead.
+
+    *url* is parsed the way web browsers parse it, following the `URL living
+    standard`_, and during serialization additional characters are
+    percent-encoded, so that the result is valid by *all* of the following URL
+    standards known to be enforced by modern-day web browsers and web servers:
 
     .. _URL living standard: https://url.spec.whatwg.org/
-
-    The returned URL should be valid by *all* of the following URL standards
-    known to be enforced by modern-day web browsers and web servers:
 
     -   `URL living standard`_
 
@@ -201,18 +258,18 @@ def safe_url_string(
     .. _RFC 2732: https://www.ietf.org/rfc/rfc2732.txt
     .. _RFC 3986: https://www.ietf.org/rfc/rfc3986.txt
 
-    If a bytes URL is given, it is first converted to `str` using the given
-    encoding (which defaults to 'utf-8'). If quote_path is True (default),
-    path_encoding ('utf-8' by default) is used to encode URL path component
-    which is then quoted. Otherwise, if quote_path is False, path component
-    is not encoded or quoted. Given encoding is used for query string
-    or form data.
+    Only the syntax is fixed: any scheme (e.g. ``file`` or ``javascript``), any
+    host (e.g. ``localhost``, a private IP address or a domain name that
+    resolves to one) and relative URLs are allowed. If *url* comes from an
+    untrusted source, it is up to you to check those.
 
-    When passing an encoding, you should use the encoding of the
-    original page (the page from which the URL was extracted from).
+    If *url* is :class:`bytes`, it is decoded with *encoding*. *encoding* is
+    also used to percent-encode the query and the fragment, so it should be the
+    encoding of the page where *url* was found. *path_encoding* is used to
+    percent-encode the path, unless *quote_path* is ``False``, in which case
+    the path is left as is.
 
-    Calling this function on an already "safe" URL will return the URL
-    unmodified.
+    Calling this function on an already safe URL returns the URL unmodified.
     """
     return _urlunsplit(*_safe_url_split(url, encoding, path_encoding, quote_path))
 
@@ -232,13 +289,11 @@ _encoded_dot_segments = {
 def safe_download_url(
     url: str | bytes, encoding: str = "utf8", path_encoding: str = "utf8"
 ) -> str:
-    """Make a url for download. This will call safe_url_string
-    and then strip the fragment, if one exists. The path will
-    be normalised.
-
-    If the path is outside the document root, it will be changed
-    to be within the document root.
-    """
+    warnings.warn(
+        "w3lib.url.safe_download_url() is deprecated.",
+        FutureWarning,
+        stacklevel=2,
+    )
     safe_url = safe_url_string(url, encoding, path_encoding)
     scheme, netloc, path, query, _ = _urlsplit(safe_url)
     if path:
@@ -251,13 +306,13 @@ def safe_download_url(
         if path.endswith("/") and not normalized_path.endswith("/"):
             normalized_path = f"{normalized_path}/"
         path = normalized_path
-    else:
-        path = "/"
     return _urlunsplit(scheme, netloc, path, query, "")
 
 
 def is_url(text: str) -> bool:
-    return text.partition("://")[0] in {"file", "http", "https"}
+    prefixes = ("file://", "http://", "https://")
+    # Only lowercase the first 8 characters (len("https://")) when needed.
+    return text.startswith(prefixes) or text[:8].lower().startswith(prefixes)
 
 
 @overload
@@ -571,6 +626,28 @@ _mediatype_parameter_pattern = re.compile(
 )
 del _char, _token, _quoted_string
 
+_base64_pattern = re.compile(rb"[A-Za-z0-9+/]*")
+_ASCII_WHITESPACE_BYTES = _ASCII_WHITESPACE.encode()
+
+
+def _forgiving_base64_decode(data: bytes) -> bytes:
+    """Decode *data* following the forgiving-base64 decode algorithm of the
+    Infra Living Standard, which browsers use for data URIs.
+
+    https://infra.spec.whatwg.org/commit-snapshots/c67ae1fb1d161b23d0f8c9bf9917ea1993f7b19a/#forgiving-base64-decode
+
+    Raise :exc:`ValueError` if *data* is not valid base64.
+    """
+    data = data.translate(None, _ASCII_WHITESPACE_BYTES)
+    if len(data) % 4 == 0:
+        if data.endswith(b"=="):
+            data = data[:-2]
+        elif data.endswith(b"="):
+            data = data[:-1]
+    if len(data) % 4 == 1 or not _base64_pattern.fullmatch(data):
+        raise ValueError("invalid base64")
+    return base64.b64decode(data + b"=" * (-len(data) % 4), validate=True)
+
 
 class ParseDataURIResult(NamedTuple):
     """Named tuple returned by :func:`parse_data_uri`."""
@@ -584,7 +661,13 @@ class ParseDataURIResult(NamedTuple):
 
 
 def parse_data_uri(uri: str | bytes) -> ParseDataURIResult:
-    """Parse a data: URI into :class:`ParseDataURIResult`."""
+    """Parse a data: URI into :class:`ParseDataURIResult`.
+
+    Base64 data is decoded the way browsers do it, i.e. ignoring ASCII
+    whitespace and allowing missing ``=`` padding.
+
+    Raise :exc:`ValueError` for invalid data URIs.
+    """
     if not isinstance(uri, bytes):
         uri = safe_url_string(uri).encode("ascii")
 
@@ -620,11 +703,16 @@ def parse_data_uri(uri: str | bytes) -> ParseDataURIResult:
         media_type_params[attribute.decode()] = value.decode()
         uri = uri[m.end() :]
 
-    is_base64, _, data = uri.partition(b",")
+    is_base64, comma, data = uri.partition(b",")
+    if not comma:
+        raise ValueError("invalid data URI")
     if is_base64:
         if is_base64 != b";base64":
             raise ValueError("invalid data URI")
-        data = base64.b64decode(data)
+        try:
+            data = _forgiving_base64_decode(data)
+        except ValueError:
+            raise ValueError("invalid data URI") from None
 
     return ParseDataURIResult(media_type, media_type_params, data)
 
@@ -639,38 +727,111 @@ __all__ = [
     "is_url",
     "parse_data_uri",
     "path_to_file_uri",
-    "safe_download_url",
     "safe_url_string",
     "url_query_cleaner",
     "url_query_parameter",
 ]
 
 
+_DOT_SEGMENTS = {
+    ".": ".",
+    "%2e": ".",
+    "..": "..",
+    ".%2e": "..",
+    "%2e.": "..",
+    "%2e%2e": "..",
+}
+
+
 def _remove_dot_segments(path: str) -> str:
     """Resolve dot segments in *path*, which starts with "/" (RFC 3986,
-    section 5.2.4)."""
-    # Every segment follows a "/", so a path without "/." has no dot segment.
-    if "/." not in path:
+    section 5.2.4), including their percent-encoded spellings."""
+    # Every segment follows a "/", so a path without "/." or "/%2" has no dot
+    # segment.
+    if "/." not in path and "/%2" not in path:
         return path
     segments = path[1:].split("/")
     output: list[str] = []
     for segment in segments[:-1]:
-        if segment == "..":
+        dots = _DOT_SEGMENTS.get(segment.lower())
+        if dots == "..":
             if output:
                 output.pop()
-        elif segment != ".":
+        elif dots is None:
             output.append(segment)
     # A trailing dot segment leaves the path ending in "/".
     last = segments[-1]
-    if last == "..":
+    dots = _DOT_SEGMENTS.get(last.lower())
+    if dots == "..":
         if output:
             output.pop()
         output.append("")
-    elif last == ".":
+    elif dots == ".":
         output.append("")
     else:
         output.append(last)
     return "/" + "/".join(output)
+
+
+def _urljoin(base: str, url: str) -> str:
+    """Resolve *url* against *base* following the `URL living standard`_.
+
+    .. _URL living standard: https://url.spec.whatwg.org/#concept-basic-url-parser
+
+    If *base* has no scheme, :func:`urllib.parse.urljoin` resolves *url*
+    instead. Raises :exc:`ValueError` if *url* cannot be resolved against
+    *base*, i.e. if *base* has an opaque path (e.g. ``mailto:a``) and *url* is
+    neither absolute nor a fragment.
+    """
+    base, url = _strip(base), _strip(url)
+    base_parts = _urlsplit(base)
+    scheme = base_parts.scheme
+    if not scheme:
+        return urljoin(base, url)
+    special = scheme in _SPECIAL_SCHEMES
+    if m := _SCHEME_RE.match(url):
+        # Only a special scheme matching that of the base keeps the URL
+        # relative, e.g. "http:foo".
+        if not special or m.group(1).lower() != scheme:
+            return url
+        url = url[m.end() :]
+
+    url, hash_mark, fragment = url.partition("#")
+    path, question_mark, query = url.partition("?")
+    base_has_authority = special or base[len(scheme) + 1 : len(scheme) + 3] == "//"
+    if (
+        not base_has_authority
+        and base_parts.path[:1] != "/"
+        and (path or question_mark or not hash_mark)
+    ):
+        raise ValueError(f"Only a fragment can be resolved against {base!r}")
+
+    if not path:
+        base = base.partition("#")[0]
+        if question_mark:
+            base = base.partition("?")[0]
+        return f"{base}{question_mark}{query}{hash_mark}{fragment}"
+
+    tail = f"{question_mark}{query}{hash_mark}{fragment}"
+    if special:
+        path = path.replace("\\", "/")
+    if path[:2] == "//":
+        # Special schemes other than file ignore any extra slash before the
+        # host, e.g. "///example.com" is "//example.com".
+        if special and scheme != "file":
+            path = f"//{path.lstrip('/')}"
+        if (authority_end := path.find("/", 2)) != -1:
+            path = path[:authority_end] + _remove_dot_segments(path[authority_end:])
+        return f"{scheme}:{path}{tail}"
+    if path[0] != "/":
+        base_path = base_parts.path
+        path = f"{base_path[: base_path.rfind('/') + 1] or '/'}{path}"
+    path = _remove_dot_segments(path)
+    if base_has_authority:
+        return f"{scheme}://{base_parts.netloc}{path}{tail}"
+    if path[:2] == "//":
+        path = f"/.{path}"
+    return f"{scheme}:{path}{tail}"
 
 
 def canonicalize_url(
@@ -681,13 +842,20 @@ def canonicalize_url(
     *,
     query_separator: str = "&",
 ) -> str:
-    r"""Canonicalize the given url by applying the following procedures:
+    r"""Return a normalized form of *url*, to compare or deduplicate URLs.
 
-    .. versionchanged:: VERSION
+    .. versionchanged:: 2.5.0
         Dot segments (``.`` and ``..``) in the path are now resolved, and
         IPv6 addresses in the host are now normalized.
 
-    - make the URL safe
+    URLs that differ only in ways that servers usually ignore get the same
+    canonical form. The canonical form may point to a different resource than
+    *url*, so to send a request, use :func:`safe_url_string` on *url* instead.
+
+    The following changes are applied:
+
+    - make the URL safe, as :func:`safe_url_string` does
+    - lowercase the host
     - sort query arguments, first by key, then by value
     - normalize all spaces (in query arguments) '+' (plus symbol)
     - normalize percent encodings case (%2f -> %2F)
@@ -695,9 +863,6 @@ def canonicalize_url(
     - remove fragments (unless `keep_fragments` is True)
     - resolve dot segments (``.`` and ``..``) in the path
     - normalize IPv6 addresses in the host
-
-    The url passed can be bytes or unicode, while the url returned is
-    always a native str (bytes in Python 2, unicode in Python 3).
 
     >>> import w3lib.url
     >>>
@@ -776,13 +941,6 @@ def canonicalize_url(
     # 2. decode percent-encoded sequences in path as UTF-8 (or keep raw bytes)
     #    and percent-encode path again (this normalizes to upper-case %XX)
     path = _quote(_unquotepath(path), _PATH_SAFE_CHARS).decode() if path else "/"
-
-    # 3. resolve dot segments (RFC 3986, section 5.2.4), but only for a
-    #    hierarchical path. A path that does not start with "/" is an opaque
-    #    path (URL Standard), whose dot segments browsers leave untouched
-    #    (e.g. "mailto:a/../b" stays as is, while "foo:/a/../b" resolves).
-    if path.startswith("/"):
-        path = _remove_dot_segments(path)
 
     fragment = "" if not keep_fragments else fragment
 

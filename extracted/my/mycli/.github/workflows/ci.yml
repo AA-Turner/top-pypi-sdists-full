@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "latest"
 
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "latest"
 
@@ -116,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: 'latest'
 
@@ -130,7 +130,7 @@ jobs:
         run: uv sync --extra dev,llm,dataframe -p ${{ matrix.python-version }}
 
       - name: Set up MySQL
-        uses: shogo82148/actions-setup-mysql@64d04a653a0c02af310009d36ce74bec5f4dce4f # v1.55.0
+        uses: shogo82148/actions-setup-mysql@fb8ae72ad9f2f8244e594d6d48a981e975aee78e # v1.56.1
         with:
           mysql-version: '9.7'
           root-password: root
@@ -150,7 +150,7 @@ jobs:
     steps:
       - uses: vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
-          distribution: Ubuntu-24.04
+          distribution: Ubuntu-26.04
           use-cache: 'true'
           update: 'false'
           additional-packages: |
@@ -168,7 +168,7 @@ jobs:
 
       - uses: ubuntu/wsl/.github/actions/wsl-checkout@e7fb23c6481945b25b974b6cf7a5c7f4550b6cf8
         with:
-          distro: Ubuntu-24.04
+          distro: Ubuntu-26.04
           working-dir: /root/mycli
 
       - name: Install uv
@@ -220,7 +220,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "latest"
 

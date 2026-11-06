@@ -4708,6 +4708,8 @@ class Client(OpenApiClient):
             body['docNoteHandoverUserId'] = request.doc_note_handover_user_id
         if not UtilClient.is_unset(request.last_work_date):
             body['lastWorkDate'] = request.last_work_date
+        if not UtilClient.is_unset(request.minutes_handover_user_id):
+            body['minutesHandoverUserId'] = request.minutes_handover_user_id
         if not UtilClient.is_unset(request.opt_user_id):
             body['optUserId'] = request.opt_user_id
         if not UtilClient.is_unset(request.permission_handover_user_id):
@@ -4773,6 +4775,8 @@ class Client(OpenApiClient):
             body['docNoteHandoverUserId'] = request.doc_note_handover_user_id
         if not UtilClient.is_unset(request.last_work_date):
             body['lastWorkDate'] = request.last_work_date
+        if not UtilClient.is_unset(request.minutes_handover_user_id):
+            body['minutesHandoverUserId'] = request.minutes_handover_user_id
         if not UtilClient.is_unset(request.opt_user_id):
             body['optUserId'] = request.opt_user_id
         if not UtilClient.is_unset(request.permission_handover_user_id):

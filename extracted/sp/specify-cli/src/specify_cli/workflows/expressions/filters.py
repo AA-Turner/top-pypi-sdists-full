@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
 
 
 # -- Custom filters -------------------------------------------------------
@@ -101,6 +101,11 @@ def _filter_contains(value: Any, substring: Any) -> bool:
     return False
 
 
+def _reject_json_constant(value: str) -> NoReturn:
+    """Reject the non-JSON numeric constants accepted by Python's decoder."""
+    raise ValueError(f"from_json: invalid JSON constant: {value}")
+
+
 def _filter_from_json(value: Any) -> Any:
     """Parse a JSON string into a typed value (list/dict/scalar).
 
@@ -113,7 +118,7 @@ def _filter_from_json(value: Any) -> Any:
             f"from_json: expected a JSON string, got {type(value).__name__}"
         )
     try:
-        return json.loads(value)
+        return json.loads(value, parse_constant=_reject_json_constant)
     except json.JSONDecodeError as exc:
         raise ValueError(f"from_json: invalid JSON: {exc}") from exc
 
@@ -207,7 +212,8 @@ def _filter_to_json(value: Any) -> str:
     quoting or escaping, so JSON quotes and metacharacters are still interpreted
     by whatever runs the ``run`` field. Interpolate unconstrained JSON into a
     shell step only when you have constrained what it can contain; see the
-    "Interpolation and shell safety" section of ``docs/reference/workflows.md``.
+    "Interpolation and shell safety" section of
+    https://github.github.io/spec-kit/workflows/expressions.html#interpolation-and-shell-safety.
 
     Raises ``ValueError`` when *value* is not JSON-serializable, chained from
     the underlying error so the offending type stays visible. ``allow_nan=False``

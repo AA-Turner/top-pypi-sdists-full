@@ -409,6 +409,22 @@ pub struct Descr {
     other: Lines,
 }
 
+/// A set of the parts of the universe a descriptor holds a slot for: one bit
+/// per kind, at its place in [`Kind::ALL`], and [`KINDLESS_PART`] for the
+/// values of no kind.
+pub(crate) type Parts = u16;
+
+/// The values of no kind, the part past every kind's.
+pub(crate) const KINDLESS_PART: Parts = 1 << Kind::ALL.len();
+
+/// Every part of the universe.
+pub(crate) const EVERY_PART: Parts = (KINDLESS_PART << 1) - 1;
+
+/// The part a kind's values are.
+pub(crate) const fn part(kind: Kind) -> Parts {
+    1 << kind.position()
+}
+
 /// The whole of the kindless slot, which its complements are taken against.
 ///
 /// A value of no listed kind has no structure this representation distinguishes,
@@ -543,6 +559,22 @@ impl Descr {
     #[must_use]
     pub(crate) fn words_at_least(least: usize, kind: Kind) -> Option<Descr> {
         let language = RegularSet::at_least(least, alphabet_of(kind)?)?;
+        let mut descr = Descr::nothing();
+        descr.put(kind, Component::Words(language));
+        Some(descr)
+    }
+
+    /// The words of a word kind ordered against `bound`, its bytes as the
+    /// kind spells a value: past it where `above`, short of it otherwise, and
+    /// `bound` itself where `inclusive` ([`RegularSet::ordered`]).
+    #[must_use]
+    pub(crate) fn words_ordered(
+        bound: &[u8],
+        kind: Kind,
+        above: bool,
+        inclusive: bool,
+    ) -> Option<Descr> {
+        let language = RegularSet::ordered(bound, above, inclusive, alphabet_of(kind)?)?;
         let mut descr = Descr::nothing();
         descr.put(kind, Component::Words(language));
         Some(descr)
@@ -969,6 +1001,20 @@ impl Descr {
     /// rather than meeting the base with each kind in turn.
     pub(crate) fn reaches(&self, kind: Kind) -> bool {
         self.component(kind).emptiness(Whole::Kind(kind)) != Verdict::Empty
+    }
+
+    /// Whether a part of the universe outside `reached` is proved to hold a
+    /// value of this set: a kind whose place in [`Kind::ALL`] is no bit of it,
+    /// or the values of no kind where [`KINDLESS_PART`] is none.
+    ///
+    /// The parts are read one at a time, each a question of its own
+    /// [FCB08, (4)], so a value found in one is a value of the set whatever
+    /// the others are read as.
+    pub(crate) fn holds_a_value_outside(&self, reached: Parts) -> bool {
+        self.kinds.iter().zip(Kind::ALL).any(|(lines, kind)| {
+            reached & part(kind) == 0 && lines.emptiness(Whole::Kind(kind)) == Verdict::Inhabited
+        }) || (reached & KINDLESS_PART == 0
+            && self.other.emptiness(Whole::Kindless) == Verdict::Inhabited)
     }
 
     /// What is known about this set admitting a value.

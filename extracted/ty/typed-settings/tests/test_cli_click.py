@@ -367,7 +367,7 @@ class TestSettingsPassing:
         # def cli(obj: dict, settings: Settings, /) -> None:
         def cli(obj: dict, settings: Settings) -> None:
             assert settings == Settings(3)
-            assert obj["settings"] is settings
+            assert obj is None
 
         result = invoke(cli, "--o=3")
         assert result.exit_code == 0, result.output
@@ -389,7 +389,7 @@ class TestSettingsPassing:
         # def cli(settings: Settings, obj: dict, /) -> None:
         def cli(settings: Settings, obj: dict) -> None:
             assert settings == Settings(3)
-            assert obj["settings"] is settings
+            assert obj is None
 
         result = invoke(cli, "--o=3")
         assert result.exit_code == 0, result.output
@@ -547,14 +547,14 @@ class TestPassSettings:
 
         @cli.command()
         @pass_settings
-        def cmd(settings: TestPassSettings.Settings) -> None:
-            assert settings is None
+        def cmd(settings: TestPassSettings.Settings) -> None: ...
 
-        invoke(cli, "cmd")
+        with pytest.raises(RuntimeError, match="There are no settings defined"):
+            invoke(cli, "cmd")
 
     def test_change_argname_no_settings(self, invoke: Invoke) -> None:
         """
-        Pass ``None`` if no settings are defined.
+        An error is raised if no settings are defined.
         """
 
         @click.group()
@@ -563,10 +563,12 @@ class TestPassSettings:
 
         @cli.command()
         @pass_settings(argname="le_settings")
-        def cmd(le_settings: TestPassSettings.Settings) -> None:
-            assert le_settings is None
+        def cmd(le_settings: TestPassSettings.Settings) -> None: ...
 
-        invoke(cli, "cmd")
+        with pytest.raises(
+            RuntimeError, match="There are no settings for 'le_settings'"
+        ):
+            invoke(cli, "cmd")
 
     def test_pass_in_parent_context(self, invoke: Invoke) -> None:
         """
@@ -1096,42 +1098,29 @@ def test_invalid_literal(invoke: Invoke) -> None:
         def cli(settings: Settings) -> None: ...
 
 
-@pytest.mark.parametrize(
-    "opts",
-    [
-        pytest.param([], id="trigger_in_new_func"),
-        pytest.param(["--o1", "1"], id="trigger_in_make_callback"),
-    ],
-)
-def test_ctx_is_not_dict(opts: list[str], invoke: Invoke) -> None:
+def test_name_conflicts_w_multiple_settings(invoke: Invoke) -> None:
     """
-    When Typed Settings is used, the click context object must be a dict.  If not,
-    an error is raised explaining the situation.
-    """
+    It is not a problem when a CLI uses two different settings classes next to each
+    other (no nesting) that share attribute names but explicitly define non-conflicting
+    param-decls for click.
 
-    class AppContext:
-        """
-        Custom application context object.
-        """
+    See: https://gitlab.com/sscherfke/typed-settings/-/work_items/75
+    """
 
     @settings
-    class Settings:
-        o1: int = 0
+    class A:
+        opt: bool = False
 
-    @click.group()
-    @click.pass_context
-    def cli(ctx: click.Context):
-        # Store custom object in parent context.  This is forbidden!
-        ctx.ensure_object(AppContext)
+    @settings
+    class B:
+        opt: int = option(default=0, click={"param_decls": "--opt-num"})
 
-    @cli.command()
-    @click_options(Settings, [])
-    def sub(settings: Settings):
-        """
-        Sub command using Typed Settings.
-        """
+    @click.command()
+    @click_options(A, loaders=[], argname="a")
+    @click_options(B, loaders=[], argname="b")
+    def cli(a: A, b: B) -> None:
+        assert a.opt is False
+        assert b.opt == 2
 
-    with pytest.raises(
-        RuntimeError, match=r"'ctx.obj' must be a dict .* got: AppContext"
-    ):
-        invoke(cli, "sub", *opts)
+    result = invoke(cli, "--opt-num=2")
+    assert result.exit_code == 0, result.output

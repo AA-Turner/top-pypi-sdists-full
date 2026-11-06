@@ -3422,7 +3422,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def object_store(self) -> QuantConnect.Storage.ObjectStore:
+    def object_store(self) -> QuantConnect.Storage.PythonObjectStore:
         """Gets the object store, used for persistence"""
         ...
 

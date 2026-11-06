@@ -609,6 +609,36 @@ class CustomTypesJsonPatch(jsonpatch.JsonPatch):
 
 class MakePatchTestCase(unittest.TestCase):
 
+    def test_generated_values_do_not_alias_target(self):
+        documents = [
+            ({}, {'a': {'nested': [1]}}),
+            ({'a': 0}, {'a': {'nested': [1]}}),
+            ([], [{'nested': [1]}]),
+            ([0], [{'nested': [1]}]),
+            (None, {'a': {'nested': [1]}}),
+        ]
+        for src, dst in documents:
+            for optimization in (True, False):
+                with self.subTest(src=src, optimization=optimization):
+                    target = copy.deepcopy(dst)
+                    patch = jsonpatch.JsonPatch.from_diff(
+                        src, target, optimization=optimization)
+                    serialized = patch.to_string()
+                    value = target[0] if isinstance(target, list) else target['a']
+                    value['nested'].append(2)
+
+                    self.assertEqual(patch.to_string(), serialized)
+                    self.assertEqual(patch.apply(src), dst)
+
+    def test_editing_generated_values_does_not_change_target(self):
+        for src in ({}, {'a': 0}):
+            with self.subTest(src=src):
+                dst = {'a': {'nested': [1]}}
+                patch = jsonpatch.make_patch(src, dst)
+                patch.patch[0]['value']['nested'].append(2)
+                self.assertEqual(dst, {'a': {'nested': [1]}})
+                self.assertEqual(patch.apply(src), {'a': {'nested': [1, 2]}})
+
     def test_apply_patch_to_copy(self):
         src = {'foo': 'bar', 'boo': 'qux'}
         dst = {'baz': 'qux', 'foo': 'boo'}
@@ -874,8 +904,13 @@ class MakePatchTestCase(unittest.TestCase):
         removed and moved"""
         value = []
         value.append(value)
-        self.assertEqual(jsonpatch.make_patch({}, {'a': value}).patch,
-                         [{'op': 'add', 'path': '/a', 'value': value}])
+        patch = jsonpatch.make_patch({}, {'a': value}).patch
+        self.assertEqual(len(patch), 1)
+        self.assertEqual(patch[0]['op'], 'add')
+        self.assertEqual(patch[0]['path'], '/a')
+        copied = patch[0]['value']
+        self.assertIsNot(copied, value)
+        self.assertIs(copied[0], copied)
         self.assertEqual(jsonpatch.make_patch({'a': [value]}, {'a': []}).patch,
                          [{'op': 'remove', 'path': '/a/0'}])
         self.assertEqual(jsonpatch.make_patch({'a': value}, {'b': value}).patch,
@@ -2710,6 +2745,63 @@ class CommandLineTests(ScriptRunner, unittest.TestCase):
         dst = self.write('b.json', {'a': [1, 2]})
         res = self.run_script('jsondiff', src, dst)
         self.assertEqual((res.returncode, res.stdout), (0, ''), res.stderr)
+
+    def test_jsondiff_closes_inputs(self):
+        for target in (1, 2):
+            with self.subTest(target=target):
+                src = self.write('a.json', {'a': 1})
+                dst = self.write('b.json', {'a': target})
+                parser = jsonpatch_cli.jsondiff_parser
+                args = parser.parse_args([src, dst])
+                self.addCleanup(args.FILE1.close)
+                self.addCleanup(args.FILE2.close)
+                output = io.StringIO()
+                with mock.patch.object(parser, 'parse_args', return_value=args), \
+                        contextlib.redirect_stdout(output):
+                    if target == 1:
+                        jsonpatch_cli.diff_files()
+                        self.assertEqual(output.getvalue(), '')
+                    else:
+                        with self.assertRaises(SystemExit) as caught:
+                            jsonpatch_cli.diff_files()
+                        self.assertEqual(caught.exception.code, 1)
+                        self.assertEqual(jsonpatch.apply_patch({'a': 1}, json.loads(output.getvalue())),
+                                         {'a': target})
+                self.assertTrue(args.FILE1.closed)
+                self.assertTrue(args.FILE2.closed)
+
+    def test_jsondiff_closes_both_inputs_after_parse_error(self):
+        for invalid in (0, 1):
+            with self.subTest(invalid=invalid):
+                paths = [self.write('a.json', {}), self.write('b.json', {})]
+                with open(paths[invalid], 'w', encoding='utf-8') as f:
+                    f.write('{')
+                parser = jsonpatch_cli.jsondiff_parser
+                args = parser.parse_args(paths)
+                self.addCleanup(args.FILE1.close)
+                self.addCleanup(args.FILE2.close)
+                with mock.patch.object(parser, 'parse_args', return_value=args):
+                    with self.assertRaises(json.JSONDecodeError):
+                        jsonpatch_cli.diff_files()
+                self.assertTrue(args.FILE1.closed)
+                self.assertTrue(args.FILE2.closed)
+
+    def test_jsondiff_keeps_stdin_open(self):
+        for stdin_first in (False, True):
+            with self.subTest(stdin_first=stdin_first):
+                path = self.write('a.json', {'a': 1})
+                stdin = io.StringIO('{"a": 1}')
+                self.addCleanup(stdin.close)
+                parser = jsonpatch_cli.jsondiff_parser
+                with mock.patch.object(sys, 'stdin', stdin):
+                    args = parser.parse_args(['-', path] if stdin_first else [path, '-'])
+                    owned = args.FILE2 if stdin_first else args.FILE1
+                    self.addCleanup(owned.close)
+                    with mock.patch.object(parser, 'parse_args', return_value=args), \
+                            contextlib.redirect_stdout(io.StringIO()):
+                        jsonpatch_cli.diff_files()
+                self.assertFalse(stdin.closed)
+                self.assertTrue(owned.closed)
 
     def test_jsondiff_indent(self):
         src = self.write('a.json', {'a': 1})

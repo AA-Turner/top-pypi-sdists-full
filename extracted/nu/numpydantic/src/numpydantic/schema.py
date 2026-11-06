@@ -3,22 +3,32 @@ Helper functions for use with :class:`~numpydantic.NDArray` - see the note in
 :mod:`~numpydantic.ndarray` for why these are separated.
 """
 
+import dataclasses
 import hashlib
 import json
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Optional, get_args
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Literal,
+    get_args,
+    get_origin,
+)
 
 import numpy as np
-from pydantic import BaseModel
+from annotated_types import Interval
+from pydantic import BaseModel, GetJsonSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from pydantic_core.core_schema import ListSchema, ValidationInfo
+from pydantic_core.core_schema import ListSchema
 
 from numpydantic import dtype as dt
 from numpydantic.interface import Interface
 from numpydantic.maps import np_to_python
-from numpydantic.types import DtypeType, NDArrayType, ShapeType
+from numpydantic.serialization import jsonize_array
+from numpydantic.shape._variadic import _split_variadic
+from numpydantic.types import DtypeType, ShapeType
+from numpydantic.validation.array import get_validate_interface
 from numpydantic.validation.dtype import is_union
-from numpydantic.vendor.nptyping.structure import StructureMeta
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic._internal._schema_generation_shared import (
@@ -51,8 +61,6 @@ def _lol_dtype(
     dtype: DtypeType, _handler: "CallbackGetCoreSchemaHandler"
 ) -> CoreSchema:
     """Get the innermost dtype schema to use in the generated pydantic schema"""
-    if isinstance(dtype, StructureMeta):  # pragma: no cover
-        raise NotImplementedError("Structured dtypes are currently unsupported")
     if isinstance(dtype, tuple):
         # if it's a meta-type that refers to a generic float/int, just make that
         if dtype in (dt.Float, dt.Number):
@@ -126,58 +134,66 @@ def list_of_lists_schema(shape: "Shape", array_type: CoreSchema) -> ListSchema:
         array_type ( :class:`pydantic_core.CoreSchema` ): The pre-rendered pydantic
             core schema to use in the innermost list entry
     """
-    from numpydantic.validation.shape import _is_range
-
-    shape_parts = [part.strip() for part in shape.__args__[0].split(",")]
-    # labels, if present
-    split_parts = [
-        p.split(" ")[1] if len(p.split(" ")) == 2 else None for p in shape_parts
-    ]
 
     # Construct a list of list schema
     # go in reverse order - construct list schemas such that
     # the final schema is the one that checks the first dimension
-    shape_labels = reversed(split_parts)
-    shape_args = reversed(shape.prepared_args)
-    list_schema = None
-    for arg, label in zip(shape_args, shape_labels):
+    shape_args = get_args(shape)
+    fixed, tail = _split_variadic(shape_args)
+
+    # if we have a tail, that's the inner schema
+    if tail is not None:
+        inner_schema = _recursive_shape(array_type, tail)
+    else:
+        inner_schema = array_type
+
+    for arg in reversed(fixed):
         # which handler to use? for the first we use the actual type
         # handler, everywhere else we use the prior list handler
-        inner_schema = array_type if list_schema is None else list_schema
+        inner_schema = _list_schema(inner_schema, arg)
 
-        # make a label annotation, if we have one
-        metadata = {"name": label} if label is not None else None
+    return inner_schema
 
-        # make the current level list schema, accounting for shape
-        if arg == "*":
-            list_schema = core_schema.list_schema(inner_schema, metadata=metadata)
-        elif arg == "...":
-            list_schema = _unbounded_shape(inner_schema, metadata=metadata)
-        else:
-            if _is_range(arg):
-                arg_min, arg_max = arg.split("-")
-                arg_min = None if arg_min == "*" else int(arg_min)
-                arg_max = None if arg_max == "*" else int(arg_max)
 
-            else:
-                try:
-                    arg = int(arg)
-                    arg_min = arg
-                    arg_max = arg
-                except ValueError as e:  # pragma: no cover
+def _list_schema(items: CoreSchema, arg: Any) -> CoreSchema:
+    """
+    The list schema for one dimension, or a union of list schemas
+    for a dimension with several sizes, like ``L[3, 5]`` or ``L[3] | L[5]``
+    """
+    kwargs = {}
+    if get_origin(arg) is Annotated:
+        typ, *annotations = get_args(arg)
+    else:
+        typ, annotations = arg, []
 
-                    raise ValueError(
-                        "Array shapes must be integers, wildcards, ellipses, or "
-                        "ranges. Shape variables (for declaring that one dimension "
-                        "must be the same size as another) are not supported because "
-                        "it is impossible to express dynamic minItems/maxItems in "
-                        "JSON Schema. "
-                        "See: https://github.com/orgs/json-schema-org/discussions/730"
-                    ) from e
-            list_schema = core_schema.list_schema(
-                inner_schema, min_length=arg_min, max_length=arg_max, metadata=metadata
-            )
-    return list_schema
+    labels = [item for item in annotations if isinstance(item, str)]
+    if labels:
+        kwargs["metadata"] = {"name": labels[0]}
+
+    if is_union(typ):
+        members = [_list_schema(items, member) for member in get_args(typ)]
+        return core_schema.union_schema(members, **kwargs)
+    elif get_origin(typ) is Literal:
+        sizes = get_args(typ)
+        if len(sizes) > 1:
+            members = [_list_schema(items, Literal[size]) for size in sizes]
+            return core_schema.union_schema(members, **kwargs)
+        kwargs["min_length"] = kwargs["max_length"] = sizes[0]
+    elif interval := next(
+        (annotation for annotation in annotations if isinstance(annotation, Interval)),
+        None,
+    ):
+        if interval.ge is not None:
+            kwargs["min_length"] = interval.ge
+        elif interval.gt is not None:
+            kwargs["min_length"] = interval.gt + 1
+
+        if interval.le is not None:
+            kwargs["max_length"] = interval.le
+        elif interval.lt is not None:
+            kwargs["max_length"] = interval.lt - 1
+
+    return core_schema.list_schema(items, **kwargs)
 
 
 def _hash_schema(schema: CoreSchema) -> str:
@@ -198,30 +214,22 @@ def _hash_schema(schema: CoreSchema) -> str:
     return hasher.hexdigest()
 
 
-def _unbounded_shape(
-    inner_type: CoreSchema, metadata: dict | None = None
+def _recursive_shape(
+    inner_type: CoreSchema, dim: Any = int
 ) -> core_schema.DefinitionsSchema:
     """
-    Make a recursive schema that refers to itself using a hashed version of the inner
-    type
+    Make a recursive schema that is either the inner type or a list of itself
+    matching ``dim``, which refers to itself using a hashed version of its list schema
     """
-
-    schema_hash = _hash_schema(inner_type)
+    schema_hash = _hash_schema(_list_schema(inner_type, dim))
     array_ref = f"any-shape-array-{schema_hash}"
+    reference = core_schema.definition_reference_schema(array_ref)
 
     schema = core_schema.definitions_schema(
-        core_schema.list_schema(
-            core_schema.definition_reference_schema(array_ref), metadata=metadata
-        ),
+        reference,
         [
             core_schema.union_schema(
-                [
-                    core_schema.list_schema(
-                        core_schema.definition_reference_schema(array_ref)
-                    ),
-                    inner_type,
-                ],
-                ref=array_ref,
+                [_list_schema(reference, dim), inner_type], ref=array_ref
             )
         ],
     )
@@ -240,8 +248,8 @@ def make_json_schema(
     and then uses that with :func:`.list_of_lists_schema` .
 
     Args:
-        shape ( ShapeType ): Specification of a shape, as a tuple or
-            an nptyping ``Shape``
+        shape ( ShapeType ): A normalized shape, as returned by ``Shape[...]``:
+            a ``tuple[...]``, or ``Any``
         dtype ( DtypeType ): A builtin type or numpy dtype
         _handler: The pydantic schema generation handler (see pydantic docs).
             Needed to generate the schema for the dtype
@@ -254,7 +262,7 @@ def make_json_schema(
 
     # get the names of the shape constraints, if any
     if shape is Any:
-        list_schema = _unbounded_shape(dtype_schema)
+        list_schema = core_schema.list_schema(_recursive_shape(dtype_schema))
         # list_schema = core_schema.list_schema(core_schema.any_schema())
     else:
         list_schema = list_of_lists_schema(shape, dtype_schema)
@@ -262,18 +270,95 @@ def make_json_schema(
     return list_schema
 
 
-def get_validate_interface(shape: ShapeType, dtype: DtypeType) -> Callable:
+def make_core_schema(
+    shape: ShapeType,
+    dtype: DtypeType,
+    handler: "CallbackGetCoreSchemaHandler",
+    source_type: Any = None,
+) -> CoreSchema:
     """
-    Validate using a matching :class:`.Interface` class using its
-    :meth:`.Interface.validate` method
+    The core schema for an array with a normalized shape and dtype.
+
+    With a ``source_type``, as with :func:`.NDArraySchema`, the value also has to be
+    an instance of that type, or of an input type of the interface it's a proxy for.
     """
+    serialization = core_schema.plain_serializer_function_ser_schema(
+        jsonize_array, when_used="json", info_arg=True
+    )
+    # The JSON schema's core schema is made here, where the dtype's schema
+    # can be generated, and rendered by make_ndarray_json_schema.
+    metadata = {
+        "numpydantic": {
+            "json_schema": make_json_schema(shape, dtype, handler),
+            "dtype": dtype,
+        }
+    }
+    validate_interface = get_validate_interface(
+        shape,
+        dtype,
+        cross_field_validation=_supports_cross_field_validation(handler),
+    )
 
-    def validate_interface(
-        value: Any, info: Optional["ValidationInfo"] = None
-    ) -> NDArrayType:
-        interface_cls = Interface.match(value)
-        interface = interface_cls(shape, dtype)
-        value = interface.validate(value)
-        return value
+    if source_type is None:
+        return core_schema.with_info_plain_validator_function(
+            validate_interface, serialization=serialization, metadata=metadata
+        )
 
-    return validate_interface
+    if hasattr(source_type, "proxy_for"):
+        interface: type[Interface] = source_type.proxy_for()
+        isinstance_schema = core_schema.union_schema(
+            [
+                core_schema.is_instance_schema(itype)
+                for itype in list(interface.input_types) + [source_type]
+            ]
+        )
+    else:
+        isinstance_schema = core_schema.is_instance_schema(source_type)
+    return core_schema.chain_schema(
+        [
+            isinstance_schema,
+            core_schema.with_info_plain_validator_function(validate_interface),
+        ],
+        serialization=serialization,
+        metadata=metadata,
+    )
+
+
+def make_ndarray_json_schema(
+    schema: CoreSchema, handler: GetJsonSchemaHandler
+) -> dict[str, Any]:
+    """Render the JSON schema stored by :func:`.make_core_schema`"""
+    stored = schema["metadata"]["numpydantic"]
+    dtype = stored["dtype"]
+    json_schema = handler.resolve_ref_schema(handler(stored["json_schema"]))
+
+    if (
+        not isinstance(dtype, tuple)
+        and dtype.__module__
+        not in (
+            "builtins",
+            "typing",
+            "types",
+        )
+        and hasattr(dtype, "__name__")
+    ):
+        json_schema["dtype"] = ".".join([dtype.__module__, dtype.__name__])
+
+    return json_schema
+
+
+def _supports_cross_field_validation(handler: "CallbackGetCoreSchemaHandler") -> bool:
+    """
+    Whether shape typevar sizes can be shared between fields through ``info.data``.
+
+    ``info.data`` becomes the ``__dict__`` of a model or dataclass,
+    but for a TypedDict it's the dict that's returned, so the sizes would show up in it.
+    """
+    # pydantic doesn't tell a field what it belongs to.
+    # If this private attribute changes, sizes are only matched within one array.
+    generator = getattr(handler, "_generate_schema", None)
+    stack = getattr(generator, "model_type_stack", None)
+    owner = stack.get() if stack is not None else None
+    return isinstance(owner, type) and (
+        issubclass(owner, BaseModel) or dataclasses.is_dataclass(owner)
+    )

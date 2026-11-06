@@ -573,49 +573,49 @@ struct RenderingSortKey<'a> {
 }
 
 impl Ord for RenderingSortKey<'_> {
-    // We sort diagnostics in a way that keeps them in source order
-    // and grouped by file. After that, we fall back to severity
+    // Group diagnostics by file and sort them in source order.
+    // For diagnostics at the same location, fall back to severity
     // (with fatal messages sorting before info messages) and then
     // finally the diagnostic ID and concise message.
+    // Diagnostics without a file come first. Whole-file diagnostics sort at offset zero.
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if let (Some(span1), Some(span2)) = (
-            self.diagnostic.primary_span(),
-            other.diagnostic.primary_span(),
-        ) {
-            let file1 = span1.file();
-            let file2 = span2.file();
-            if file1 != file2 {
-                let order = file1.path(&self.db).cmp(file2.path(&self.db));
+        let left = self.diagnostic;
+        let right = other.diagnostic;
+        let left_span = left.primary_span_ref();
+        let right_span = right.primary_span_ref();
+        let location = if let (Some(left_span), Some(right_span)) = (left_span, right_span) {
+            let left_file = left_span.file();
+            let right_file = right_span.file();
+            if left_file != right_file {
+                let order = left_file.path(&self.db).cmp(right_file.path(&self.db));
                 if order.is_ne() {
                     return order;
                 }
             }
 
-            if let (Some(range1), Some(range2)) = (span1.range(), span2.range()) {
-                let order = range1.start().cmp(&range2.start());
-                if order.is_ne() {
-                    return order;
-                }
-            }
+            let left_start = left_span.range().unwrap_or_default().start();
+            let right_start = right_span.range().unwrap_or_default().start();
+            left_start.cmp(&right_start)
+        } else {
+            left_span.is_some().cmp(&right_span.is_some())
+        };
+        if location.is_ne() {
+            return location;
         }
+
         // Reverse so that, e.g., Fatal sorts before Info.
-        let order = self
-            .diagnostic
-            .severity()
-            .cmp(&other.diagnostic.severity())
-            .reverse();
+        let order = left.severity().cmp(&right.severity()).reverse();
         if order.is_ne() {
             return order;
         }
-        let order = self.diagnostic.id().cmp(&other.diagnostic.id());
+        let order = left.id().cmp(&right.id());
         if order.is_ne() {
             return order;
         }
 
-        self.diagnostic
-            .concise_message()
+        left.concise_message()
             .to_str()
-            .cmp(&other.diagnostic.concise_message().to_str())
+            .cmp(&right.concise_message().to_str())
     }
 }
 
@@ -1015,6 +1015,9 @@ pub enum DiagnosticId {
     /// No rule with the given name exists.
     UnknownRule,
 
+    /// A rule was selected using its former name.
+    RenamedRule,
+
     /// A glob pattern doesn't follow the expected syntax.
     InvalidGlob,
 
@@ -1154,6 +1157,7 @@ impl DiagnosticId {
             DiagnosticId::Lint(name) => name.as_str(),
             DiagnosticId::RevealedType => "revealed-type",
             DiagnosticId::UnknownRule => "unknown-rule",
+            DiagnosticId::RenamedRule => "renamed-rule",
             DiagnosticId::InvalidGlob => "invalid-glob",
             DiagnosticId::InvalidScriptMetadata => "invalid-script-metadata",
             DiagnosticId::UvMetadata => "uv-metadata",

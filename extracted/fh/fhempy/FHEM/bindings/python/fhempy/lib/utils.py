@@ -36,6 +36,34 @@ def decrypt_string(encrypted_text, fhem_unique_id):
     return d_cipher.decrypt(encrypted_data).decode()
 
 
+# pycryptodomex is only imported when a module needs it. The first import
+# takes up to 2 seconds on a Raspberry Pi, the event loop would wait meanwhile.
+CRYPTO_MODULES = (
+    "Cryptodome.Cipher.AES",
+    "Cryptodome.Hash.HMAC",
+    "Cryptodome.Hash.SHA256",
+    "Cryptodome.Util.Padding",
+)
+
+
+async def load_crypto():
+    """Imports pycryptodomex in a worker thread"""
+    for name in CRYPTO_MODULES:
+        await import_module(name)
+
+
+async def async_encrypt_string(plain_text, fhem_unique_id):
+    """encrypt_string without blocking the event loop on the first call"""
+    await load_crypto()
+    return encrypt_string(plain_text, fhem_unique_id)
+
+
+async def async_decrypt_string(encrypted_text, fhem_unique_id):
+    """decrypt_string without blocking the event loop on the first call"""
+    await load_crypto()
+    return decrypt_string(encrypted_text, fhem_unique_id)
+
+
 def decrypt_fernet(token_b64, key_str):
     from Cryptodome.Cipher import AES
     from Cryptodome.Hash import HMAC, SHA256
@@ -101,9 +129,30 @@ async def import_module(name):
     The first import of a large package (e.g. aiohttp) takes seconds on a
     Raspberry Pi, the event loop and FHEM would wait meanwhile."""
     module = sys.modules.get(name)
-    if module is not None:
+    # a module which is still imported by another thread is already in
+    # sys.modules but only partially initialized, import_module waits for it
+    spec = getattr(module, "__spec__", None)
+    if module is not None and not getattr(spec, "_initializing", False):
         return module
     return await asyncio.to_thread(importlib.import_module, name)
+
+
+def _http_get(url, headers, timeout):
+    import urllib.request
+
+    request = urllib.request.Request(url, headers=headers or {})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+async def http_get(url, headers=None, timeout=15):
+    """Body of an https GET request, raises urllib.error.URLError on errors.
+
+    For fhempy's own requests (update check, FHEM modules). aiohttp isn't
+    needed for this, it costs ~16 MB RAM if no device module uses it."""
+    if not url.startswith("https://"):
+        raise ValueError("only https URLs are supported")
+    return await asyncio.to_thread(_http_get, url, headers, timeout)
 
 
 async def run_blocking(function):
@@ -181,8 +230,9 @@ class ErrorLogger:
     def is_failing(self, key=None):
         return (key or "default") in self._failing
 
-    def failed(self, msg, key=None, exc=None):
-        """Call within an except block or pass the exception."""
+    def failed(self, msg, key=None, exc=None, traceback=True):
+        """Call within an except block or pass the exception.
+        traceback=False: known errors are logged as error without traceback."""
         if exc is None:
             exc = sys.exc_info()[1]
         key = key or "default"
@@ -193,6 +243,8 @@ class ErrorLogger:
         self._failing[key] = msg
         if exc is None or is_connection_error(exc):
             self._logger.warning(detail)
+        elif not traceback:
+            self._logger.error(detail)
         else:
             self._logger.error(msg, exc_info=exc)
 
@@ -247,7 +299,8 @@ async def handle_attr(attr_list, obj, hash, args, argsh):
             attr_val = config.get("default", "")
         try:
             value = (
-                "" if cmd != "set" and "default" not in config
+                ""
+                if cmd != "set" and "default" not in config
                 else convert2format(attr_val, config)
             )
         except (ValueError, TypeError, OverflowError) as exc:
@@ -320,7 +373,8 @@ async def handle_define_attr(attr_list, obj, hash, extra_attrs=None):
             value = convert2format(config["default"], config)
             obj.logger.error(
                 "%s Using default %r.",
-                _format_error(attr, curr_val, config, exc), value,
+                _format_error(attr, curr_val, config, exc),
+                value,
             )
         setattr(obj, "_attr_" + attr, value)
 

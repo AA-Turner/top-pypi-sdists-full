@@ -15,6 +15,108 @@ fn compile_pattern_anchors_the_whole_string() {
     assert!(!digits.is_match(""));
 }
 
+/// A pattern no index holds compiles once on a thread, a refusal among them,
+/// and answers every text after from what it kept, until the query forgets it.
+#[test]
+fn a_pattern_no_index_holds_compiles_once_until_forgotten() {
+    assert!(matches_unindexed("a.*", "abc"));
+    assert!(!matches_unindexed("a.*", "xa"));
+    assert_eq!(
+        unindexed_held(),
+        1,
+        "the second text reads the kept pattern"
+    );
+    assert!(!matches_unindexed("(", "("), "a refusal matches nothing");
+    assert!(!matches_unindexed("(", ""));
+    assert_eq!(unindexed_held(), 2, "a refusal is kept beside the pattern");
+    assert!(matches_unindexed("b|c", "c"));
+    assert!(
+        !matches_unindexed("b|c", "bc"),
+        "the kept pattern is anchored"
+    );
+    forget_unindexed();
+    assert_eq!(unindexed_held(), 0);
+    assert!(matches_unindexed("a.*", "a"));
+}
+
+/// A counted Unicode class written as an ordinary bound compiles: the program
+/// is past the crate's default and inside [`PATTERN_SIZE_LIMIT`], and one four
+/// times larger is refused.
+#[test]
+fn a_counted_unicode_class_compiles_within_the_pattern_size_limit() {
+    let word = compile_pattern(r"\w{1,255}").expect("a counted class compiles");
+    assert!(word.is_match(&"é".repeat(255)));
+    assert!(!word.is_match(&"a".repeat(256)));
+    assert!(!word.is_match(""));
+    assert!(compile_pattern(r"\w{1,255}@\w{1,255}").is_ok());
+    assert!(compile_pattern(r"\w{1,1000}").is_err());
+}
+
+/// A validator's patterns are bounded together by what each keeps: within an
+/// allowance of one program's bound two counted Unicode classes fit, and a
+/// third is refused with the pattern that takes them past it named. A text met
+/// twice is one program, and each place the tree holds a pattern finds its
+/// compiled one. The sixteen identifier patterns of one record, refused within
+/// that allowance, fit within [`PATTERNS_HELD`].
+#[test]
+fn a_schemas_patterns_compile_within_one_allowance_together() {
+    let refined =
+        |pattern: &str| Schema::refine(Schema::Str, vec![Constraint::Regex(pattern.to_owned())]);
+    let words = |count: usize| {
+        Schema::Union(
+            (0..count)
+                .map(|at| refined(&format!(r"\w{{1,255}}x{at}")))
+                .collect::<Vec<_>>()
+                .into(),
+        )
+    };
+    let within_one = |schema: &Schema| compile_patterns_within(PATTERN_SIZE_LIMIT, schema, &[]);
+    let two = words(2);
+    let compiled = within_one(&two).expect("two counted classes fit");
+    assert_eq!(compiled.len(), 2);
+    for pattern in two.patterns() {
+        assert!(
+            compiled[&(pattern.as_ptr() as usize)]
+                .is_match(&format!("é{}", &pattern[pattern.len() - 2..]))
+        );
+    }
+    let refused = within_one(&words(3)).expect_err("a third one passes the bound");
+    assert!(
+        refused.contains("at most 32 MiB together") && refused.contains("{1,255}x"),
+        "{refused}"
+    );
+    // One text held three times, once in a definition, beside a second text:
+    // four places, two programs, each charged once.
+    let thrice = Schema::Union(
+        vec![
+            refined(r"\w{1,255}x0"),
+            refined(r"\w{1,255}x0"),
+            refined(r"\w{1,255}x1"),
+        ]
+        .into(),
+    );
+    let compiled = compile_patterns(&thrice, &[refined(r"\w{1,255}x0")])
+        .expect("two programs, each charged once");
+    assert_eq!(compiled.len(), 4);
+    let identifiers = Schema::Union(
+        (0..16)
+            .map(|at| refined(&format!(r"^[\w.-]{{1,{}}}$", 40 + at)))
+            .collect::<Vec<_>>()
+            .into(),
+    );
+    assert!(
+        within_one(&identifiers).is_err(),
+        "past one program's bound"
+    );
+    let held = compile_patterns_within(PATTERNS_HELD, &identifiers, &[]);
+    assert_eq!(held.map(|compiled| compiled.len()).ok(), Some(16));
+    let invalid = compile_patterns(&refined("(unclosed"), &[]).expect_err("no pattern");
+    assert!(
+        invalid.starts_with("invalid regular expression"),
+        "{invalid}"
+    );
+}
+
 #[test]
 fn compile_pattern_rejects_an_invalid_pattern() {
     assert!(compile_pattern("(unclosed").is_err());
@@ -93,4 +195,160 @@ mod interpreter {
             );
         });
     }
+
+    /// A union of records one required key pins to constants no two share is
+    /// tagged by it: an exact tag names its record or none, and any other tag
+    /// is the scan's. Records sharing a constant, a key pinned to no constant,
+    /// and fewer records than reading the tag first pays for are no tagged
+    /// union.
+    #[test]
+    fn a_tagged_plan_names_the_record_its_tag_pins() {
+        use valgebra_core::Field;
+
+        Python::attach(|py| {
+            let pool: Vec<Py<PyAny>> = vec![
+                PyString::new(py, "a").into_any().unbind(),
+                1i64.into_pyobject(py).unwrap().into_any().unbind(),
+                PyString::new(py, "b").into_any().unbind(),
+                PyString::new(py, "c").into_any().unbind(),
+            ];
+            let record = |tag: Schema| Schema::KeyedMap {
+                fields: vec![
+                    Field {
+                        name: "v".into(),
+                        schema: Schema::Int,
+                        required: false,
+                    },
+                    Field {
+                        name: "kind".into(),
+                        schema: tag,
+                        required: true,
+                    },
+                ]
+                .into(),
+                defaults: Vec::new().into(),
+            };
+            let literal = |slot: usize| Schema::Literal(ConstIx::new(slot));
+            let both = Schema::Union(vec![literal(1), literal(2)].into());
+            let three = [record(literal(0)), record(both), record(literal(3))];
+            assert_eq!(three.len(), TAGGED_MIN_RECORDS);
+            let plan = tagged_union_plan(py, &three, &pool).expect("one key pins every record");
+            assert!(tagged_union_plan(py, &three[1..], &pool).is_none());
+            assert_eq!(plan.key.bind(py).to_str().unwrap(), "kind");
+            let tag = |value: Bound<'_, PyAny>| plan.branch(&value);
+            assert_eq!(
+                tag(PyString::new(py, "a").into_any()),
+                Some(Tagged::Branch(0))
+            );
+            assert_eq!(
+                tag(PyString::new(py, "b").into_any()),
+                Some(Tagged::Branch(1))
+            );
+            assert_eq!(
+                tag(1i64.into_pyobject(py).unwrap().into_any()),
+                Some(Tagged::Branch(1))
+            );
+            assert_eq!(
+                tag(PyString::new(py, "z").into_any()),
+                Some(Tagged::Nothing)
+            );
+            assert_eq!(tag(PyBool::new(py, true).to_owned().into_any()), None);
+            assert_eq!(
+                tag((1i128 << 70).into_pyobject(py).unwrap().into_any()),
+                None
+            );
+
+            let shared = [record(literal(0)), record(literal(0)), record(literal(3))];
+            assert!(tagged_union_plan(py, &shared, &pool).is_none());
+            let unpinned = [record(literal(0)), record(Schema::Str), record(literal(3))];
+            assert!(tagged_union_plan(py, &unpinned, &pool).is_none());
+        });
+    }
+
+    /// The index plans an attribute record's names and a record's keys, each
+    /// interned once, and hands every one of them to the validator's
+    /// traversal ([`ValidatorIndex::interned_names`]); an attribute record with
+    /// no attribute has nothing to plan.
+    #[test]
+    fn the_index_interns_the_names_it_plans_and_hands_them_over() {
+        Python::attach(|py| {
+            let attribute = |name: &str| valgebra_core::Attribute {
+                name: name.into(),
+                schema: Schema::Int,
+            };
+            let attrs = Schema::attr_record(vec![attribute("x"), attribute("y")]);
+            let record = Schema::record(
+                vec![valgebra_core::Field {
+                    name: "a".into(),
+                    schema: Schema::Str,
+                    required: true,
+                }],
+                valgebra_core::Openness::Closed,
+            );
+            let schema = Schema::union([attrs, record, Schema::attr_record(Vec::new())]);
+            let index = build_index(py, &schema, &[], &[]);
+            assert_eq!(index.attrs.len(), 1, "one attribute record holds names");
+            let mut names: Vec<String> = index
+                .interned_names()
+                .map(|name| name.bind(py).to_string())
+                .collect();
+            names.sort();
+            assert_eq!(names, ["a", "x", "y"]);
+        });
+    }
+}
+
+/// Two validators holding one text hold one program while either lives
+/// ([`program`]), and the table keeps none alive: once both are gone, the text
+/// compiles again.
+#[test]
+fn validators_holding_one_text_hold_one_program() {
+    let refined =
+        |pattern: &str| Schema::refine(Schema::Str, vec![Constraint::Regex(pattern.to_owned())]);
+    let text = r"^\w{1,40}held$";
+    let program_of = |compiled: &RegexIndex| {
+        compiled
+            .values()
+            .next()
+            .map(Arc::clone)
+            .expect("one pattern, one program")
+    };
+    let first = compile_patterns(&refined(text), &[]).expect("a pattern that builds");
+    let second = compile_patterns(&refined(text), &[]).expect("a pattern that builds");
+    let held = program_of(&first);
+    assert!(Arc::ptr_eq(&held, &program_of(&second)));
+    let gone = Arc::downgrade(&held);
+    drop((held, first, second));
+    assert!(gone.upgrade().is_none(), "the table keeps no program alive");
+    let again = compile_patterns(&refined(text), &[]).expect("a pattern that builds");
+    assert!(program_of(&again).is_match("éheld"));
+}
+
+/// The table drops the entries of programs gone each time it reaches the
+/// length it last doubled to, and keeps every program a validator holds: the
+/// next length is twice the entries left, and the first is two.
+#[test]
+fn the_program_table_drops_the_programs_gone_as_it_doubles() {
+    let mut programs = Programs::default();
+    let compiled = |text: &str| Arc::new(compile_pattern(text).expect("a pattern that builds"));
+    let texts = |programs: &Programs| {
+        let mut held: Vec<String> = programs.by_text.keys().map(ToString::to_string).collect();
+        held.sort();
+        held
+    };
+    let (a, b, d) = (compiled("a"), compiled("b"), compiled("d"));
+    programs.hold("a", &a);
+    assert_eq!(programs.prune_at, 2, "the first length is two");
+    programs.hold("b", &b);
+    programs.hold("c", &compiled("c"));
+    assert_eq!(programs.prune_at, 4, "twice the two entries left");
+    assert_eq!(texts(&programs), ["a", "b", "c"]);
+    programs.hold("d", &d);
+    programs.hold("e", &compiled("e"));
+    assert_eq!(programs.prune_at, 6, "twice the three entries left");
+    assert_eq!(
+        texts(&programs),
+        ["a", "b", "d", "e"],
+        "the program gone is dropped, the ones held kept"
+    );
 }

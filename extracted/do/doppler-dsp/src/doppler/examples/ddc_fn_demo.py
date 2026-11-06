@@ -25,6 +25,9 @@ Run:
 
 from __future__ import annotations
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

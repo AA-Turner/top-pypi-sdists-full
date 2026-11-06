@@ -12,6 +12,9 @@ All four are `hidden=True` for now: they run when typed, but are left out of the
 `--help` listings, the committed doc spec and the reference docs. Removing the flag
 (and the matching one on the Events module in `_private/docgen/__main__.py`) publishes
 them.
+
+Each run prints one page of at most 1000 events. When more exist, it ends with a
+`--page-token` line on stderr, so stdout stays one valid JSON or YAML document.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -27,7 +30,13 @@ from anyscale.commands.doc_metadata import (
 from anyscale.commands.output_format import OutputFormat, print_output
 from anyscale.commands.time_flags import format_timestamp, resolve_window
 from anyscale.commands.util import AnyscaleCommand
-from anyscale.events.models import Event, EventsFilter, LEVELS, SOURCES_BY_ENTITY
+from anyscale.events.models import (
+    Event,
+    EventsFilter,
+    LEVELS,
+    MAX_EVENTS_PER_PAGE,
+    SOURCES_BY_ENTITY,
+)
 
 
 _OUTPUT_FORMATS = [OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML, OutputFormat.TABLE]
@@ -62,7 +71,7 @@ option_since = click.option(
     "--since",
     default=None,
     help="Only show events from the last <duration>, e.g. 30m, 2h or 1d. "
-    "Cannot be combined with --start-time or --end-time.",
+    "Cannot be combined with --start-time, --end-time or --page-token.",
 )
 option_start_time = click.option(
     "--start-time",
@@ -83,10 +92,17 @@ option_sort = click.option(
 )
 option_max_items = click.option(
     "--max-items",
-    type=int,
+    type=click.IntRange(1, MAX_EVENTS_PER_PAGE),
     default=100,
     show_default=True,
-    help="Stop after this many events.",
+    help=f"How many events to show, at most {MAX_EVENTS_PER_PAGE}. When more exist, the "
+    "output ends with a --page-token for the rest.",
+)
+option_page_token = click.option(
+    "--page-token",
+    default=None,
+    help="Show the events after the last one of an earlier run. Use the token that run "
+    "printed, with the same filters. Cannot be combined with --since.",
 )
 option_output = click.option(
     "-o",
@@ -145,6 +161,13 @@ def _metadata(entity: str):
                 description="Structured output for scripts.",
                 command=f"anyscale {_GROUP_NAMES[entity]} events --id <{entity}-id> -o json",
             ),
+            CommandExample(
+                description="The next page, after a run that printed a page token.",
+                command=(
+                    f"anyscale {_GROUP_NAMES[entity]} events --id <{entity}-id> "
+                    "--page-token <token>"
+                ),
+            ),
         ],
     )
 
@@ -172,6 +195,7 @@ _GROUP_NAMES = {
 @option_end_time
 @option_sort
 @option_max_items
+@option_page_token
 @option_output
 def job_events(id: str, **kwargs: Any) -> None:  # noqa: A002
     """List events of a job: state changes, cluster lifecycle and failures."""
@@ -191,6 +215,7 @@ def job_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 @option_end_time
 @option_sort
 @option_max_items
+@option_page_token
 @option_output
 @option_verbose
 def service_events(id: str, **kwargs: Any) -> None:  # noqa: A002
@@ -211,6 +236,7 @@ def service_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 @option_end_time
 @option_sort
 @option_max_items
+@option_page_token
 @option_output
 def workspace_events(id: str, **kwargs: Any) -> None:  # noqa: A002
     """List events of a workspace: start, stop, snapshots and cluster activity."""
@@ -230,6 +256,7 @@ def workspace_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 @option_end_time
 @option_sort
 @option_max_items
+@option_page_token
 @option_output
 @option_instance_id
 @option_node_ip
@@ -254,12 +281,20 @@ def _run(  # noqa: PLR0913
     end_time: Optional[str],
     sort: str,
     max_items: int,
+    page_token: Optional[str],
     output_format: str,
     verbose: bool = False,
     instance_id: Optional[str] = None,
     node_ip: Optional[str] = None,
     resource_bundles: Tuple[str, ...] = (),
 ) -> None:
+    if since is not None and page_token is not None:
+        # The token is an offset into the earlier run's window. --since would re-resolve
+        # that window against a later "now" and skip events.
+        raise click.UsageError(
+            "--since cannot be combined with --page-token. Use the --start-time and "
+            "--end-time that the earlier run printed."
+        )
     start, end = resolve_window(since, start_time, end_time)
 
     try:
@@ -283,13 +318,25 @@ def _run(  # noqa: PLR0913
     except (TypeError, ValueError) as e:
         raise click.UsageError(str(e)) from None
 
-    events = anyscale.events.list(events_filter)
+    page = anyscale.events.list_page(events_filter, page_token=page_token)
 
     if output_format == OutputFormat.TEXT.value:
-        for event in events:
+        for event in page.results:
             click.echo(_format_text_line(event))
     else:
-        print_output([_to_row(event) for event in events], output_format, _TABLE_COLUMNS)
+        print_output([_to_row(event) for event in page.results], output_format, _TABLE_COLUMNS)
+
+    if page.next_page_token is not None:
+        hint = f"--page-token '{page.next_page_token}'"
+        if since is not None and start is not None and end is not None:
+            # Pin the window --since resolved, at full precision, so the token's offset
+            # still lines up on the next run.
+            hint = (
+                f"--start-time '{start.isoformat()}' --end-time '{end.isoformat()}' "
+                f"in place of --since, and {hint}"
+            )
+        # stderr, so json / yaml on stdout stay parseable.
+        click.echo(f"More events exist. To see them, run the same command with {hint}.", err=True)
 
 
 def _format_text_line(event: Event) -> str:

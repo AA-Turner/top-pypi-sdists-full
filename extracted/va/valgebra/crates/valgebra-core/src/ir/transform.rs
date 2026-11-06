@@ -16,10 +16,10 @@
 use std::sync::Arc;
 
 use super::{
-    Attribute, Clauses, Constraint, Constraints, DefIx, DefShift, Fields, MapClause, Members,
-    Openness, OperandIx, Remap, Schema, SeqShape, already_said, canonical_clauses, clauses_over,
-    share_attributes, share_clauses, share_fields, share_members, share_node, with_field_buffer,
-    with_member_buffer,
+    Attribute, Clauses, Constraint, Constraints, DefIx, DefShift, Field, Fields, MapClause,
+    Members, Openness, OperandIx, Remap, Schema, SeqShape, already_said, canonical_clauses,
+    clauses_over, share_attributes, share_clauses, share_fields, share_members, share_node,
+    with_field_buffer, with_member_buffer,
 };
 
 /// Move a constraint list's indices, rebuilding it only where one moves -- and
@@ -245,16 +245,19 @@ impl SeqShape {
 /// Which side of an inclusion a schema is read on.
 ///
 /// An unfolding cuts the reference no finite representation holds, and which
-/// lattice bound it cuts to depends on the side. Named rather than spelled as a
-/// `bool`, because the two members are what the soundness of a difference turns
-/// on and a call site reading `true` says nothing about which side that is.
+/// lattice bound it cuts to depends on the side [AC93, §3.4]. Named rather than
+/// spelled as a `bool`, because the two members are what the soundness of a
+/// difference turns on and a call site reading `true` says nothing about which
+/// side that is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Polarity {
-    /// The subject's side: a cut reference becomes the top, so the lowered set
-    /// is at least the one the schema denotes.
+    /// A cut reference becomes the top, so the lowered set is at least the one
+    /// the schema denotes: the subject's side of a difference read for its
+    /// emptiness, and the supertype's of one read for a value.
     Widen,
-    /// The supertype's side: a cut reference becomes the bottom, so the lowered
-    /// set is at most the one the schema denotes.
+    /// A cut reference becomes the bottom, so the lowered set is at most the
+    /// one the schema denotes: the supertype's side of a difference read for
+    /// its emptiness, and the subject's of one read for a value.
     Narrow,
 }
 
@@ -291,10 +294,11 @@ impl Schema {
     /// map clause included, since widening a clause only makes more dicts
     /// covered by it.
     ///
-    /// **A cut widens the difference, so only an empty one proves anything.**
-    /// An inhabited reading of a cut difference names a value of the widened set
-    /// rather than of the real one, and refutes nothing; the caller that reads
-    /// the difference is where that condition is held.
+    /// **A difference cut one way answers one way.** With the subject widened,
+    /// an inhabited reading names a value of the widened set rather than of the
+    /// real one, and refutes nothing; with the subject narrowed, an empty
+    /// reading proves nothing. The caller that reads the difference is where
+    /// that condition is held.
     ///
     /// A schema with no reference is returned as it stands, so the caller pays
     /// nothing for the common case.
@@ -590,8 +594,13 @@ impl Schema {
                 // clauses, and this one test decides both whether the node is
                 // rebuilt and which names the rebuilt node keeps. So whether a
                 // name survives turns on what that name says alone, never on
-                // another name beside it.
-                let dropping = updated.iter().any(|field| already_said(field, current));
+                // another name beside it. It is judged against the clauses the
+                // rewrite leaves as well: a name they say is said twice in the
+                // result, and judged on a second pass it would be dropped there,
+                // so the operators would not be idempotent by `==`.
+                let said =
+                    |field: &Field| already_said(field, current) || already_said(field, &wanted);
+                let dropping = updated.iter().any(said);
                 if !dropping && opened.is_none() && *defaults == wanted {
                     return None;
                 }
@@ -608,13 +617,8 @@ impl Schema {
                 // the catch-all the openness adds -- is dropped, and the list
                 // has to be assembled again around the hole.
                 Some(with_field_buffer(|kept| {
-                    kept.extend(
-                        updated
-                            .iter()
-                            .filter(|field| !already_said(field, current))
-                            .cloned(),
-                    );
-                    Schema::keyed_map_from(kept, wanted)
+                    kept.extend(updated.iter().filter(|field| !said(field)).cloned());
+                    Schema::keyed_map_from(kept, Arc::clone(&wanted))
                 }))
             }
             // Every other node carries the transform to its children and keeps

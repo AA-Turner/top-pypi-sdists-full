@@ -89,6 +89,14 @@ def _mccfg(url='', hf_hub='', **kwargs):
     }
 
 
+def _clapcfg(url='', hf_hub='', **kwargs):
+    return {
+        'url': url,
+        'hf_hub': hf_hub,
+        **kwargs,
+    }
+
+
 def _mc2cfg(url='', hf_hub='', **kwargs):
     # MobileCLIP-2
     return {
@@ -117,7 +125,6 @@ def _pecfg(url='', hf_hub='', **kwargs):
 
 _RN50 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/afeb0e10f9e5a86da6080e35cf09123aca3b358a0c3e3b6c78a7b63bc04b6762/RN50.pt",
         hf_hub="timm/resnet50_clip.openai/",
         quick_gelu=True,
     ),
@@ -135,7 +142,6 @@ _RN50 = dict(
 
 _RN101 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/8fa8567bab74a42d41c5915025a8e4538c3bdbe8804a470a72f30b0d94fab599/RN101.pt",
         hf_hub="timm/resnet101_clip.openai/",
         quick_gelu=True,
     ),
@@ -148,7 +154,6 @@ _RN101 = dict(
 
 _RN50x4 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/7e526bd135e493cef0776de27d5f42653e6b4c8bf9e0f653bb11773263205fdd/RN50x4.pt",
         hf_hub="timm/resnet50x4_clip.openai/",
         quick_gelu=True,
     ),
@@ -156,7 +161,6 @@ _RN50x4 = dict(
 
 _RN50x16 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/52378b407f34354e150460fe41077663dd5b39c54cd0bfd2b27167a4a06ec9aa/RN50x16.pt",
         hf_hub="timm/resnet50x16_clip.openai/",
         quick_gelu=True,
     ),
@@ -164,7 +168,6 @@ _RN50x16 = dict(
 
 _RN50x64 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/be1cfb55d75a9666199fb2206c106743da0f6468c9d327f3e0d0a543a9919d9c/RN50x64.pt",
         hf_hub="timm/resnet50x64_clip.openai/",
         quick_gelu=True,
     ),
@@ -172,7 +175,6 @@ _RN50x64 = dict(
 
 _VITB32 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt",
         hf_hub="timm/vit_base_patch32_clip_224.openai/",
         quick_gelu=True,
     ),
@@ -230,7 +232,6 @@ _VITB32_256 = dict(
 
 _VITB16 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/5806e77cd80f8b59890b7e101eabd078d9fb84e6937f9e85e4ecb61988df416f/ViT-B-16.pt",
         hf_hub="timm/vit_base_patch16_clip_224.openai/",
         quick_gelu=True,
     ),
@@ -286,7 +287,6 @@ _VITB16_PLUS_240 = dict(
 
 _VITL14 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836/ViT-L-14.pt",
         hf_hub="timm/vit_large_patch14_clip_224.openai/",
         quick_gelu=True,
     ),
@@ -332,7 +332,6 @@ _VITL14 = dict(
 
 _VITL14_336 = dict(
     openai=_pcfg(
-        url="https://openaipublic.azureedge.net/clip/models/3035c92b350959924f9f00213499208652fc7ea050643e8b385c2dac08641f02/ViT-L-14-336px.pt",
         hf_hub="timm/vit_large_patch14_clip_336.openai/",
         quick_gelu=True,
     ),
@@ -439,6 +438,44 @@ _coca_VITL14 = dict(
     mscoco_finetuned_laion2b_s13b_b90k=_pcfg(hf_hub='laion/mscoco_finetuned_CoCa-ViT-L-14-laion2B-s13B-b90k/')
 )
 
+_mammut_VITL14 = dict(
+    datacomp1b_s12_8b_b180k=_pcfg(hf_hub='laion/openMaMMUT-ViT-L-14-DataComp-1.4B-s12.8B-b180K/'),
+)
+
+_CLAP_HTSAT_TINY_ROBERTA = dict(
+    laion=_clapcfg(
+        hf_hub='laion/clap-htsat-unfused/pytorch_model.bin',
+        hf_transformers_clap=True,
+    ),
+)
+
+_CLAP_HTSAT_TINY_ROBERTA_FUSED = dict(
+    laion=_clapcfg(
+        hf_hub='laion/clap-htsat-fused/model.safetensors',
+        hf_transformers_clap=True,
+    ),
+)
+
+_NAFLEXCLAP_XXS = dict(
+    laion_audio_xl_s1b=_clapcfg(hf_hub='laion/clap2-xxs-audioxl-s1B/'),
+)
+
+_NAFLEXCLAP_XS = dict(
+    laion_audio_xl_s1b=_clapcfg(hf_hub='laion/clap2-xs-audioxl-s1B/'),
+)
+
+_NAFLEXCLAP_SMALL = dict(
+    laion_audio_xl_s1b=_clapcfg(hf_hub='laion/clap2-small-audioxl-s1B/'),
+)
+
+_NAFLEXCLAP_MEDIUM = dict(
+    laion_audio_xl_s1b=_clapcfg(hf_hub='laion/clap2-medium-audioxl-s1B/'),
+)
+
+_NAFLEXCLAP_LARGE = dict(
+    laion_audio_xl_s1b=_clapcfg(hf_hub='laion/clap2-large-audioxl-s1B/'),
+)
+
 
 _PRETRAINED = {
     "RN50": _RN50,
@@ -471,6 +508,17 @@ _PRETRAINED = {
 
     "coca_ViT-B-32": _coca_VITB32,
     "coca_ViT-L-14": _coca_VITL14,
+
+    "mammut_ViT-L-14": _mammut_VITL14,
+
+    "CLAP-HTSAT-tiny-Roberta-base": _CLAP_HTSAT_TINY_ROBERTA,
+    "CLAP-HTSAT-tiny-Roberta-base-fused": _CLAP_HTSAT_TINY_ROBERTA_FUSED,
+
+    "naflexclap_xxs": _NAFLEXCLAP_XXS,
+    "naflexclap_xs": _NAFLEXCLAP_XS,
+    "naflexclap_small": _NAFLEXCLAP_SMALL,
+    "naflexclap_medium": _NAFLEXCLAP_MEDIUM,
+    "naflexclap_large": _NAFLEXCLAP_LARGE,
 
     "EVA01-g-14": dict(
         # from QuanSun/EVA-CLIP/EVA01_CLIP_g_14_psz14_s11B.pt
@@ -550,6 +598,9 @@ _PRETRAINED = {
     "ViT-B-16-SigLIP2-512": dict(
         webli=_slpcfg(hf_hub='timm/ViT-B-16-SigLIP2-512/'),
     ),
+    "ViT-B-16-SigLIP2-naflex": dict(
+        webli=_slpcfg(hf_hub='timm/ViT-B-16-SigLIP2-naflex/'),
+    ),
     "ViT-L-16-SigLIP2-256": dict(
         webli=_slpcfg(hf_hub='timm/ViT-L-16-SigLIP2-256/'),
     ),
@@ -573,6 +624,9 @@ _PRETRAINED = {
     ),
     "ViT-SO400M-16-SigLIP2-512": dict(
         webli=_slpcfg(hf_hub='timm/ViT-SO400M-16-SigLIP2-512/'),
+    ),
+    "ViT-SO400M-16-SigLIP2-naflex": dict(
+        webli=_slpcfg(hf_hub='timm/ViT-SO400M-16-SigLIP2-naflex/'),
     ),
     "ViT-gopt-16-SigLIP2-256": dict(
         webli=_slpcfg(hf_hub='timm/ViT-gopt-16-SigLIP2-256/'),

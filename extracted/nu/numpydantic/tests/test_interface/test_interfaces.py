@@ -6,12 +6,13 @@ import json
 import sys
 from datetime import datetime
 from importlib.metadata import version
+from typing import Literal as L
 
 import dask.array as da
 import numpy as np
 import pytest
 from pydantic import BaseModel
-from zarr.core import Array as ZarrArray
+from zarr import Array as ZarrArray
 
 from numpydantic.interface import Interface, InterfaceMark, MarkedJson
 from numpydantic.testing.cases import ZERO_LENGTH_CASES_PASSING
@@ -43,12 +44,14 @@ def test_dunder_len(interface_cases, tmp_output_dir_func):
     """
     Each interface or proxy type should support __len__
     """
+    if interface_cases.interface.name == "zarr":
+        pytest.skip("zarr 3 arrays don't implement __len__")
     case = ValidationCase(interface=interface_cases)
     if interface_cases.interface.name == "video":
         case.shape = (10, 10, 2, 3)
         case.dtype = np.uint8
         case.annotation_dtype = np.uint8
-        case.annotation_shape = (10, 10, "*", 3)
+        case.annotation_shape = (L[10], L[10], int, L[3])
     array = case.array(path=tmp_output_dir_func)
     instance = case.model(array=array)
     assert len(instance.array) == case.shape[0]
@@ -131,9 +134,6 @@ def test_roundtrip_json_zero_length(case, tmp_output_dir_func):
     Arrays with zero-length dimensions should roundtrip to and from json,
     when supported by the array framework
     """
-    if "zarr" in case.id.lower():
-        pytest.skip("Zarr does not support reshaping arrays")
-
     array = case.array(path=tmp_output_dir_func)
     instance = case.model(array=array)
 

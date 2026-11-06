@@ -21,7 +21,6 @@ from __future__ import annotations
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import threading
@@ -30,10 +29,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..slurm.manifest import BatchLayout
-from ..slurm.submit import ACTIVE_STATES, squeue_states
+from ..slurm.manifest import BatchLayout, recorded_verdict
+from ..slurm.queue import ACTIVE_STATES, squeue_states
 from . import slurm_options as _options
 from .slurm_case_state import case_state
+
+# SLURM's command-line tools are run in the checked slurm.queue (#1634):
+# whether SLURM is here, and its partitions, are re-exported from there.
+from ..slurm.queue import availability as availability
+from ..slurm.queue import partitions as partitions
 
 # Checked by the library check, and re-exported: what each field may hold, the
 # overrides the options become and how the command line is put together.
@@ -62,6 +66,7 @@ __all__ = [
     "build_command",
     "partitions",
     "run_cli",
+    "run_collect",
     "scenario_command",
     "start_submit",
     "submission",
@@ -82,36 +87,6 @@ def scenario_command() -> list[str]:
     """``scenario``, as this viewer starts it."""
     configured = os.environ.get(_ENV_COMMAND, "").strip()
     return shlex.split(configured) if configured else ["uv", "run", "scenario"]
-
-
-def availability() -> tuple[bool, str]:
-    """Whether batches can be submitted from here, and if not, why."""
-    missing = [tool for tool in ("sbatch", "squeue") if shutil.which(tool) is None]
-    if missing:
-        return False, (
-            f"SLURM's {' and '.join(missing)} {'is' if len(missing) == 1 else 'are'} "
-            "not on this viewer's PATH: run the viewer on a SLURM submit (login) "
-            "host to launch batches through SLURM (docs/slurm.md)."
-        )
-    return True, ""
-
-
-def partitions() -> list[str]:
-    """The partitions ``sinfo`` lists (the default one first), if it can."""
-    try:
-        done = subprocess.run(
-            ["sinfo", "-h", "-o", "%P"],
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=10,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-    names = [line.strip() for line in done.stdout.splitlines() if line.strip()]
-    default = [n.rstrip("*") for n in names if n.endswith("*")]
-    return default + sorted({n.rstrip("*") for n in names} - set(default))
 
 
 #: The run of backslashes that ends a value, which ui.slurm_options doubles
@@ -324,9 +299,12 @@ def _case_states(
         result: dict[str, Any] = {}
         errored = passed = False
         if record is not None:
-            result = record.get("result") or {}
+            # A result that is no object reads as an empty one, and only a
+            # boolean ``passed`` as a verdict (#1718).
+            recorded = record.get("result")
+            result = recorded if isinstance(recorded, dict) else {}
             errored = bool(record.get("errored"))
-            passed = not errored and bool(result.get("passed"))
+            passed = not errored and recorded_verdict(record) is True
         queued: str | None = None
         squeue_known = at_case = False
         task, job_id, task_state, task_error = 0, "", "", None
@@ -337,8 +315,8 @@ def _case_states(
             queued = None if states is None else states.get(task)
             status = layout.read_task(sub_index, task) or {}
             job_id = f"{sub.get('job_id')}"
-            # Only what case_state's branch reads of the status: a task file
-            # that holds no JSON object fails only where it always failed.
+            # Only what case_state's branch reads of the status; a task file
+            # that holds no JSON object reads as no status at all (#1630).
             if queued in ACTIVE_STATES:
                 at_case = queued == "RUNNING" and bool(status.get("current") == index)
             elif squeue_known:
@@ -462,9 +440,18 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
     }
 
 
+#: What :func:`run_cli` returns when ``scenario-slurm`` could not be started
+#: (an ``OSError``) or did not end in time, as a shell does: never 0 or 1, so
+#: no action reads either as done, nor collect as "collected, a case failed"
+#: (#1746).
+NOT_STARTED = 127
+TIMED_OUT = 124
+
+
 def run_cli(args: list[str], timeout: float = 300.0) -> tuple[int, str]:
     """``scenario-slurm <args>``, run by this viewer's interpreter: its exit
-    status and output."""
+    status and output; :data:`NOT_STARTED` or :data:`TIMED_OUT`, with why,
+    when it could not be started or did not end within *timeout* seconds."""
     command = [sys.executable, "-m", "autoware_carla_scenario.slurm.cli", *args]
     try:
         done = subprocess.run(  # noqa: S603
@@ -475,6 +462,37 @@ def run_cli(args: list[str], timeout: float = 300.0) -> tuple[int, str]:
             timeout=timeout,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return 1, str(exc)
+    except subprocess.TimeoutExpired as exc:
+        return TIMED_OUT, str(exc)
+    except OSError as exc:
+        return NOT_STARTED, str(exc)
     return done.returncode, "\n".join(s for s in (done.stdout, done.stderr) if s)
+
+
+def _stat_key(path: Path) -> tuple[int, int, int] | None:
+    """What tells one ``collected.json`` from the next: ``write_json`` renames
+    a new file over the old one, so its inode changes on every write."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_ino, stat.st_mtime_ns, stat.st_size
+
+
+def run_collect(batch_dir: Path, timeout: float = 300.0) -> tuple[bool, int, str]:
+    """``scenario-slurm collect <batch_dir>``: whether it collected the batch,
+    its exit status and output.
+
+    Collected is exit 0 (every case passed), or exit 1 with
+    ``slurm/collected.json`` written by this run: collect writes it last, so
+    it is there only once the summary and ``batch_results.json`` are (#1746).
+    Exit 1 alone is no evidence: ``scenario-slurm`` also exits 1 on an
+    ``Error:`` (an unreadable manifest, an unwritable batch directory) and on
+    a traceback.
+    """
+    collected = BatchLayout(batch_dir).root / "collected.json"
+    before = _stat_key(collected)
+    code, output = run_cli(["collect", str(batch_dir)], timeout)
+    after = _stat_key(collected)
+    ok = code == 0 or (code == 1 and after is not None and after != before)
+    return ok, code, output

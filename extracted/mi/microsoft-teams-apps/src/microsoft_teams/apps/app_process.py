@@ -4,6 +4,7 @@ Licensed under the MIT License.
 """
 
 import logging
+import warnings
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, TypeGuard, Union, cast
 
@@ -44,10 +45,11 @@ from .diagnostics._helpers import (
     record_turn_duration,
 )
 from .events import ActivityEvent, ActivityResponseEvent, ActivitySentEvent, ErrorEvent
-from .files_credential import select_files_credential
+from .files_credential import select_files_credential, select_inline_image_credential
 from .oauth_flow import OAuthFlowRegistry
-from .plugins import PluginActivityEvent, PluginBase, StreamCancelledError
-from .routing.activity_context import ActivityContext
+from .plan import Plan
+from .plugins import PluginActivityEvent, PluginBase
+from .routing.activity_context import CONVERSATION_REF_SEND_DEPRECATION, ActivityContext
 from .routing.router import ActivityHandler, ActivityRouter
 from .state import TurnStateLoader
 from .token_provider import AppTokenProvider
@@ -172,6 +174,13 @@ class ActivityProcessor:
             get_agentic_graph_token=lambda identity: self.get_agentic_graph_token(identity, tenant_id),
         )
 
+        # Inline images are read with the turn's Bot API token, not Graph.
+        files_bot_api_credential = select_inline_image_credential(
+            agentic_identity=activity.recipient.agentic_identity,
+            service_url=activity.service_url,
+            get_token=lambda: api_client.http.token,
+        )
+
         activityCtx = ActivityContext(
             activity,
             self.id or "",
@@ -185,14 +194,17 @@ class ActivityProcessor:
             cloud=self.cloud,
             oauth_connection_names=list(self.oauth_registry) if self.oauth_registry is not None else None,
             files_credential=files_credential,
+            files_bot_api_credential=files_bot_api_credential,
         )
 
-        send = activityCtx.send
+        send = activityCtx._send  # pyright: ignore[reportPrivateUsage]
 
         async def updated_send(
             message: str | ActivityParams | AdaptiveCard,
             conversation_ref: Optional[ConversationReference] = None,
         ) -> SentActivity:
+            if conversation_ref is not None:
+                warnings.warn(CONVERSATION_REF_SEND_DEPRECATION, DeprecationWarning, stacklevel=2)
             res = await send(message, conversation_ref)
 
             if not self.event_manager:
@@ -208,6 +220,29 @@ class ActivityProcessor:
             return res
 
         activityCtx.send = updated_send
+
+        plan_attached = False
+        get_plan = activityCtx.plan
+
+        def updated_plan() -> Plan:
+            nonlocal plan_attached
+            plan = get_plan()
+            if not plan_attached:
+                ref = activityCtx.conversation_ref.model_copy(deep=True)
+
+                async def handle_plan(activity: SentActivity) -> None:
+                    if not self.event_manager:
+                        raise ValueError("EventManager was not initialized properly")
+                    await self.event_manager.on_activity_sent(
+                        ActivitySentEvent(activity=activity, conversation_ref=ref.model_copy(deep=True)),
+                        plugins=plugins,
+                    )
+
+                plan.events.on("sent", handle_plan)
+                plan_attached = True
+            return plan
+
+        activityCtx.plan = updated_plan
 
         async def handle_chunk(chunk_activity: SentActivity):
             if self.event_manager:
@@ -326,11 +361,6 @@ class ActivityProcessor:
             else:
                 response = InvokeResponse[Any](status=200, body=middleware_result)
             processing_completed = True
-        except StreamCancelledError:
-            logger.debug("Activity processing was cancelled (stream stopped)")
-            await activityCtx.stream.close()
-            response = InvokeResponse[Any](status=200)
-            processing_completed = True
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise
@@ -354,10 +384,6 @@ class ActivityProcessor:
                 ),
                 plugins=plugins,
             )
-        except StreamCancelledError:
-            logger.debug("Activity processing was cancelled (stream stopped)")
-            await activityCtx.stream.close()
-            response = InvokeResponse[Any](status=200)
         except Exception as error:
             await self.event_manager.on_error(ErrorEvent(error=error, activity=activity), plugins)
             raise

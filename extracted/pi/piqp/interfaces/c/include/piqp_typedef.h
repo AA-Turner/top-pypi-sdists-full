@@ -69,7 +69,8 @@ typedef enum {
     PIQP_SPARSE_LDLT_EQ_COND,
     PIQP_SPARSE_LDLT_INEQ_COND,
     PIQP_SPARSE_LDLT_COND,
-    PIQP_SPARSE_MULTISTAGE
+    PIQP_SPARSE_MULTISTAGE,
+    PIQP_SPARSE_MULTISTAGE_PARALLEL
 } piqp_kkt_solver;
 
 typedef struct {
@@ -81,6 +82,8 @@ typedef struct {
     piqp_float       eps_duality_gap_abs;
     piqp_float       eps_duality_gap_rel;
     piqp_float       infeasibility_threshold;
+    piqp_float       eps_primal_inf;
+    piqp_float       eps_dual_inf;
     piqp_float       reg_lower_limit;
     piqp_float       reg_finetune_lower_limit;
     piqp_int        reg_finetune_primal_update_threshold;
@@ -92,6 +95,7 @@ typedef struct {
     piqp_int        preconditioner_iter;
     piqp_float       tau;
     piqp_kkt_solver kkt_solver;
+    piqp_int        num_threads;
     piqp_int        iterative_refinement_always_enabled;
     piqp_float       iterative_refinement_eps_abs;
     piqp_float       iterative_refinement_eps_rel;

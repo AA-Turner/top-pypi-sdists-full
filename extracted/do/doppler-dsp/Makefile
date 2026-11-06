@@ -258,7 +258,8 @@ LOCK_CMD   = $(UV) lock --upgrade-package $(PY_PROJECT)
 # owns the version, so there is no `additional_dependencies` left to drift.
 LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                clang-tidy phase-conversion alloc-helpers stimulus-sources \
-               retired-names ci-pipefail rust-abi header-example-arity \
+               retired-names repo-links broker-links clone-notes ci-pipefail rust-abi \
+               header-example-arity \
                wfm-enum-tables fmod-fold lgamma-reentrant full-scale \
                bench-timer bare-libm gnu-flags workflow-tag-triggers \
                version-literals text-encoding cmake-script-policy \
@@ -286,7 +287,7 @@ RUFF_PATHS = .
 # each object's results.md, written by that folder's own validate.py, so
 # reformatting it would drift against the next regeneration. vendor/ is not
 # ours.
-MD_EXCLUDE_RE = ^(vendor/|docs/c-api/|docs/guide/wfmgen/options\.md$$|docs/benchmarks\.md$$|docs/.*/archive/|examples/[^/]+/docs/|src/doppler/(.*/)?tests/validation/)
+MD_EXCLUDE_RE = ^(vendor/|docs/c-api/|docs/domains/|docs/api/a-z\.md$$|docs/example-projects/|docs/guide/wfmgen/options\.md$$|docs/benchmarks\.md$$|docs/.*/archive/|examples/[^/]+/docs/|src/doppler/(.*/)?tests/validation/)
 
 LINT_ruff        = $(RUFF) check --fix --unsafe-fixes $(RUFF_PATHS)
 LINT_ruff-format = $(RUFF) format $(RUFF_PATHS)
@@ -514,6 +515,24 @@ lint-alloc-helpers-baseline: ## Re-record the alloc ratchet after converting som
 # list is data, added by the commit that retires a name.
 LINT_retired-names = $(UV) run python scripts/check_retired_names.py
 
+# The docs point at the RELEASE the reader installed, not at main
+# (doppler#2857): no `blob/main` link and no `git clone` without --branch outside
+# the pages docs/.main-links-allowed names, and every pinned link names a file
+# that exists in the tree and at the tag. The tag is fetched when it is not
+# local, and a CI run that cannot get it FAILS: a skip would make this check
+# nothing where checkouts carry no tags.
+LINT_repo-links = $(UV) run python scripts/check_repo_links.py
+
+# A page that needs a NATS broker links the page that says how to run one
+# (doppler#2857): doppler is a client, and nothing else tells a reader what to
+# start. Discovered over docs/; exemptions are data, in docs/.broker-link-exempt.
+LINT_broker-links = $(UV) run python scripts/check_broker_links.py
+
+# A page that runs a repository-only command (`make build`, `./build/...`,
+# `docker compose`) carries a pinned `git clone` (doppler#2857). Discovered
+# over docs/; exemptions are data, in docs/.clone-note-exempt.
+LINT_clone-notes = $(UV) run python scripts/check_clone_notes.py
+
 # A `cmake -P` script inherits no policies: without its own
 # cmake_minimum_required every policy is OLD, which CMake 4 hides and the CMake
 # CI runs does not (#1578: IN_LIST failed every Linux build). Plain python3:
@@ -674,14 +693,20 @@ LINT_stimulus-sources = $(UV) run python scripts/check_stimulus_sources.py
 
 # mdformat needs Python >=3.10 (see pyproject's dev group, where it carries a
 # marker). On a 3.9 dev env it is simply absent, so skip with a notice rather
-# than failing — the CI lint job runs a modern Python and enforces it there.
+# than failing -- the CI lint job runs a modern Python and enforces it there.
+#
+# The skip is decided by the PYTHON VERSION, never by whether the tool started.
+# It used to be `$(MDFORMAT) --version`, so a venv with a missing dependency
+# (mdurl, or the mkdocs plugin) read as "unavailable", the target returned 0,
+# and `make lint` was green locally while CI's mdformat rewrote the file
+# (doppler#2857: docs/quickstart.md). A broken tool on Python >=3.10 now FAILS.
 define LINT_mdformat
-@if $(MDFORMAT) --version > /dev/null 2>&1; then \
+@if $(UV) run python -c 'import sys; sys.exit(sys.version_info < (3, 10))'; then \
     git ls-files '*.md' \
         | grep -Ev '$(MD_EXCLUDE_RE)' \
         | xargs -r $(MDFORMAT); \
 else \
-    echo "mdformat unavailable (needs Python >=3.10) — skipping"; \
+    echo "mdformat needs Python >=3.10; this venv is older -- skipping"; \
 fi
 endef
 
@@ -1110,8 +1135,22 @@ WHEEL_CMD = $(UV) build --wheel
 # invocation, so a clean checkout renders identically to CI. A stale local
 # zensical.toml (gitignored, absent in CI) shadows mkdocs.yml and silently
 # truncates the nav, so it is removed before every build.
-ZENSICAL     = $(MEM_GUARD_CMD) $(UV) run --group docs zensical
-DOCS_PREPARE = @rm -f zensical.toml
+# The build is held to a PEAK-RSS BUDGET on every machine (scripts/peak_rss.py
+# reads getrusage, so it works on a CI runner) and, where systemd has a user
+# session, to its own CEILING besides. The ceiling is LOCAL-ONLY: mem-guard
+# runs a command unguarded when there is no systemd user session, which is what
+# a GitHub runner has, so the budget is what CI sees.
+#
+# The build runs under its OWN memory ceiling, well under the shared guard's
+# (3/4 of RAM): measured, a cold strict build of the 918 pages peaks near
+# 520 MB, so 2G leaves four times that. The ceiling is what turns a return of
+# the runaway (zensical 0.0.45 + mkdocstrings 1.0.4 grew past 4 GB and took
+# the whole slice with it, #2840) into a fast, named failure on one command.
+DOCS_MEM_MAX  ?= 2G
+DOCS_PEAK_MB  ?= 1536
+DOCS_CHECK_BUILD_CMD = $(UV) run python scripts/peak_rss.py --max-mb $(DOCS_PEAK_MB) -- $(ZENSICAL) build --strict
+ZENSICAL     = env MEM_GUARD_MAX=$(DOCS_MEM_MAX) $(MEM_GUARD_CMD) $(UV) run --group docs zensical
+DOCS_PREPARE = @rm -f zensical.toml && $(UV) run python scripts/check_docs_python.py
 
 # The docs gate: every check runs, every failure is reported in one pass. The
 # ordering is the point — cheap script gates first, so a drifted generated file
@@ -1130,7 +1169,9 @@ $(UV) run python scripts/check_docstring_coverage.py --check
 $(UV) run python scripts/check_nav_index.py
 $(UV) run python scripts/check_wfmgen_flag_docs.py
 $(UV) run python scripts/gen_related_pages.py --check
-$(UV) run python scripts/check_user_docs.py --no-ratchet $(GALLERY_SCRIPTS)
+$(UV) run python scripts/gen_domains.py --check
+$(UV) run python scripts/gen_example_projects.py --check
+$(MAKE) -s user-docs-check USER_DOCS_FLAGS=--no-ratchet
 $(UV) run python scripts/gen_readme.py --check
 $(UV) run python scripts/gen_install_scripts.py --check
 $(UV) run python scripts/gen_wfm_defaults.py --check
@@ -1828,6 +1869,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 gallery blazing \
                 gen-c-api just-build docs-invariants \
                 jm-apply jm-apply-downstream jm-adopt jm-revendor \
+                jm-migrate-fragments \
                 jm-upgrade changelog-assemble changelog-assembled-check \
                 plot-rx-dynamics \
                 gen-c-api-check python-executable-check \
@@ -1882,9 +1924,10 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
                 check-wheel-tags release-wheel-tags \
-                release-smoke-packages \
+                release-smoke-packages consumer-walk docs-walk docs-walk-docker \
                 bench-python bench-rx \
-                bench-preflight bench-interleaved bench-publish bench-docs \
+                bench-preflight bench-interleaved bench-ab bench-publish \
+                bench-docs \
                 bench-labels-fix \
                 bench-stream bench-report bench-restamp \
                 docker-runtime docker-sdk docker-downstream docker-stream \
@@ -2407,6 +2450,8 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/detection_curves.py \
     src/doppler/examples/detection_sim.py \
     src/doppler/examples/detection2d_demo.py \
+    src/doppler/examples/delay_doppler_batch_demo.py \
+    src/doppler/examples/delay_doppler_bank_demo.py \
     src/doppler/examples/lockdet_demo.py \
     src/doppler/examples/telemetry_fanin_demo.py \
     src/doppler/examples/mpsk_telemetry_capture_demo.py \
@@ -2479,9 +2524,10 @@ plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness
 # USER_DOCS_BASE). On `lint`; docs-check's invariants run it with
 # --no-ratchet, because the Docs job checks out no base ref.
 USER_DOCS_BASE ?= origin/main
+USER_DOCS_FLAGS ?=
 user-docs-check: ## Verify every class has API, guide and example, and every example a gallery decision
 	@$(UV) run python scripts/check_user_docs.py --base $(USER_DOCS_BASE) \
-	     $(GALLERY_SCRIPTS)
+	     $(USER_DOCS_FLAGS) $(GALLERY_SCRIPTS)
 
 gallery-scripts-check: ## Verify every committed gallery plot has a script `make gallery` runs
 	@$(UV) run python scripts/check_gallery_scripts.py $(GALLERY_SCRIPTS)
@@ -3255,6 +3301,62 @@ endif
 	 ls -1 $(RELEASE_PKG_DIR)
 	@$(call PKG_SMOKE_RUN,release-smoke-packages,$(RELEASE_PKG_DIR))
 
+# Walk the docs as a new .deb user would, in a clean container, running the
+# pages' OWN commands (tests/install/consumer-walk.sh extracts them): install the
+# published packages, the build tools, fetch the consumer project, `make run`,
+# and the Debian multiarch conditions failing as the page says (doppler#2856).
+# Needs the release the pages name to be published, so it runs after the
+# release (release.yml) and on demand: `make consumer-walk`.
+CONSUMER_WALK_IMAGE ?= $(STOCK_REGISTRY)/ubuntu:24.04
+consumer-walk: ## Do what the docs tell a new .deb user to do, in a clean ubuntu container
+	@./scripts/with-deadline.sh $(PKG_SMOKE_DEADLINE) 1 \
+	    env $(STOCK_PULL) $(CONSUMER_WALK_IMAGE) \
+	    || { echo "consumer-walk: could not pull $(CONSUMER_WALK_IMAGE)"; exit 1; }
+	@./scripts/with-deadline.sh $(PKG_SMOKE_DEADLINE) 1 \
+	    docker run --rm --init --pull=never -v "$(CURDIR)":/w:ro -w /w \
+	        $(CONSUMER_WALK_IMAGE) bash tests/install/consumer-walk.sh /w \
+	    || { echo "consumer-walk: FAILED (the line above says why)"; exit 1; }
+
+# Walk every install path the docs name, from a blank machine, using the pages'
+# own commands (tests/install/docs-walk.sh extracts each from its page): pip
+# with the [examples] extra, the quick start's Python blocks, a gallery example,
+# wfmgen, the C tarball and its three compile faces, a clone + `make build`, the
+# .debs (doppler#2857). One BARE container per stage.
+#
+#   make docs-walk                                  # published: the real release
+#   make docs-walk WALK_MODE=candidate              # pre-release dry run
+#
+# candidate builds the wheel, the C tarball and the .debs from a clone of HEAD in
+# a container of the walk's own image (so the glibc matches; any of them given in
+# WALK_ARTIFACTS, CI's own, is used instead) and substitutes them for the pinned
+# version text, one substitution per page command; published runs the commands as
+# the pages write them, against PyPI and the GitHub Release (release.yml, after
+# publish). CONTAINER is docker on a runner and podman where that is what the box
+# has. The driver is a bash script, not a recipe: this Makefile's SHELL is sh, and
+# dash has no `pipefail`. The transcript is WALK_LOG.
+WALK_MODE      ?= published
+WALK_ARTIFACTS ?=
+WALK_IMAGE     ?= $(STOCK_REGISTRY)/ubuntu:24.04
+WALK_VERSION   ?= $(shell sed -n 's/^version *= *"\(.*\)"/\1/p' pyproject.toml | head -1)
+WALK_LOG       ?= docs-walk-$(WALK_MODE).log
+CONTAINER      ?= docker
+docs-walk: ## Walk every install path the docs name in a clean container (WALK_MODE=candidate|published)
+	@./scripts/with-deadline.sh $(PKG_SMOKE_DEADLINE) 1 \
+	    env $(STOCK_PULL) $(WALK_IMAGE) \
+	    || { echo "docs-walk: could not pull $(WALK_IMAGE)"; exit 1; }
+	@WALK_MODE=$(WALK_MODE) WALK_VERSION=$(WALK_VERSION) WALK_IMAGE=$(WALK_IMAGE) \
+	 CONTAINER=$(CONTAINER) WALK_LOG=$(WALK_LOG) WALK_ARTIFACTS=$(WALK_ARTIFACTS) \
+	 UV_VERSION=$(UV_VERSION) WORK_DIR=$(abspath $(BUILD_DIR)) \
+	 ./scripts/with-deadline.sh 5400 1 bash tests/install/docs-walk-host.sh walk
+
+# The Docker path of the same walk, from the HOST (a container cannot start
+# one): docs/install/docker.md's `docker run ... doppler --help`, extracted from
+# the page and run unpiped, so its exit status is the verdict. Published only --
+# a candidate's image is built, and smoke-tested, by the Docker CI job.
+docs-walk-docker: ## Run docs/install/docker.md's `docker run ... doppler --help` against the published image
+	@WALK_VERSION=$(WALK_VERSION) WALK_IMAGE=$(WALK_IMAGE) CONTAINER=$(CONTAINER) \
+	 bash tests/install/docs-walk-host.sh docker
+
 # The packaged archive, consumed the way a downstream consumes the published
 # one: extract it into a fresh prefix and run the release smoke against that
 # prefix (find_package static + shared, pkg-config, the stream layer -- each
@@ -3540,6 +3642,8 @@ wfmgen-flag-matrix: build ## Regenerate native/tests/wfmgen_flag_matrix.json
 
 docs-relink: ## Regenerate every generated doc region
 	$(UV) run python scripts/gen_related_pages.py --write
+	$(UV) run python scripts/gen_domains.py --write
+	$(UV) run python scripts/gen_example_projects.py --write
 	$(UV) run python scripts/gen_readme.py --write
 	$(UV) run python scripts/gen_install_scripts.py --write
 	$(UV) run python scripts/gen_validation_log.py --write
@@ -3553,6 +3657,8 @@ docs-relink: ## Regenerate every generated doc region
 # about what "drifted" means. If it trips: run `make docs-relink`.
 docs-drift-check: ## Check the generated doc regions are up to date
 	$(UV) run python scripts/gen_related_pages.py --check
+	$(UV) run python scripts/gen_domains.py --check
+	$(UV) run python scripts/gen_example_projects.py --check
 	$(UV) run python scripts/gen_readme.py --check
 	$(UV) run python scripts/gen_install_scripts.py --check
 	$(UV) run python scripts/gen_validation_log.py --check
@@ -3844,6 +3950,26 @@ jm-adopt: ## JM_ADOPT_ARGS='<obj>... [--accept-additions] | --check --all' — f
 	    echo "       make jm-adopt JM_ADOPT_ARGS='--check --all'"; exit 2; }
 	$(UV) sync --group dev --no-install-project
 	$(UV) run just-makeit adopt $(JM_ADOPT_ARGS)
+
+# `jm migrate-to-fragments` moves every `[module.X]` table out of
+# just-makeit.toml into its own modules/<name>.toml, beside objects/, and
+# leaves the manifest with [project] and its include globs. Every `[obj]`
+# already lives in objects/, so the module tables are what it moves. It
+# rewrites the hand-owned manifest, so it is a target: the make-SSOT hook
+# blocks the bare tool.
+#
+# It takes NO flags, unlike jm-adopt, because there is nothing to choose: the
+# command has one form, it is idempotent (a second run moves nothing), and
+# it is safe only from 0.114.1, the first jm whose migration leaves nothing
+# for `apply` to do and whose __init__ merge keeps a package's reexports --
+# before it, an apply after this dropped 23 names from doppler.wfm.__all__.
+# A by-hand target, run once per project; nothing in CI calls it. Follow it
+# with `make jm-apply` and `make drift-check`, which must both be no-ops.
+jm-migrate-fragments: ## Move each [module.X] to modules/<name>.toml
+	$(UV) sync --group dev --no-install-project
+	$(UV) run just-makeit migrate-to-fragments
+	@echo "jm-migrate-fragments: done. Next: make jm-apply (expect no"
+	@echo "  change), make drift-check, then make pyext before any test."
 
 # The write half of check_jm_status.py's vendored-header question: delete each
 # jm_*.h that is behind the pin, and `just-makeit apply` writes the pinned
@@ -5153,6 +5279,36 @@ endif
 	  echo $$? > $(BENCH_RUN_RC).tmp; } 2>&1 \
 	  | tee $(BENCH_RUN_DIR)/$(VERSION).log; \
 	  mv $(BENCH_RUN_RC).tmp $(BENCH_RUN_RC); exit $$(cat $(BENCH_RUN_RC))
+
+# The A/B gate a performance PR is held to (#2759): A and B built at one set of
+# flags in throwaway worktrees, alternated K times, and per row min-of-K, each
+# side's band (second-best minus best pass), the ratio and a verdict. A row
+# ties when the two mins differ by no more than the larger band, and never
+# less than 1% of A's min; it exits 1 on any SLOWER row, or on a row A
+# measured and B did not. K is at least 3 (docs/dev/contributing/
+# benchmarking.md). BENCH_ARGS narrows the suite as it does for
+# `make bench`. Writes nothing under benchmarks/published/. By hand: nothing
+# in CI runs it (a bench box and minutes).
+# ALIAS pairs a renamed family across the two commits, keyed as bench-ab
+# keys rows, by fullname, whose C family is the bench binary:
+# `ALIAS=bench_corr2d_core=bench_correlator_core` compares A's
+# bench_corr2d_core::<row> with B's bench_correlator_core::<row>, suffix
+# for suffix (#2752 step 3.2). Declared here, per run, and printed with the
+# verdict; there is no default table. An aliased row on one side only
+# fails, and an alias that pairs nothing stops the run after one pass.
+bench-ab: ## A/B two commits, per row min-of-K, band and verdict (A= B= [K>=3] [BUILD=] [ALIAS=old=new])
+ifndef A
+	@echo "usage: make bench-ab A=<ref> B=<ref> [K=5] [BUILD=portable|native]"
+	@echo "       [JSON=out.json] [BENCH_ARGS=...] [ALIAS=old=new,...]"
+	@exit 2
+endif
+ifndef B
+	@echo "usage: make bench-ab A=<ref> B=<ref> [K=5] [BUILD=portable|native]"
+	@exit 2
+endif
+	$(UV) run python scripts/bench_ab.py $(A) $(B) $(if $(K),-k $(K),) \
+	    $(if $(BUILD),--build $(BUILD),) $(if $(JSON),--json $(JSON),) \
+	    $(if $(ALIAS),--alias '$(ALIAS)',)
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION

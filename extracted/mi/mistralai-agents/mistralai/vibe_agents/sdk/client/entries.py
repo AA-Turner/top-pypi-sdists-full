@@ -43,7 +43,7 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class MessageEntry:
-    """A message in a session's history: what the user sent, or what the model answered.
+    """A message in a session's history: the user's, the model's, a system message or a context message.
 
     ``id`` and ``turn_id`` are as in :class:`ToolCallEntry`. ``role`` is ``"user"`` for a turn's
     input or a steer, ``"assistant"`` for the model's text, ``"system"`` for a system message
@@ -56,9 +56,16 @@ class MessageEntry:
     __match_args__ = ("role", "content")
 
     id: str
+    """The entry's ID in the history."""
     turn_id: str | None
+    """The turn this entry belongs to, or ``None`` when it is not part of a turn, for example in a
+    history given at the session's start."""
     role: Literal["user", "assistant", "system", "context"]
+    """``"user"`` for a turn's input or a steer, ``"assistant"`` for the model's text, ``"system"``
+    for a system message given in a session's starting history, ``"context"`` for a
+    :class:`ContextMessage`."""
     content: tuple[ContentBlock, ...]
+    """The message's content blocks, the block classes of a turn's input."""
 
     @property
     def text(self) -> str:
@@ -86,8 +93,13 @@ class ContextMessage(MessageEntry):
     """
 
     role: Literal["context"] = field(default="context", init=False)
+    """Always ``"context"``."""
     kind: Literal["input", "capability_source"]
+    """Who added it: ``"input"`` for a context message sent with a message,
+    ``"capability_source"`` for one the session added about a tool source."""
     source: str | None
+    """The tool source it is about, such as ``"mistral_connectors:notion"``, or ``None`` for a
+    context message sent with a message."""
 
 
 def context_message(entry: CapabilityContextMessageHistoryEntry | InputContextMessageHistoryEntry) -> ContextMessage:
@@ -103,12 +115,12 @@ def context_message(entry: CapabilityContextMessageHistoryEntry | InputContextMe
 class ToolCallEntry:
     """A tool call in a session's history: the model called a tool.
 
-    ``id`` is the entry's id in the history. ``turn_id`` is the turn the call was made in, or
+    ``id`` is the entry's ID in the history. ``turn_id`` is the turn the call was made in, or
     ``None`` when the entry is not part of a turn, for example in a history given at the session's
-    start. ``tool_call_id`` names the call: the tool's result carries the same id.
+    start. ``tool_call_id`` names the call: the tool's result carries the same ID.
     ``name`` is the tool's full ID, such as ``client.get_weather``, as in :class:`ToolCall`.
-    ``arguments`` is the object the model passed, as the host reported it: do not change it, copy it
-    first.
+    ``arguments`` is the call's arguments: the model's, or the ones a ``pre_tool_call`` hook set (a
+    skipped call keeps the model's). Do not change it, copy it first.
 
     This is a history entry. :class:`ToolCall` stays the item of ``Completed.tool_calls``.
     """
@@ -116,10 +128,17 @@ class ToolCallEntry:
     __match_args__ = ("name", "arguments")
 
     id: str
+    """The entry's ID in the history."""
     turn_id: str | None
+    """The turn this entry belongs to, or ``None`` when it is not part of a turn, for example in a
+    history given at the session's start."""
     tool_call_id: str
+    """The ID of the call: the tool's result carries the same ID."""
     name: str
+    """The tool's full ID, such as ``client.get_weather``, as in :class:`ToolCall`."""
     arguments: JsonValue
+    """The call's arguments: the model's, or the ones a ``pre_tool_call`` hook set (a skipped call keeps
+    the model's). Do not change it, copy it first."""
 
 
 def tool_call_entry(entry: ToolCallHistoryEntry) -> ToolCallEntry:
@@ -137,29 +156,41 @@ def tool_call_entry(entry: ToolCallHistoryEntry) -> ToolCallEntry:
 class ToolResultEntry:
     """A tool's result in a session's history: the pair of a :class:`ToolCallEntry`.
 
-    ``id`` and ``turn_id`` are as in :class:`ToolCallEntry`. ``tool_call_id`` is the id of the call
+    ``id`` and ``turn_id`` are as in :class:`ToolCallEntry`. ``tool_call_id`` is the ID of the call
     this result answers. ``name`` is the tool's full ID, such as ``client.get_weather``, or ``None``
-    when the host did not report it.
+    when it is not known.
     ``content`` is the content blocks the tool returned, the block classes of a turn's input; a
     tool that returned a string has one text block. ``structured_content`` is the tool's structured
     output, such as a dict, or ``None`` when it returned none. ``is_error`` is ``True`` when the
-    call failed: ``content`` then holds the error's message as one text block when the host sends
-    no content, else the host's content blocks. ``structured_content`` then holds the failed call's
-    output when the host sent one, such as a failed command's stdout and stderr. ``meta`` is the
-    result's host metadata (MCP ``_meta``), as in :class:`ToolResult`; it is empty when the host
-    sent none. Do not change ``structured_content`` or ``meta``, copy them first.
+    call failed: ``content`` then holds the error's content blocks, or its message as one text
+    block. ``structured_content`` then holds the failed call's output, if any, such as a failed
+    command's stdout and stderr. ``meta`` is the result's metadata for the client, as MCP's
+    ``_meta`` and as in :class:`ToolResult`; it is empty when there is none. Do not change
+    ``structured_content`` or ``meta``, copy them first.
     """
 
     __match_args__ = ("name", "content")
 
     id: str
+    """The entry's ID in the history."""
     turn_id: str | None
+    """The turn this entry belongs to, or ``None`` when it is not part of a turn."""
     tool_call_id: str
+    """The ID of the call this result answers."""
     name: str | None
+    """The tool's full ID, such as ``client.get_weather``, or ``None`` when it is not known."""
     content: tuple[ContentBlock, ...]
+    """The content blocks the tool returned, the block classes of a turn's input; a tool that returned a
+    string has one text block. For a failed call, the error's content blocks, or its message as one
+    text block."""
     structured_content: JsonValue
+    """The tool's structured output, such as a dict, or ``None`` when it returned none. For a failed call,
+    its output, if any, such as a failed command's stdout and stderr."""
     is_error: bool
+    """``True`` when the call failed."""
     meta: dict[str, JsonValue] = field(default_factory=dict)
+    """The result's metadata for the client, as MCP's ``_meta`` and as in :class:`ToolResult`; empty
+    when there is none."""
 
 
 def tool_result_entry(entry: ToolResultHistoryEntry) -> ToolResultEntry:
@@ -216,26 +247,24 @@ def _content_blocks(result: JsonValue) -> tuple[ContentBlock, ...] | None:
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
 class UnknownEntry:
-    """An entry in a session's history of a type this SDK does not give as a typed entry.
+    """An entry of a type added after your SDK version, or one this version reads only as raw data, such
+    as a checkpoint. ``type`` names it, and ``raw`` holds its data.
 
-    A newer host can add entry types, and the host has entries this SDK does not type yet, such as
-    the model's reasoning or a message another agent sent. Such an entry is kept in the history, in
-    its place, instead of failing the read or being left out. ``id`` and ``turn_id`` are as in
-    :class:`ToolCallEntry`. ``type`` is the entry's type as the host sent it, such as
-    ``"future_entry"`` or ``"reasoning"``. ``raw`` is the whole entry as a JSON object, in the
-    host's wire form and with its own ``type``: it keeps the fields this SDK does not know, and
-    holds only the fields the host sent. A field of the entry named ``originalType`` is not kept:
-    the host's models use that name for the entry's type. Do not change it, copy it first.
-
-    A newer SDK can know the type and give a typed entry for it instead.
+    The entry keeps its place in the history instead of failing the read. ``id`` and ``turn_id`` are
+    as in :class:`ToolCallEntry`. A later SDK version can give a typed entry instead.
     """
 
     __match_args__ = ("type", "raw")
 
     id: str
+    """The entry's ID in the history."""
     turn_id: str | None
+    """The turn this entry belongs to, or ``None`` when it is not part of a turn."""
     type: str
+    """The entry's type, such as ``"checkpoint"``."""
     raw: dict[str, JsonValue]
+    """The whole entry as a JSON object, unparsed, with its camelCase field names and its ``type``.
+    Do not change it, copy it first."""
 
 
 def unknown_entry(entry: HistoryEntry) -> UnknownEntry:
@@ -256,5 +285,6 @@ def unknown_entry(entry: HistoryEntry) -> UnknownEntry:
 
 
 type Entry = MessageEntry | ToolCallEntry | ToolResultEntry | UnknownEntry
-"""An entry of a session's history that this SDK gives: a message (a :class:`ContextMessage` too),
-a tool call, a tool's result, or an entry of a type it does not know."""
+"""An entry of a session's history: a message (a :class:`ContextMessage` too), a tool call, a
+tool's result, or an entry of a type added after your SDK version, or one this version reads only as raw
+data, such as a checkpoint."""

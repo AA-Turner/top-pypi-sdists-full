@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rendercanvas
-Version: 2.7.2
+Version: 3.0.0
 Summary: One canvas API, multiple backends
 Keywords: canvas,rendering,graphics,wgpu,qt,wx,glfw,jupyter
 Author: Almar Klein, Korijn van Golen
@@ -48,6 +48,7 @@ Provides-Extra: lint
 Provides-Extra: notebook
 Provides-Extra: terminal
 Provides-Extra: tests
+Import-Name: rendercanvas
 
 [![CI](https://github.com/pygfx/rendercanvas/workflows/CI/badge.svg)](https://github.com/pygfx/rendercanvas/actions)
 [![Documentation Status](https://readthedocs.org/projects/rendercanvas/badge/?version=stable)](https://rendercanvas.readthedocs.io)
@@ -128,11 +129,13 @@ from rendercanvas.auto import RenderCanvas, loop
 canvas = RenderCanvas(update_mode="continuous")
 context = canvas.get_bitmap_context()
 
+
 @canvas.request_draw
 def animate():
     w, h = canvas.get_logical_size()
     bitmap = np.random.uniform(0, 255, (h, w)).astype(np.uint8)
     context.set_bitmap(bitmap)
+
 
 loop.run()
 ```
@@ -157,8 +160,8 @@ Embed in a Qt application:
 from PySide6 import QtWidgets
 from rendercanvas.qt import QRenderWidget
 
-class Main(QtWidgets.QWidget):
 
+class Main(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
@@ -199,6 +202,7 @@ See the [contribution guide](CONTRIBUTING.md).
 * Use `ruff check` to check for linting errors.
 * Use `pytest tests` to run the tests.
 * Use `pytest examples` to run a subset of the examples.
+* Use `pytest tests/test_backend_xx.py` to run backend-specific tests, e.g. for `glfw`, `qt`, `wx`.
 
 ### Code of Conduct
 

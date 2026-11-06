@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Literal, TypeAlias
 
 from trajectory._models import BaseModel
+from trajectory.types.checkpoint_export_precision import CheckpointExportPrecision
 
 
 class Download(BaseModel):
@@ -32,7 +33,13 @@ class CheckpointExport(BaseModel):
 
   export_type: str
 
+  precision: CheckpointExportPrecision | None = None
+  """The weight format of a merged_model export."""
+
   state: State
 
   download: Download | None = None
-  """Present only on retrieval of a ready export."""
+  """Present only on retrieval of a ready lora_adapter export."""
+
+  size_bytes: int | None = None
+  """Total size of a ready merged_model export's files."""

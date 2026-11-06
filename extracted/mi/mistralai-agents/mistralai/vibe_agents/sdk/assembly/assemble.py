@@ -7,6 +7,7 @@ import logging
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple, cast
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, JsonValue
 
@@ -174,6 +175,24 @@ def with_session_agent_customization(config: AgentConfig, customization: wire.Se
         model=customization.model,
         reasoning_effort=customization.reasoning_effort,
     )
+
+
+def with_completion_affinity(config: AgentConfig, affinity_id: str) -> AgentConfig:
+    completion = config.completion
+    if completion.get("affinity_id") is not None or completion.get("prompt_cache_key") is not None:
+        return config
+    if completion.get("type") == "mistral":
+        return config.model_copy(update={"completion": {**completion, "affinity_id": affinity_id}})
+    if completion.get("type") in ("openai", "openai_responses") and _is_openai_api(completion.get("base_url")):
+        return config.model_copy(update={"completion": {**completion, "prompt_cache_key": affinity_id}})
+    return config
+
+
+def _is_openai_api(base_url: object) -> bool:
+    if base_url is None:
+        return True
+    host = urlparse(str(base_url)).hostname or ""
+    return host == "api.openai.com" or host.endswith(".api.openai.com")
 
 
 @dataclass(frozen=True, slots=True)

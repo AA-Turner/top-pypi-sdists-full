@@ -6,6 +6,7 @@ partial state on disk: failed downloads, corrupt zips, malformed rows, and
 partway-through import failures.
 """
 # Standard Library
+import contextlib
 import os
 import shutil
 import tempfile
@@ -17,6 +18,15 @@ from django.test import TestCase
 
 # Django EVE SDE
 from eve_sde import sde_tasks
+
+
+@contextlib.contextmanager
+def _plan_everything(count):
+    """Latest build is 1 and every one of `count` models needs loading."""
+    with mock.patch.object(sde_tasks, "get_latest_sde", return_value={"buildNumber": 1}), \
+            mock.patch.object(sde_tasks, "plan_sde_update", return_value={_i: "test" for _i in range(count)}), \
+            mock.patch.object(sde_tasks, "log_sde_plan"):
+        yield
 
 
 class DownloadFileTests(TestCase):
@@ -38,7 +48,7 @@ class DownloadFileTests(TestCase):
         fake_response.raise_for_status.return_value = None
         fake_response.iter_bytes.return_value = [b"abc", b"def"]
 
-        with mock.patch.object(sde_tasks.httpx, "stream", return_value=self._stream_context(fake_response)):
+        with mock.patch.object(sde_tasks.httpx2, "stream", return_value=self._stream_context(fake_response)):
             sde_tasks.download_file("http://example.test/file", self.target)
 
         with open(self.target, "rb") as f:
@@ -54,7 +64,7 @@ class DownloadFileTests(TestCase):
 
         fake_response.iter_bytes.return_value = bad_iter()
 
-        with mock.patch.object(sde_tasks.httpx, "stream", return_value=self._stream_context(fake_response)):
+        with mock.patch.object(sde_tasks.httpx2, "stream", return_value=self._stream_context(fake_response)):
             with self.assertRaises(RuntimeError):
                 sde_tasks.download_file("http://example.test/file", self.target)
 
@@ -62,12 +72,12 @@ class DownloadFileTests(TestCase):
 
     def test_http_status_error_removes_partial_file_and_raises(self):
         fake_response = mock.MagicMock()
-        fake_response.raise_for_status.side_effect = sde_tasks.httpx.HTTPStatusError(
+        fake_response.raise_for_status.side_effect = sde_tasks.httpx2.HTTPStatusError(
             "not found", request=mock.MagicMock(), response=mock.MagicMock(status_code=404)
         )
 
-        with mock.patch.object(sde_tasks.httpx, "stream", return_value=self._stream_context(fake_response)):
-            with self.assertRaises(sde_tasks.httpx.HTTPStatusError):
+        with mock.patch.object(sde_tasks.httpx2, "stream", return_value=self._stream_context(fake_response)):
+            with self.assertRaises(sde_tasks.httpx2.HTTPStatusError):
                 sde_tasks.download_file("http://example.test/file", self.target)
 
         self.assertFalse(os.path.exists(self.target))
@@ -76,7 +86,7 @@ class DownloadFileTests(TestCase):
 class CheckSdeVersionTests(TestCase):
 
     def test_raises_when_upstream_check_fails(self):
-        with mock.patch.object(sde_tasks.httpx, "get", side_effect=RuntimeError("network down")):
+        with mock.patch.object(sde_tasks.httpx2, "get", side_effect=RuntimeError("network down")):
             with self.assertRaises(RuntimeError):
                 sde_tasks.check_sde_version()
 
@@ -89,7 +99,7 @@ class CheckSdeVersionTests(TestCase):
         fake_response.raise_for_status.return_value = None
         fake_response.json.return_value = {"buildNumber": 222}
 
-        with mock.patch.object(sde_tasks.httpx, "get", return_value=fake_response):
+        with mock.patch.object(sde_tasks.httpx2, "get", return_value=fake_response):
             self.assertFalse(sde_tasks.check_sde_version())
 
     def test_returns_true_when_build_number_matches(self):
@@ -101,7 +111,7 @@ class CheckSdeVersionTests(TestCase):
         fake_response.raise_for_status.return_value = None
         fake_response.json.return_value = {"buildNumber": 333}
 
-        with mock.patch.object(sde_tasks.httpx, "get", return_value=fake_response):
+        with mock.patch.object(sde_tasks.httpx2, "get", return_value=fake_response):
             self.assertTrue(sde_tasks.check_sde_version())
 
 
@@ -164,6 +174,7 @@ class ProcessFromSdeTests(TestCase):
 
         with mock.patch.object(sde_tasks, "download_extract_sde"), \
                 mock.patch.object(sde_tasks, "SDE_PARTS_TO_UPDATE", [model_a, model_b, model_c]), \
+                _plan_everything(3), \
                 mock.patch.object(sde_tasks, "set_sde_version") as mock_set_version, \
                 mock.patch.object(sde_tasks, "delete_sde_folder") as mock_delete_folder:
 
@@ -182,6 +193,7 @@ class ProcessFromSdeTests(TestCase):
 
         with mock.patch.object(sde_tasks, "download_extract_sde"), \
                 mock.patch.object(sde_tasks, "SDE_PARTS_TO_UPDATE", [model_a, model_b]), \
+                _plan_everything(2), \
                 mock.patch.object(sde_tasks, "set_sde_version") as mock_set_version, \
                 mock.patch.object(sde_tasks, "delete_sde_folder") as mock_delete_folder:
 
@@ -197,6 +209,7 @@ class ProcessFromSdeTests(TestCase):
 
         with mock.patch.object(sde_tasks, "download_extract_sde", side_effect=RuntimeError("download failed")), \
                 mock.patch.object(sde_tasks, "SDE_PARTS_TO_UPDATE", [model_a]), \
+                _plan_everything(1), \
                 mock.patch.object(sde_tasks, "set_sde_version") as mock_set_version, \
                 mock.patch.object(sde_tasks, "delete_sde_folder") as mock_delete_folder:
 
@@ -262,6 +275,7 @@ class ProcessFromSdeStartFromTests(TestCase):
 
         with mock.patch.object(sde_tasks, "download_extract_sde"), \
                 mock.patch.object(sde_tasks, "SDE_PARTS_TO_UPDATE", [model_a, model_b]), \
+                _plan_everything(2), \
                 mock.patch.object(sde_tasks, "set_sde_version"), \
                 mock.patch.object(sde_tasks, "delete_sde_folder"):
 

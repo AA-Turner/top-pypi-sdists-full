@@ -4,16 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trajectory-sdk"
-version = "0.10.10"
+version = "0.10.13"
 description = "Generated Trajectory API client and high-level workflows"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "httpx2>=2.13.1",
   "pathspec>=0.12",
+  "pooch>=1.8",
   "pydantic>=2.0",
+  "tomli-w>=1.0",
   "tqdm>=4.67",
 ]
+
+[project.scripts]
+tj = "trajectory.lib.cli.main:main"
+trajectory = "trajectory.lib.cli.main:main"
+
+[project.optional-dependencies]
+tui = ["textual>=6.0,<7"]
 
 [project.urls]
 Documentation = "https://docs.trajectory.ai"
@@ -25,6 +34,7 @@ dev = [
   "pytest>=8",
   "pytest-asyncio>=0.25",
   "ruff>=0.14",
+  "textual>=6.0,<7",
 ]
 
 [tool.setuptools.packages.find]
@@ -36,8 +46,8 @@ include = ["trajectory", "trajectory.*"]
 "share/doc/trajectory-sdk/guides" = ["docs/guides/*.mdx"]
 "share/doc/trajectory-sdk/reference" = ["docs/reference/*.mdx"]
 "share/doc/trajectory-sdk/images" = ["docs/images/*"]
-"share/doc/trajectory-sdk/skills/trajectory" = ["skills/trajectory/SKILL.md"]
-"share/doc/trajectory-sdk/skills/agent-feedback" = ["skills/agent-feedback/SKILL.md"]
+"share/doc/trajectory-sdk/skills/trajectory" = ["docs/.mintlify/skills/trajectory/SKILL.md"]
+"share/doc/trajectory-sdk/skills/agent-feedback" = ["docs/.mintlify/skills/agent-feedback/SKILL.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

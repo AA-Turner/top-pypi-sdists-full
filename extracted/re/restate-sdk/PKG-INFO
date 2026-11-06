@@ -1,25 +1,31 @@
 Metadata-Version: 2.4
 Name: restate-sdk
-Version: 1.3.0
+Version: 1.4.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Requires-Dist: google-adk>=1.20.0 ; extra == 'adk'
-Requires-Dist: httpx[http2] ; extra == 'client'
+Requires-Dist: httpx2[http2] ; extra == 'client'
 Requires-Dist: testcontainers ; extra == 'harness'
 Requires-Dist: hypercorn ; extra == 'harness'
-Requires-Dist: httpx ; extra == 'harness'
+Requires-Dist: httpx2 ; extra == 'harness'
 Requires-Dist: langchain>=1.0.0 ; extra == 'langchain'
 Requires-Dist: langgraph>=1.0.0 ; extra == 'langchain'
 Requires-Dist: langchain-core>=1.0.0 ; extra == 'langchain'
+Requires-Dist: langgraph>=1.0.0 ; extra == 'langgraph'
+Requires-Dist: langchain-core>=1.0.0 ; extra == 'langgraph'
+Requires-Dist: pydantic>=2 ; extra == 'langgraph'
 Requires-Dist: mypy>=1.11.2 ; extra == 'lint'
 Requires-Dist: pyright>=1.1.390 ; extra == 'lint'
 Requires-Dist: ruff>=0.6.9 ; extra == 'lint'
 Requires-Dist: openai-agents>=0.6.1 ; extra == 'openai'
 Requires-Dist: pydantic-ai-slim>=2.0,<3 ; extra == 'pydantic-ai'
+Requires-Dist: pydantic>=2 ; extra == 'pydantic-ai'
 Requires-Dist: dacite ; extra == 'serde'
 Requires-Dist: pydantic ; extra == 'serde'
 Requires-Dist: msgspec ; extra == 'serde'
+Requires-Dist: uvicorn>=0.53 ; extra == 'serve'
+Requires-Dist: zttp>=0.0.34 ; extra == 'serve'
 Requires-Dist: pytest ; extra == 'test'
 Requires-Dist: hypercorn ; extra == 'test'
 Requires-Dist: anyio ; extra == 'test'
@@ -29,10 +35,12 @@ Provides-Extra: adk
 Provides-Extra: client
 Provides-Extra: harness
 Provides-Extra: langchain
+Provides-Extra: langgraph
 Provides-Extra: lint
 Provides-Extra: openai
 Provides-Extra: pydantic-ai
 Provides-Extra: serde
+Provides-Extra: serve
 Provides-Extra: test
 Provides-Extra: tracing
 Provides-Extra: zstd
@@ -40,7 +48,7 @@ License-File: LICENSE
 Summary: A Python SDK for Restate
 Author-email: Restate Developers <dev@restate.dev>
 License-Expression: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Bug Tracker, https://github.com/restatedev/sdk-python/issues
 Project-URL: Documentation, https://docs.restate.dev
@@ -67,7 +75,7 @@ Project-URL: Source, https://github.com/restatedev/sdk-python
 ## Using the SDK
 
 **Prerequisites**:
-- Python >= v3.10
+- Python >= v3.11
 
 To use this SDK, add the dependency to your project:
 
@@ -91,26 +99,30 @@ async def greet(ctx: restate.Context, name: str) -> str:
 app = restate.app(services=[greeter])
 ```
 
-`restate.app(...)` returns an ASGI application, so it can be served by any ASGI server.
+`restate.app` takes services, virtual objects and workflows, and anything else that is a
+`restate.Servable`: session objects, and agents, which bring along the `signals` object their tools
+wait on. Each is served once, however many things bring it along.
 
-With [Hypercorn](https://github.com/pgjones/hypercorn):
-
-```shell
-pip install hypercorn
-python -m hypercorn app:app --bind "0.0.0.0:9080"
-```
-
-Or start it from code:
+Serve it with `restate.serve`, which needs the `serve` extra (`pip install "restate-sdk[serve]"`).
+It listens on `$PORT`, or 9080, with the HTTP/2 that Restate connects with, and
+stops on SIGINT or SIGTERM:
 
 ```python
 if __name__ == "__main__":
     import asyncio
-    import hypercorn
-    import hypercorn.asyncio
 
-    conf = hypercorn.Config()
-    conf.bind = ["0.0.0.0:9080"]
-    asyncio.run(hypercorn.asyncio.serve(app, conf))
+    asyncio.run(restate.serve(app))
+```
+
+Or from the command line, with no `__main__` block: `python -m restate serve app:app` (`--port`
+to choose the port).
+
+`restate.app(...)` returns an ASGI application, so any ASGI server can serve it instead, for example
+[Hypercorn](https://github.com/pgjones/hypercorn):
+
+```shell
+pip install hypercorn
+python -m hypercorn app:app --bind "0.0.0.0:9080"
 ```
 
 Once served, register the deployment with `restate deployments register http://localhost:9080`.
@@ -140,7 +152,7 @@ Or using the context manager, for finer control:
 ```python
 async with restate.with_connection(app, name="greeter-v1") as connection:
     print(connection.info.deployment_url)
-    await connection.wait()
+    await connection.wait_closed()
 ```
 
 ### Clients

@@ -147,8 +147,8 @@ ListThreatModelsPaginatorName = Literal["list_threat_models"]
 ListThreatsPaginatorName = Literal["list_threats"]
 LogTypeType = Literal["CLOUDWATCH"]
 ManagementTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
-MembershipTypeFilterType = Literal["ALL", "USER"]
-MembershipTypeType = Literal["USER"]
+MembershipTypeFilterType = Literal["ALL", "GROUP", "USER"]
+MembershipTypeType = Literal["GROUP", "USER"]
 NetworkTrafficRuleEffectType = Literal["ALLOW", "DENY"]
 NetworkTrafficRuleTypeType = Literal["URL"]
 PrivateConnectionStatusType = Literal[
@@ -227,6 +227,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

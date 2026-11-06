@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.38
+Version: 0.1.39
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -20,9 +20,9 @@ Requires-Dist: python-dotenv<2.0,>=1.0.0
 Requires-Dist: aiohttp<4.0,>=3.13.5
 Requires-Dist: httpx2<3.0,>=2.13.0
 Requires-Dist: httpx-aiohttp[httpx2]<1.0,>=0.2.0
-Requires-Dist: openai[aiohttp]<4.0,>=3.31.0
-Requires-Dist: anthropic[aiohttp]<2.0,>=1.14.0
-Requires-Dist: mistralai<4.0,>=3.2.0
+Requires-Dist: openai[aiohttp]<4.0,>=3.35.1
+Requires-Dist: anthropic[aiohttp]<3.0,>=2.0.0
+Requires-Dist: mistralai<4.0,>=3.5.0
 Requires-Dist: ai21<5.0,>=4.3.0
 Requires-Dist: boto3<2.0,>=1.43.106
 Requires-Dist: protobuf>=6.30.0
@@ -40,8 +40,13 @@ Requires-Dist: amazon-transcribe<1.0,>=0.6.4; extra == "voice"
 Requires-Dist: azure-cognitiveservices-speech<2.0,>=1.52.0; extra == "voice"
 Provides-Extra: redshift-export
 Requires-Dist: pyarrow<23.0.0,>=18.0.0; extra == "redshift-export"
+Requires-Dist: asyncpg<1.0,>=0.30; extra == "redshift-export"
+Requires-Dist: SQLAlchemy[asyncio]<3.0,>=2.0; extra == "redshift-export"
 Provides-Extra: server
+Requires-Dist: descope==2.16.1; extra == "server"
+Requires-Dist: alembic<2.0,>=1.16; extra == "server"
 Requires-Dist: aiobotocore<4.0,>=3.9.2; extra == "server"
+Requires-Dist: asyncpg<1.0,>=0.30; extra == "server"
 Requires-Dist: fastapi<1.0,>=0.115.0; extra == "server"
 Requires-Dist: starlette<2.0,>=1.0.1; extra == "server"
 Requires-Dist: opentelemetry-api<2.0,>=1.39.0; extra == "server"
@@ -49,6 +54,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0,>=1.39.0; extra == "se
 Requires-Dist: opentelemetry-instrumentation-httpx<1.0,>=0.60b0; extra == "server"
 Requires-Dist: opentelemetry-sdk<2.0,>=1.39.0; extra == "server"
 Requires-Dist: sentry-sdk<3.0,>=2.58.0; extra == "server"
+Requires-Dist: SQLAlchemy[asyncio]<3.0,>=2.0; extra == "server"
 Requires-Dist: uvicorn[standard]<1.0,>=0.34.0; extra == "server"
 Provides-Extra: docent
 Requires-Dist: docent-python>=0.1.55a0; extra == "docent"
@@ -58,22 +64,22 @@ Dynamic: license-file
 
 Open-source model library for interacting with a variety of LLM providers. Originally developed for internal use at [vals.ai](https://vals.ai/) benchmarks. This tool is designed to be a general-purpose solution for projects that need a unified interface for multiple model providers.
 
-Requires Python 3.11+.
+Requires Python 3.11+ and uv.
 
 ```bash
-pip install model-library
+uv pip install --exclude-newer "7 days" --exclude-newer-package certifi=false model-library
 ```
 
 For a Gateway-only client, install the separate `model-library-client` distribution instead of `model-library` in a fresh environment. From this repository checkout:
 
 ```bash
-python -m pip install -e packages/client
+uv pip install --exclude-newer "7 days" --exclude-newer-package certifi=false -e packages/client
 ```
 
 Or install a locally built client wheel into that environment:
 
 ```bash
-uv pip install --python /path/to/client-venv/bin/python "/path/to/model_library_client-<version>-py3-none-any.whl"
+uv pip install --exclude-newer "7 days" --exclude-newer-package certifi=false --python /path/to/client-venv/bin/python "/path/to/model_library_client-<version>-py3-none-any.whl"
 ```
 
 Both distributions expose the same `model_library` imports and overlap on installed files; do not install them together. The full `model-library` install remains the default for native provider calls. The client has no provider-SDK requirements of its own, but cannot remove SDKs required by other packages or override a transitive requirement for the full library. For a published client version, install `model-library-client` from PyPI; otherwise use a checkout or local wheel. See [Gateway](docs/gateway.md) for supported client usage and limitations.

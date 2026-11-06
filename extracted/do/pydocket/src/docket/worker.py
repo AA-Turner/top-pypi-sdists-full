@@ -7,8 +7,8 @@ import logging
 import os
 import signal
 import socket
-import sys
 import time
+from asyncio import TaskGroup
 from contextlib import AsyncExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -24,13 +24,6 @@ from typing import (
 )
 
 import cloudpickle
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup  # pragma: no cover
-    from taskgroup import TaskGroup  # pragma: no cover
-else:
-    from asyncio import TaskGroup  # pragma: no cover
-
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, Tracer
 
@@ -59,6 +52,7 @@ from .dependencies import (
     current_worker,
     format_duration,
     get_annotation_dependencies,
+    get_dependency_parameters,
     get_single_dependency_of_type,
     get_single_dependency_parameter_of_type,
     resolved_dependencies,
@@ -75,7 +69,7 @@ from .docket import (
     RedisMessageID,
     RedisReadGroupResponse,
 )
-from .execution import TaskFunction, compact_signature, get_signature
+from .execution import TaskFunction, compact_signature
 from .instrumentation import (
     QUEUE_DEPTH,
     REDIS_DISRUPTIONS,
@@ -568,9 +562,7 @@ class Worker:
         seen: set[type[Dependency[Any]]] = set()
         ordered: list[type[Dependency[Any]]] = []
 
-        def consider(dep: Any) -> None:
-            if not isinstance(dep, Dependency):
-                return
+        def consider(dep: Dependency[Any]) -> None:
             cls = type(dep)
             if cls in seen or not hasattr(cls, "worker_lifecycle"):
                 return
@@ -579,11 +571,11 @@ class Worker:
 
         for task_func in self.docket.tasks.values():
             try:
-                sig = get_signature(task_func)
+                supplied = get_dependency_parameters(task_func)
             except (ValueError, TypeError):  # pragma: no cover
                 continue
-            for param in sig.parameters.values():
-                consider(param.default)
+            for dep in supplied.values():
+                consider(dep)
             for deps in get_annotation_dependencies(task_func).values():
                 for dep in deps:
                     consider(dep)
@@ -1193,8 +1185,7 @@ class Worker:
                 duration = log_context["duration"] = time.time() - start
                 # A cancel during shutdown leaves the message pending for redelivery,
                 # unless docket.cancel() sent it.  asyncio.run() cancels the loop task
-                # and this task at once, before the drain starts.  Only Python 3.11 and
-                # later count cancel requests, so on 3.10 this task ends cancelled.
+                # and this task at once, before the drain starts.
                 if asyncio.current_task() not in self._cancelled_by_docket and (
                     session.stopping.is_set()
                     or cancelling(session.loop_task) > session.loop_task_cancelling
@@ -1277,7 +1268,7 @@ class Worker:
     def _startup_log(self) -> None:
         logger.info("Starting worker %r with the following tasks:", self.name)
         for task_name, task in self.docket.tasks.items():
-            logger.info("* %s(%s)", task_name, compact_signature(get_signature(task)))
+            logger.info("* %s(%s)", task_name, compact_signature(task))
 
     @property
     def workers_set(self) -> str:

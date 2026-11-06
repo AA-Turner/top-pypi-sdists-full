@@ -3,7 +3,6 @@ import json
 import time
 from decimal import Decimal
 from pprint import pprint
-from typing import Optional, Union
 
 from tronpy import keys
 from tronpy.abi import tron_abi
@@ -117,6 +116,7 @@ class Transaction:
         txid: str = "",
         permission: dict = EMPTY,
         signature: list = None,
+        raw_data_hex: str = "",
     ):
         self._raw_data: dict = raw_data
         self._signature: list = signature or []
@@ -127,7 +127,10 @@ class Transaction:
         self.txid: str = txid
         """The transaction id in hex."""
 
-        self._permission: Optional[dict] = permission
+        self.raw_data_hex: str = raw_data_hex
+        """The protobuf-serialized `raw_data` in hex."""
+
+        self._permission: dict | None = permission
 
         if (not self.txid or self._permission is EMPTY) and self._client:
             sign_weight = self._client.get_sign_weight(self)
@@ -135,6 +138,7 @@ class Transaction:
                 self._client._handle_api_error(sign_weight)
                 return  # unreachable
             self.txid = sign_weight["transaction"]["transaction"]["txID"]
+            self.raw_data_hex = sign_weight["transaction"]["transaction"]["raw_data_hex"]
 
             # when account not exist on-chain
             self._permission = sign_weight.get("permission", None)
@@ -143,19 +147,21 @@ class Transaction:
         return {
             "txID": self.txid,
             "raw_data": self._raw_data,
+            "raw_data_hex": self.raw_data_hex,
             "signature": self._signature,
             "permission": self._permission if self._permission is not EMPTY else None,
         }
 
     @classmethod
-    def from_json(cls, data: Union[str, dict], client: "Tron" = None):
-        if isinstance(json, str):
+    def from_json(cls, data: str | dict, client: "Tron" = None):
+        if isinstance(data, str):
             data = json.loads(data)
         return cls(
             client=client,
             txid=data["txID"],
             permission=data["permission"],
             raw_data=data["raw_data"],
+            raw_data_hex=data.get("raw_data_hex", ""),
             signature=data["signature"],
         )
 
@@ -210,6 +216,7 @@ class Transaction:
         self._raw_data["ref_block_hash"] = ref_block_id[16:32]
 
         self.txid = ""
+        self.raw_data_hex = ""
         self._permission = None
         self._signature = []
         sign_weight = self._client.get_sign_weight(self)
@@ -217,6 +224,7 @@ class Transaction:
             self._client._handle_api_error(sign_weight)
             return  # unreachable
         self.txid = sign_weight["transaction"]["transaction"]["txID"]
+        self.raw_data_hex = sign_weight["transaction"]["transaction"]["raw_data_hex"]
 
         # when account not exist on-chain
         self._permission = sign_weight.get("permission", None)
@@ -228,7 +236,7 @@ class Transaction:
 
 
 class TransactionBuilder:
-    """TransactionBuilder, to build a :class:`~Transaction` object."""
+    """TransactionBuilder, to build a [`Transaction`][tronpy.tron.Transaction] object."""
 
     def __init__(self, inner: dict, client: "Tron", method: ContractMethod = None):
         self._client = client
@@ -258,7 +266,7 @@ class TransactionBuilder:
         self._raw_data["contract"][0]["Permission_id"] = perm_id
         return self
 
-    def memo(self, memo: Union[str, bytes]) -> "TransactionBuilder":
+    def memo(self, memo: str | bytes) -> "TransactionBuilder":
         """Set memo of the transaction."""
         data = memo.encode() if isinstance(memo, (str,)) else memo
         self._raw_data["data"] = data.hex()
@@ -285,13 +293,13 @@ class TransactionBuilder:
         self._raw_data["ref_block_bytes"] = ref_block_id[12:16]
         self._raw_data["ref_block_hash"] = ref_block_id[16:32]
         if offline:
-            txid = proto.calculate_txid_from_raw_data(self._raw_data)
             return Transaction(
                 self._raw_data,
                 client=None,
                 method=self._method,
-                txid=txid,
+                txid=proto.calculate_txid_from_raw_data(self._raw_data),
                 permission=None,
+                raw_data_hex=proto.calculate_raw_data_hex(self._raw_data),
             )
         return Transaction(self._raw_data, client=self._client, method=self._method)
 
@@ -396,7 +404,7 @@ class Trx:
         """Update account permission.
 
         :param owner:
-        :param perm: Permission dict from :meth:`~tronpy.Tron.get_account_permission`
+        :param perm: Permission dict from [`get_account_permission`][tronpy.Tron.get_account_permission]
         """
 
         if "owner" in perm:
@@ -561,7 +569,7 @@ class Trx:
 class Tron:
     """The TRON API Client.
 
-    :param provider: An :class:`~tronpy.providers.HTTPProvider` object, can be configured to use private node
+    :param provider: An [`HTTPProvider`][tronpy.providers.HTTPProvider] object, can be configured to use private node
     :param network: Which network to connect, one of ``"mainnet"``, ``"shasta"``, ``"nile"``, or ``"tronex"``
     """
 
@@ -582,6 +590,7 @@ class Tron:
     """Convert address of any format to a hex format."""
 
     to_canonical_address = staticmethod(keys.to_base58check_address)
+    """Convert address of any format to a base58check format."""
 
     def __init__(self, provider: HTTPProvider = None, *, network: str = "mainnet", conf: dict = None):
         self.conf = DEFAULT_CONF
@@ -603,11 +612,7 @@ class Tron:
 
     @property
     def trx(self) -> Trx:
-        """
-        Helper object to send various transactions.
-
-        :type: Trx
-        """
+        """Helper object to send various transactions."""
         return self._trx
 
     def _handle_api_error(self, payload: dict):
@@ -684,11 +689,6 @@ class Tron:
         """  # noqa: E501
         mnemonic = generate_mnemonic(num_words, language)
         return self.generate_address_from_mnemonic(mnemonic, passphrase, account_path), mnemonic
-
-    def get_address_from_passphrase(self, passphrase: str) -> dict:
-        """Get an address from a passphrase, compatiable with `wallet/createaddress`."""
-        priv_key = PrivateKey.from_passphrase(passphrase.encode())
-        return self.generate_address(priv_key)
 
     def generate_zkey(self) -> dict:
         """Generate a random shielded address."""
@@ -779,7 +779,7 @@ class Tron:
         info = self.get_account(addr)
         return {p["key"]: p["value"] for p in info.get("assetV2", {}) if p["value"] > 0}
 
-    def get_account_asset_balance(self, addr: TAddress, token_id: Union[int, str]) -> int:
+    def get_account_asset_balance(self, addr: TAddress, token_id: int | str) -> int:
         """Get TRC10 token balance of an account. Result is in raw amount."""
         if int(token_id) < 1000000 or int(token_id) > 1999999:
             raise ValueError("invalid token_id range")
@@ -894,7 +894,7 @@ class Tron:
         info = self.provider.make_request("wallet/getnodeinfo")
         return int(info["block"].split(",ID:", 1)[0].replace("Num:", "", 1))
 
-    def get_block(self, id_or_num: Union[None, str, int] = None, *, visible: bool = True) -> dict:
+    def get_block(self, id_or_num: None | str | int = None, *, visible: bool = True) -> dict:
         """Get block from a block id or block number.
 
         :param id_or_num: Block number, or Block hash(id), or ``None`` (default) to get the latest block.

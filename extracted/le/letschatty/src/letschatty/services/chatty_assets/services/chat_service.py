@@ -214,17 +214,33 @@ class ChatAssetService(AssetService[Chat, ChattyAssetPreview]):
         status: Status,
         execution_context: ExecutionContext,
         error_details: Optional[ErrorDetail] = None,
+        *,
+        confirmed_by_provider: bool,
     ) -> bool:
         """El ✓✓: en el bloque y, si es el último mensaje, en el resumen. Devuelve si se aplicó
         (un estado que llega después de uno posterior se ignora, `Status.supersedes`)."""
-        applied = await self.messages.update_status(chat_id, message_id, status, error_details)
+        applied = await self.messages.update_status(chat_id, message_id, status, error_details, confirmed_by_provider=confirmed_by_provider)
         if applied:
-            await self._chat_collection.apply_status(chat_id, message_id, status, error_details)
+            await self._chat_collection.apply_status(chat_id, message_id, status, error_details, confirmed_by_provider=confirmed_by_provider)
             if status == Status.READ:
                 # «El cliente leyó» es una condición de copilot.
                 await self.flow_states.mark_chat_changed(chat_id)
         await self.cache.delete(self._item_key(chat_id))
         return applied
+
+    async def mark_read_up_to(self, chat_id: str, message_id: str, execution_context: ExecutionContext) -> List[str]:
+        """«Leído hasta acá»: marca `read` los salientes del chat hasta la fecha del mensaje `message_id`
+        (inclusive) que están en `sent` o `delivered` (un `failed` o un `waiting` quedan como están), en los bloques y en
+        el resumen. Devuelve los ids que cambió; un mensaje que el chat no tiene
+        no marca nada. Despierta los workflows si cambió alguno («el cliente leyó» es una condición de copilot)."""
+        boundary = await self.messages.find_message(chat_id, message_id)
+        marked = await self.messages.mark_read_up_to(chat_id, boundary.created_at) if boundary is not None else []
+        for marked_id in marked:
+            await self._chat_collection.apply_status(chat_id, marked_id, Status.READ, None, confirmed_by_provider=True)
+        if marked:
+            await self.flow_states.mark_chat_changed(chat_id)
+        await self.cache.delete(self._item_key(chat_id))
+        return marked
 
     async def update_message_revoked(self, chat_id: str, message_id: str, execution_context: ExecutionContext) -> None:
         """Marca el mensaje como borrado por quien lo mandó. El contenido se conserva."""

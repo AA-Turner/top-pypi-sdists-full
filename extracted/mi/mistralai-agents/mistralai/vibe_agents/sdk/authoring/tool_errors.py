@@ -44,8 +44,11 @@ class ToolError(Exception):
         self._result = ToolResult.error(message, structured_content=structured_content, meta=meta)
         super().__init__(message)
         self.message = message
+        """What the model sees."""
         self.structured_content = structured_content
+        """Machine-readable output that goes with the failed result, as in ``ToolResult``."""
         self.meta: dict[str, JsonValue] = dict(meta or {})
+        """Metadata for the client, as MCP's ``_meta``. Never shown to the model."""
 
     def _to_tool_result(self) -> ToolResult:
         """The failed result the model gets."""

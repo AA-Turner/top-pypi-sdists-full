@@ -1708,6 +1708,200 @@ class GetBotListInGroupResponse(TeaModel):
         return self
 
 
+class GroupBotWebhookQueryHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class GroupBotWebhookQueryRequest(TeaModel):
+    def __init__(
+        self,
+        open_conversation_id: str = None,
+    ):
+        # This parameter is required.
+        self.open_conversation_id = open_conversation_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.open_conversation_id is not None:
+            result['openConversationId'] = self.open_conversation_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('openConversationId') is not None:
+            self.open_conversation_id = m.get('openConversationId')
+        return self
+
+
+class GroupBotWebhookQueryResponseBodyChatbotInstanceVOList(TeaModel):
+    def __init__(
+        self,
+        creator_user_id: str = None,
+        download_icon_url: str = None,
+        name: str = None,
+        open_robot_type: int = None,
+        robot_code: str = None,
+        webhook: str = None,
+    ):
+        self.creator_user_id = creator_user_id
+        self.download_icon_url = download_icon_url
+        self.name = name
+        self.open_robot_type = open_robot_type
+        self.robot_code = robot_code
+        self.webhook = webhook
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.creator_user_id is not None:
+            result['creatorUserId'] = self.creator_user_id
+        if self.download_icon_url is not None:
+            result['downloadIconURL'] = self.download_icon_url
+        if self.name is not None:
+            result['name'] = self.name
+        if self.open_robot_type is not None:
+            result['openRobotType'] = self.open_robot_type
+        if self.robot_code is not None:
+            result['robotCode'] = self.robot_code
+        if self.webhook is not None:
+            result['webhook'] = self.webhook
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('creatorUserId') is not None:
+            self.creator_user_id = m.get('creatorUserId')
+        if m.get('downloadIconURL') is not None:
+            self.download_icon_url = m.get('downloadIconURL')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('openRobotType') is not None:
+            self.open_robot_type = m.get('openRobotType')
+        if m.get('robotCode') is not None:
+            self.robot_code = m.get('robotCode')
+        if m.get('webhook') is not None:
+            self.webhook = m.get('webhook')
+        return self
+
+
+class GroupBotWebhookQueryResponseBody(TeaModel):
+    def __init__(
+        self,
+        chatbot_instance_volist: List[GroupBotWebhookQueryResponseBodyChatbotInstanceVOList] = None,
+    ):
+        self.chatbot_instance_volist = chatbot_instance_volist
+
+    def validate(self):
+        if self.chatbot_instance_volist:
+            for k in self.chatbot_instance_volist:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['chatbotInstanceVOList'] = []
+        if self.chatbot_instance_volist is not None:
+            for k in self.chatbot_instance_volist:
+                result['chatbotInstanceVOList'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.chatbot_instance_volist = []
+        if m.get('chatbotInstanceVOList') is not None:
+            for k in m.get('chatbotInstanceVOList'):
+                temp_model = GroupBotWebhookQueryResponseBodyChatbotInstanceVOList()
+                self.chatbot_instance_volist.append(temp_model.from_map(k))
+        return self
+
+
+class GroupBotWebhookQueryResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: GroupBotWebhookQueryResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = GroupBotWebhookQueryResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class ManageSingleChatRobotStatusHeaders(TeaModel):
     def __init__(
         self,

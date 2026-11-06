@@ -1,45 +1,35 @@
 Metadata-Version: 2.4
 Name: zc.lockfile
-Version: 4.0
+Version: 4.1
 Summary: Basic inter-process locks
-Home-page: https://github.com/zopefoundation/zc.lockfile
-Author: Zope Foundation
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Source, https://github.com/zopefoundation/zc.lockfile
+Project-URL: Issues, https://github.com/zopefoundation/zc.lockfile/issues
+Project-URL: Changelog, https://raw.githubusercontent.com/zopefoundation/zc.lockfile/master/CHANGES.rst
 Keywords: lock
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 *************************
 Basic inter-process locks
@@ -55,9 +45,6 @@ file-storage database files.  The database files and lock file files
 are separate files.
 
 .. contents::
-
-Detailed Documentation
-**********************
 
 Lock file support
 =================
@@ -129,9 +116,20 @@ If you now inspected the lock file, you would see e.g.:
     $ cat lock
      123;myhostname
 
-
 Change History
 ***************
+
+4.1 (2026-11-05)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14, 3.15.
+
+- Drop support for Python 3.10, 3.9.
+
+- Remove no longer necessary ``setuptools`` runtime dependency.
+
 
 4.0 (2025-09-18)
 ================

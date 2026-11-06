@@ -411,6 +411,90 @@ unit = "sample"
 definition = "The continuous async-DSSS searcher at 5 Mcps over ±5 kHz of Doppler, block-coherent depth D = 150 (a 500 Hz/s rate bound's 154, rounded down to a 7-smooth length), the roll fanned across 4 threads; throughput counts searched input samples."
 samples = 1
 
+["c:acq::op5M_U50k_D150_t1_fc_nc1"]
+name = "DSSS search, 5 Mcps, ±50 kHz, depth 150, 1 thread, 2.2 GHz carrier"
+unit = "sample"
+definition = "The op5M_U50k_D150_t1 search with a 2.2 GHz carrier set, so every side tile runs its code-rate ramp over the block (the code's chip clock dilated by the Doppler over the carrier, as an emitter's is): the continuous async-DSSS searcher at 5 Mcps over ±50 kHz of Doppler, block-coherent depth D = 150, on 1 thread; throughput counts searched input samples."
+samples = 1
+
+["c:acq::op2M_U50k_D60_t1_fc_nc1"]
+name = "DSSS search, 2 Mcps, ±50 kHz, depth 60, 1 thread, 2.2 GHz carrier"
+unit = "sample"
+definition = "The op2M_U50k_D60_t1 search with a 2.2 GHz carrier set, so every side tile runs its code-rate ramp over the block: the continuous async-DSSS searcher at 2 Mcps over ±50 kHz of Doppler, block-coherent depth D = 60, on 1 thread; throughput counts searched input samples."
+samples = 1
+
+["c:acq::op5M_U5k_D150_t1_fc_nc1"]
+name = "DSSS search, 5 Mcps, ±5 kHz, depth 150, 1 thread, 2.2 GHz carrier"
+unit = "sample"
+definition = "The op5M_U5k_D150_t1 search with a 2.2 GHz carrier set, so both side tiles run their code-rate ramp over the block: the continuous async-DSSS searcher at 5 Mcps over ±5 kHz of Doppler, block-coherent depth D = 150, on 1 thread; throughput counts searched input samples."
+samples = 1
+
+["c:acq::op5M_U10k_D150_t1_nc1"]
+name = "DSSS search, 5 Mcps, ±10 kHz, depth 150, 1 thread"
+unit = "sample"
+definition = "The continuous async-DSSS searcher at 5 Mcps over ±10 kHz of Doppler (5 tiles), block-coherent depth D = 150, on 1 thread: the row the one delay-Doppler map's schedule rule runs slow first near its crossover (docs/design/acq-surface.md §18.1); throughput counts searched input samples."
+samples = 1
+
+["c:acq::op5M_U10k_D150_t1_fc_nc1"]
+name = "DSSS search, 5 Mcps, ±10 kHz, depth 150, 1 thread, 2.2 GHz carrier"
+unit = "sample"
+definition = "The op5M_U10k_D150_t1 search with a 2.2 GHz carrier set, so every side tile runs its code-rate ramp: the row the one delay-Doppler map's schedule rule runs rows first near its crossover (docs/design/acq-surface.md §18.1); throughput counts searched input samples."
+samples = 1
+
+["c:corr::execute[accumulate][n=31]"]
+name = "1-D correlator, accumulate, 31 samples"
+unit = "sample"
+definition = "64 accumulate-only calls (forward FFT, multiply by the reference spectrum, add) on 31-sample frames of a 31-chip m-sequence delayed 5 samples, on a correlator whose dwell no batch reaches; the row then checks its next dump peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:corr::execute[accumulate][n=63]"]
+name = "1-D correlator, accumulate, 63 samples"
+unit = "sample"
+definition = "64 accumulate-only calls (forward FFT, multiply by the reference spectrum, add) on 63-sample frames of a 63-chip m-sequence delayed 5 samples, on a correlator whose dwell no batch reaches; the row then checks its next dump peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:corr::execute[accumulate][n=127]"]
+name = "1-D correlator, accumulate, 127 samples"
+unit = "sample"
+definition = "64 accumulate-only calls (forward FFT, multiply by the reference spectrum, add) on 127-sample frames of a 127-chip m-sequence delayed 5 samples, on a correlator whose dwell no batch reaches; the row then checks its next dump peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:corr::execute[dump][n=31]"]
+name = "1-D correlator, dump, 31 samples"
+unit = "sample"
+definition = "64 calls of a dwell-1 correlator, each a dump (forward FFT, multiply, inverse FFT, scale), on 31-sample frames of a 31-chip m-sequence delayed 5 samples; the row then checks the map peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:corr::execute[dump][n=63]"]
+name = "1-D correlator, dump, 63 samples"
+unit = "sample"
+definition = "64 calls of a dwell-1 correlator, each a dump (forward FFT, multiply, inverse FFT, scale), on 63-sample frames of a 63-chip m-sequence delayed 5 samples; the row then checks the map peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:corr::execute[dump][n=127]"]
+name = "1-D correlator, dump, 127 samples"
+unit = "sample"
+definition = "64 calls of a dwell-1 correlator, each a dump (forward FFT, multiply, inverse FFT, scale), on 127-sample frames of a 127-chip m-sequence delayed 5 samples; the row then checks the map peaks at that lag; throughput counts input samples."
+samples = 1
+
+["c:detector::push[frame=31]"]
+name = "1-D streaming detector, 31-sample frames"
+unit = "sample"
+definition = "64 pushes of one 31-sample frame each (ring, correlate, peak over noise, gate, emit) of a 31-chip m-sequence delayed 5 samples; the row then checks a fresh frame gives one hit at that lag; throughput counts input samples."
+samples = 1
+
+["c:detector::push[frame=63]"]
+name = "1-D streaming detector, 63-sample frames"
+unit = "sample"
+definition = "64 pushes of one 63-sample frame each (ring, correlate, peak over noise, gate, emit) of a 63-chip m-sequence delayed 5 samples; the row then checks a fresh frame gives one hit at that lag; throughput counts input samples."
+samples = 1
+
+["c:detector::push[frame=127]"]
+name = "1-D streaming detector, 127-sample frames"
+unit = "sample"
+definition = "64 pushes of one 127-sample frame each (ring, correlate, peak over noise, gate, emit) of a 127-chip m-sequence delayed 5 samples; the row then checks a fresh frame gives one hit at that lag; throughput counts input samples."
+samples = 1
+
 ["c:psd::frame_linear[nfft=16384]"]
 name = "PSD frame, linear power, 16,384 points"
 unit = "frame"
@@ -715,6 +799,24 @@ unit = "sample"
 definition = "A pool of four AsyncDsssReceivers searching plus or minus 50 kHz, stepped one after another on one thread: a 1,023-chip Gold code at 5 Mcps captured at 11 MSa/s, through one RateConverter to 10 MSa/s (2 samples a chip) inside the timed push, 3,000 symbols a second, the search block-coherent over the 150 code periods a 500-symbol data-free block and a 500 Hz/s Doppler rate allow; one push is one such dwell of noise, every receiver searching for every sample fed; throughput counts input samples."
 samples = 1
 
+["c:async_dsss_pool::push[full,n=4,threads=4]"]
+name = "Async DSSS pool, 4 receivers searching plus or minus 50 kHz, 4 threads"
+unit = "sample"
+definition = "The pool of the push[full,n=4,threads=1] row on four threads: four AsyncDsssReceivers searching plus or minus 50 kHz, a 1,023-chip Gold code at 5 Mcps captured at 11 MSa/s, through one RateConverter to 10 MSa/s (2 samples a chip) inside the timed push, 3,000 symbols a second, the search block-coherent over 150 code periods. The search fans its Doppler tiles across the pool's four workers, at most one a tile; one push is one dwell of noise, every receiver idle; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[full,n=1,threads=1,carrier]"]
+name = "Async DSSS pool, 1 receiver searching plus or minus 50 kHz, 2.2 GHz carrier"
+unit = "sample"
+definition = "The push[full,n=1,threads=1] row with a 2.2 GHz carrier set, so every side tile of the search runs its code-rate ramp over the block: one AsyncDsssReceiver searching plus or minus 50 kHz on one thread, a 1,023-chip Gold code at 5 Mcps captured at 11 MSa/s, through one RateConverter to 10 MSa/s inside the timed push, block-coherent over 150 code periods; one push is one dwell of noise; throughput counts input samples."
+samples = 1
+
+["c:async_dsss_pool::push[full,n=4,threads=4,carrier]"]
+name = "Async DSSS pool, 4 receivers searching plus or minus 50 kHz, 4 threads, 2.2 GHz carrier"
+unit = "sample"
+definition = "The push[full,n=4,threads=4] row with a 2.2 GHz carrier set, so every side tile of the search runs its code-rate ramp over the block: four AsyncDsssReceivers searching plus or minus 50 kHz on four threads, a 1,023-chip Gold code at 5 Mcps captured at 11 MSa/s, through one RateConverter to 10 MSa/s inside the timed push, block-coherent over 150 code periods; one push is one dwell of noise; throughput counts input samples."
+samples = 1
+
 ["c:dsss_burst_receiver::push_idle"]
 name = "DSSS burst receiver listening, 31-chip preamble"
 unit = "sample"
@@ -837,6 +939,12 @@ unit = "sample"
 definition = "One DelayDoppler execute on 32 code periods of 1,024 samples: 32 row correlations against the code, then 1,024 length-32 slow-time FFTs, on one thread; throughput counts input samples, 32,768 per map."
 samples = 1
 
+["c:corr2d::delay_doppler_32x1024_o64_1t"]
+name = "Delay-Doppler map, 32 x 1,024, Doppler interpolated to 64 rows, one thread"
+unit = "sample"
+definition = "One DelayDoppler execute on 32 code periods of 1,024 samples with ny_out = 64: 32 row correlations against the code, then 1,024 slow-time FFTs of the 32 periods zero-padded to 64, on one thread; throughput counts input samples, 32,768 per map."
+samples = 1
+
 ["c:corr2d::delay_doppler_256x4096_1t"]
 name = "Delay-Doppler map, 256 x 4,096, one thread"
 unit = "sample"
@@ -895,6 +1003,12 @@ samples = 1
 name = "Hypothesis bank, 12 carriers (L = 4), 64 x 512, one thread"
 unit = "sample"
 definition = "bank_power_max: one 64 x 512 frame searched over 12 carrier hypotheses (three whole bins x L = 4 fractions) on one thread, folded to per-cell maximum power; throughput counts input samples, 32,768 per round (one 64 x 512 frame)."
+samples = 1
+
+["c:corr2d::bank_64x512_c12_l4_r12_1t"]
+name = "Hypothesis bank, 12 carriers (L = 4) x 12 Doppler rates, 64 x 512, one thread"
+unit = "sample"
+definition = "bank_power_max: one 64 x 512 frame searched over 12 carrier hypotheses (three whole bins x L = 4 fractions) times 12 per-period Doppler-rate weightings, 144 hypotheses, on one thread, folded to per-cell maximum power; throughput counts input samples, 32,768 per round (one 64 x 512 frame)."
 samples = 1
 
 ["c:corr2d::bank_64x512_c6_l2_1t"]

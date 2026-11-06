@@ -244,14 +244,17 @@ async def opened_tabs(
 @async_command
 async def launch(
     service_provider: ServiceProviderDep,
-    url: str,
+    url: Annotated[str, typer.Argument(help="URL to open.")],
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Seconds to wait for WebInspector to respond."),
     ] = 3.0,
 ) -> None:
     """
-    Launch a specific URL in Safari.
+    Open a URL in Safari through a Remote Automation session.
+
+    Safari stays in the automation session until you press Ctrl+C (Enter on
+    Windows).
 
     \b
     Opt-in (iOS >= 18):
@@ -264,14 +267,13 @@ async def launch(
 
     """
     async with webinspector_service(service_provider) as inspector:
-        safari = await inspector.open_app(SAFARI)
+        safari = await inspector.open_app(SAFARI, timeout)
         session = await inspector.automation_session(safari)
         driver = WebDriver(session)
         try:
-            print("Starting session")
             await driver.start_session()
-            print("Getting URL")
             await driver.get(url)
+            logger.info(f"Safari is showing {url} in an automation window, which closes when this command exits")
             OSUTILS.wait_return()
         finally:
             await session.stop_session()
@@ -308,7 +310,7 @@ def shell(
     ] = 3.0,
 ) -> None:
     """
-    Create an IPython shell for interacting with a WebView.
+    Open an IPython shell with a WebDriver driving Safari (Remote Automation).
 
     \b
     Opt-in (iOS >= 18):
@@ -323,7 +325,7 @@ def shell(
     inspector = WebinspectorService(lockdown=service_provider)
     run_in_loop(inspector.connect())
     try:
-        safari = run_in_loop(inspector.open_app(SAFARI))
+        safari = run_in_loop(inspector.open_app(SAFARI, timeout))
         session = run_in_loop(inspector.automation_session(safari))
         driver = WebDriver(session)
         try:
@@ -348,7 +350,9 @@ def shell(
 @async_command
 async def js_shell(
     service_provider: ServiceProviderDep,
-    url: Annotated[str, typer.Argument()] = "",
+    url: Annotated[
+        str, typer.Argument(help="URL to navigate the page to first; omit to stay on the current page.")
+    ] = "",
     timeout: Annotated[
         float,
         typer.Option("--timeout", "-t", help="Seconds to wait for WebInspector to respond."),
@@ -387,8 +391,10 @@ async def js_shell(
     ] = False,
 ) -> None:
     """
-    Create a javascript shell. This interpreter runs on your local machine,
-    but evaluates each expression on the remote
+    Open a JavaScript shell that evaluates each expression in a page on the device.
+
+    The shell runs on your computer; each expression is evaluated in the
+    selected page (or in an automation session with --automation).
 
     \b
     Opt-in:
@@ -417,9 +423,12 @@ async def js_shell(
 @async_command
 async def cdp(
     service_provider: ServiceProviderDep,
-    host: str = "127.0.0.1",
-    port: int = 9222,
-    chrome: Optional[str] = None,
+    host: Annotated[str, typer.Option(help="Local address to serve the CDP endpoint on.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Local port to serve the CDP endpoint on.")] = 9222,
+    chrome: Annotated[
+        Optional[str],
+        typer.Option(help="Path to a local Chrome, used to serve the DevTools frontend when offline."),
+    ] = None,
     pause_new_targets: Annotated[
         bool,
         typer.Option(
@@ -439,7 +448,7 @@ async def cdp(
     ] = None,
 ) -> None:
     """
-    Start a CDP server for debugging WebViews and inspectable JSContexts.
+    Start a CDP server for debugging WebViews and inspectable JSContexts; runs until Ctrl+C.
 
     \b
     A client that auto-attaches with waitForDebuggerOnStart (VS Code, Playwright, Puppeteer)
@@ -672,7 +681,7 @@ class AutomationJsShell(JsShell):
         if bundle_identifier is None:
             bundle_identifier = SAFARI
         async with webinspector_service(lockdown) as inspector:
-            application = await inspector.open_app(bundle_identifier)
+            application = await inspector.open_app(bundle_identifier, timeout)
             automation_session = await inspector.automation_session(application)
             driver = WebDriver(automation_session)
             await driver.start_session()
@@ -707,7 +716,7 @@ class InspectorJsShell(JsShell):
     ) -> "AsyncGenerator[InspectorJsShell, None]":
         async with webinspector_service(lockdown) as inspector:
             if open_safari:
-                _ = await inspector.open_app(SAFARI)
+                _ = await inspector.open_app(SAFARI, timeout)
             application_page = await cls.query_page(
                 inspector, bundle_identifier=SAFARI if open_safari else bundle_identifier
             )

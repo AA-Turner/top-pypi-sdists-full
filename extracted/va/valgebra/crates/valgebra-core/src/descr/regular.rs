@@ -34,9 +34,12 @@
 //! preference among its members.
 
 use regex_automata::dfa::{Automaton, dense};
+use regex_automata::nfa::thompson;
 use regex_automata::util::syntax;
 use regex_automata::{Anchored, Input};
-use rustc_hash::FxHashMap;
+use regex_syntax::hir::{self, Hir, HirKind, Look};
+use rustc_hash::{FxHashMap, FxHashSet};
+use std::cell::RefCell;
 use std::sync::{Arc, OnceLock};
 
 use super::automaton::{MAX_STATES, Reached, canonical_order, chain_fits, reaches};
@@ -62,13 +65,89 @@ use super::automaton::{MAX_STATES, Reached, canonical_order, chain_fits, reaches
 /// determinization is exponential passes right through `MAX_STATES` because
 /// it never reaches the check.
 ///
-/// Both limits are set: `determinize_size_limit` bounds the scratch space the
-/// subset construction uses, and `dfa_size_limit` the table it produces. A
-/// pattern past either is `None` here, which is a refusal every caller of a
-/// descriptor operation already handles -- the relation stays undecided and the
-/// walk still matches the pattern, since the walk runs the regex rather than
-/// the automaton.
+/// Three limits are set: `nfa_size_limit` bounds the automaton the compiler
+/// unrolls a pattern into before any table is built -- a counted repetition is
+/// that many copies, and `.{1000000,}` is three gigabytes of them, an
+/// allocation that fails by aborting the interpreter --
+/// `determinize_size_limit` the scratch space the subset construction uses,
+/// and `dfa_size_limit` the table it produces. A pattern past any is `None`
+/// here, which is a refusal every caller of a descriptor operation already
+/// handles -- the relation stays undecided and the walk still matches the
+/// pattern, since the walk runs the regex rather than the automaton.
 pub(crate) const BUILD_SIZE_LIMIT: usize = MAX_STATES * 514 * 4;
+
+/// Which end of a text an assertion sits at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Side {
+    /// Before the first character.
+    First,
+    /// After the last.
+    Last,
+}
+
+/// A word-boundary assertion at either end of a pattern, read as the
+/// character it asks about: what lies between the two ends, as a tree, and the
+/// language each end asks for.
+///
+/// The walk matches a pattern against the whole text, so an assertion leading
+/// the pattern sits before the first character, where the text has nothing
+/// behind it, and one trailing it sits after the last. There `\b` asks only
+/// that the character on the other side be a word character, and `\B` that
+/// it be none or that there be none, which is a regular language of its own:
+/// a word character and then anything, or anything and then a word character.
+/// The automaton builder has no Unicode word boundary, so without this a
+/// pattern opening or closing on one has no set; with it, the pattern's set is
+/// the set between, met with one language per end. `\bab\b` is `ab`, and
+/// `\Bab` holds nothing.
+///
+/// The part between is handed back as the parsed tree and never as text printed
+/// off it: `regex-syntax`'s printer writes a repetition of a repetition as two
+/// suffixes with no group between, so `(?:b+)?` prints as `b+?`, which reads
+/// back as the lazy `+` -- one `b` or more, the empty word gone.
+///
+/// `None` for a pattern with no such assertion at an end. One inside a pattern
+/// is left where it is, which the build refuses.
+fn word_ends(pattern: &Hir) -> Option<(Hir, Vec<&'static str>)> {
+    let parts: &[Hir] = match pattern.kind() {
+        HirKind::Concat(parts) => parts,
+        HirKind::Look(_) => core::slice::from_ref(pattern),
+        _ => return None,
+    };
+    let mut between = parts;
+    let mut ends = Vec::new();
+    if let Some((first, rest)) = between.split_first()
+        && let Some(end) = boundary(first, Side::First)
+    {
+        ends.push(end);
+        between = rest;
+    }
+    if let Some((last, rest)) = between.split_last()
+        && let Some(end) = boundary(last, Side::Last)
+    {
+        ends.push(end);
+        between = rest;
+    }
+    if ends.is_empty() {
+        return None;
+    }
+    Some((Hir::concat(between.to_vec()), ends))
+}
+
+/// The language a Unicode word-boundary assertion at one end of the text asks
+/// for, or `None` for any other part. An ASCII boundary is the builder's own,
+/// read wherever it sits.
+fn boundary(part: &Hir, side: Side) -> Option<&'static str> {
+    let HirKind::Look(look) = part.kind() else {
+        return None;
+    };
+    Some(match (look, side) {
+        (Look::WordUnicode, Side::First) => r"\w(?s:.)*",
+        (Look::WordUnicode, Side::Last) => r"(?s:.)*\w",
+        (Look::WordUnicodeNegate, Side::First) => r"(?:\W(?s:.)*)?",
+        (Look::WordUnicodeNegate, Side::Last) => r"(?:(?s:.)*\W)?",
+        _ => return None,
+    })
+}
 
 /// A byte's equivalence class. Two bytes share a class when no state's
 /// transition tells them apart.
@@ -88,7 +167,7 @@ type Class = u16;
 /// which every table here passes through or is built as, asserts the table it
 /// reads and each one it builds: a malformed table stops a debug build where it
 /// is made.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Dfa {
     /// The class of each byte.
     classes: Vec<Class>,
@@ -102,6 +181,13 @@ struct Dfa {
 impl Dfa {
     fn state_count(&self) -> usize {
         self.accepting.len()
+    }
+
+    /// The bytes the table's rows, classes and accepting flags hold.
+    fn bytes(&self) -> usize {
+        size_of_val(self.classes.as_slice())
+            + size_of_val(self.transitions.as_slice())
+            + size_of_val(self.accepting.as_slice())
     }
 
     /// Whether every lookup on this table lands inside it: a class for each of
@@ -140,6 +226,76 @@ impl Dfa {
 
     fn accepts(&self, state: u32) -> bool {
         self.accepting.get(state as usize).copied().unwrap_or(false)
+    }
+
+    /// The state no word leads from to acceptance, where the table has one.
+    ///
+    /// A minimal table has one at most: every state that accepts nothing is
+    /// equivalent to every other such state [DV14, Def. 3], so they merge, and
+    /// the one left leads only to states that accept nothing -- to itself.
+    fn dead_state(&self) -> Option<u32> {
+        (0..self.state_count()).find_map(|state| {
+            let state = u32::try_from(state).ok()?;
+            (!self.accepts(state)
+                && (0..self.class_count)
+                    .all(|class| self.step(state, Class::try_from(class).unwrap_or(0)) == state))
+            .then_some(state)
+        })
+    }
+
+    /// Every word this minimal table accepts, where it accepts `limit` or
+    /// fewer, or `None` where it accepts more or infinitely many.
+    ///
+    /// Read a length at a time from the start, through every state but the
+    /// dead one, each of which leads on to acceptance. Two prefixes of one
+    /// length begin two words, so a length holding more than `limit` of them is
+    /// a language past `limit`; and a prefix longer than the table has states
+    /// has passed one state twice, a cycle that repeats into infinitely many
+    /// words.
+    fn words(&self, limit: usize) -> Option<Vec<Vec<u8>>> {
+        let dead = self.dead_state();
+        let mut bytes_of: Vec<Vec<u8>> = vec![Vec::new(); self.class_count];
+        for byte in 0..=u8::MAX {
+            if let Some(bytes) = bytes_of.get_mut(usize::from(self.class_of(byte))) {
+                bytes.push(byte);
+            }
+        }
+        let mut words = Vec::new();
+        let mut level = if dead == Some(0) {
+            Vec::new()
+        } else {
+            vec![(0, Vec::new())]
+        };
+        for _ in 0..=self.state_count() {
+            let mut next: Vec<(u32, Vec<u8>)> = Vec::new();
+            for (state, word) in level {
+                if self.accepts(state) {
+                    if words.len() == limit {
+                        return None;
+                    }
+                    words.push(word.clone());
+                }
+                for (class, bytes) in bytes_of.iter().enumerate() {
+                    let target = self.step(state, Class::try_from(class).unwrap_or(0));
+                    if Some(target) == dead {
+                        continue;
+                    }
+                    for byte in bytes {
+                        if next.len() == limit {
+                            return None;
+                        }
+                        let mut longer = word.clone();
+                        longer.push(*byte);
+                        next.push((target, longer));
+                    }
+                }
+            }
+            if next.is_empty() {
+                return Some(words);
+            }
+            level = next;
+        }
+        None
     }
 
     /// Whether this automaton accepts `word`.
@@ -314,6 +470,128 @@ impl Dfa {
         .minimal()
     }
 
+    /// The words of `count` code points or bytes or fewer, or, `at_least`,
+    /// of `count` or more, as the minimal table built directly.
+    ///
+    /// The pattern compiler unrolls a counted code point into a table of some
+    /// sixteen states a count, which minimizing folds to seven: the state
+    /// bound refused that table from 256 counts, after building it, 33 ms at
+    /// 2,000. Built as a chain, each count of text is a code point's first
+    /// byte and the six states its continuation bytes pass through -- one
+    /// left, two, three, and the narrowed first continuation after `E0`, `F0`
+    /// and `F4` -- and each count of bytes is one byte. A code point is UTF-8
+    /// read as bytes, a lone surrogate among them, since a `str` may carry one
+    /// and `"\u{d800}"` is one character long: the kind's universe
+    /// ([`Dfa::wtf8`]) taken one character at a time. A test holds the table
+    /// to the one the compiler builds from that expansion, at every count it
+    /// can build.
+    fn counted(count: usize, at_least: bool, alphabet: Alphabet) -> Dfa {
+        // The byte classes of a code point, as rows of (first, last, class):
+        // continuation bytes in three runs, ASCII, the leads, and the bytes no
+        // code point holds.
+        const TEXT: [(u8, u8, Class); 11] = [
+            (0x80, 0x8F, 0),
+            (0x90, 0x9F, 1),
+            (0xA0, 0xBF, 2),
+            (0x00, 0x7F, 3),
+            (0xC2, 0xDF, 4),
+            (0xE0, 0xE0, 5),
+            (0xE1, 0xEF, 6),
+            (0xF0, 0xF0, 7),
+            (0xF1, 0xF3, 8),
+            (0xF4, 0xF4, 9),
+            (0xC0, 0xC1, 10),
+        ];
+        let (per_count, class_count) = match alphabet {
+            Alphabet::Text => (7, 11),
+            Alphabet::Bytes => (1, 1),
+        };
+        let mut classes: Vec<Class> = vec![10; 256];
+        if let Alphabet::Text = alphabet {
+            for (first, last, class) in TEXT {
+                for byte in first..=last {
+                    if let Some(slot) = classes.get_mut(usize::from(byte)) {
+                        *slot = class;
+                    }
+                }
+            }
+        } else {
+            classes.fill(0);
+        }
+        // Each count's states at `per_count * count`, then the dead state.
+        let states = per_count * (count + 1) + 1;
+        let dead = u32::try_from(states - 1).unwrap_or(0);
+        let at =
+            |level: usize, offset: usize| u32::try_from(per_count * level + offset).unwrap_or(0);
+        let mut transitions = vec![dead; states * class_count];
+        let mut set = |from: u32, class: Class, to: u32| {
+            if let Some(slot) =
+                transitions.get_mut(from as usize * class_count + usize::from(class))
+            {
+                *slot = to;
+            }
+        };
+        for level in 0..=count {
+            // Where a code point read at this level ends: the next count, the
+            // same one past `count` where the language runs on, and nowhere
+            // past `count` where it stops there.
+            let next = if level < count {
+                Some(at(level + 1, 0))
+            } else if at_least {
+                Some(at(level, 0))
+            } else {
+                None
+            };
+            let Some(next) = next else {
+                continue;
+            };
+            let start = at(level, 0);
+            if let Alphabet::Bytes = alphabet {
+                set(start, 0, next);
+                continue;
+            }
+            let (one, two, three) = (at(level, 1), at(level, 2), at(level, 3));
+            set(start, 3, next);
+            set(start, 4, one);
+            set(start, 6, two);
+            set(start, 8, three);
+            for continuation in 0..3 {
+                set(one, continuation, next);
+                set(two, continuation, one);
+                set(three, continuation, two);
+            }
+            // The leads whose first continuation is narrowed -- `E0` to
+            // `A0..BF`, `F0` to `90..BF`, `F4` to `80..8F` -- each leaving the
+            // continuations its width has left.
+            for (lead, narrowed, allowed, then) in [
+                (5, at(level, 4), &[2][..], one),
+                (7, at(level, 5), &[1, 2][..], two),
+                (9, at(level, 6), &[0][..], two),
+            ] {
+                set(start, lead, narrowed);
+                for class in allowed {
+                    set(narrowed, *class, then);
+                }
+            }
+        }
+        let mut accepting = vec![false; states];
+        for level in 0..=count {
+            if at_least && level < count {
+                continue;
+            }
+            if let Some(flag) = accepting.get_mut(at(level, 0) as usize) {
+                *flag = true;
+            }
+        }
+        Dfa {
+            classes,
+            class_count,
+            transitions,
+            accepting,
+        }
+        .minimal()
+    }
+
     /// The one-word automaton, at any length. [`RegularSet::word`] holds it to
     /// the bound; a test reads a chain longer than the bound through this.
     /// Every state has an edge on every class, the stray ones to a dead state,
@@ -354,6 +632,56 @@ impl Dfa {
         Dfa {
             classes,
             class_count,
+            transitions,
+            accepting,
+        }
+        .minimal()
+    }
+
+    /// The words at or past `bound` in byte order, `bound` itself where
+    /// `inclusive`: a word sharing a prefix with `bound` and then holding a
+    /// greater byte, or holding the whole of `bound` and then anything.
+    ///
+    /// A chain over the bound's bytes, as [`Dfa::word`] is, beside two sinks:
+    /// a greater byte than the bound's at its place leads to the one accepting
+    /// every rest, and a smaller one to the one accepting none. Every byte is
+    /// a class of its own, which the minimization merges. The table is
+    /// complete [DV14, §2].
+    fn ordered_from(bound: &[u8], inclusive: bool) -> Dfa {
+        const CLASSES: usize = 256;
+        let whole = bound.len();
+        let above = u32::try_from(whole + 1).unwrap_or(0);
+        let below = above + 1;
+        let states = whole + 3;
+        let mut transitions = vec![below; states * CLASSES];
+        for (place, byte) in bound.iter().enumerate() {
+            for symbol in 0..=u8::MAX {
+                let target = match symbol.cmp(byte) {
+                    core::cmp::Ordering::Less => below,
+                    core::cmp::Ordering::Equal => u32::try_from(place + 1).unwrap_or(0),
+                    core::cmp::Ordering::Greater => above,
+                };
+                if let Some(slot) = transitions.get_mut(place * CLASSES + usize::from(symbol)) {
+                    *slot = target;
+                }
+            }
+        }
+        for state in [whole, whole + 1] {
+            for symbol in 0..CLASSES {
+                if let Some(slot) = transitions.get_mut(state * CLASSES + symbol) {
+                    *slot = above;
+                }
+            }
+        }
+        let mut accepting = vec![false; states];
+        for (state, accepts) in [(whole, inclusive), (whole + 1, true)] {
+            if let Some(flag) = accepting.get_mut(state) {
+                *flag = accepts;
+            }
+        }
+        Dfa {
+            classes: (0..=u8::MAX).map(Class::from).collect(),
+            class_count: CLASSES,
             transitions,
             accepting,
         }
@@ -865,6 +1193,231 @@ static STR_WORDS: OnceLock<Arc<Dfa>> = OnceLock::new();
 /// Every byte string, which is the `bytes` kind's universe.
 static EVERY_WORD: OnceLock<Arc<Dfa>> = OnceLock::new();
 
+/// The bytes the languages this thread built are kept up to: four tables at
+/// the widest a table is, [`MAX_STATES`] rows of 256 classes at four bytes a
+/// transition.
+///
+/// **This bound is memory.** The patterns a process meets have no count, so
+/// the memo is bounded by what it holds rather than by its entries, the text
+/// each is kept under included, and starts over where a new language would pass
+/// the bound. A language heavier than the bound alone is built and not kept.
+pub(crate) const COMPILED_BYTES: usize = 4 * MAX_STATES * 256 * 4;
+
+/// The languages this thread built, by the text built from: one map for text
+/// read as UTF-8 and one for text read as bytes, and the bytes they hold
+/// together.
+#[derive(Default)]
+struct Compiled {
+    utf8: FxHashMap<Box<str>, Option<RegularSet>>,
+    raw: FxHashMap<Box<str>, Option<RegularSet>>,
+    held: usize,
+}
+
+impl Compiled {
+    /// The languages built from text read as UTF-8, or as bytes.
+    fn read_as(&mut self, utf8: bool) -> &mut FxHashMap<Box<str>, Option<RegularSet>> {
+        if utf8 { &mut self.utf8 } else { &mut self.raw }
+    }
+
+    /// Keep `built` under `text`, starting over where it would pass
+    /// [`COMPILED_BYTES`].
+    fn keep(&mut self, utf8: bool, text: &str, built: Option<RegularSet>) {
+        let weight = text.len() + built.as_ref().map_or(0, |set| set.dfa.bytes());
+        if weight > COMPILED_BYTES {
+            return;
+        }
+        if self.held + weight > COMPILED_BYTES {
+            self.utf8.clear();
+            self.raw.clear();
+            self.held = 0;
+        }
+        self.held += weight;
+        self.read_as(utf8).insert(text.into(), built);
+    }
+}
+
+thread_local! {
+    static COMPILED: RefCell<Compiled> = RefCell::new(Compiled::default());
+    static HANDLES: RefCell<Handles> = RefCell::new(Handles::default());
+    static PRODUCTS: RefCell<Products> = RefCell::new(Products::default());
+}
+
+/// The tables this thread built afresh, one handle a language.
+///
+/// [`Products`] finds a product again by the two tables' addresses, and a
+/// complement, a word and an order bound are built anew on every ask. Each at
+/// an address of its own, a product with one of them would never be found
+/// again, nor any product built on it, and a lowering asked again would
+/// minimize every table downstream of a complement again: a string bound beside
+/// a pattern of `\w` spent 25 ms a relation asked again, against 4 ms with the
+/// handles. Each table is minimal and canonically numbered, so two tables of one
+/// language are equal, and a table built again is handed the handle the first
+/// one got: one language is one address while the memo holds it, which is what
+/// the product memo's key needs. Bounded by the bytes it holds, as [`Compiled`]
+/// is.
+#[derive(Default)]
+struct Handles {
+    tables: FxHashSet<Arc<Dfa>>,
+    held: usize,
+}
+
+impl Handles {
+    /// The handle this thread gave `dfa`'s language, or a new one it keeps.
+    fn of(dfa: Dfa) -> Arc<Dfa> {
+        if let Some(held) = HANDLES.with_borrow(|memo| memo.tables.get(&dfa).cloned()) {
+            return held;
+        }
+        let table = Arc::new(dfa);
+        let weight = table.bytes();
+        HANDLES.with_borrow_mut(|memo| memo.keep(Arc::clone(&table), weight));
+        table
+    }
+
+    /// Keep `table`, weighing `weight` bytes, starting over where it would pass
+    /// [`COMPILED_BYTES`], as [`Compiled::keep`] does: a table heavier than the
+    /// bound alone is handed out and not kept.
+    fn keep(&mut self, table: Arc<Dfa>, weight: usize) {
+        if weight > COMPILED_BYTES {
+            return;
+        }
+        if self.held + weight > COMPILED_BYTES {
+            self.tables.clear();
+            self.held = 0;
+        }
+        self.held += weight;
+        self.tables.insert(table);
+    }
+}
+
+/// The products this thread built, by the two tables and the operation.
+///
+/// A product of two tables is a function of the two and of the operation: the
+/// tables are minimal and canonically numbered, so one language is one table,
+/// and the product is minimized the same way. Relations over records keyed by
+/// strings meet the same few key sets over and over -- a relation between two
+/// records nested past the depth the sets descend builds nine thousand products
+/// of thirteen hundred pairs, one pair two thousand four hundred times -- and
+/// each product refines two alphabets, walks the reachable pairs and minimizes.
+///
+/// Keyed by the tables' addresses, which name them while they live, and the
+/// memo holds both tables: an address held here cannot be reused by another
+/// table. Meet and join commute, so a pair is keyed in address order. Bounded
+/// as [`Compiled`] is, by the bytes the tables held weigh, and started over
+/// where a product would pass the bound; a product refused past [`MAX_STATES`]
+/// is held as the refusal it is.
+#[derive(Default)]
+struct Products {
+    built: FxHashMap<(usize, usize, bool), Product>,
+    held: usize,
+}
+
+/// One product held: its two tables, kept alive so their addresses stay
+/// theirs, and what the product built.
+struct Product {
+    _tables: [Arc<Dfa>; 2],
+    built: Option<Arc<Dfa>>,
+}
+
+impl Products {
+    /// The product of `a` and `b` under `union`, built once a pair while the
+    /// memo holds it.
+    fn of(a: &Arc<Dfa>, b: &Arc<Dfa>, union: bool) -> Option<Arc<Dfa>> {
+        let (mine, theirs) = (Arc::as_ptr(a) as usize, Arc::as_ptr(b) as usize);
+        let key = (mine.min(theirs), mine.max(theirs), union);
+        if let Some(held) =
+            PRODUCTS.with_borrow(|memo| memo.built.get(&key).map(|held| held.built.clone()))
+        {
+            return held;
+        }
+        let built = if union {
+            a.product(b, |mine, theirs| mine || theirs)
+        } else {
+            a.product(b, |mine, theirs| mine && theirs)
+        }
+        .map(Arc::new);
+        let weight = [a, b]
+            .into_iter()
+            .chain(&built)
+            .map(|table| table.bytes())
+            .sum();
+        PRODUCTS.with_borrow_mut(|memo| {
+            memo.keep(key, [Arc::clone(a), Arc::clone(b)], built.clone(), weight);
+        });
+        built
+    }
+
+    /// Keep `built` under `key`, starting over where it would pass
+    /// [`COMPILED_BYTES`], as [`Compiled::keep`] does: a product heavier than the
+    /// bound alone is built and not kept.
+    fn keep(
+        &mut self,
+        key: (usize, usize, bool),
+        tables: [Arc<Dfa>; 2],
+        built: Option<Arc<Dfa>>,
+        weight: usize,
+    ) {
+        if weight > COMPILED_BYTES {
+            return;
+        }
+        if self.held + weight > COMPILED_BYTES {
+            self.built.clear();
+            self.held = 0;
+        }
+        self.held += weight;
+        self.built.insert(
+            key,
+            Product {
+                _tables: tables,
+                built,
+            },
+        );
+    }
+}
+
+/// The longest guess [`RegularSet::a_text_of`] writes: a repetition counted in
+/// the thousands names no text a caller is waiting on.
+const WITNESS_BYTES: usize = 4096;
+
+/// [`RegularSet::a_text_of`] one node down, appending to `word`.
+fn write_a_word(hir: &Hir, word: &mut Vec<u8>) -> Option<()> {
+    match hir.kind() {
+        HirKind::Empty | HirKind::Look(_) => {}
+        HirKind::Literal(literal) => word.extend_from_slice(&literal.0),
+        HirKind::Class(hir::Class::Unicode(class)) => {
+            let first = class.ranges().first()?.start();
+            word.extend_from_slice(first.encode_utf8(&mut [0; 4]).as_bytes());
+        }
+        HirKind::Class(hir::Class::Bytes(class)) => word.push(class.ranges().first()?.start()),
+        HirKind::Repetition(repetition) => {
+            let mut once = Vec::new();
+            write_a_word(&repetition.sub, &mut once)?;
+            for _ in 0..repetition.min {
+                word.extend_from_slice(&once);
+                if word.len() > WITNESS_BYTES {
+                    return None;
+                }
+            }
+        }
+        HirKind::Capture(capture) => write_a_word(&capture.sub, word)?,
+        HirKind::Concat(parts) => {
+            for part in parts {
+                write_a_word(part, word)?;
+            }
+        }
+        HirKind::Alternation(branches) => {
+            let shortest = branches
+                .iter()
+                .filter_map(|branch| {
+                    let mut written = Vec::new();
+                    write_a_word(branch, &mut written).map(|()| written)
+                })
+                .min_by_key(Vec::len)?;
+            word.extend_from_slice(&shortest);
+        }
+    }
+    (word.len() <= WITNESS_BYTES).then_some(())
+}
+
 /// A set of words: a regular language.
 ///
 /// The table sits behind a handle, so a copy is a reference count. A descriptor
@@ -935,18 +1488,88 @@ impl RegularSet {
         // holds no surrogate -- as the kind's universe does and the walk's
         // answer says.
         let utf8 = alphabet == Alphabet::Text;
-        // The pattern on its own first. One that does not parse alone can parse
-        // wrapped -- `a)|(b` closes the group and opens one the wrapper closes
-        // -- and would then be a language nobody wrote.
-        syntax::parse_with(pattern, &syntax::Config::new().utf8(utf8)).ok()?;
-        RegularSet::compile(&format!("(?:{pattern})"), utf8)
+        // Found before it is parsed, since a lowering asks for one pattern again
+        // for every difference and a parse is linear in the text. The memo holds
+        // nothing else under a text that opens on `(?:` and closes on `)`, so
+        // what it finds there this function built from the same pattern.
+        RegularSet::memoized(&format!("(?:{pattern})"), utf8, || {
+            // The pattern on its own first. One that does not parse alone can
+            // parse wrapped -- `a)|(b` closes the group and opens one the
+            // wrapper closes -- and would then be a language nobody wrote.
+            let parsed = syntax::parse_with(pattern, &syntax::Config::new().utf8(utf8)).ok()?;
+            if utf8 && let Some((between, ends)) = word_ends(&parsed) {
+                let between = RegularSet::determinize(&between)?;
+                return ends.into_iter().try_fold(between, |set, end| {
+                    set.intersect(&RegularSet::compile(end, utf8)?)
+                });
+            }
+            RegularSet::determinize(&parsed)
+        })
     }
 
-    /// Build a language from a pattern the caller of this module wrote, the
-    /// subset construction of the classical algorithm [HVP05, §4.1] done by
-    /// `regex-automata`.
+    /// A text `pattern` may match, read off its parsed tree where its table is
+    /// past the build's limit: the first character of each class, each
+    /// repetition its least number of times, the shortest branch of each
+    /// alternation, and nothing for an assertion.
+    ///
+    /// A guess, which the caller puts to the walk before it names a value, since
+    /// an assertion can refuse it -- `a\bb` guesses `ab` and matches nothing.
+    /// `None` where the pattern does not parse alone, or the guess passes
+    /// [`WITNESS_BYTES`].
+    #[must_use]
+    pub(crate) fn a_text_of(pattern: &str) -> Option<String> {
+        let parsed = syntax::parse_with(pattern, &syntax::Config::new()).ok()?;
+        let mut word = Vec::new();
+        write_a_word(&parsed, &mut word)?;
+        String::from_utf8(word).ok()
+    }
+
+    /// The language of a pattern this module writes, anchored as it is written.
     fn compile(anchored: &str, utf8: bool) -> Option<RegularSet> {
-        let syntax = syntax::Config::new().utf8(utf8);
+        RegularSet::memoized(anchored, utf8, || {
+            let parsed = syntax::parse_with(anchored, &syntax::Config::new().utf8(utf8)).ok()?;
+            RegularSet::determinize(&parsed)
+        })
+    }
+
+    /// The language `text` denotes, as this thread built it already, or as
+    /// `build` builds it.
+    ///
+    /// The build is a function of the text and the alphabet alone, and a
+    /// lowering reads the same patterns and length bounds again for every
+    /// difference it is asked: a relation between two schemas holding three
+    /// patterns and three length bounds builds them 322 times without this,
+    /// nearly all of its time. A refusal is kept as well as a table, since a
+    /// pattern past the build's limit is the dearest one to build again.
+    fn memoized(
+        text: &str,
+        utf8: bool,
+        build: impl FnOnce() -> Option<RegularSet>,
+    ) -> Option<RegularSet> {
+        if let Some(held) = COMPILED.with_borrow_mut(|memo| memo.read_as(utf8).get(text).cloned()) {
+            return held;
+        }
+        let language = build();
+        COMPILED.with_borrow_mut(|memo| memo.keep(utf8, text, language.clone()));
+        language
+    }
+
+    /// The subset construction of the classical algorithm [HVP05, §4.1], done
+    /// by `regex-automata`, from a parsed pattern.
+    ///
+    /// The steps are the dense builder's own for a pattern's text -- its tree
+    /// compiled to an automaton with no capture groups, which a table has no
+    /// use for, then determinized -- with the parse left to the caller, which
+    /// holds the tree already or rewrites it first.
+    fn determinize(pattern: &Hir) -> Option<RegularSet> {
+        let nfa = thompson::Compiler::new()
+            .configure(
+                thompson::Config::new()
+                    .which_captures(thompson::WhichCaptures::None)
+                    .nfa_size_limit(Some(BUILD_SIZE_LIMIT)),
+            )
+            .build_from_hir(pattern)
+            .ok()?;
         // Every match, which is the classical construction. The builder's
         // default is leftmost-first, a search semantics: once the thread a
         // backtracking engine prefers has matched, the threads ranked below it
@@ -961,9 +1584,8 @@ impl RegularSet {
             .dfa_size_limit(Some(BUILD_SIZE_LIMIT))
             .determinize_size_limit(Some(BUILD_SIZE_LIMIT));
         let built = dense::Builder::new()
-            .syntax(syntax)
             .configure(config)
-            .build(anchored)
+            .build_from_nfa(&nfa)
             .ok()?;
         Dfa::from_automaton(&built).map(|dfa| RegularSet {
             dfa: Arc::new(dfa.minimal()),
@@ -981,21 +1603,89 @@ impl RegularSet {
             return None;
         }
         Some(RegularSet {
-            dfa: Arc::new(Dfa::word(word)),
+            dfa: Handles::of(Dfa::word(word)),
         })
+    }
+
+    /// The words of an alphabet ordered against `bound` as Python orders two
+    /// of them: past it where `above`, short of it otherwise, and `bound`
+    /// itself where `inclusive`; `None` past [`MAX_STATES`].
+    ///
+    /// Python orders two `bytes` byte by byte and two `str` code point by code
+    /// point, a prefix before what extends it, and the byte order of two
+    /// encodings is that order: UTF-8 orders as its code points do, and so
+    /// does the surrogate range the kind's universe spells between `U+D7FF`
+    /// and `U+E000`. So the bound is a chain over its bytes
+    /// ([`Dfa::ordered_from`]), the words short of it are the complement of
+    /// the words at or past it, and either is met with the alphabet's
+    /// universe ([`RegularSet::all`]), which keeps a word of the kind.
+    #[must_use]
+    pub(crate) fn ordered(
+        bound: &[u8],
+        above: bool,
+        inclusive: bool,
+        alphabet: Alphabet,
+    ) -> Option<RegularSet> {
+        if !chain_fits(bound.len()) {
+            return None;
+        }
+        let from = Dfa::ordered_from(bound, if above { inclusive } else { !inclusive });
+        let side = if above { from } else { from.complement() };
+        RegularSet {
+            dfa: Handles::of(side),
+        }
+        .intersect(&RegularSet::all(alphabet))
     }
 
     /// The words of at least `length` symbols -- code points for
     /// [`Alphabet::Text`], bytes for [`Alphabet::Bytes`].
+    ///
+    /// A table counting to `length` holds the states each count tells apart,
+    /// seven a code point and one a byte, and a dead state and one past the
+    /// count, so a bound whose table passes [`MAX_STATES`] is refused before
+    /// it is built, as a literal word and a sequence's bound are
+    /// ([`chain_fits`]). Built directly ([`Dfa::counted`]), not compiled.
     #[must_use]
     pub(crate) fn at_least(length: usize, alphabet: Alphabet) -> Option<RegularSet> {
-        RegularSet::compile(&format!("{}{{{length},}}", code_point(alphabet)), false)
+        RegularSet::counted(length, true, alphabet)
     }
 
-    /// The words of at most `length` symbols.
+    /// The words of at most `length` symbols, refused past [`MAX_STATES`] as
+    /// [`at_least`](Self::at_least) is.
     #[must_use]
     pub(crate) fn at_most(length: usize, alphabet: Alphabet) -> Option<RegularSet> {
-        RegularSet::compile(&format!("{}{{0,{length}}}", code_point(alphabet)), false)
+        RegularSet::counted(length, false, alphabet)
+    }
+
+    /// [`Dfa::counted`] within [`MAX_STATES`]: seven states a code point, one
+    /// a byte, and the two [`chain_fits`] counts beside them.
+    ///
+    /// Built once a thread ([`memoized`](Self::memoized)), under the text the
+    /// compiler would build the same table from -- [`code_point`] counted --
+    /// whose table `a_counted_symbol_is_the_table_the_compiler_builds` holds
+    /// to this one, so the key names one language whichever route reads it.
+    /// A lowering reads a bound again for every difference it is asked, and a
+    /// table counting to five hundred took most of a millisecond to build and
+    /// minimize each time.
+    fn counted(length: usize, at_least: bool, alphabet: Alphabet) -> Option<RegularSet> {
+        let per_count = match alphabet {
+            Alphabet::Text => 7,
+            Alphabet::Bytes => 1,
+        };
+        if !length.checked_mul(per_count).is_some_and(chain_fits) {
+            return None;
+        }
+        let unit = code_point(alphabet);
+        let text = if at_least {
+            format!("{unit}{{{length},}}")
+        } else {
+            format!("{unit}{{0,{length}}}")
+        };
+        RegularSet::memoized(&text, false, || {
+            Some(RegularSet {
+                dfa: Handles::of(Dfa::counted(length, at_least, alphabet)),
+            })
+        })
     }
 
     /// Whether this set holds no word.
@@ -1011,21 +1701,24 @@ impl RegularSet {
         self.dfa.holds(word)
     }
 
+    /// Every word this set holds, where it holds `limit` or fewer: `None`
+    /// where it holds more or infinitely many.
+    #[must_use]
+    pub(crate) fn words(&self, limit: usize) -> Option<Vec<Vec<u8>>> {
+        self.dfa.words(limit)
+    }
+
     /// The words in either set, or `None` past [`MAX_STATES`].
     #[must_use]
     pub(crate) fn union(&self, other: &RegularSet) -> Option<RegularSet> {
-        self.dfa
-            .product(&other.dfa, |a, b| a || b)
-            .map(|dfa| RegularSet { dfa: Arc::new(dfa) })
+        Products::of(&self.dfa, &other.dfa, true).map(|dfa| RegularSet { dfa })
     }
 
     /// The words in both sets, the product [HVP05, §4.1], or `None` past
     /// [`MAX_STATES`].
     #[must_use]
     pub(crate) fn intersect(&self, other: &RegularSet) -> Option<RegularSet> {
-        self.dfa
-            .product(&other.dfa, |a, b| a && b)
-            .map(|dfa| RegularSet { dfa: Arc::new(dfa) })
+        Products::of(&self.dfa, &other.dfa, false).map(|dfa| RegularSet { dfa })
     }
 
     /// Every word this set does not hold, **over every byte string**.
@@ -1041,21 +1734,20 @@ impl RegularSet {
     #[must_use]
     pub(crate) fn complement(&self) -> RegularSet {
         RegularSet {
-            dfa: Arc::new(self.dfa.complement()),
+            dfa: Handles::of(self.dfa.complement()),
         }
     }
 }
 
-/// The pattern for one symbol of an alphabet, written over **bytes**.
+/// The pattern for one symbol of an alphabet, written over **bytes**: what a
+/// test compiles to hold [`Dfa::counted`] to, and the text a counted table is
+/// kept under ([`RegularSet::counted`]).
 ///
-/// A length bound counts the symbols a value has, and for text a symbol is a
-/// code point -- a lone surrogate among them, since a `str` may carry one and
-/// `"\u{d800}"` is one character long. UTF-8 mode cannot spell that character,
-/// so the expansion is written out and read as bytes: it is the kind's universe
-/// ([`Dfa::wtf8`]) taken one character at a time.
-///
-/// Neither arm skips a newline. A length bound is about how many symbols the
-/// word has, not about which of them a pattern would pass over.
+/// For text a symbol is a code point -- a lone surrogate among them, since a
+/// `str` may carry one and `"\u{d800}"` is one character long. UTF-8 mode
+/// cannot spell that character, so the expansion is written out and read as
+/// bytes: it is the kind's universe ([`Dfa::wtf8`]) taken one character at a
+/// time. Neither arm skips a newline.
 const fn code_point(alphabet: Alphabet) -> &'static str {
     match alphabet {
         Alphabet::Text => concat!(

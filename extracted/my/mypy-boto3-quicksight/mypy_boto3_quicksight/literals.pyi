@@ -313,6 +313,7 @@ __all__ = (
     "SelfUpgradeRequestStatusType",
     "SelfUpgradeStatusType",
     "ServiceName",
+    "ServiceRoleTypeType",
     "ServiceTypeType",
     "SharingModelType",
     "SheetContentTypeType",
@@ -1188,6 +1189,7 @@ SelfUpgradeRequestStatusType = Literal[
     "APPROVED", "DENIED", "PENDING", "UPDATE_FAILED", "VERIFY_FAILED"
 ]
 SelfUpgradeStatusType = Literal["ADMIN_APPROVAL", "AUTO_APPROVAL"]
+ServiceRoleTypeType = Literal["CUSTOMER_MANAGED", "QUICKSIGHT_MANAGED"]
 ServiceTypeType = Literal["ATHENA", "GLUE_DATA_CATALOG", "QBUSINESS", "REDSHIFT"]
 SharingModelType = Literal["ACCOUNT", "NAMESPACE"]
 SheetContentTypeType = Literal["INTERACTIVE", "PAGINATED"]
@@ -1358,6 +1360,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -1462,6 +1465,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",

@@ -1,8 +1,18 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import TypeAdapter, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
+
+from alpaca._deprecating_enum import _warn_at_user_code
 
 from alpaca.broker.enums import (
     AccountSubType,
@@ -17,8 +27,80 @@ from alpaca.broker.enums import (
 from alpaca.broker.models.documents import AccountDocument
 from alpaca.common.models import ModelWithID
 from alpaca.common.models import ValidateBaseModel as BaseModel
-from alpaca.trading.enums import AccountStatus
+from alpaca.trading.enums import AccountStatus, AssetClass, TradeConfirmationEmail
 from alpaca.trading.models import TradeAccount as BaseTradeAccount
+
+# Present while an account payload is parsed from the API.
+_TRUSTED_CONTACT_RESPONSE_KEY = "trusted_contact_from_response"
+
+
+def _validate_trusted_street_address(
+    value: Any, info: ValidationInfo
+) -> Optional[Union[List[str], str]]:
+    """Accept a string or a list and preserve the value that was supplied.
+
+    The Broker API schema is an array of strings. A list is stored unchanged.
+    A string remains a string so existing readers keep working; building a
+    request with a string warns. Parsing an account response stays silent.
+    """
+    if isinstance(value, str):
+        context = info.context
+        from_response = (
+            isinstance(context, dict)
+            and context.get(_TRUSTED_CONTACT_RESPONSE_KEY) is True
+        )
+        if not from_response:
+            _warn_at_user_code(
+                "Passing street_address as a str is deprecated and will be removed "
+                "in the next release."
+            )
+        return value
+    if value is None or (
+        isinstance(value, list) and all(isinstance(item, str) for item in value)
+    ):
+        return value
+    raise ValueError("street_address must be a string or a list of strings")
+
+
+def _serialize_trusted_street_address(
+    value: Optional[Union[List[str], str]],
+) -> Optional[List[str]]:
+    """Send the Broker API array shape. A stored string becomes one address line."""
+    if isinstance(value, str):
+        return [value]
+    return value
+
+
+class _TrustedStreetAddressSchema:
+    """Accept a string or a list without changing the public field annotation.
+
+    The published annotation stays Optional[str], so existing typed callers keep
+    type-checking. A list is still accepted at runtime. The string alternative
+    is deprecated in the JSON schema.
+    """
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
+        return handler.generate_schema(Optional[Union[List[str], str]])
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> dict:
+        schema = handler(core_schema)
+        for variant in schema.get("anyOf", []):
+            if variant.get("type") == "string":
+                variant["deprecated"] = True
+        return schema
+
+
+# The published annotation stays Optional[str]. A string is stored as a string.
+# A list is accepted and stored as a list. Serialization always publishes the
+# Broker API array.
+_TrustedStreetAddress = Annotated[
+    Optional[str],
+    _TrustedStreetAddressSchema,
+    BeforeValidator(_validate_trusted_street_address),
+    PlainSerializer(_serialize_trusted_street_address, return_type=Optional[List[str]]),
+]
 
 
 class KycResults(BaseModel):
@@ -162,6 +244,18 @@ class Disclosures(BaseModel):
     employment_position: Optional[str] = None
 
 
+class AccountDisclosures(Disclosures):
+    """
+    Disclosures parsed for ``GET /v1/accounts/{account_id}``.
+
+    ``is_discretionary`` appears on that response. It is not part of the
+    Disclosures schema used when creating or updating an account, so
+    ``Account.disclosures`` stays ``Disclosures``.
+    """
+
+    is_discretionary: Optional[bool] = None
+
+
 class Agreement(BaseModel):
     """User agreements signed within Account Model
 
@@ -194,13 +288,14 @@ class TrustedContact(BaseModel):
         state (Optional[str]): The email address of the user's trusted contact
         postal_code (Optional[str]): The email address of the user's trusted contact
         country (Optional[str]): The email address of the user's trusted contact
+        street_address (Optional[str]): Street address. The Broker API stores an array of strings. A string still works and is stored as a string, but it is deprecated and will be removed in the next release; it is sent as a one-item list.
     """
 
     given_name: str
     family_name: str
     email_address: Optional[str] = None
     phone_number: Optional[str] = None
-    street_address: Optional[str] = None
+    street_address: _TrustedStreetAddress = None
     city: Optional[str] = None
     state: Optional[str] = None
     postal_code: Optional[str] = None
@@ -222,6 +317,148 @@ class TrustedContact(BaseModel):
             return values
 
         raise ValueError("At least one method of contact required for trusted contact")
+
+
+class MinorIdentity(BaseModel):
+    """
+    Identity of the minor on a custodial account.
+
+    Required when creating an account with ``account_type=custodial``.
+
+    Attributes:
+        given_name (str): The minor's first name.
+        family_name (str): The minor's last name.
+        date_of_birth (str): Date of birth in ``YYYY-MM-DD`` format.
+        tax_id_type (TaxIdType): The tax identifier type.
+        country_of_tax_residence (str): ISO 3166-1 alpha-3 country code.
+        state (str): State or province of the minor.
+        email (str): Email address of the minor.
+        country_of_birth (Optional[str]): ISO 3166-1 alpha-3 country of birth.
+        country_of_citizenship (Optional[str]): ISO 3166-1 alpha-3 citizenship.
+        tax_id (Optional[str]): The minor's tax identifier.
+    """
+
+    given_name: str
+    family_name: str
+    date_of_birth: str
+    tax_id_type: TaxIdType
+    country_of_tax_residence: str
+    state: str
+    email: str
+    country_of_birth: Optional[str] = None
+    country_of_citizenship: Optional[str] = None
+    tax_id: Optional[str] = None
+
+
+class Beneficiary(BaseModel):
+    """
+    A beneficiary of an account. Used for IRA accounts.
+
+    Attributes:
+        given_name (str): Beneficiary given name.
+        middle_name (str): Beneficiary middle name.
+        family_name (str): Beneficiary family name.
+        date_of_birth (str): Date of birth.
+        tax_id (str): Tax identifier.
+        tax_id_type (str): Tax identifier type.
+        relationship (str): Relationship to the account holder.
+        type (str): Beneficiary type, such as ``primary``.
+        share_pct (str): Share of the account allocated to this beneficiary.
+    """
+
+    given_name: str
+    middle_name: Optional[str] = None
+    family_name: str
+    date_of_birth: str
+    tax_id: str
+    tax_id_type: str
+    relationship: str
+    type: str
+    share_pct: str
+
+
+class CashInterestProgram(BaseModel):
+    """
+    USD cash interest program enrollment.
+
+    Attributes:
+        apr_tier_name (Optional[str]): Name of the APR tier.
+        status (Optional[str]): Enrollment status, such as ``ACTIVE`` or ``INACTIVE``.
+    """
+
+    apr_tier_name: Optional[str] = None
+    status: Optional[str] = None
+
+
+class CashInterest(BaseModel):
+    """
+    Cash interest configuration keyed by currency.
+
+    Attributes:
+        USD (Optional[CashInterestProgram]): The USD cash interest program.
+    """
+
+    USD: Optional[CashInterestProgram] = None
+
+
+class FPSLMarket(BaseModel):
+    """
+    Fully Paid Securities Lending configuration for one market.
+
+    Attributes:
+        status (Optional[str]): Enrollment status, such as ``ACTIVE`` or ``INACTIVE``.
+        tier_id (Optional[str]): FPSL tier id.
+    """
+
+    status: Optional[str] = None
+    tier_id: Optional[str] = None
+
+
+class FPSL(BaseModel):
+    """
+    Fully Paid Securities Lending configuration.
+
+    Attributes:
+        US (Optional[FPSLMarket]): Configuration for the US market.
+    """
+
+    US: Optional[FPSLMarket] = None
+
+
+class AccountUSD(BaseModel):
+    """
+    USD-denominated values returned for local-currency accounts.
+
+    Attributes:
+        last_equity (Optional[str]): End-of-day equity in USD.
+    """
+
+    last_equity: Optional[str] = None
+
+
+class AccountTradingConfigurations(BaseModel):
+    """
+    Trading configuration returned on an extended account.
+
+    Attributes:
+        disable_overnight_trading (Optional[bool]): When true, overnight trading is disabled.
+        fractional_trading (Optional[bool]): When true, fractional trading is enabled.
+        max_margin_multiplier (Optional[str]): ``"1"`` or ``"2"``.
+        max_options_trading_level (Optional[int]): Maximum options trading level, 0 through 3.
+        no_shorting (Optional[bool]): When true, the account is long-only.
+        ptp_no_exception_entry (Optional[bool]): When true, PTP symbols with no exception are accepted.
+        suspend_trade (Optional[bool]): When true, new orders are blocked.
+        trade_confirm_email (Optional[TradeConfirmationEmail]): ``all`` or ``none``.
+    """
+
+    disable_overnight_trading: Optional[bool] = None
+    fractional_trading: Optional[bool] = None
+    max_margin_multiplier: Optional[str] = None
+    max_options_trading_level: Optional[int] = None
+    no_shorting: Optional[bool] = None
+    ptp_no_exception_entry: Optional[bool] = None
+    suspend_trade: Optional[bool] = None
+    trade_confirm_email: Optional[TradeConfirmationEmail] = None
 
 
 class Account(ModelWithID):
@@ -314,11 +551,71 @@ class Account(ModelWithID):
                 else None
             ),
             trusted_contact=(
-                TypeAdapter(TrustedContact).validate_python(response["trusted_contact"])
+                TypeAdapter(TrustedContact).validate_python(
+                    response["trusted_contact"],
+                    context={_TRUSTED_CONTACT_RESPONSE_KEY: True},
+                )
                 if "trusted_contact" in response
                 else None
             ),
         )
+
+
+class AccountExtended(Account):
+    """
+    Account returned by the account list, account update, and ``GET /v1/accounts/{account_id}``.
+
+    The Broker API documents this payload as AccountExtended. It includes the
+    fields on ``Account`` plus the optional extended attributes below.
+
+    Attributes:
+        account_name (Optional[str]): Display name of the account.
+        allow_instant_ach (Optional[bool]): Whether the partner enabled Instant ACH.
+        beneficiaries (Optional[List[Beneficiary]]): IRA beneficiaries.
+        cash_interest (Optional[CashInterest]): USD cash interest enrollment.
+        custodial_account_type (Optional[str]): Custodial account type for the minor's state.
+        enabled_assets (Optional[List[AssetClass]]): Asset classes enabled on the account.
+        fpsl (Optional[FPSL]): Fully Paid Securities Lending configuration.
+        instant_ach_blocked (Optional[bool]): Whether Alpaca blocked Instant ACH.
+        investment_objective (Optional[str]): The user's investment objective.
+        investment_time_horizon (Optional[str]): How long the user plans to invest.
+        liquidity_needs (Optional[str]): How important liquidity is to the user.
+        disclosures (Optional[AccountDisclosures]): Account disclosures, including ``is_discretionary``.
+        minor_identity (Optional[MinorIdentity]): Identity of the minor on a custodial account.
+        primary_account_holder_id (Optional[UUID]): UUID of the account's primary holder when available.
+        risk_tolerance (Optional[str]): The user's risk tolerance.
+        trading_configurations (Optional[AccountTradingConfigurations]): Trading settings.
+        usd (Optional[AccountUSD]): USD values for a local-currency account.
+    """
+
+    disclosures: Optional[AccountDisclosures] = None
+    account_name: Optional[str] = None
+    allow_instant_ach: Optional[bool] = None
+    beneficiaries: Optional[List[Beneficiary]] = None
+    cash_interest: Optional[CashInterest] = None
+    custodial_account_type: Optional[str] = None
+    enabled_assets: Optional[List[AssetClass]] = None
+    fpsl: Optional[FPSL] = None
+    instant_ach_blocked: Optional[bool] = None
+    investment_objective: Optional[str] = None
+    investment_time_horizon: Optional[str] = None
+    liquidity_needs: Optional[str] = None
+    minor_identity: Optional[MinorIdentity] = None
+    primary_account_holder_id: Optional[UUID] = None
+    risk_tolerance: Optional[str] = None
+    trading_configurations: Optional[AccountTradingConfigurations] = None
+    usd: Optional[AccountUSD] = None
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("id"), str):
+            data["id"] = UUID(data["id"])
+        trusted_contact = data.get("trusted_contact")
+        if isinstance(trusted_contact, dict):
+            data["trusted_contact"] = TypeAdapter(TrustedContact).validate_python(
+                trusted_contact,
+                context={_TRUSTED_CONTACT_RESPONSE_KEY: True},
+            )
+        super(Account, self).__init__(**data)
 
 
 class TradeAccount(BaseTradeAccount):
@@ -351,7 +648,19 @@ class TradeAccount(BaseTradeAccount):
     last_cash: Optional[str]
     last_initial_margin: Optional[str]
     last_regt_buying_power: Optional[str]
-    last_daytrading_buying_power: Optional[str] = None
-    last_daytrade_count: Optional[int] = None
+    last_daytrading_buying_power: Optional[str] = Field(
+        default=None,
+        deprecated=(
+            "TradeAccount.last_daytrading_buying_power is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
+    last_daytrade_count: Optional[int] = Field(
+        default=None,
+        deprecated=(
+            "TradeAccount.last_daytrade_count is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     last_buying_power: Optional[str]
     clearing_broker: Optional[ClearingBroker]

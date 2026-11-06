@@ -40,6 +40,7 @@ import numpy as np
 
 from doppler.agc import AGC
 from doppler.detection import det_threshold_noncoherent
+from doppler.examples._extra import require
 from doppler.telemetry import Telemetry
 from doppler.track import Dll, MpskReceiver
 from doppler.wfm import PN, Composer, Segment
@@ -94,6 +95,7 @@ def _mseq31():
 
 
 def main(out_path="telemetry_fanin_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

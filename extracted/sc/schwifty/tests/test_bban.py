@@ -5,10 +5,13 @@ from random import Random
 
 import pytest
 
+from schwifty import BIC
 from schwifty import IBAN
 from schwifty import registry
 from schwifty.bban import BBAN
 from schwifty.domain import Bank
+from schwifty.domain import BankStatus
+from schwifty.domain import lookup_rank
 from schwifty.exceptions import GenerateRandomOverflowError
 from schwifty.exceptions import InvalidAccountCode
 from schwifty.exceptions import InvalidBBANChecksum
@@ -30,6 +33,22 @@ def test_validate_national_checksum() -> None:
     assert BBAN("BA", "1290079401028494").validate_national_checksum() is True
     with pytest.raises(InvalidBBANChecksum):
         BBAN("BA", "1290079401028400").validate_national_checksum()
+
+
+def test_validate_national_checksum_kosovo() -> None:
+    # The last two digits of a Kosovo BBAN are check digits computed with ISO 7064 mod 97-10,
+    # like in the other former Yugoslav countries. They used to be read as part of the account
+    # code, so they were never checked. Example taken from the Central Bank of Kosovo.
+    bban = BBAN("XK", "1212012345678906")
+    assert bban.bank_code == "12"
+    assert bban.branch_code == "12"
+    assert bban.account_code == "0123456789"
+    assert bban.national_checksum_digits == "06"
+    assert bban.validate_national_checksum() is True
+    with pytest.raises(InvalidBBANChecksum):
+        BBAN("XK", "1212012345678907").validate_national_checksum()
+    with pytest.raises(InvalidBBANChecksum):
+        IBAN.from_bban("XK", "1212012345678907", validate_bban=True)
 
 
 @pytest.mark.parametrize("country_code", ["HU", "SE"])
@@ -81,29 +100,62 @@ def test_bank_prefers_the_primary_registry_record() -> None:
     # ``IBAN.bic`` does: for the Nord LB codes the branch record is listed before
     # the institution's own record.
     iban = IBAN.generate("DE", "29050000", "0000000000")
-    assert iban.bic == "BRLADE22XXX"
+    assert iban.bic == "BRLADE22"
     assert iban.bank is not None
     assert iban.bank.bic == iban.bic
     assert iban.bank.primary is True
     assert iban.bank_short_name == "Nord LB Bremen"
 
 
-def test_bank_prefers_the_primary_record_of_every_registered_bank_code() -> None:
-    # Whenever the registry marks a record of a bank code as the primary one, that
-    # is the record the bank code has to resolve to. ``BBAN.bank`` used to return
-    # whichever entry happened to be read first.
-    not_primary = []
+def test_merged_bank_resolves_to_its_successor_under_a_new_bank_code() -> None:
+    # Banco di Sicilia was absorbed by UniCredito Italiano (03135), which continued as UniCredit
+    # under the bank code 02008. The register links the two codes only by their common tax code.
+    bban = BBAN.from_components("IT", bank_code="01020", branch_code="00000", account_code="0" * 12)
+    assert bban.bank is not None
+    assert bban.bank.status is BankStatus.MERGED
+    assert bban.bank.successor_bank_code == "03135"
+    assert bban.bank.legacy_name == "BANCO DI SICILIA S.P.A."
+    assert bban.bank.name == "UNICREDIT, SOCIETA' PER AZIONI"
+    assert bban.bic == "UNCRITMM"
+
+
+def test_bank_and_bic_describe_the_same_record_for_every_registered_bank_code() -> None:
+    # ``BBAN.bank`` and ``BBAN.bic`` used to pick their record differently, by file order and
+    # by the alphabet, so that e.g. the name of Revolut Bank UK came with the BIC of Revolut Ltd.
+    disagree = []
+    for country_code in registry.get_countries():
+        for bank_code in sorted(
+            {bank.bank_code for bank in registry.get_banks_by_country(country_code)}
+        ):
+            if not bank_code:
+                continue
+            bban = BBAN.from_components(country_code, bank_code=bank_code)
+            if (
+                bban.bank is not None
+                and bban.bank.bic
+                and (bban.bic is None or bban.bic.canonical != BIC(bban.bank.bic).canonical)
+            ):
+                disagree.append((country_code, bank_code, bban.bank.bic, bban.bic))
+    assert not disagree
+
+
+def test_bank_prefers_the_best_ranked_record_of_every_registered_bank_code() -> None:
+    # A bank code has to resolve to its best ranked record: an active one before a retired
+    # one, and the primary one among those. ``BBAN.bank`` used to return whichever entry
+    # happened to be read first.
+    not_best = []
     for country_code in registry.get_countries():
         for bank_code in sorted(
             {bank.bank_code for bank in registry.get_banks_by_country(country_code)}
         ):
             entries = registry.get_banks_by_code(country_code, bank_code)
-            if not bank_code or not any(bank.primary for bank in entries):
+            if not bank_code:
                 continue
             bban = BBAN.from_components(country_code, bank_code=bank_code)
-            if bban.bank is not None and not bban.bank.primary:
-                not_primary.append((country_code, bank_code, bban.bank.bic))
-    assert not not_primary
+            best = max(map(lookup_rank, entries))
+            if bban.bank is not None and lookup_rank(bban.bank) != best:
+                not_best.append((country_code, bank_code, bban.bank.bic))
+    assert not not_best
 
 
 @pytest.mark.parametrize(
@@ -118,6 +170,18 @@ def test_bank_prefers_the_primary_record_of_every_registered_bank_code() -> None
         "10020890",  # UniCredit Bank - HypoVereinsbank, method 99
         "50010517",  # ING-DiBa, method C1
         "13051042",  # Sparkasse Vorpommern auf Rügen, method C0
+        "50324000",  # ABN AMRO Bank, Frankfurt Branch, method 31
+        "35060386",  # Volksbank Rhein-Ruhr, method 40
+        "25020600",  # Openbank Deutschland, method 41
+        "66661454",  # VR Bank im Enzkreis -alt-, method 42
+        "66690000",  # Volksbank Pforzheim -alt-, method 43
+        "30060010",  # DZ BANK, method 44
+        "50310400",  # Barclays Bank Ireland Frankfurt Branch, method 46
+        "27290087",  # Volksbank Weserbergland -alt-, method 47
+        "20190109",  # Volksbank Raiffeisenbank, method 48
+        "40351060",  # Kreissparkasse Steinfurt, method 49
+        "20090700",  # Edekabank, method 50
+        "21352240",  # Sparkasse Holstein, method A7
     ],
 )
 def test_validate_national_checksum_on_truncated_bban(bank_code: str) -> None:
@@ -181,7 +245,7 @@ def test_random_national_checksum_overflow(monkeypatch: pytest.MonkeyPatch) -> N
 
     # Pin the bank ``random`` picks to one whose checksum method schwifty
     # implements. The validator is only consulted for those, so letting the
-    # choice stay random made this test flaky: 85 of the 4805 German records name
+    # choice stay random made this test flaky: 58 of the 4807 German records name
     # a method we don't implement (e.g. "B8" or "D8"), and for those there is
     # nothing to retry and no overflow to raise.
     deutsche_bank = registry.get_banks_by_code("DE", "10070000")
@@ -204,6 +268,18 @@ def test_random_national_checksum_overflow(monkeypatch: pytest.MonkeyPatch) -> N
         ("10110600", "17"),  # Quirin Privatbank
         ("50010517", "C1"),  # ING-DiBa
         ("13051042", "C0"),  # Sparkasse Vorpommern auf Rügen
+        ("50324000", "31"),  # ABN AMRO Bank, Frankfurt Branch
+        ("35060386", "40"),  # Volksbank Rhein-Ruhr
+        ("25020600", "41"),  # Openbank Deutschland
+        ("66661454", "42"),  # VR Bank im Enzkreis -alt-
+        ("66690000", "43"),  # Volksbank Pforzheim -alt-
+        ("30060010", "44"),  # DZ BANK
+        ("50310400", "46"),  # Barclays Bank Ireland Frankfurt Branch
+        ("27290087", "47"),  # Volksbank Weserbergland -alt-
+        ("20190109", "48"),  # Volksbank Raiffeisenbank
+        ("40351060", "49"),  # Kreissparkasse Steinfurt
+        ("20090700", "50"),  # Edekabank
+        ("21352240", "A7"),  # Sparkasse Holstein
     ],
 )
 def test_random_with_bank_code_uses_the_banks_checksum_method(

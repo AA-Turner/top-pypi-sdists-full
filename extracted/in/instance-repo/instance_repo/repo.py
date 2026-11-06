@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import posixpath
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +13,12 @@ from . import paths as P
 from .clients.config import (
     ENV_API_KEY,
     LEGACY_ENV_API_KEY,
+    STORAGE_ENV_PROD,
     business_metadata_model,
     fetch_repo_config,
+    fetch_user_data_config,
     load_profile,
+    normalize_storage_env,
     resolve_config_value,
 )
 from .clients.benchmarks import BenchmarksClient
@@ -34,6 +38,265 @@ from .store.registry import ApiMetadataRegistry
 from .transport import Transport
 
 
+# Public canonical user-data values contain metadata only, never leases or URLs.
+from dataclasses import dataclass, replace
+from pathlib import Path
+from types import MappingProxyType
+from collections.abc import Mapping
+import math
+
+from .errors import RequestDeadlineExceeded, TransportError
+from .clients.user_data_writes import (
+    PROTOCOL as _WRITE_PROTOCOL, ReplicasPolicy, UserDataWritesClient,
+    BeginOutcome, BeginWriteResult, CommitWriteResult, UserDataWriteError,
+    UserDataWritePartial, UserDataWritePending, UserDataWriteNotFound, UserDataWriteConflict,
+    UserDataUpgradeRequired, UserDataWriteUnauthorized, StatusResult, _Budget,
+    _SourceIdentity, _open_regular, _sha256_file, _resolve_replica_policy, _derive_users_key,
+    _SHA256_RE, _OP_ID_RE, _UUID_RE, _sanitize_error_data, new_idempotency_key, validate_idempotency_key,
+)
+from .clients.user_data_upload import UserDataUploadError as _UploadError
+from .clients.user_data_reads import (
+    UserDataReadsClient, CanonicalReadResolution, LegacyReadResolution,
+    ReadAnchor, VerifiedReadResult, LegacyReadResult,
+)
+from .clients.user_data_entries import (
+    UserDataEntriesClient, UserDataEntriesIncomplete, MAX_ROWS, MAX_BYTES, MAX_PAGES,
+    _bound as _entries_bound,
+)
+
+
+def _facade_schema():
+    return SchemaError("invalid canonical user-data input or result")
+
+
+def _facade_budget(seconds):
+    valid = False
+    try:
+        valid = (not isinstance(seconds, bool) and isinstance(seconds, (int, float))
+                 and math.isfinite(seconds) and seconds >= 0)
+    except (ValueError, OverflowError):
+        pass
+    if not valid:
+        raise _facade_schema()
+    budget = _Budget(seconds)
+    budget.raise_if_exhausted()
+    return budget
+
+
+def _facade_call(function, *args, op_id=None, _bound_idempotency_key=None, **kwargs):
+    """Preserve typed classification without retaining a remote exception object."""
+    safe = None
+    try:
+        return function(*args, **kwargs)
+    except RequestDeadlineExceeded:
+        safe = RequestDeadlineExceeded("canonical user-data deadline exhausted")
+    except UserDataWriteError as error:
+        data = _sanitize_error_data(error.data, bound_op_id=op_id)
+        if isinstance(op_id, str) and _OP_ID_RE.fullmatch(op_id):
+            data["op_id"] = op_id
+        safe = type(error)("canonical user-data operation failed", status=error.status,
+            biz_code=error.biz_code, error_code=type(error).error_code, data=data)
+    except TransportError as error:
+        if type(error.biz_code) is int and error.biz_code in (94022, 10003):
+            safe = UserDataWriteUnauthorized("canonical user-data authorization denied",
+                status=error.status, biz_code=error.biz_code, data={})
+        else:
+            safe = TransportError("canonical user-data transport failed",
+                status=error.status, biz_code=error.biz_code, data={})
+        if op_id is not None:
+            safe.data = {"op_id": op_id}
+    except _UploadError as error:
+        safe = type(error)("canonical user-data upload failed", kind=type(error).kind,
+            status=error.status, retryable=error.retryable, cause=None)
+        safe.data = {"op_id": op_id} if op_id is not None else {}
+    except (TimeoutError, ConnectionError):
+        safe = TransportError("canonical user-data network outcome unknown", status=None,
+                              data={"op_id": op_id} if op_id is not None else {})
+    except UserDataEntriesIncomplete:
+        safe = UserDataEntriesIncomplete("canonical listing incomplete")
+    except Exception:
+        safe = _facade_schema()
+    data = dict(getattr(safe, "data", None) or {})
+    if isinstance(op_id, str) and _OP_ID_RE.fullmatch(op_id):
+        data["op_id"] = op_id
+    if isinstance(_bound_idempotency_key, str) and _UUID_RE.fullmatch(_bound_idempotency_key):
+        data["idempotency_key"] = _bound_idempotency_key
+    if data:
+        safe.data = data
+    # from None alone keeps __context__ and its raw remote payload reachable.
+    raise safe
+
+
+class _UserDataCallbackFailed(SchemaError):
+    """Private fixed classification; never retain the callback's exception."""
+    def __init__(self):
+        super().__init__("canonical user-data metadata callback failed")
+
+
+def _validate_metadata_callbacks(overwrite, on_existing, on_completed=None):
+    if (type(overwrite) is not bool
+            or (on_existing is not None and (not callable(on_existing) or overwrite))
+            or (on_completed is not None and not callable(on_completed))):
+        raise _facade_schema()
+
+
+def _metadata_callback(budget, callback, *args):
+    # Synchronous callbacks are cooperative: time counts against the operation,
+    # but blocked prompt/display code cannot be forcibly interrupted here.
+    budget.raise_if_exhausted()
+    failed = False
+    try:
+        result = callback(*args)
+    except Exception:
+        failed = True
+    if failed:
+        # Raising outside except clears both __cause__ and __context__.
+        raise _UserDataCallbackFailed()
+    budget.raise_if_exhausted()
+    return result
+
+
+def _capture_source_identity(path, *, budget, identity=None):
+    # This entire context (including __exit__/close) runs INSIDE _facade_call.
+    # Wrapping only _open_regular would leave close errors outside the sanitizer.
+    with _open_regular(path, budget=budget, identity=identity) as source:
+        return source.identity
+
+
+def _valid_anchor(anchor):
+    return (type(anchor) is ReadAnchor and isinstance(anchor.op_id, str)
+        and _OP_ID_RE.fullmatch(anchor.op_id) and type(anchor.generation) is int
+        and anchor.generation > 0 and isinstance(anchor.sha256, str)
+        and _SHA256_RE.fullmatch(anchor.sha256) and type(anchor.size) is int
+        and 0 <= anchor.size <= 2**63 - 1)
+
+
+@dataclass(frozen=True)
+class ObservedUserDataObject:
+    owner: str
+    relative_path: str
+    cluster: str
+    storage_id: str
+    canonical_key: str
+    anchor: ReadAnchor
+
+    def __post_init__(self):
+        if (not all(isinstance(value, str) for value in
+                (self.owner, self.relative_path, self.cluster, self.storage_id, self.canonical_key))
+                or not _valid_anchor(self.anchor) or self.storage_id != "ap-userdata-v1"
+                or self.canonical_key != _derive_users_key(self.owner, self.relative_path)):
+            raise _facade_schema()
+
+
+@dataclass(frozen=True)
+class UserDataUploadOutcome:
+    kind: str
+    receipt: CommitWriteResult | None = None
+    existing: ObservedUserDataObject | None = None
+
+    def __post_init__(self):
+        if self.kind == "skipped_existing":
+            if self.receipt is not None or type(self.existing) is not ObservedUserDataObject:
+                raise _facade_schema()
+        elif self.kind == "committed":
+            value = self.receipt
+            if (self.existing is not None or type(value) is not CommitWriteResult
+                    or value.status != "committed" or value.protocol != _WRITE_PROTOCOL
+                    or value.storage_id != "ap-userdata-v1" or type(value.generation) is not int
+                    or value.generation <= 0 or not isinstance(value.op_id, str)
+                    or not _OP_ID_RE.fullmatch(value.op_id) or not isinstance(value.sha256, str)
+                    or not _SHA256_RE.fullmatch(value.sha256) or type(value.size) is not int
+                    or not 0 <= value.size <= 2**63 - 1 or not isinstance(value.final, Mapping)
+                    or set(value.final) != {"cn", "sg"}):
+                raise _facade_schema()
+            copied = {}
+            for region in ("cn", "sg"):
+                row = value.final[region]
+                if (not isinstance(row, Mapping) or set(row) != {"bucket", "key"}
+                        or not isinstance(row["bucket"], str) or not row["bucket"]
+                        or row["key"] != value.canonical_key):
+                    raise _facade_schema()
+                copied[region] = MappingProxyType(dict(row))
+            object.__setattr__(self, "receipt", replace(value, final=MappingProxyType(copied)))
+        else:
+            raise _facade_schema()
+
+
+class UserDataDirectoryPartial(UserDataWritePartial):
+    """A bounded file batch stopped; completed outcomes are actual prior results."""
+    def __init__(self, completed, failed_relative_path, failure):
+        super().__init__("canonical user-data directory upload incomplete",
+                         biz_code=94104, data={})
+        self.completed = tuple(completed)
+        self.failed_relative_path = failed_relative_path
+        known = isinstance(failure, (UserDataWriteError, TransportError, RequestDeadlineExceeded, _UploadError))
+        numeric = getattr(failure, "biz_code", None) if known else None
+        status = getattr(failure, "status", None) if known else None
+        recovery = getattr(failure, "data", None)
+        if known and isinstance(recovery, dict):
+            op = recovery.get("op_id")
+            key = recovery.get("idempotency_key")
+            if isinstance(op, str) and _OP_ID_RE.fullmatch(op):
+                self.data["op_id"] = op
+            if isinstance(key, str) and _UUID_RE.fullmatch(key):
+                self.data["idempotency_key"] = key
+        self.failure_biz_code = numeric if type(numeric) is int else None
+        self.failure_status = status if type(status) is int and 100 <= status <= 599 else None
+        self.failure_code = ("callback_failed" if isinstance(failure, _UserDataCallbackFailed)
+            else "deadline_exhausted" if isinstance(failure, RequestDeadlineExceeded)
+            else "authorization_denied" if self.failure_biz_code in (94022, 10003)
+            else "upload_failed" if isinstance(failure, _UploadError)
+            else "write_failed" if isinstance(failure, UserDataWriteError)
+            else "transport_failed" if isinstance(failure, TransportError) else "local_failure")
+
+
+_DIRECTORY_FD_CAPABLE = (os.open in os.supports_dir_fd and os.scandir in os.supports_fd)
+
+
+class _CanonicalDirectoryScan:
+    """Pinned no-follow directory: <=65 iterators + their <=65 original FDs."""
+    def __init__(self, path, *, parent_fd=None):
+        if (not all(hasattr(os, flag) for flag in ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK"))
+                or not _DIRECTORY_FD_CAPABLE):
+            raise SchemaError("bounded no-follow directory traversal is unsupported")
+        self.fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                          dir_fd=parent_fd)
+        self.closed = False
+        try:
+            self.iterator = os.scandir(self.fd)
+        except BaseException:
+            os.close(self.fd)
+            raise
+
+    def __next__(self):
+        return next(self.iterator)
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            try:
+                self.iterator.close()
+            finally:
+                os.close(self.fd)
+
+
+def _public_upload_dict(outcome):
+    if outcome.kind == "skipped_existing":
+        value = outcome.existing
+        anchor = value.anchor
+        return {"key": value.canonical_key, "skipped": True, "status": "skipped_existing",
+            "existing_anchor": {"owner": value.owner, "relative_path": value.relative_path,
+                "cluster": value.cluster, "storage_id": value.storage_id,
+                "op_id": anchor.op_id, "generation": anchor.generation,
+                "sha256": anchor.sha256, "size": anchor.size}}
+    value = outcome.receipt
+    return {"key": value.canonical_key, "skipped": False, "status": "committed",
+        "receipt": {"op_id": value.op_id, "generation": value.generation,
+            "protocol": value.protocol, "storage_id": value.storage_id,
+            "canonical_key": value.canonical_key, "sha256": value.sha256, "size": value.size,
+            "final": {r: dict(row) for r, row in value.final.items()}}}
+
+
 class Repo:
     """SDK 入口。所有 OSS/ACR 操作经此，先向 apiserver 换 STS 再直连。
 
@@ -48,10 +311,16 @@ class Repo:
                  api_base: str | None = None,
                  cluster: str | None = None,
                  storage_env: str | None = None,
-                 metadata_model: str | None = None) -> None:
+                 metadata_model: str | None = None,
+                 expected_replica_policy: ReplicasPolicy | None = None,
+                 bootstrap_dataset: bool = True) -> None:
         # v0.8「三参数起步」：token + api_env（控制面）+ storage_env（数据面）。
         # 其余寻址字段（oss_bucket / acr_host / acr_namespace / oss_prefix）由 bootstrap
         # 向 apiserver 的 repo-config 自动拉取，用户无需手填。
+        if type(bootstrap_dataset) is not bool:
+            raise SchemaError("bootstrap_dataset must be a boolean")
+        self._expected_replica_policy = _facade_call(_resolve_replica_policy, expected_replica_policy)
+        self._canonical_constructor_cluster = cluster
         self.profile = load_profile(profile, overrides=profile_overrides,
                                     api_env=api_env, api_base=api_base,
                                     cluster=cluster, storage_env=storage_env,
@@ -66,11 +335,19 @@ class Repo:
         # 自动发现：只填空字段，显式 overrides 与遗留环境变量优先。**失败不抛**——纯控制面
         # 操作（list/get/create/claim/whoami）不需要数据面寻址，构造期硬失败会把它们一起
         # 阻断；真正缺字段的报错延迟到首次用到该字段时给出，那时才说得清缺什么、为什么。
-        bootstrap.resolve_profile(self.transport, self.profile)
+        # Explicit canonical-only callers may defer Dataset discovery. This does
+        # not declare Dataset configuration ready; all real clients still exist.
+        if bootstrap_dataset:
+            bootstrap.resolve_profile(self.transport, self.profile)
         self._bucket_factory = bucket_factory
         self._content = OssContentStore(
             self.transport, self.profile.oss_bucket,
             bucket_factory=bucket_factory)
+        # user-data 独立上下文（F2-R1）：首次 user-data IO 时发现并缓存（独立
+        # OssContentStore，bucket/prefix 来自 scope=user-data 配置或用户显式
+        # user_data_bucket 覆盖）。惰性 + 单飞，与 Dataset 域 _content 完全隔离。
+        self._ud_ctx = None
+        self._ud_ctx_lock = threading.Lock()
         self._image = AcrImageStore(
             self.transport, runner=runner,
             prefer_public=self.profile.prefer_public_registry)
@@ -534,54 +811,457 @@ class Repo:
             raise SchemaError("unexpected cluster-storage-env-map response shape")
         return resp
 
-    def upload_user_data(self, uid: str, local_path, remote_subpath: str, *,
-                         overwrite: bool = False) -> dict:
-        """上传本地文件到 swe/user-data/users/{uid}/{remote_subpath}。"""
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        sub = self._clean_user_data_subpath(remote_subpath)
-        pfx = self._user_data_prefix(uid)
-        # sts_prefix 用精确对象 key（而非 uid 目录前缀）：跨用户 subpath 授权时，
-        # apiserver 从 STS 请求的 prefix 里提取 subpath 做分层匹配——目录级 prefix
-        # 提取不出 subpath，会退化为 uid 级判定，子路径授权形同虚设。
-        return self._content.put_object(pfx + sub, str(local_path),
-                                        overwrite=overwrite, sts_prefix=pfx + sub)
+    def get_user_data_config(self, *, cluster: str = "", storage_env: str = "",
+                             allow_fallback: bool = False):
+        """查询 scope=user-data 的独立配置（schema1：OSS 寻址 + 生产读写能力声明）。
 
-    def upload_user_data_dir(self, uid: str, local_dir, remote_subdir: str, *,
-                             overwrite: bool = False) -> list[dict]:
-        """递归上传本地目录到 swe/user-data/users/{uid}/{remote_subdir}/。"""
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        base = self._clean_user_data_subpath(remote_subdir)
-        if not os.path.isdir(local_dir):
-            raise SchemaError(f"{local_dir!r} is not a directory")
-        outcomes: list[dict] = []
-        for root, _dirs, files in os.walk(local_dir):
-            for name in files:
-                fp = os.path.join(root, name)
-                rel = os.path.relpath(fp, local_dir).replace(os.sep, "/")
-                outcomes.append(self.upload_user_data(
-                    uid, fp, base + "/" + rel, overwrite=overwrite))
-        return outcomes
+        从 apiserver ``GET /apis/v1/repo-config?…&scope=user-data`` 拉取，无密钥。
+        cluster 与显式 storage_env 冲突直接拒绝（不静默换环境）；旧服务不认识
+        scope 时仅当 ``allow_fallback=True`` 才走旧 repo-config 兼容（能力字段
+        保持未知/关闭）。网络/认证/权限错误不当版本 fallback，原样抛出。
 
-    def download_user_data(self, uid: str, remote_subpath: str, local_path) -> str:
-        """下载 swe/user-data/users/{uid}/{remote_subpath} 到本地 local_path。"""
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        sub = self._clean_user_data_subpath(remote_subpath)
-        pfx = self._user_data_prefix(uid)
-        # sts_prefix 同 upload：精确对象 key，让 apiserver 按 subpath 分层匹配授权。
-        return str(self._content.get_object(pfx + sub, local_path,
-                                            sts_prefix=pfx + sub))
+        返回的 :class:`~instance_repo.clients.config.UserDataConfig` 是 user-data
+        **独立**上下文：``to_profile_overrides()`` 只含 OSS 寻址，勿并入 Dataset/
+        artifact 的 profile（隔离防污染）；Repo 自身 profile 不受影响。
+        """
+        return fetch_user_data_config(self.transport, cluster=cluster,
+                                      storage_env=storage_env,
+                                      allow_fallback=allow_fallback)
 
-    def list_user_data(self, uid: str, subpath: str = "") -> list[str]:
-        """列举 swe/user-data/users/{uid}/{subpath} 下的对象 key（subpath 空=整个 uid 目录）。"""
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        pfx = self._user_data_prefix(uid)
-        if str(subpath).strip():
-            pfx += self._clean_user_data_subpath(subpath)
-        return self._content.list_objects(pfx)
+    # ── F2-R1：user-data 独立数据面上下文（与 Dataset 域 _content 隔离）──
+
+    def _user_data_context(self):
+        """返回 user-data 独立数据面上下文（惰性发现 + 缓存 + 单飞）。
+
+        优先级：
+        1. 用户显式 ``profile.user_data_bucket``（profile_overrides 显式给
+           user-data 寻址）——零网络发现，直接用显式值；
+        2. ``get_user_data_config()``（scope=user-data schema1 发现，含
+           production_read/write 能力声明）。
+
+        独立性：返回的 OssContentStore 与 Dataset 域 ``_content`` 完全分离
+        （独立 bucket、独立 bucket 缓存）；发现结果**不写回** self.profile
+        （Dataset 寻址不受影响）。旧服务不认识 scope / 认证失败等异常原样
+        抛出——绝不静默借用 Dataset bucket（那会把 user-data 数据写进错误
+        的域，且绕过 apiserver 的 user-data 独立生产 gate）。
+
+        production gate（F1 server 契约）：``production_write_enabled=False``
+        时写入口（upload*）在客户端即拒绝（早失败）；``production_read_enabled``
+        =False 时读入口（download/list）拒绝。注意这只是**声明对齐**：服务端
+        每次仍按 RBAC 独立判定，客户端 gate 不构成授权。
+        """
+        if self._ud_ctx is not None:
+            return self._ud_ctx
+        with self._ud_ctx_lock:
+            if self._ud_ctx is not None:
+                return self._ud_ctx
+            explicit_bucket = (getattr(self.profile, "user_data_bucket", "")
+                               or "").strip()
+            explicit_endpoint = (getattr(self.profile, "user_data_endpoint", "")
+                                 or "").strip()
+            if explicit_bucket:
+                cfg = None            # 用户自填：零发现调用
+            else:
+                # 发现查询键：cluster（profile 已绑定）优先，否则 profile.storage_env；
+                # 二者皆空时用 storage_env="dev" 兜底会静默退 dev——禁止。改为
+                # cluster 查询（apiserver 从 X-Cluster/Env 头路由）仍需要键，
+                # 空键即报清晰错误。
+                cluster = (getattr(self.profile, "cluster", "") or "").strip()
+                env = (getattr(self.profile, "storage_env", "") or "").strip()
+                if not cluster and not env:
+                    raise SchemaError(
+                        "user-data 配置发现需要 cluster 或 storage_env："
+                        "请配置 profile（cluster/storage_env）或显式 "
+                        "user_data_bucket")
+                # cluster 键优先且**不带** Dataset 域 env（独立环境语义：user-data
+                # 环境由 cluster 解析，不受 Dataset profile env 影响；无 cluster
+                # 时才用 storage_env 键——此键即用户为 user-data 选择的独立环境）。
+                if cluster:
+                    cfg = fetch_user_data_config(self.transport, cluster=cluster)
+                else:
+                    cfg = fetch_user_data_config(
+                        self.transport, storage_env=env)
+                explicit_bucket = cfg.oss_bucket
+            if not explicit_bucket:
+                raise SchemaError(
+                    "user-data bucket 未配置：用户显式 user_data_bucket 或 "
+                    "scope=user-data 发现均未给出 oss_bucket")
+            # 显式 endpoint 覆盖：仅当用户显式给出 user_data_endpoint 时，把 STS
+            # 签发响应里的 endpoint 替换为自填值（用户已知自己的数据面入口）。
+            # 只包装独立 user-data 上下文的 transport，Dataset 域不受影响。
+            ud_transport = self.transport
+            if explicit_endpoint:
+                ud_transport = _EndpointOverrideTransport(
+                    self.transport, explicit_endpoint)
+            store = OssContentStore(
+                ud_transport, explicit_bucket,
+                bucket_factory=self._bucket_factory)
+            self._ud_ctx = _UserDataContext(cfg, store)
+            return self._ud_ctx
+
+    def _ud_is_production(self, ctx) -> bool:
+        """user-data 上下文是否为 production 环境（gate 只对 production 生效）。
+
+        判定来源（以树内契约为准）：``UserDataConfig.storage_env`` 为 scope
+        发现响应的服务端权威值（P1-① 已核对与显式 env 一致）；用户显式
+        ``user_data_bucket``（cfg=None 零发现）时退回 ``self.profile.storage_env``
+        （Repo 构造时的数据面环境）。仅 ``storage_env == prod`` 视为
+        production——dev/internal-dev/external-dev 等非 prod 环境的
+        production_*_enabled 声明不构成 gate（服务端对非 prod scope 也返回
+        默认 false，语义上仅是"生产开关"声明，不应阻断开发环境 IO）。
+        未知/空 env（无法判定）**fail-closed 视为 production**——不因判定
+        不了而放行 gate。
+        """
+        env = ""
+        if ctx.config is not None:
+            env = normalize_storage_env(getattr(ctx.config, "storage_env", ""))
+        if not env:
+            env = normalize_storage_env(getattr(self.profile, "storage_env", ""))
+        if not env:
+            return True  # 无法判定：fail-closed 按 production 对待
+        return env == STORAGE_ENV_PROD
+
+    def _require_ud_write(self, ctx) -> None:
+        """写入口的客户端早失败：**production 环境**且发现结果声明 write 关闭即拒绝。
+
+        gate 仅对 production（storage_env=prod）生效；dev 等非 prod 环境不受
+        production_*_enabled 声明影响（服务端对非 prod 也返回默认 false）。
+        production 语义原样保留——prod 下 write 关闭仍然拒绝。
+        """
+        if self._ud_is_production(ctx) and ctx.config is not None \
+                and not ctx.config.production_write_enabled:
+            raise SchemaError(
+                "user-data production write is disabled (production_write_enabled=false)")
+
+    def _require_ud_read(self, ctx) -> None:
+        """读入口的客户端早失败：**production 环境**且发现结果声明 read 关闭即拒绝。
+
+        同 :meth:`_require_ud_write`：仅 production 环境 gate；非 prod 不放
+        生产语义，production gate 不放松。
+        """
+        if self._ud_is_production(ctx) and ctx.config is not None \
+                and not ctx.config.production_read_enabled:
+            raise SchemaError(
+                "user-data production read is disabled (production_read_enabled=false)")
+
+    def _canonical_inputs(self, uid, relative_path, cluster, *, root=False):
+        policy = self._expected_replica_policy
+        if policy is None:
+            raise UserDataUpgradeRequired("canonical user-data requires trusted replica policy",
+                biz_code=94106, data={})
+        chosen = cluster if cluster is not None else self._canonical_constructor_cluster
+        if chosen is None:
+            chosen = self.profile.cluster
+        if (not isinstance(chosen, str) or not chosen or any(c.isspace() for c in chosen)
+                or any(c in chosen for c in "/\\%?#")):
+            raise _facade_schema()
+        entries = UserDataEntriesClient(self.transport, expected_replica_policy=policy)
+        request = entries._request(uid, relative_path, chosen, False, 1, "")
+        if not root and not request["relative_path"]:
+            raise _facade_schema()
+        key = _derive_users_key(request["owner"], request["relative_path"])
+        if len(key.encode("utf-8")) > 1023:
+            raise _facade_schema()
+        return request, entries
+
+    def _canonical_reader(self):
+        return UserDataReadsClient(self.transport,
+            expected_replica_policy=self._expected_replica_policy, legacy_profiles=())
+
+    def _canonical_resolution(self, reader, request, budget):
+        budget.raise_if_exhausted()
+        resolution = _facade_call(reader.resolve, owner=request["owner"],
+            relative_path=request["relative_path"], cluster=request["cluster"],
+            deadline=budget.remaining_seconds())
+        budget.raise_if_exhausted()
+        if (type(resolution) is not CanonicalReadResolution or resolution.mode != "canonical"
+                or resolution.owner != request["owner"] or resolution.relative_path != request["relative_path"]
+                or resolution.cluster != request["cluster"]
+                or resolution.storage_id != self._expected_replica_policy.storage_id
+                or resolution.canonical_key != _derive_users_key(request["owner"], request["relative_path"])
+                or not _valid_anchor(resolution.anchor)):
+            raise _facade_schema()
+        # Reuse the real SDK's validator; no facade URL parser or trust bootstrap.
+        resolution = _facade_call(reader._validate_resolution_model, resolution)
+        budget.raise_if_exhausted()
+        return resolution
+
+    def _canonical_upload(self, request, local_path, budget, *, overwrite,
+                          skip_existing, idempotency_key, source_identity=None, on_existing=None):
+        _validate_metadata_callbacks(overwrite, on_existing)
+        if type(overwrite) is not bool or type(skip_existing) is not bool or (overwrite and skip_existing):
+            raise _facade_schema()
+        # Capture regular-file identity before any resolve/Begin, without hashing a skipped source.
+        identity = _facade_call(_capture_source_identity, local_path,
+                                budget=budget, identity=source_identity)
+        budget.raise_if_exhausted()
+        if skip_existing or on_existing is not None:
+            reader = self._canonical_reader()
+            missing = False
+            try:
+                resolution = self._canonical_resolution(reader, request, budget)
+            except UserDataWriteError as error:
+                if (type(error.biz_code) is int and error.biz_code == 94109
+                        and error.error_code in ("user_data_read_not_found", "user_data_write_not_found")):
+                    missing = True
+                else:
+                    raise
+            if not missing:
+                observed = ObservedUserDataObject(request["owner"], request["relative_path"],
+                    request["cluster"], resolution.storage_id, resolution.canonical_key, resolution.anchor)
+                budget.raise_if_exhausted()
+                action = "skip" if on_existing is None else _metadata_callback(budget, on_existing, observed)
+                if type(action) is not str or action not in ("skip", "overwrite", "error"):
+                    raise _UserDataCallbackFailed()
+                if action == "skip":
+                    return UserDataUploadOutcome("skipped_existing", existing=observed)
+                if action == "error":
+                    raise UserDataWriteConflict("canonical user-data object already exists",
+                        biz_code=94105, data={})
+                overwrite = True
+        key = idempotency_key if idempotency_key is not None else new_idempotency_key()
+        _facade_call(validate_idempotency_key, key)
+        digest = _facade_call(_sha256_file, local_path, budget=budget, identity=identity)
+        budget.raise_if_exhausted()
+        writes = UserDataWritesClient(self.transport, expected_replica_policy=self._expected_replica_policy)
+        outcome = _facade_call(writes.begin, owner=request["owner"], relative_path=request["relative_path"],
+            sha256=digest, size=identity.size, overwrite=overwrite, idempotency_key=key,
+            cluster=request["cluster"], deadline=budget.remaining_seconds(), _bound_idempotency_key=key)
+        _facade_call(budget.raise_if_exhausted, _bound_idempotency_key=key)
+        if type(outcome) is not BeginOutcome or sum(x is not None for x in (outcome.write, outcome.receipt, outcome.status)) != 1:
+            raise _facade_schema()
+        if outcome.status is not None:
+            if type(outcome.status) is not StatusResult:
+                raise _facade_schema()
+            op = outcome.status.op_id
+            if not isinstance(op, str) or not _OP_ID_RE.fullmatch(op):
+                raise _facade_schema()
+            raise UserDataWritePending("canonical write requires reconciliation; no full receipt",
+                biz_code=94103, data={"op_id": op, "idempotency_key": key})
+        receipt = outcome.receipt
+        if outcome.write is not None:
+            handle = outcome.write
+            if (type(handle) is not BeginWriteResult or handle.owner != request["owner"]
+                    or handle.relative_path != request["relative_path"] or handle.expected_sha256 != digest
+                    or handle.expected_size != identity.size
+                    or handle.canonical_key != _derive_users_key(request["owner"], request["relative_path"])):
+                raise _facade_schema()
+            _facade_call(writes.upload, handle, local_path, _budget=budget,
+                _source_identity=identity, op_id=handle.op_id, _bound_idempotency_key=key)
+            _facade_call(budget.raise_if_exhausted, op_id=handle.op_id, _bound_idempotency_key=key)
+            receipt = _facade_call(writes.commit, handle, deadline=budget.remaining_seconds(),
+                op_id=handle.op_id, _bound_idempotency_key=key)
+            _facade_call(budget.raise_if_exhausted, op_id=handle.op_id, _bound_idempotency_key=key)
+        result = UserDataUploadOutcome("committed", receipt=receipt)
+        receipt = result.receipt
+        if (receipt.canonical_key != _derive_users_key(request["owner"], request["relative_path"])
+                or receipt.storage_id != self._expected_replica_policy.storage_id
+                or receipt.sha256 != digest or receipt.size != identity.size
+                or any(receipt.final[r]["bucket"] != self._expected_replica_policy.bucket(r) for r in ("cn", "sg"))):
+            raise _facade_schema()
+        _facade_call(budget.raise_if_exhausted, op_id=receipt.op_id, _bound_idempotency_key=key)
+        return result
+
+    def upload_user_data_verified(self, uid, local_path, remote_subpath, *, overwrite=False,
+            skip_existing=False, cluster=None, deadline=900.0, idempotency_key=None, on_existing=None):
+        """Upload with an optional fresh metadata-only skip/overwrite/error decision."""
+        budget = _facade_budget(deadline)
+        request, _ = self._canonical_inputs(uid, remote_subpath, cluster)
+        return self._canonical_upload(request, local_path, budget,
+            overwrite=overwrite, skip_existing=skip_existing, idempotency_key=idempotency_key,
+            on_existing=on_existing)
+
+    def upload_user_data(self, uid, local_path, remote_subpath, *, overwrite=False,
+                         cluster=None, deadline=900.0, on_existing=None):
+        return _public_upload_dict(self.upload_user_data_verified(uid, local_path, remote_subpath,
+            overwrite=overwrite, skip_existing=not overwrite, cluster=cluster, deadline=deadline,
+            on_existing=on_existing))
+
+    def download_user_data_verified(self, uid, remote_subpath, local_path, *, overwrite=True,
+                                    cluster=None, deadline=900.0):
+        budget = _facade_budget(deadline)
+        request, _ = self._canonical_inputs(uid, remote_subpath, cluster)
+        reader = self._canonical_reader()
+        resolution = self._canonical_resolution(reader, request, budget)
+        result = _facade_call(reader.download, resolution, local_path, overwrite=overwrite,
+                              deadline=budget.remaining_seconds())
+        budget.raise_if_exhausted()
+        if (type(result) is not VerifiedReadResult or result.mode != "canonical"
+                or result.canonical_key != resolution.canonical_key or result.anchor != resolution.anchor
+                or result.sha256_verified != resolution.anchor.sha256
+                or type(result.bytes_written) is not int or result.bytes_written != resolution.anchor.size
+                or not isinstance(result.target, Path) or result.target != Path(local_path)):
+            raise _facade_schema()
+        return result
+
+    def download_user_data(self, uid, remote_subpath, local_path, *, overwrite=True,
+                           cluster=None, deadline=900.0):
+        return str(self.download_user_data_verified(uid, remote_subpath, local_path,
+            overwrite=overwrite, cluster=cluster, deadline=deadline).target)
+
+    def user_data_entries_page(self, uid, subpath="", *, cluster=None, recursive=False,
+                               limit=100, cursor="", deadline=30.0):
+        budget = _facade_budget(deadline)
+        request, entries = self._canonical_inputs(uid, subpath, cluster, root=True)
+        request = entries._request(request["owner"], request["relative_path"], request["cluster"], recursive, limit, cursor)
+        result = _facade_call(entries._fetch, request, budget)
+        budget.raise_if_exhausted()
+        return result
+
+    @staticmethod
+    def _canonical_pages(entries, request, budget, recursive, page_size, max_rows, max_bytes, max_pages):
+        req = entries._request(request["owner"], request["relative_path"], request["cluster"], recursive, page_size, "")
+        _entries_bound(max_rows, MAX_ROWS)
+        _entries_bound(max_bytes, MAX_BYTES)
+        _entries_bound(max_pages, MAX_PAGES)
+        return entries._iterate_pages(req, budget, max_rows, max_bytes, max_pages)
+
+    def iter_user_data_entries(self, uid, subpath="", *, cluster=None, recursive=False,
+            page_size=200, deadline=60.0, max_rows=MAX_ROWS, max_bytes=MAX_BYTES, max_pages=MAX_PAGES):
+        budget = _facade_budget(deadline)
+        request, entries = self._canonical_inputs(uid, subpath, cluster, root=True)
+        pages = self._canonical_pages(entries, request, budget, recursive, page_size, max_rows, max_bytes, max_pages)
+        def iterate():
+            while True:
+                budget.raise_if_exhausted()
+                page = _facade_call(next, pages, None)
+                if page is None:
+                    return
+                for entry in page.entries:
+                    budget.raise_if_exhausted()
+                    yield entry
+                    budget.raise_if_exhausted()
+        return iterate()
+
+    def list_user_data(self, uid, subpath="", *, cluster=None, deadline=60.0,
+                       max_rows=MAX_ROWS, max_bytes=MAX_BYTES, max_pages=MAX_PAGES):
+        budget = _facade_budget(deadline)
+        request, entries = self._canonical_inputs(uid, subpath, cluster, root=True)
+        pages = self._canonical_pages(entries, request, budget, True, 200, max_rows, max_bytes, max_pages)
+        values, exists = [], False
+        while True:
+            page = _facade_call(next, pages, None)
+            budget.raise_if_exhausted()
+            if page is None:
+                break
+            values.extend(page.entries)
+            exists = exists or page.directory_exists is True
+        if values or exists or not request["relative_path"]:
+            result = [entry.key for entry in values if entry.type == "file"]
+            budget.raise_if_exhausted()
+            return result
+        missing = False
+        try:
+            resolution = self._canonical_resolution(self._canonical_reader(), request, budget)
+        except UserDataWriteError as error:
+            if (type(error.biz_code) is int and error.biz_code == 94109
+                    and error.error_code in ("user_data_read_not_found", "user_data_write_not_found")):
+                missing = True
+            else:
+                raise
+        budget.raise_if_exhausted()
+        return [] if missing else [resolution.canonical_key]
+
+    def upload_user_data_dir(self, uid, local_dir, remote_subdir, *, overwrite=False,
+            cluster=None, deadline=900.0, max_files=10000, max_metadata_bytes=32 * 1024 * 1024,
+            on_existing=None, on_completed=None):
+        """Sequential batch; completion callbacks receive actual metadata outcomes.
+
+        on_completed(outcome, relative_path, done, total) runs after the outcome
+        is recorded. A display error never erases a committed or observed result.
+        """
+        _validate_metadata_callbacks(overwrite, on_existing, on_completed)
+        budget = _facade_budget(deadline)
+        request, _ = self._canonical_inputs(uid, remote_subdir, cluster, root=True)
+        if (type(overwrite) is not bool or type(max_files) is not int or not 1 <= max_files <= 10000
+                or type(max_metadata_bytes) is not int or not 1 <= max_metadata_bytes <= 32 * 1024 * 1024):
+            raise _facade_schema()
+        plan = _facade_call(self._canonical_directory_plan, local_dir, request, budget, max_files, max_metadata_bytes)
+        completed = []
+        for path, item_request, identity in plan:
+            failure = None
+            try:
+                outcome = self._canonical_upload(item_request, path, budget, overwrite=overwrite,
+                    skip_existing=not overwrite, idempotency_key=None, source_identity=identity,
+                    on_existing=on_existing)
+            except (UserDataWriteError, TransportError, SchemaError, _UploadError) as error:
+                failure = error
+            if failure is not None:
+                if not completed:
+                    raise failure
+                raise UserDataDirectoryPartial(completed, item_request["relative_path"], failure)
+            completed.append(outcome)
+            if on_completed is not None:
+                failure = None
+                try:
+                    _metadata_callback(budget, on_completed, outcome,
+                        item_request["relative_path"], len(completed), len(plan))
+                except (TransportError, SchemaError) as error:
+                    failure = error
+                if failure is not None:
+                    raise UserDataDirectoryPartial(completed, item_request["relative_path"], failure)
+            self._canonical_batch_postcheck(budget, completed, item_request["relative_path"])
+        result = [_public_upload_dict(outcome) for outcome in completed]
+        self._canonical_batch_postcheck(budget, completed, plan[-1][1]["relative_path"] if plan else "")
+        return result
+
+    @staticmethod
+    def _canonical_batch_postcheck(budget, completed, relative_path):
+        failure = None
+        try:
+            budget.raise_if_exhausted()
+        except RequestDeadlineExceeded as error:
+            failure = error
+        if failure is not None:
+            if completed:
+                raise UserDataDirectoryPartial(completed, relative_path, failure)
+            raise failure
+
+    def _canonical_directory_plan(self, local_dir, request, budget, max_files, max_bytes):
+        base = Path(local_dir)
+        stack, plan, total = [], [], 0
+        try:
+            stack.append((_CanonicalDirectoryScan(base), "", base))
+            while stack:
+                budget.raise_if_exhausted()
+                iterator, parent, directory_path = stack[-1]
+                entry = next(iterator, None)
+                if entry is None:
+                    iterator.close(); stack.pop(); continue
+                relative = parent + entry.name
+                remote = request["relative_path"] + "/" + relative if request["relative_path"] else relative
+                full_path = directory_path / entry.name
+                item, _ = self._canonical_inputs(request["owner"], remote, request["cluster"])
+                total += len(os.fsencode(full_path)) + len(remote.encode("utf-8")) + 128
+                if total > max_bytes:
+                    raise UserDataEntriesIncomplete("directory plan bound exceeded")
+                if entry.is_symlink():
+                    if entry.is_dir(follow_symlinks=True):
+                        continue
+                elif entry.is_dir(follow_symlinks=False):
+                    if len(stack) >= 65:
+                        raise _facade_schema()
+                    # Relative to the pinned parent, never a pathname check-then-follow.
+                    budget.raise_if_exhausted()
+                    child = _CanonicalDirectoryScan(entry.name, parent_fd=iterator.fd)
+                    stack.append((child, relative + "/", full_path)); continue
+                # DirEntry stat is relative to that same pinned directory. A renamed
+                # ancestor or retargeted path must not substitute another source inode.
+                expected = _SourceIdentity.from_stat(entry.stat(follow_symlinks=True))
+                identity = _capture_source_identity(full_path, budget=budget, identity=expected)
+                if len(plan) >= max_files:
+                    raise UserDataEntriesIncomplete("directory plan bound exceeded")
+                plan.append((full_path, item, identity))
+            budget.raise_if_exhausted()
+            plan.sort(key=lambda value: value[1]["relative_path"])
+            return plan
+        finally:
+            # Attempt every owned close even if one close reports an OS failure.
+            for iterator, _, _ in stack:
+                try:
+                    iterator.close()
+                except OSError:
+                    pass
 
     # ── Artifact 下载（AP HTTP 链接，由服务端执行权限校验）──
 
@@ -681,151 +1361,77 @@ class Repo:
         "admin": "built-in:user-data-admin",
     }
 
-    @staticmethod
-    def _validate_user_data_acl_subpath(subpath: str) -> str:
-        """校验子路径粒度授权的 subpath；空串合法（=uid 整目录级授权）。
-
-        与 apiserver 对 resource_id 中 subpath 段的校验对齐：拒绝前导/尾随
-        '/'、空段（'//'）、'..' 段与通配符（'*'/'?'）。注意这里**不做归一化**
-        （区别于 _clean_user_data_subpath）：授权路径必须与存储 key 逐字符
-        一致，静默改写（如剥掉首尾 '/'）会让授权指到错误资源。
-        """
-        sub = str(subpath or "").strip()
-        if not sub:
-            return ""
-        if sub.startswith("/"):
-            raise SchemaError(
-                f"invalid user-data ACL subpath {subpath!r}: leading '/' not allowed")
-        if sub.endswith("/"):
-            raise SchemaError(
-                f"invalid user-data ACL subpath {subpath!r}: trailing '/' not allowed")
-        if "//" in sub:
-            raise SchemaError(
-                f"invalid user-data ACL subpath {subpath!r}: empty segment ('//') not allowed")
-        if any(seg == ".." for seg in sub.split("/")):
-            raise SchemaError(
-                f"invalid user-data ACL subpath {subpath!r}: '..' not allowed")
-        if "*" in sub or "?" in sub:
-            raise SchemaError(
-                f"invalid user-data ACL subpath {subpath!r}: wildcards ('*', '?') not allowed")
-        return sub
-
-    def _user_data_acl_resource_id(self, uid: str, subpath: str = "") -> str:
-        """拼 user-data ACL 的 resource_id：{storage_env}/{uid}（subpath 非空时
-        追加 /{subpath}，即 {storage_env}/{uid}/{subpath}）。"""
-        sub = self._validate_user_data_acl_subpath(subpath)
-        rid = f"{self.profile.storage_env}/{uid}"
-        return f"{rid}/{sub}" if sub else rid
+    def _user_data_acl_client(self, storage_env=""):
+        from .clients.user_data_acl import UserDataACLClient, _UserDataACLControlClient
+        if type(storage_env) is not str:
+            raise SchemaError("invalid user-data ACL storage environment")
+        if storage_env in ("", "prod"):
+            return UserDataACLClient(self.transport)
+        # Explicit legacy domain remains isolated. Never infer this from the
+        # runtime Env header, profile, data discovery, or the Dataset bootstrap.
+        return _UserDataACLControlClient(self.transport, storage_env=storage_env)
 
     def grant_user_data(self, uid: str, principal: str, role: str, *,
-                        principal_type: str = "user", subpath: str = "") -> None:
-        """授予 principal 对某用户数据目录（或其子路径）的角色。
-
-        role: "reader" / "writer" / "admin"
-        principal: 工号字符串（或 user_group id，配合 principal_type="user_group"）
-        subpath: 子路径粒度授权（如 "plugins/cursor"），resource_id 相应为
-            {storage_env}/{uid}/{subpath}；空（默认）=uid 整目录级授权。
-        """
-        role_id = self._USER_DATA_ROLE_MAP.get(role)
-        if not role_id:
-            raise SchemaError(
-                f"invalid role '{role}'; valid values: "
-                f"{', '.join(sorted(self._USER_DATA_ROLE_MAP))}")
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        self.transport.post("/apis/v1/role-bindings", {
-            "scope": "resource",
-            "resource_type": "user_data",
-            "resource_id": self._user_data_acl_resource_id(uid, subpath),
-            "principal_type": principal_type,
-            "principal_id": str(principal),
-            "role_id": role_id,
-        })
+                        principal_type: str = "user", subpath: str = "",
+                        storage_env: str = "", deadline=30.0) -> None:
+        self._user_data_acl_client(storage_env).grant(owner=uid, principal=principal,
+            role=role, principal_type=principal_type, subpath=subpath, deadline=deadline)
 
     def revoke_user_data(self, uid: str, principal: str, role: str = "", *,
-                         principal_type: str = "user", subpath: str = "") -> None:
-        """撤销 principal 对某用户数据目录（或其子路径）的一条角色绑定。
+                         principal_type: str = "user", subpath: str = "",
+                         storage_env: str = "", deadline=30.0) -> None:
+        # Full six-query identity; unknown mutation outcomes are not replayed.
+        self._user_data_acl_client(storage_env).revoke(owner=uid, principal=principal,
+            role="reader" if role == "" else role, principal_type=principal_type,
+            subpath=subpath, deadline=deadline)
 
-        通过 DELETE /apis/v1/role-bindings?… 发送：apiserver 的 Remove 按
-        (scope, resource_type, resource_id, principal_type, principal_id,
-        role_id) 六元组唯一键定位，参数走 **query string**（非 body），
-        role_id 必填。role 取 reader/writer/admin（映射 built-in:…）或
-        完整 role_id；留空时默认撤销 reader（最常见——reader 绑定唯一时
-        即等于全部撤销）。
-        subpath 非空时只撤销子路径级绑定，不影响 uid 级绑定。
+    def list_user_data_acl(self, uid: str, subpath: str = "",
+                           storage_env: str = "", *, deadline=30.0) -> list[dict]:
+        """Bounded complete observed traversal (<=1000), not a snapshot."""
+        return [binding.to_dict() for binding in self._user_data_acl_client(storage_env).list_all(
+            owner=uid, subpath=subpath, deadline=deadline)]
 
-        注意：撤销不自动重试——第一次 DELETE 可能已生效但响应丢失，
-        重试会因绑定已不存在返回 24401，把成功误报为失败。遇到传输
-        错误先 ``list_user_data_acl`` 对账再决定是否重试。
-        """
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        role = (role or "").strip() or "reader"
-        role_id = self._USER_DATA_ROLE_MAP.get(role, role)
-        if not role_id or ":" not in role_id:
-            raise SchemaError(
-                f"invalid role '{role}'; valid values: "
-                f"{', '.join(sorted(self._USER_DATA_ROLE_MAP))} 或完整 role_id")
-        resource_id = self._user_data_acl_resource_id(uid, subpath)
-        from urllib.parse import quote
-        qs = (f"scope=resource&resource_type=user_data"
-              f"&resource_id={quote(resource_id, safe='')}"
-              f"&principal_type={quote(principal_type, safe='')}"
-              f"&principal_id={quote(str(principal), safe='')}"
-              f"&role_id={quote(role_id, safe='')}")
-        self.transport.request("DELETE", f"/apis/v1/role-bindings?{qs}", None)
+    def my_user_data_permissions(self, uid: str, subpath: str = "",
+                                 storage_env: str = "", *, deadline=30.0) -> list[str]:
+        """Fresh server actions mapped for display; never a local authority proof."""
+        actions = self._user_data_acl_client(storage_env).permissions(owner=uid,
+            subpath=subpath, deadline=deadline)
+        return (["admin"] if "assign" in actions else ["writer"] if "use" in actions
+            else ["reader"] if "get" in actions else [])
 
-    def list_user_data_acl(self, uid: str, subpath: str = "") -> list[dict]:
-        """列举某用户数据资源上的全部角色绑定（ACL 条目）。
 
-        subpath 非空时查 {storage_env}/{uid}/{subpath}；空（默认）时查 uid 级
-        {storage_env}/{uid}。role-bindings 列表接口按 resource_id **精确匹配**
-        （不支持前缀查询）：子路径授权是独立资源，须用其精确 subpath 单独
-        查询，uid 级列举不会包含子路径上的绑定。
+class _EndpointOverrideTransport:
+    """包装 transport：把 OSS STS 签发响应的 endpoint 替换为显式自填值。
 
-        返回 list[dict]，每个 dict 含 principal_type/principal_id/role_id 等字段。
-        """
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        from urllib.parse import quote
-        resource_id = self._user_data_acl_resource_id(uid, subpath)
-        path = (f"/apis/v1/role-bindings?scope=resource"
-                f"&resource_type=user_data"
-                f"&resource_id={quote(resource_id, safe='')}")
-        data = self.transport.get(path)
-        # apiserver 可能返回列表或包在 data 里的 dict；统一归一化为 list。
-        if isinstance(data, dict):
-            return data.get("role_bindings", data.get("items", [data]))
-        return list(data or [])
+    仅用于 user-data 独立上下文（用户显式 user_data_endpoint 时）——用户已知
+    自己的数据面入口，覆盖服务端下发值；其余请求原样透传（repo-config/ACL 等
+    不受影响）。只改 GET/POST 透传方法与 get_oss_credentials 返回。
+    """
 
-    def my_user_data_permissions(self, uid: str, subpath: str = "") -> list[str]:
-        """返回当前用户对某用户数据资源（uid 级或子路径级）拥有的角色名列表。
+    def __init__(self, transport, endpoint: str) -> None:
+        self._t = transport
+        self._endpoint = endpoint
+        # 缓存键身份兼容：transport 相同即视为同一缓存身份
+        self.base_url = getattr(transport, "base_url", "")
+        self.env = getattr(transport, "env", "")
+        self._custom_send = getattr(transport, "_custom_send", False)
 
-        经 GET /apis/v1/me/resource-permissions 自查有效动作（get=读、use=写、
-        assign=管 ACL），再映射回短名：assign→admin、use→writer、get→reader
-        （取能力最高档）。目录主人恒为 admin（与服务端 owner 快路径语义一致）。
+    def get_oss_credentials(self, *args, **kwargs):
+        cred = self._t.get_oss_credentials(*args, **kwargs)
+        if isinstance(cred, dict):
+            cred = dict(cred)
+            cred["endpoint"] = self._endpoint
+        return cred
 
-        历史实现走 GET /apis/v1/role-bindings 列表再客户端过滤，但该端点对非
-        owner 调用方有 assign 门控，被授权者查自己 principal 恒得空列表，故改用
-        /me/resource-permissions 自查端点。
-        """
-        if not str(uid).strip():
-            raise SchemaError("uid must not be empty")
-        from urllib.parse import quote
-        # 先构造 resource_id：subpath 校验在任何网络请求之前完成（对称 Go/Java）。
-        resource_id = self._user_data_acl_resource_id(uid, subpath)
-        if str(uid).strip() == str(self.whoami()).strip():
-            return ["admin"]
-        path = (f"/apis/v1/me/resource-permissions?resource_type=user_data"
-                f"&resource_id={quote(resource_id, safe='')}")
-        data = self.transport.get(path)
-        actions = data.get("actions", []) if isinstance(data, dict) else []
-        if not actions:
-            return []
-        if "assign" in actions:
-            return ["admin"]
-        if "use" in actions:
-            return ["writer"]
-        if "get" in actions:
-            return ["reader"]
-        return []
+    def __getattr__(self, name):
+        return getattr(self._t, name)
+
+
+class _UserDataContext:
+    """user-data 独立数据面上下文：配置（可 None=用户显式）+ 独立 content store。"""
+
+    __slots__ = ("config", "store")
+
+    def __init__(self, config, store) -> None:
+        self.config = config
+        self.store = store

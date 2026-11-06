@@ -24,8 +24,10 @@ class JsonFileSessionJournal:
 
     Pass ``JsonFileSessionJournal.in_directory("./sessions")`` as ``journal_factory=`` to
     ``agents.local_runtime()``, and each root session of the block is saved in
-    ``./sessions/<session id>/``. A later process with the same Agent and the same directory
-    continues it with ``agent.session(session_id)``.
+    ``./sessions/<session id>/``. A later process with the same agent and the same directory
+    continues it with ``agent.session(session_id)``. An ``agent.run()`` in the block saves its
+    session too. The factory is fixed when the event loop's runtime starts: entering a block with
+    another one while the runtime runs raises ``SdkError``.
 
     The uploads that its messages linked are saved next to the file, in ``<file stem>.files``.
     """
@@ -42,7 +44,11 @@ class JsonFileSessionJournal:
 
     @classmethod
     def in_directory(cls, directory: str | os.PathLike[str]) -> SessionJournals:
-        """Return the ``journal_factory`` that saves each session in ``directory/<session id>/session.json``."""
+        """Return the ``journal_factory`` that saves each session in ``directory/<session id>/session.json``.
+
+        Args:
+            directory: The folder that holds the saved sessions.
+        """
         return _InDirectory(Path(directory))
 
     def __eq__(self, other: object) -> bool:

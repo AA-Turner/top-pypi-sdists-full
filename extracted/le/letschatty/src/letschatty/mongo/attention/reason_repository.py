@@ -24,3 +24,9 @@ class MongoReasonRepository(MongoCatalogByIdWithPreviews[Motivo]):
         # company filter.
         return await self.collection.get_by_query(
             query={"company_id": str(company_id), "is_fallback": True, "deleted_at": None})
+
+    async def has_general_inquiry(self, company_id: StrObjectId, *, max_time_ms: int) -> bool:
+        found = await self.collection.collection.find_one(
+            {"company_id": str(company_id), "is_fallback": True, "deleted_at": None}, projection={"_id": 1},
+            max_time_ms=max_time_ms)
+        return found is not None

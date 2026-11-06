@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal, Self, cast
 import albucore
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 from pydantic import Field, model_validator
 from pydantic.functional_validators import AfterValidator
 
@@ -32,11 +33,7 @@ from albumentations.core.transforms_interface import (
     BaseTransformInitSchema,
     ImageOnlyTransform,
 )
-from albumentations.core.type_definitions import (
-    MAX_RAIN_ANGLE,
-    NUM_RGB_CHANNELS,
-    ImageType,
-)
+from albumentations.core.type_definitions import MAX_RAIN_ANGLE, NUM_RGB_CHANNELS
 
 __all__ = [
     "AtmosphericFog",
@@ -170,12 +167,12 @@ class RandomSnow(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         snow_point: float,
         snow_texture: np.ndarray,
         sparkle_mask: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         non_rgb_error(img)
 
         if self.method == "bleach":
@@ -244,7 +241,7 @@ class RandomGravel(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         3
@@ -321,10 +318,10 @@ class RandomGravel(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         gravels_infos: list[Any],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.add_gravel(img, gravels_infos)
 
     def sample_parameters(
@@ -394,7 +391,7 @@ class RandomRain(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         3
@@ -484,12 +481,12 @@ class RandomRain(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         slant: float,
         drop_length: int,
         rain_drops: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         non_rgb_error(img)
 
         return fpixel.add_rain(
@@ -568,7 +565,7 @@ class RandomFog(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         3
@@ -644,12 +641,12 @@ class RandomFog(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         particle_positions: list[tuple[int, int]],
         radiuses: list[int],
         intensity: float,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         non_rgb_error(img)
         return fpixel.add_fog(
             img,
@@ -735,7 +732,7 @@ class RandomSunFlare(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         3
@@ -883,11 +880,11 @@ class RandomSunFlare(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
-        flare_center: tuple[float, float],
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+        flare_center: tuple[int, int],
         circles: list[Any],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         non_rgb_error(img)
         if self.method == "overlay":
             return fpixel.add_sun_flare_overlay(
@@ -977,7 +974,7 @@ class RandomShadow(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -1071,20 +1068,20 @@ class RandomShadow(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         vertices_list: list[np.ndarray],
         intensities: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.add_shadow(img, vertices_list, intensities)
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         vertices_list: list[np.ndarray],
         intensities: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.add_shadow_batch(images, vertices_list, intensities)
 
     def sample_parameters(
@@ -1159,7 +1156,7 @@ class Spatter(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     References:
         Benchmarking Neural Network Robustness to Common Corruptions and Perturbations: https://arxiv.org/abs/1903.12261
@@ -1298,13 +1295,13 @@ class Spatter(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         mode: Literal["rain", "mud"],
         drops: np.ndarray | None,
         non_mud: np.ndarray | None,
         mud: np.ndarray | None,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         non_rgb_error(img)
 
         if mode == "rain":
@@ -1318,13 +1315,13 @@ class Spatter(ImageOnlyTransform):
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         mode: Literal["rain", "mud"],
         drops: np.ndarray | None,
         non_mud: np.ndarray | None,
         mud: np.ndarray | None,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if len(images) == 0:
             return images
 
@@ -1336,7 +1333,8 @@ class Spatter(ImageOnlyTransform):
         working_set = images.size * np.dtype(np.float32).itemsize
         if fallback_threshold is not None and working_set >= fallback_threshold:
             return cast(
-                "ImageType", super().apply_to_images(images, mode=mode, drops=drops, non_mud=non_mud, mud=mud, **params)
+                "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+                super().apply_to_images(images, mode=mode, drops=drops, non_mud=non_mud, mud=mud, **params),
             )
 
         if mode == "rain":
@@ -1488,15 +1486,17 @@ class AtmosphericFog(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         density: float,
         depth_map: np.ndarray,
         fog_color_scaled: tuple[float, ...],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.apply_atmospheric_fog(img, density, fog_color_scaled, depth_map)
 
-    def apply_to_images(self, images: ImageType, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return self._apply_to_batch_same_shape(images, lambda image: self.apply(image, **params))
 
     def sample_parameters(
@@ -1528,7 +1528,8 @@ class AtmosphericFog(ImageOnlyTransform):
                 cy, cx = height / 2.0, width / 2.0
                 y = np.arange(height, dtype=np.float32)[:, np.newaxis] - cy
                 x = np.arange(width, dtype=np.float32)[np.newaxis, :] - cx
-                depth_map = albucore.sqrt(x * x + y * y, inplace=True)
+                depth_map = np.add(x * x, y * y, dtype=np.float32)
+                depth_map = albucore.sqrt(depth_map, out=depth_map)
                 depth_map *= np.float32(1 / math.hypot(cy, cx))
             fog_color_scaled = tuple(c / max_val * actual_max for c in self.fog_color)
             groups.append(

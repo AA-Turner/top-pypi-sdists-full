@@ -766,6 +766,7 @@ fn is_in_id_list(
     match ctx.id_list_resolver {
         IdListResolution::MapLookup(id_lists) => {
             let list = id_lists.get(list_name)?;
+            ctx.id_list_access_recorder.record(list_name);
             Some(list.ids.contains(&lookup_id))
         }
         IdListResolution::Callback(callback) => Some(callback(list_name, lookup_id.as_str())),

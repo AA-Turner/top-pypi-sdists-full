@@ -289,6 +289,7 @@ __all__ = (
     "ListPipelineVersionsPaginatorName",
     "ListPipelinesPaginatorName",
     "ListProcessingJobsPaginatorName",
+    "ListProjectsPaginatorName",
     "ListResourceCatalogsPaginatorName",
     "ListSpacesPaginatorName",
     "ListStageDevicesPaginatorName",
@@ -1668,6 +1669,7 @@ ListPipelineParametersForExecutionPaginatorName = Literal["list_pipeline_paramet
 ListPipelineVersionsPaginatorName = Literal["list_pipeline_versions"]
 ListPipelinesPaginatorName = Literal["list_pipelines"]
 ListProcessingJobsPaginatorName = Literal["list_processing_jobs"]
+ListProjectsPaginatorName = Literal["list_projects"]
 ListResourceCatalogsPaginatorName = Literal["list_resource_catalogs"]
 ListSpacesPaginatorName = Literal["list_spaces"]
 ListStageDevicesPaginatorName = Literal["list_stage_devices"]
@@ -3064,6 +3066,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -3572,6 +3575,7 @@ PaginatorName = Literal[
     "list_pipeline_versions",
     "list_pipelines",
     "list_processing_jobs",
+    "list_projects",
     "list_resource_catalogs",
     "list_spaces",
     "list_stage_devices",

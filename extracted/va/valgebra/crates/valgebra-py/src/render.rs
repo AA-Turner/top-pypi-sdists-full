@@ -9,11 +9,13 @@ use pyo3::types::{PyBool, PyBytes, PyComplex, PyFloat, PyInt, PyString, PyType};
 use pyo3::{PyTypeCheck, PyTypeInfo};
 use rustc_hash::{FxHashMap, FxHashSet};
 use valgebra_core::{
-    Attribute, CollKind, Constraint, DefIx, Field, MapClause, Schema, SeqKind, Spelling,
+    Attribute, ClassIx, CollKind, Constraint, DefIx, Field, MapClause, Schema, SeqKind, Spelling,
 };
 
-use crate::build::declares_fields;
+use crate::build::{Pool, build_root, declares_fields, declares_of_kind};
+use crate::equality::{Side, subtrees_equal};
 use crate::errors::{UNREPRESENTABLE, class_label, stored, unless_fatal};
+use crate::oracle::keeps;
 
 /// The deepest render recursion before the walk stops and gives up. A cycle
 /// guard already bounds a single recursive definition, but a chain of *distinct*
@@ -354,14 +356,6 @@ fn render_union(
     })
 }
 
-/// Render a meet, reading a class's `isinstance` atom beside its attribute
-/// record back as the class name the user wrote.
-///
-/// The pair is [`Schema::object_class`]; the members that are not the pair
-/// render as themselves, so a meet that flattened others in beside a class still
-/// names the class. Without this the annotation `Pt` would print as
-/// `intersection(Pt, object(x=int))` -- the algebra's spelling of a thing the
-/// user spelled with one name.
 /// Each member beside its variant, the key [`in_reading_order`] groups by.
 fn rendered_members<'a>(
     members: impl IntoIterator<Item = &'a Schema>,
@@ -373,6 +367,15 @@ fn rendered_members<'a>(
         .collect()
 }
 
+/// Render a meet, reading a class's `isinstance` atom beside its declaration
+/// back as the class name the user wrote.
+///
+/// The pair is [`Schema::object_class`], and the name stands for it only where
+/// the name builds it ([`names_the_pair`]); the members that are not the pair
+/// render as themselves, so a meet that flattened others in beside a class still
+/// names the class. Without this the annotation `Pt` would print as
+/// `intersection(Pt, object(x=int))` -- the algebra's spelling of a thing the
+/// user spelled with one name.
 fn render_meet(
     py: Python<'_>,
     schema: &Schema,
@@ -383,7 +386,13 @@ fn render_meet(
     depth: usize,
 ) -> PyResult<String> {
     let r = |s: &Schema| render_at(py, s, pool, defs, active, depth + 1);
-    let Some(class) = schema.object_class() else {
+    let named = match schema.object_class() {
+        Some((class, declaration)) if names_the_pair(py, class, declaration, pool, defs)? => {
+            Some(class)
+        }
+        _ => None,
+    };
+    let Some(class) = named else {
         let mut kids = rendered_members(members, &r)?;
         in_reading_order(&mut kids);
         let kids: Vec<String> = kids.into_iter().map(|(_, text)| text).collect();
@@ -414,6 +423,54 @@ fn render_meet(
         parts.extend(rest.into_iter().map(|(_, text)| text));
         format!("intersection({})", parts.join(", "))
     })
+}
+
+/// Whether the class's name builds the class met with `declaration`, which is
+/// what printing the name alone in the pair's place says.
+///
+/// The schema does not record which class declared a member, and a class met
+/// with `list[int]` or with a protocol's record has the shape the frontend
+/// builds for a class, as has `instance_of(C)` met with a record `C` does not
+/// declare. Printed as the name, each read back as a larger set. So the class
+/// is asked: first for the kind of member it declares, which answers those
+/// meets without building anything, and then for the build of its name,
+/// compared with the pair as `==` compares two validators. A build that raises
+/// names no pair, and the meet prints whole.
+///
+/// The build is what checking the name costs: a repr that names a class takes
+/// as long as `Validator` of that class does. A repr is a rendering for a
+/// person, and a name that reads back as a larger set is wrong at any speed.
+fn names_the_pair(
+    py: Python<'_>,
+    class: ClassIx,
+    declaration: &Schema,
+    pool: &[Py<PyAny>],
+    defs: &[Schema],
+) -> PyResult<bool> {
+    let Some(Ok(ty)) = pool.get(class.get()).map(|c| c.bind(py).cast::<PyType>()) else {
+        return Ok(false);
+    };
+    if !declares_of_kind(ty, declaration)? {
+        return Ok(false);
+    }
+    let (mut lits, mut built_defs) = (Pool::default(), Vec::new());
+    let built = build_root(ty.as_any(), &mut lits, &mut built_defs).map(Some);
+    let Some(built) = unless_fatal(built, py, None)? else {
+        return Ok(false);
+    };
+    subtrees_equal(
+        py,
+        &Schema::meet([Schema::Instance(class), declaration.clone()]),
+        &Side {
+            definitions: defs,
+            pool,
+        },
+        &built,
+        &Side {
+            definitions: &built_defs,
+            pool: lits.items(),
+        },
+    )
 }
 
 /// Render an attribute record on its own: `object(x=int)`.
@@ -463,8 +520,17 @@ fn render_keyed_map(
     let mut entries: Vec<String> = fields
         .iter()
         .map(|field| {
-            let suffix = if field.required { "" } else { "?" };
-            let name = python_repr(py, &format!("{}{suffix}", field.name));
+            let name = if field.required && field.name.ends_with('?') {
+                // A dict display reads every trailing `?` as optional, so no
+                // display requires this key, and printed as one it would read
+                // back as the record whose key lacks the `?` and is optional.
+                // It prints marked instead, a syntax error where it is read, as
+                // a constant whose `repr` would read back as another value does.
+                format!("<required: {}>", python_repr(py, &field.name))
+            } else {
+                let suffix = if field.required { "" } else { "?" };
+                python_repr(py, &format!("{}{suffix}", field.name))
+            };
             Ok(format!("{name}: {}", r(&field.schema)?))
         })
         .collect::<PyResult<_>>()?;
@@ -494,13 +560,13 @@ fn render_constraint(
     pool: &[Py<PyAny>],
 ) -> PyResult<String> {
     Ok(match constraint {
-        Constraint::Ge(i) => format!("Ge({})", pool_repr(py, pool, i.get())?),
-        Constraint::Gt(i) => format!("Gt({})", pool_repr(py, pool, i.get())?),
-        Constraint::Le(i) => format!("Le({})", pool_repr(py, pool, i.get())?),
-        Constraint::Lt(i) => format!("Lt({})", pool_repr(py, pool, i.get())?),
+        Constraint::Ge(i) => format!("Ge({})", operand_repr(py, pool, i.get())?),
+        Constraint::Gt(i) => format!("Gt({})", operand_repr(py, pool, i.get())?),
+        Constraint::Le(i) => format!("Le({})", operand_repr(py, pool, i.get())?),
+        Constraint::Lt(i) => format!("Lt({})", operand_repr(py, pool, i.get())?),
         Constraint::MinLen(n) => format!("MinLen({n})"),
         Constraint::MaxLen(n) => format!("MaxLen({n})"),
-        Constraint::MultipleOf(i) => format!("MultipleOf({})", pool_repr(py, pool, i.get())?),
+        Constraint::MultipleOf(i) => format!("MultipleOf({})", operand_repr(py, pool, i.get())?),
         Constraint::Predicate(_) => "Predicate(...)".to_owned(),
         Constraint::Regex(pattern) => format!("Regex({})", python_repr(py, pattern)),
     })
@@ -560,8 +626,8 @@ fn pool_repr(py: Python<'_>, pool: &[Py<PyAny>], index: usize) -> PyResult<Strin
 /// says what it holds and refuses to stand for anything else. A subclass whose
 /// `repr` spells it some other way is printed by that `repr`, as every other
 /// constant is: an enum member's `<Level.LOW: 1>`, and a `Shown(1)` that reads
-/// back as itself. A bound is not marked: it is read as Python's comparison,
-/// and the schema a bound of `S(3)` and one of `3` give is one schema.
+/// back as itself. A bound is marked only where its operand's order is its
+/// own ([`operand_repr`]).
 fn literal_repr(py: Python<'_>, pool: &[Py<PyAny>], index: usize) -> PyResult<String> {
     let text = pool_repr(py, pool, index)?;
     let Some(constant) = pool.get(index).map(|constant| constant.bind(py)) else {
@@ -580,6 +646,38 @@ fn literal_repr(py: Python<'_>, pool: &[Py<PyAny>], index: usize) -> PyResult<St
     }
     let kind = class_label(constant.get_type().as_any())?;
     Ok(format!("<{kind}: {text}>"))
+}
+
+/// A bound's or a step's operand, marked where it reads back as another one.
+///
+/// The walk asks `x >= b` and `x % b`, and Python reads a builtin subclass's
+/// operand through the subclass's reflected method where it writes one, ahead of
+/// the builtin's: `RevInt(5)`, whose order is reversed, puts `0` in
+/// `Ge(RevInt(5))` and out of `Ge(5)`. Where its `repr` is the builtin's
+/// spelling, the render would read back as the builtin's bound, another set, so
+/// it is marked as a literal of the same constant is, `<RevInt: 5>`. A subclass
+/// keeping the builtin's order and remainder reads back as the same set and
+/// prints as its `repr`; one whose methods cannot be read is marked.
+fn operand_repr(py: Python<'_>, pool: &[Py<PyAny>], index: usize) -> PyResult<String> {
+    let Some(operand) = pool.get(index).map(|operand| operand.bind(py)) else {
+        return pool_repr(py, pool, index);
+    };
+    let Some(builtin) = derived_builtin(operand) else {
+        return pool_repr(py, pool, index);
+    };
+    let read = [
+        intern!(py, "__lt__"),
+        intern!(py, "__le__"),
+        intern!(py, "__gt__"),
+        intern!(py, "__ge__"),
+        intern!(py, "__mod__"),
+        intern!(py, "__rmod__"),
+    ];
+    if unless_fatal(keeps(&operand.get_type(), &builtin, &read), py, false)? {
+        pool_repr(py, pool, index)
+    } else {
+        literal_repr(py, pool, index)
+    }
 }
 
 /// The builtin with a literal spelling `constant`'s type strictly derives from.

@@ -21,5 +21,7 @@ export declare abstract class NumericalSlider extends BaseNumericalSlider {
     value: number;
     value_throttled: number;
     constructor(attrs?: Partial<NumericalSlider.Attrs>);
+    protected _clamp(value: number): number;
+    protected _enforce_bounds(): void;
 }
 //# sourceMappingURL=numerical_slider.d.ts.map

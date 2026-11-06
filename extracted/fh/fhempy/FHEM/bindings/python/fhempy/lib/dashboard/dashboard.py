@@ -35,7 +35,6 @@ MAX_MESSAGE_SIZE = 64 * 1024
 MAX_SDP_SIZE = 32 * 1024
 MAX_IMAGE_SIZE = 3 * 1024 * 1024
 IMAGE_CACHE = 40
-PRESET_LEARN_SECONDS = 30
 # the header (warnings, running devices, energy) is built at most this often
 HEADER_DELAY = 0.5
 ATTRS_TEXT = (
@@ -144,6 +143,22 @@ def parse_opener(text):
     return device, args.strip()
 
 
+async def read_limited(stream, limit):
+    """whole body of a response, at most limit bytes: StreamReader.read(n)
+    returns only what has arrived so far, which cut covers off after the
+    first network chunk"""
+    chunks = []
+    size = 0
+    while True:
+        chunk = await stream.read(64 * 1024)
+        if not chunk:
+            return b"".join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ValueError("image too big")
+        chunks.append(chunk)
+
+
 def qr_image(text):
     import segno
 
@@ -154,7 +169,6 @@ def qr_image(text):
         f'<img src="{uri}" alt="QR code" '
         'style="width:200px;height:200px;max-width:none;image-rendering:pixelated">'
     )
-
 
 
 def parse_message(msg, text_type):
@@ -191,6 +205,7 @@ def server_ssl_context(ca_key, ca_cert, ip):
         context.load_cert_chain(cert_file, key_file)
     return context
 
+
 class dashboard(generic.FhemModule):
     def __init__(self, logger):
         super().__init__(logger)
@@ -220,7 +235,7 @@ class dashboard(generic.FhemModule):
         self.ca_pem = ""
         # covers of the presets of music players, learned while they play
         self.preset_art = {}
-        self._channel_seen = {}
+        self._preset_learners = {}
         self._images = {}
         # until Define has read the attributes, e.g. when FHEMWEB shows the
         # device page right after define
@@ -318,7 +333,7 @@ class dashboard(generic.FhemModule):
         if not self.ready:
             return (
                 '<div class="makeTable wide"><span class="mkTitle">Tablets</span>'
-                "<table class=\"block wide\"><tr><td>The dashboard is starting, "
+                '<table class="block wide"><tr><td>The dashboard is starting, '
                 "reload this page in a moment.</td></tr></table></div>" + str(detail)
             )
         return self.setup_html() + str(detail)
@@ -769,7 +784,7 @@ class dashboard(generic.FhemModule):
     def event_filter(self):
         """regexp for "device:reading: value" of the events the dashboard
         needs: every event of global, doorbells and push devices, of the
-        others only the readings the tiles and the header use"""
+        others only the readings the tiles and the header use and state"""
         everything = ["global"] + [b["id"] for b in self.doorbells]
         everything += [
             name
@@ -780,7 +795,10 @@ class dashboard(generic.FhemModule):
         ]
         devices = "|".join(re.escape(n) for n in sorted(set(everything)))
         readings = "|".join(re.escape(r) for r in sorted(set(model.READINGS)))
-        return f"^(?:(?:{devices}):|[^:]+:(?:{readings}): )"
+        # events without "reading: " are state events, FHEM leaves out
+        # "state: " when the event isn't the current value of state (e.g.
+        # state changed twice in one update)
+        return f"^(?:(?:{devices}):|[^:]+:(?:{readings}): |[^:]+:(?!.*: ))"
 
     async def handle_event(self, device, reading, value):
         info = self.infos.get(device)
@@ -798,6 +816,9 @@ class dashboard(generic.FhemModule):
             await self.learn_preset_art(device, info)
         if item is not None:
             state = model.tile_state(item["kind"], info)
+            if "on" in item["state"] and "on" not in state:
+                # e.g. set_off until the device confirms: as before
+                state["on"] = item["state"]["on"]
             if state != item["state"]:
                 item["state"] = state
                 await self.send_tile(item)
@@ -825,15 +846,14 @@ class dashboard(generic.FhemModule):
             await self.broadcast({"type": "header", "header": head})
 
     async def learn_preset_art(self, device, info):
-        now = time.monotonic()
-        current = media.channel(info)
-        seen = self._channel_seen.get(device)
-        if seen is None or seen[0] != current:
-            self._channel_seen[device] = seen = (current, now)
+        learner = self._preset_learners.get(device)
+        if learner is None:
+            learner = self._preset_learners[device] = media.PresetArtLearner()
         known = self.preset_art.setdefault(device, {})
         info["preset_art"] = known
-        recent = now - seen[1] < PRESET_LEARN_SECONDS
-        if media.learn_preset_art(known, info, recent):
+        changed = learner.update(known, info, time.monotonic())
+        info["station_logo"] = learner.logo
+        if changed:
             await self.save_preset_art()
 
     async def check_special_event(self, info, device, reading, value):
@@ -1229,12 +1249,16 @@ class dashboard(generic.FhemModule):
     async def load_ca(self):
         from ..push import certs
 
+        await certs.load()
+
         name = self.hash["NAME"]
         key_text = await fhem.ReadingsVal(name, ".ca_key", "")
         cert_text = await fhem.ReadingsVal(name, ".ca_cert", "")
         if key_text and cert_text:
             try:
-                key = certs.load_key(utils.decrypt_string(key_text, self._unique_id))
+                key = certs.load_key(
+                    await utils.async_decrypt_string(key_text, self._unique_id)
+                )
                 return key, certs.load_cert(cert_text.replace("\\n", "\n"))
             except Exception:
                 self.logger.exception("CA of the https address broken, new one")
@@ -1242,7 +1266,7 @@ class dashboard(generic.FhemModule):
         await fhem.readingsSingleUpdate(
             self.hash,
             ".ca_key",
-            utils.encrypt_string(certs.key_pem(key), self._unique_id),
+            await utils.async_encrypt_string(certs.key_pem(key), self._unique_id),
             0,
         )
         await fhem.readingsSingleUpdate(
@@ -1470,12 +1494,14 @@ class dashboard(generic.FhemModule):
             return None
         info = self.infos.get(item["id"], {})
         preset = request.query.get("preset")
+        if preset == "logo":
+            return media.logo_url(info)
         if preset:
             return (info.get("preset_art") or {}).get(str(preset)[:2])
         return media.art_url(info)
 
     async def fetch_image(self, url):
-        import aiohttp
+        aiohttp = await utils.import_module("aiohttp")
 
         cached = self._images.get(url)
         if cached is not None:
@@ -1489,9 +1515,7 @@ class dashboard(generic.FhemModule):
             content_type = resp.headers.get("Content-Type", "").split(";")[0]
             if not content_type.startswith("image/"):
                 raise ValueError(f"no image: {content_type}")
-            body = await resp.content.read(MAX_IMAGE_SIZE + 1)
-            if len(body) > MAX_IMAGE_SIZE:
-                raise ValueError("image too big")
+            body = await read_limited(resp.content, MAX_IMAGE_SIZE)
         while len(self._images) >= IMAGE_CACHE:
             self._images.pop(next(iter(self._images)))
         self._images[url] = (content_type, body)
@@ -1586,7 +1610,9 @@ class dashboard(generic.FhemModule):
         for ws, tablet_id in self.connected():
             if tablet_id != tablet["id"]:
                 continue
-            await self.send(ws, {"type": "tablet", "tablet": self.public_tablet(tablet)})
+            await self.send(
+                ws, {"type": "tablet", "tablet": self.public_tablet(tablet)}
+            )
             if with_model:
                 await self.send(ws, {"type": "model", **self.model_message(tablet)})
 

@@ -33,6 +33,7 @@ from nab_provider.vcs_admission import VcsPolicy
 from . import toml_io
 from ._lockfile.builder import strip_userinfo
 from .conflicts import ConflictKind, ConflictPolicy
+from .input_source import InputFormat, read_input_document
 from .pyproject_files import (
     build_system_requires,
     dependency_groups,
@@ -94,6 +95,16 @@ def _value(value: object, base: Path) -> Any:
     encoded: object
     if value is None:
         encoded = None
+    elif isinstance(value, (str, bool, int, float)):
+        encoded = value
+        if isinstance(value, str) and "://" in value:
+            encoded = (
+                _requirement(parse_requirement(value), base)
+                if "@" in value.split("://", 1)[0]
+                else _url(value, base)
+            )
+    elif isinstance(value, (dict, list, tuple, set, frozenset)):
+        encoded = _collection(value, base)
     elif isinstance(
         value,
         (
@@ -116,14 +127,6 @@ def _value(value: object, base: Path) -> Any:
         encoded = value.isoformat()
     elif isinstance(value, Path):
         encoded = _relative(value, base)
-    elif isinstance(value, (str, bool, int, float)):
-        encoded = value
-        if isinstance(value, str) and "://" in value:
-            encoded = (
-                _requirement(parse_requirement(value), base)
-                if "@" in value.split("://", 1)[0]
-                else _url(value, base)
-            )
     else:
         encoded = _collection(value, base)
     return encoded
@@ -134,7 +137,7 @@ def _collection(value: object, base: Path) -> Any:
     if isinstance(value, Mapping):
         return {
             str(key): _value(item, base)
-            for key, item in sorted(value.items())
+            for key, item in value.items()
             if item is not None
         }
     if isinstance(value, (set, frozenset)):
@@ -156,10 +159,20 @@ def _collection(value: object, base: Path) -> Any:
     raise TypeError(message)
 
 
+def _json_default(value: object) -> str:
+    if isinstance(value, datetime):
+        return datetime.isoformat(value)
+    return str(value)
+
+
 def _json(value: object) -> str:
     """Give hashes one representation regardless of mapping insertion order."""
     return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        default=_json_default,
     )
 
 
@@ -270,10 +283,11 @@ def snapshot_inputs(
     extras: Sequence[str] = (),
     build_requirements: bool = False,
     exclude: frozenset[str] = frozenset(),
+    input_format: InputFormat = InputFormat.PROJECT,
 ) -> dict[str, Any]:
     """Capture declarations, admission policy, targets and local metadata."""
     base = path.resolve().parent
-    data = toml_io.load_path(path)
+    data = read_input_document(path, input_format=input_format)
     roots: dict[str, list[str]] = {}
     if build_requirements:
         roots["build"] = _requirements(build_system_requires(data, path), base)

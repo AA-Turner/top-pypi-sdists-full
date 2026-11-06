@@ -1,0 +1,465 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# every suite runs on four workers by file: split by test, a pair in test_snapshots.py races on the cwd __snapshots
+jobs:
+  test:
+    timeout-minutes: 15
+    runs-on: ${{ matrix.os }}
+    # mapped at job level so the upload step can ask whether it has a token before it runs: the secrets
+    # context is not readable from a step `if`, and step-level env is not in scope for its own condition
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+        include:
+          # the Codecov cell also installs every optional integration (pandas/polars/numpy extras plus
+          # pydantic/attrs/requests), so the tests the other minimal-env cells skip run here for real
+          - os: ubuntu-latest
+            python-version: "3.14"
+            full-deps: true
+          - os: windows-latest
+            python-version: "3.14"
+          - os: macos-latest
+            python-version: "3.14"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install dependencies
+        if: '!matrix.full-deps'
+        run: uv sync --locked --extra json
+
+      - name: Install dependencies (all integrations)
+        if: matrix.full-deps
+        run: uv sync --locked --extra json --extra data --extra inline --group integrations --group docs-examples --group oracle
+
+      - name: Test
+        # no coverage: only the full-deps cell reports it, and on 3.12 its tracer made this the slowest cell of the run
+        if: '!matrix.full-deps'
+        run: uv run pytest -v -n 4 --dist loadfile --ignore=tests/test_docs_examples.py tests
+
+      - name: The oracle is installed
+        # its module skips where a package is absent, so an absence here would pass for a green run
+        if: matrix.full-deps
+        run: uv run python -c "import openapi_schema_validator, fqdn, isoduration, rfc3986_validator"
+
+      - name: Test with coverage (enforce 100%)
+        # Only the full-deps cell has every integration installed and 0 skips, so it is
+        # the only cell that can reach 100%. This is the hard local gate; Codecov's status
+        # is reporting on top, not the sole guard (it uploads async and can fail open).
+        # The doc-example guard is excluded here so its runs never pad the coverage number.
+        if: matrix.full-deps
+        run: uv run pytest -v -n 4 --dist loadfile --cov=assertpy --cov-report=term-missing --cov-report=xml --cov-fail-under=100 --ignore=tests/test_docs_examples.py tests
+
+      - name: Guard doc examples
+        # Runs once (docs are platform-independent) and without coverage, so executing the
+        # README/guide snippets can't mask a real coverage gap in the test suite.
+        if: matrix.full-deps
+        run: uv run pytest tests/test_docs_examples.py
+
+      - name: Upload coverage to Codecov
+        # Only the full-deps cell. The bare 3.14/ubuntu cell skips every integration test and used
+        # to upload too: Codecov merges reports so the number stayed right, but one of the two was
+        # always a partial report sent at a 100% target.
+        # A run without repository secrets gets an empty token, and Codecov rejects an untokened upload
+        # to a protected branch, so the job went red on the upload while every test passed.  The gate is
+        # the token rather than who opened the pull request: dependabot pushes its branches into this
+        # repository, so a fork test reads false for it and it still runs without secrets.
+        if: matrix.full-deps && env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          # A failed upload is a broken report, not a passing build. The 100% gate above is the hard
+          # guard either way, so this cannot turn a real coverage drop into a green run.
+          fail_ci_if_error: true
+
+  declared-floors:
+    # Every lower bound on a published extra is a promise, and the lockfile only ever resolves the newest
+    # of each, so the bottom of every range was a claim nobody checked. This job checks them, and each
+    # widening of it found a real defect: first the data libraries, where the refusal gate keyed on
+    # numpy's wording for an unusable operand and that wording is different below numpy 2, then
+    # `asttokens>=2.0` and `behave>=1.2.6`, which were simply wrong, then `starlette>=0.40`, whose test
+    # client reaches a function deprecated in 3.14.
+    #
+    # Scope, said exactly: every extra in `[project.optional-dependencies]`, plus the `dev` and
+    # `integrations` groups, which is what running the suite needs. The `docs`, `typecheck`, `mutation`,
+    # `docs-examples` and `benchmark` groups are not here: each drives a tool with its own command rather
+    # than this suite, and none of them is a promise to anyone installing the package.
+    #
+    # Its own job rather than a cell in the matrix above. An `include` entry naming an `os` and a
+    # `python-version` that already exist is merged into that combination instead of adding one, so a
+    # cell written that way would have replaced the ordinary runs rather than joining them.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.10"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev --group integrations"
+            imports: "typing_extensions, numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave, attr, attrs, django, flask, httpx, httpx2, pydantic, requests, starlette"
+          - python-version: "3.11"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev --group integrations"
+            imports: "numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave, attr, attrs, django, flask, httpx, httpx2, pydantic, requests, starlette"
+          - python-version: "3.12"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev --group integrations"
+            imports: "numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave, attr, attrs, django, flask, httpx, httpx2, pydantic, requests, starlette"
+          - python-version: "3.13"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev --group integrations"
+            imports: "numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave, attr, attrs, django, flask, httpx, httpx2, pydantic, requests, starlette"
+          - python-version: "3.14"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev --group integrations"
+            imports: "numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave, attr, attrs, django, flask, httpx, httpx2, pydantic, requests, starlette"
+          # The one dependency every user gets, at its own floor, and it needs a cell to itself: pydantic
+          # 2.0 requires typing-extensions>=4.6.1, so every cell installing `integrations` resolves it
+          # above the declared bound. Measured 4.0.0 here against 4.6.1 in each of those.
+          - python-version: "3.10"
+            extras: "allure,behave,data,inline,json,numpy,pandas,polars"
+            groups: "--group dev"
+            imports: "typing_extensions, numpy, pandas, polars, asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave"
+            reduced: "no integrations, so pydantic cannot lift typing-extensions off its declared floor"
+          # 3.15 carries what is installable and green there. No combination of the data libraries
+          # publishes a wheel for it yet. The `integrations` group installs since pydantic 2.14, and stays
+          # out for one test: this cell resolves anyio 4.15.1 on 3.15 where the cells below resolve
+          # 4.14.2, and starlette at its floor 0.46.0 imports a name that anyio deprecates, which the
+          # suite's `-W error` refuses. Move this cell up to the others when both are settled.
+          - python-version: "3.15"
+            extras: "allure,behave,inline,json"
+            groups: "--group dev"
+            imports: "asttokens, executing, idna, jsonschema, jsonpath_ng, referencing, allure_commons, behave"
+            reduced: "no data-library wheel for 3.15 yet, and starlette at its floor warns under the anyio resolved here"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install every declared dependency at its lower bound
+        # `lowest-direct` resolves every direct dependency to the oldest its specifier allows, which is
+        # what the metadata promises. Hand-pinning `numpy==1.26.0` did the same for three of them and
+        # covered none of the rest.
+        #
+        # `--only-binary` because the oldest allowed release is not installable everywhere: pandas 2.0.0
+        # publishes no wheel above 3.11 and building it fails on a missing `pkg_resources`. With it the
+        # resolver lands on the oldest release that has a wheel for this interpreter, which is the oldest
+        # a user of it can actually get. Measured: pandas 2.0.0 on 3.10 and 3.11, 2.1.1 on 3.12, 2.2.3 on
+        # 3.13, 2.3.3 on 3.14.
+        #
+        # `uv pip install` and not `uv sync`, which was measured rewriting `uv.lock` wholesale: the tests
+        # that shell out then read a lockfile that is not the committed one, and six of them failed on
+        # exactly that.
+        #
+        # Every extra by name, `data` and the three it aggregates alike, because
+        # `tests/test_declared_floors.py` reads these lines and asks for each of them.
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install --only-binary=:all: --resolution lowest-direct -e ".[${{ matrix.extras }}]" ${{ matrix.groups }}
+
+      - name: Every installed floor must import
+        # A release old enough to install and too old to import would otherwise leave the cell green:
+        # its tests answer `pytest.importorskip` with a skip, and a skip carrying its own reason is
+        # invisible to the missing-module guard in `tests/conftest.py`.
+        #
+        # The `integrations` group is in the list too, not only the published extras: it is installed by
+        # the same command and its tests skip the same way. The `dev` group is not, because nothing in it
+        # skips: the suite imports pytest and hypothesis to run at all, and the gates that shell out to
+        # ruff and ty refuse rather than skip when the tool does not answer.
+        run: uv run --no-sync python -c "import ${{ matrix.imports }}"
+
+      - name: What this cell resolved
+        # Just what is installed and at which version. Which of those are declared floors, and whether
+        # each was reached, is decided once in `floors-reached` below, where `tomllib` is available and
+        # a requirement carrying an environment marker parses rather than being mangled by a regex.
+        run: |
+          uv run --no-sync python - <<'PROBE'
+          import importlib.metadata as md
+          import pathlib
+
+          with pathlib.Path("resolved.txt").open("w", encoding="utf-8") as verdict:
+              for distribution in sorted(md.distributions(), key=lambda item: item.metadata["Name"] or ""):
+                  name = distribution.metadata["Name"]
+                  if name:
+                      print(f"{name} {distribution.version}", file=verdict)
+          print(pathlib.Path("resolved.txt").read_text(encoding="utf-8"))
+          PROBE
+
+      - name: Keep this cell's resolution for the aggregate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: floors-resolved-${{ matrix.python-version }}-${{ strategy.job-index }}
+          path: resolved.txt
+          retention-days: 1
+
+      - name: Suite at the floor
+        # `--no-sync` is load bearing here and nowhere else: a bare `uv run` restores the environment
+        # from the lockfile, which would put the newest of everything back and leave this job testing
+        # what the matrix above already tests
+        run: uv run --no-sync pytest -q -n 4 --dist loadfile --ignore=tests/test_docs_examples.py tests
+
+  floors-reached:
+    # The cross-cell half of the floor job, and it has to be cross-cell: `typing-extensions` reaches its
+    # floor only where pydantic is absent, and `attrs` only where it is installed by name rather than
+    # arriving through jsonschema. No cell reaches everything, and between them they do.
+    #
+    # Every declaration is read here rather than in the cells, with `tomllib` rather than a regex: a
+    # requirement carrying an environment marker holds quotes of its own, and reading it by pattern
+    # silently truncated `typing-extensions>=4.0; python_version < '3.11'` to nothing.
+    timeout-minutes: 5
+    needs: declared-floors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: floors-resolved-*
+          path: resolutions
+
+      - name: Every declared floor is reached somewhere
+        run: |
+          uv run --no-project --with packaging python - <<'AGGREGATE'
+          import pathlib
+          import tomllib
+          from packaging.requirements import Requirement
+          from packaging.version import Version
+
+          # keyed by name and floor, because two extras may declare two different bounds on one
+          # distribution and reaching either says nothing about the other
+          UNREACHED: dict[tuple[str, str], str] = {}
+
+          declared = {}
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+          sources = [project["project"]["dependencies"]]
+          sources += list(project["project"]["optional-dependencies"].values())
+          sources += [project["dependency-groups"][name] for name in ("dev", "integrations")]
+          for group in sources:
+              for line in group:
+                  requirement = Requirement(line)
+                  floors = [spec.version for spec in requirement.specifier if spec.operator == ">="]
+                  if floors and requirement.name != "assertpy":
+                      declared.setdefault(requirement.name, set()).add(floors[0])
+
+          installed = {}
+          files = sorted(pathlib.Path("resolutions").rglob("resolved.txt"))
+          if not files:
+              raise SystemExit("no cell reported a resolution, so this job proves nothing")
+          for path in files:
+              for row in path.read_text(encoding="utf-8").splitlines():
+                  name, version = row.rsplit(" ", 1)
+                  installed.setdefault(name.lower().replace("_", "-"), set()).add(version)
+
+          never, stale = [], []
+          for name, floors in sorted(declared.items()):
+              key = name.lower().replace("_", "-")
+              for floor in sorted(floors, key=Version):
+                  reached = any(Version(seen) == Version(floor) for seen in installed.get(key, ()))
+                  excused = (key, floor) in UNREACHED
+                  print(f"{name:18} floor {floor:10} {'reached' if reached else 'NEVER REACHED'}")
+                  if not reached and not excused:
+                      never.append(f"{name}>={floor}")
+                  if reached and excused:
+                      stale.append(f"{name}>={floor}")
+          if never:
+              raise SystemExit(f"declared floors no cell installs: {', '.join(never)}")
+          if stale:
+              raise SystemExit(f"recorded as unreachable and reached anyway, so the note is stale: {', '.join(stale)}")
+          AGGREGATE
+
+  optional-integrations:
+    # allure and behave get their own job because installing them is incompatible with the coverage
+    # gate: with allure present the `except ImportError` fallback in pytest_plugin.py never runs, and
+    # without it the import itself never runs. The gating cell keeps the second state, this one holds
+    # the first. Everywhere else the two are tested against mocks, which accept any call and would
+    # wave through the renamed parameter or moved attribute a Dependabot bump can bring.
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --locked --extra json --extra allure --extra behave
+
+      - name: Contract tests against the real libraries
+        run: uv run pytest -v tests/test_optional_integration_contracts.py
+
+      - name: The rest of the suite must also pass with both installed
+        # Installing allure flips `_HAS_ALLURE`, so every failing assertion in the suite takes the
+        # real attach path. That must not change any other test's outcome.
+        run: uv run pytest -q -n 4 --dist loadfile --ignore=tests/test_docs_examples.py tests
+
+  lint:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        # the whole `data` stack, because the overloads narrow on *structure* and the structures are
+        # pandas', polars' and numpy's to change. A stub release that stops declaring the member a
+        # shape keys on moves those values back to the generic builder, silently: it type-checks, and
+        # the narrowed methods just stop being offered. The integration matrix below is what notices
+        run: uv sync --locked --extra json --extra data --extra inline --group typecheck --group integrations
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Type check (ty)
+        run: uv run ty check assertpy/ tests/test_typing.py
+
+      - name: Type check (mypy --strict, public typing surface)
+        run: uv run mypy --strict --follow-imports=silent tests/test_typing.py
+
+      # the engine, not the launcher: `pyright` on PyPI and the npm engine it launches are released apart
+      # and have drifted before, and every recorded number here was recorded against one build. The
+      # gates that call pyright from Python pin the same one, in `tests/typing_harness.py`
+      - name: Type check (pyright, public typing surface)
+        env:
+          PYRIGHT_PYTHON_FORCE_VERSION: "1.1.414"
+        run: uv run pyright --pythonversion 3.14 tests/test_typing.py
+
+      # a fourth overload-resolution engine on the same file, which is what the badge names. Its
+      # settings are in `pyrefly.toml`, and the preset there is deliberate: the fallback one answers
+      # green while looking at much less
+      - name: Type check (pyrefly, public typing surface)
+        run: uv run pyrefly check tests/test_typing.py
+
+      # the fourth checker over the promises too: the harness reads three, and both defects the file
+      # was written for were accepted by all four
+      - name: Type check (pyrefly, the object matches the promise)
+        run: uv run pyrefly check tests/typing_promises.py
+
+      # the gates that need the checkers this job installs: each file's docstring says what it holds
+      - name: Type check (pytest gates, all four checkers)
+        run: >
+          uv run pytest -q -n 4 --dist loadfile
+          tests/test_pyright_baseline.py
+          tests/test_typing_completeness.py
+          tests/test_typing_promises.py
+          tests/test_typing_negative.py
+          tests/test_typing_chain_corpus.py
+          tests/test_typing_integrations.py
+          tests/test_typing_http.py
+          tests/test_typing_from_a_wheel.py
+          tests/test_check_protocols.py
+          tests/test_operation_contract.py
+          tests/test_typing_conformance.py
+
+  sdist:
+    # the suite as a distribution runs it, from the sdist: `scripts/check_sdist.py` says how and why
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: packager
+            options: '--export="--extra json"'
+          # the lint job's set, for the type-checker gates
+          - mode: developer
+            options: '--developer --export="--extra json --extra data --extra inline --group typecheck --group integrations"'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: The suite from the sdist and from the checkout (${{ matrix.mode }})
+        run: >
+          python scripts/check_sdist.py ${{ matrix.options }} --work "$RUNNER_TEMP/check_sdist"
+          -- -q -n 4 --dist loadfile --ignore=tests/test_docs_examples.py tests
+
+  ci-ok:
+    timeout-minutes: 5
+    needs: [test, declared-floors, floors-reached, optional-integrations, lint, sdist]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs succeeded
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          FLOOR_RESULT: ${{ needs.declared-floors.result }}
+          REACHED_RESULT: ${{ needs.floors-reached.result }}
+          INTEGRATIONS_RESULT: ${{ needs.optional-integrations.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          SDIST_RESULT: ${{ needs.sdist.result }}
+        run: |
+          [ "$TEST_RESULT" = "success" ] &&
+          [ "$FLOOR_RESULT" = "success" ] &&
+          [ "$REACHED_RESULT" = "success" ] &&
+          [ "$INTEGRATIONS_RESULT" = "success" ] &&
+          [ "$LINT_RESULT" = "success" ] &&
+          [ "$SDIST_RESULT" = "success" ]

@@ -1,7 +1,7 @@
 use super::{ConnectionLike, Runtime};
 use crate::aio::setup_connection;
 use crate::aio::DisconnectNotifier;
-use crate::cache::glide_cache::GlideCache;
+use crate::cache::glide_cache::{GlideCache, MGetCacheExt};
 use crate::client::GlideConnectionOptions;
 use crate::cmd::Cmd;
 #[cfg(feature = "tokio-comp")]
@@ -16,12 +16,12 @@ use ::tokio::{
 };
 use arc_swap::ArcSwap;
 use futures_util::{
-    future::{Future, FutureExt},
+    future::{AbortHandle, Abortable, Future, FutureExt},
     ready,
     sink::Sink,
     stream::{self, Stream, StreamExt, TryStreamExt as _},
 };
-use logger_core::log_error;
+use glide_logger::log_error;
 use pin_project_lite::pin_project;
 use std::collections::VecDeque;
 use std::fmt;
@@ -31,11 +31,182 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::task::{self, Poll};
 use std::time::Duration;
-#[cfg(feature = "tokio-comp")]
-use tokio_util::codec::Decoder;
 
 // Default connection timeout in ms
 const DEFAULT_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_millis(2000);
+
+/// Flush-directly threshold for the vectored sink's queued bytes. Above this,
+/// `poll_ready` applies backpressure by flushing before accepting more items.
+const VECTORED_SINK_HIGH_WATERMARK: usize = 512 * 1024;
+/// Max iovec entries per `write_vectored` call (typical kernel UIO_MAXIOV is
+/// 1024; 64 keeps the stack array small while amortizing syscalls well).
+const MAX_WRITE_SLICES: usize = 64;
+
+pin_project! {
+    /// Send-side zero-copy sink: queues the segments of packed commands and
+    /// writes them with vectored I/O. Large shared payloads
+    /// ([`crate::cmd::SegmentedBytes`]) go from the caller's allocation
+    /// straight to the socket without ever being copied into a write buffer.
+    struct VectoredSink<W> {
+        #[pin]
+        writer: W,
+        queue: VecDeque<bytes::Bytes>,
+        queued_bytes: usize,
+    }
+}
+
+impl<W> VectoredSink<W> {
+    fn new(writer: W) -> Self {
+        VectoredSink {
+            writer,
+            queue: VecDeque::new(),
+            queued_bytes: 0,
+        }
+    }
+}
+
+impl<W: AsyncWrite> VectoredSink<W> {
+    /// Drive queued segments into the writer. Completes when the queue is
+    /// empty and the writer is flushed.
+    fn poll_flush_queue(
+        self: Pin<&mut Self>,
+        cx: &mut task::Context,
+    ) -> Poll<Result<(), RedisError>> {
+        let mut this = self.project();
+        loop {
+            if this.queue.is_empty() {
+                return this
+                    .writer
+                    .as_mut()
+                    .poll_flush(cx)
+                    .map_err(RedisError::from);
+            }
+            let mut slices = [std::io::IoSlice::new(&[]); MAX_WRITE_SLICES];
+            let mut n = 0;
+            for seg in this.queue.iter().take(MAX_WRITE_SLICES) {
+                slices[n] = std::io::IoSlice::new(seg);
+                n += 1;
+            }
+            match ready!(this.writer.as_mut().poll_write_vectored(cx, &slices[..n])) {
+                Ok(0) => {
+                    return Poll::Ready(Err(RedisError::from(std::io::Error::new(
+                        std::io::ErrorKind::WriteZero,
+                        "failed to write queued segments to socket",
+                    ))));
+                }
+                Ok(mut written) => {
+                    *this.queued_bytes -= written;
+                    while written > 0 {
+                        let front = this.queue.front_mut().expect("queue can't be empty");
+                        if written >= front.len() {
+                            written -= front.len();
+                            this.queue.pop_front();
+                        } else {
+                            bytes::Buf::advance(front, written);
+                            written = 0;
+                        }
+                    }
+                }
+                Err(err) => return Poll::Ready(Err(err.into())),
+            }
+        }
+    }
+}
+
+impl<W: AsyncWrite> Sink<crate::cmd::SendBuf> for VectoredSink<W> {
+    type Error = RedisError;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), Self::Error>> {
+        if self.queued_bytes <= VECTORED_SINK_HIGH_WATERMARK {
+            return Poll::Ready(Ok(()));
+        }
+        // Backpressure: drain before accepting more.
+        self.poll_flush_queue(cx)
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: crate::cmd::SendBuf) -> Result<(), Self::Error> {
+        let this = self.project();
+        match item {
+            crate::cmd::SendBuf::Contiguous(buf) => {
+                if !buf.is_empty() {
+                    *this.queued_bytes += buf.len();
+                    // from_owner: avoids Bytes::from(Vec)'s shrink-realloc
+                    // on excess capacity.
+                    this.queue.push_back(bytes::Bytes::from_owner(buf));
+                }
+            }
+            crate::cmd::SendBuf::Segmented(segments) => {
+                for segment in segments.into_segments() {
+                    if !segment.is_empty() {
+                        *this.queued_bytes += segment.len();
+                        this.queue.push_back(segment);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), Self::Error>> {
+        self.poll_flush_queue(cx)
+    }
+
+    fn poll_close(
+        mut self: Pin<&mut Self>,
+        cx: &mut task::Context,
+    ) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_flush_queue(cx))?;
+        self.project()
+            .writer
+            .poll_shutdown(cx)
+            .map_err(RedisError::from)
+    }
+}
+
+pin_project! {
+    /// Combines the decode stream (read half) and the vectored sink (write
+    /// half) back into one `Stream + Sink` object for [`Pipeline::new`].
+    struct SplitSinkStream<R, W> {
+        #[pin]
+        read: R,
+        #[pin]
+        write: W,
+    }
+}
+
+impl<R, W> Stream for SplitSinkStream<R, W>
+where
+    R: Stream<Item = RedisResult<Value>>,
+{
+    type Item = RedisResult<Value>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
+        self.project().read.poll_next(cx)
+    }
+}
+
+impl<R, W> Sink<crate::cmd::SendBuf> for SplitSinkStream<R, W>
+where
+    W: Sink<crate::cmd::SendBuf, Error = RedisError>,
+{
+    type Error = RedisError;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), Self::Error>> {
+        self.project().write.poll_ready(cx)
+    }
+
+    fn start_send(self: Pin<&mut Self>, item: crate::cmd::SendBuf) -> Result<(), Self::Error> {
+        self.project().write.start_send(item)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), Self::Error>> {
+        self.project().write.poll_flush(cx)
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), Self::Error>> {
+        self.project().write.poll_close(cx)
+    }
+}
 
 // Senders which the result of a single request are sent through
 type PipelineOutput = oneshot::Sender<RedisResult<Value>>;
@@ -102,6 +273,8 @@ pub(crate) struct Pipeline<SinkItem> {
     /// response reading, so a response-only signal would freeze. See
     /// [`Self::send_recv`].
     progress: Arc<AtomicU64>,
+    /// Aborts the driver task that owns the socket. See [`Pipeline::kill`].
+    abort_handle: AbortHandle,
 }
 
 impl<SinkItem> Debug for Pipeline<SinkItem>
@@ -219,14 +392,14 @@ where
                             Some(Value::Array(keys)) => {
                                 for key in keys {
                                     if let Value::BulkString(k) = key {
-                                        cache.invalidate(k);
+                                        cache.invalidate_server_assisted(k);
                                     } else if let Value::VerbatimString { text, .. } = key {
-                                        cache.invalidate(text.as_bytes());
+                                        cache.invalidate_server_assisted(text.as_bytes());
                                     }
                                 }
                             }
                             Some(Value::Nil) => {
-                                cache.flush_all();
+                                cache.flush_all_server_assisted();
                             }
                             None => { /* malformed push, ignore */ }
                             _ => {}
@@ -615,16 +788,18 @@ where
             cache,
             progress.clone(),
         );
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
         let f = stream::poll_fn(move |cx| receiver.poll_recv(cx))
             .map(Ok)
-            .forward(sink)
-            .map(|_| ());
+            .forward(sink);
+        let f = Abortable::new(f, abort_registration).map(|_| ());
         (
             Pipeline {
                 sender,
                 push_manager,
                 is_stream_closed,
                 progress,
+                abort_handle,
             },
             f,
         )
@@ -673,45 +848,61 @@ where
         const DEAD_TICKS: u32 = 2;
         let send_start = std::time::Instant::now();
         let mut no_progress_ticks = 0u32;
-        let permit = loop {
-            let progress_before = self.progress.load(Ordering::Relaxed);
-            match tokio::time::timeout(liveness_tick, self.sender.reserve()).await {
-                Ok(Ok(permit)) => break permit,
-                Ok(Err(_closed)) => {
-                    return Err(RedisError::from((
-                        crate::ErrorKind::FatalSendError,
-                        "Failed to send the request to the server",
-                        "the pipeline writer task has terminated".to_string(),
-                    )));
-                }
-                Err(_elapsed) => {
-                    if send_start.elapsed() >= timeout {
-                        // Backpressure outlasted the request's own timeout budget.
-                        // Report a genuine timeout (NoRetry, is_timeout()), matching
-                        // the receive-side timeout — not a fatal/reconnect send error.
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::TimedOut,
-                            "Timed out waiting for pipeline send capacity",
-                        )
-                        .into());
-                    }
-                    if self.progress.load(Ordering::Relaxed) == progress_before {
-                        no_progress_ticks += 1;
-                        if no_progress_ticks >= DEAD_TICKS {
-                            // No progress across consecutive ticks while the channel
-                            // stays full: the writer is stuck, not merely slow.
-                            return Err(RedisError::from((
-                                crate::ErrorKind::FatalSendError,
-                                "Pipeline channel full — connection likely dead",
-                            )));
-                        }
-                    } else {
-                        // A slot freed or a response arrived: backpressure, not
-                        // death. Reset the dead-tick counter and keep waiting.
-                        no_progress_ticks = 0;
-                    }
-                }
+        // Fast path: if a channel slot is immediately available (the common,
+        // non-contended case) take it without arming the liveness-timeout
+        // machinery — no per-send timeout future, no atomic progress load. The
+        // dead-connection/backpressure detection below is only required when the
+        // channel is actually full, so keep the hot path bare.
+        let permit = match self.sender.try_reserve() {
+            Ok(permit) => permit,
+            Err(mpsc::error::TrySendError::Closed(())) => {
+                return Err(RedisError::from((
+                    crate::ErrorKind::FatalSendError,
+                    "Failed to send the request to the server",
+                    "the pipeline writer task has terminated".to_string(),
+                )));
             }
+            // Channel full: fall back to the liveness-aware slow path (unchanged).
+            Err(mpsc::error::TrySendError::Full(())) => loop {
+                let progress_before = self.progress.load(Ordering::Relaxed);
+                match tokio::time::timeout(liveness_tick, self.sender.reserve()).await {
+                    Ok(Ok(permit)) => break permit,
+                    Ok(Err(_closed)) => {
+                        return Err(RedisError::from((
+                            crate::ErrorKind::FatalSendError,
+                            "Failed to send the request to the server",
+                            "the pipeline writer task has terminated".to_string(),
+                        )));
+                    }
+                    Err(_elapsed) => {
+                        if send_start.elapsed() >= timeout {
+                            // Backpressure outlasted the request's own timeout budget.
+                            // Report a genuine timeout (NoRetry, is_timeout()), matching
+                            // the receive-side timeout — not a fatal/reconnect send error.
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::TimedOut,
+                                "Timed out waiting for pipeline send capacity",
+                            )
+                            .into());
+                        }
+                        if self.progress.load(Ordering::Relaxed) == progress_before {
+                            no_progress_ticks += 1;
+                            if no_progress_ticks >= DEAD_TICKS {
+                                // No progress across consecutive ticks while the channel
+                                // stays full: the writer is stuck, not merely slow.
+                                return Err(RedisError::from((
+                                    crate::ErrorKind::FatalSendError,
+                                    "Pipeline channel full — connection likely dead",
+                                )));
+                            }
+                        } else {
+                            // A slot freed or a response arrived: backpressure, not
+                            // death. Reset the dead-tick counter and keep waiting.
+                            no_progress_ticks = 0;
+                        }
+                    }
+                }
+            },
         };
         permit.send(PipelineMessage {
             input,
@@ -723,7 +914,7 @@ where
         let send_elapsed = send_start.elapsed();
         let send_warn_threshold = std::cmp::min(timeout / 4, std::time::Duration::from_millis(500));
         if send_elapsed > send_warn_threshold {
-            logger_core::log_warn_rate_limited!(
+            glide_logger::log_warn_rate_limited!(
                 "pipeline",
                 5,
                 format!(
@@ -743,7 +934,7 @@ where
         // heuristic (min(timeout/2, 5s)).
         let recv_warn_threshold = std::cmp::min(timeout / 2, std::time::Duration::from_secs(5));
         if !is_blocking && recv_elapsed > recv_warn_threshold {
-            logger_core::log_warn_rate_limited!(
+            glide_logger::log_warn_rate_limited!(
                 "pipeline",
                 5,
                 format!(
@@ -777,13 +968,25 @@ where
     pub fn is_closed(&self) -> bool {
         self.is_stream_closed.load(Ordering::Relaxed)
     }
+
+    /// Tears the connection down immediately by aborting the driver task.
+    ///
+    /// Dropping all `Pipeline` clones is not enough to close the socket: the driver's
+    /// `poll_close` waits for every in-flight request to be answered first, so a blocking
+    /// command (`XREADGROUP ... BLOCK`, `BLPOP`, ...) keeps the socket open until the server
+    /// replies. Aborting the driver drops the sink and the underlying stream, which closes
+    /// the socket and fails every pending request with a `FatalReceiveError`.
+    pub fn kill(&self) {
+        self.is_stream_closed.store(true, Ordering::Relaxed);
+        self.abort_handle.abort();
+    }
 }
 
 /// A connection object which can be cloned, allowing requests to be be sent concurrently
 /// on the same underlying connection (tcp/unix socket).
 #[derive(Clone)]
 pub struct MultiplexedConnection {
-    pipeline: Pipeline<Vec<u8>>,
+    pipeline: Pipeline<crate::cmd::SendBuf>,
     db: i64,
     response_timeout: Duration,
     protocol: ProtocolVersion,
@@ -833,9 +1036,13 @@ impl MultiplexedConnection {
     where
         C: Unpin + AsyncRead + AsyncWrite + Send + 'static,
     {
-        let codec = ValueCodec::default()
-            .framed(stream)
+        let (read_half, write_half) = ::tokio::io::split(stream);
+        let read_stream = tokio_util::codec::FramedRead::new(read_half, ValueCodec::default())
             .and_then(|msg| async move { msg });
+        let codec = SplitSinkStream {
+            read: read_stream,
+            write: VectoredSink::new(write_half),
+        };
         let (mut pipeline, driver) = Pipeline::new(
             codec,
             glide_connection_options.disconnect_notifier,
@@ -892,20 +1099,79 @@ impl MultiplexedConnection {
         self.response_timeout = timeout;
     }
 
+    /// Closes the socket immediately, without waiting for in-flight requests to complete.
+    ///
+    /// Pending requests fail with `FatalReceiveError`; later requests fail with `FatalSendError`.
+    /// The server sees the TCP close and discards any command that is blocked on this connection.
+    pub fn kill(&self) {
+        self.pipeline.kill();
+    }
+
     /// Sends an already encoded (packed) command into the TCP socket and
     /// reads the single response from it.
     pub async fn send_packed_command(&mut self, cmd: &Cmd) -> RedisResult<Value> {
-        // First try to get from cache
-        if let Some(cache) = &self.cache {
-            if let Some(value) = cache.get_cached_cmd(cmd) {
-                return Ok(value);
+        let cache = self.cache.clone();
+
+        if let Some(cache) = &cache {
+            if let Some(lookup) = cache.get_cached_mget(cmd) {
+                if lookup.is_complete() {
+                    return lookup.into_value();
+                }
+
+                let mut misses_cmd = Cmd::with_capacity(lookup.missing_count() + 1, 4);
+                misses_cmd.arg("MGET");
+                for key in lookup.missing_keys() {
+                    misses_cmd.arg(key);
+                }
+                misses_cmd
+                    .set_span(cmd.span())
+                    .set_fenced(cmd.is_fenced())
+                    .set_is_blocking(cmd.is_blocking());
+                misses_cmd.set_response_timeout(cmd.response_timeout());
+
+                let response = self.send_packed_command_inner(&misses_cmd).await?;
+                return cache.complete_cached_mget(lookup, response);
             }
         }
+
+        // First try to get from cache. A cache miss registers a fill for this
+        // key before the request is sent, so only that key's invalidation can
+        // prevent the response from populating the cache.
+        let cache_fill = if let Some(cache) = &cache {
+            let (value, fill) = cache.get_cached_cmd_with_fill(cmd);
+            if let Some(value) = value {
+                return Ok(value);
+            }
+            fill
+        } else {
+            None
+        };
+
+        let result = self.send_packed_command_inner(cmd).await;
+
+        // Store in cache if applicable
+        if let (Some(cache), Some(fill)) = (&cache, cache_fill) {
+            if let Ok(value) = &result {
+                if *value != Value::Nil {
+                    cache.complete_cached_cmd(cmd, value.clone(), fill);
+                }
+            }
+        }
+        result
+    }
+
+    async fn send_packed_command_inner(&mut self, cmd: &Cmd) -> RedisResult<Value> {
         let timeout = cmd.response_timeout().unwrap_or(self.response_timeout);
         let result = self
             .pipeline
             .send_single(
-                cmd.get_packed_command(),
+                // Commands with no out-of-line payloads skip the segmented
+                // representation entirely (see SendBuf::Contiguous).
+                if cmd.has_out_of_line_args() {
+                    crate::cmd::SendBuf::Segmented(cmd.get_packed_segments())
+                } else {
+                    crate::cmd::SendBuf::Contiguous(cmd.get_packed_command())
+                },
                 timeout,
                 cmd.is_fenced(),
                 cmd.is_blocking(),
@@ -919,15 +1185,6 @@ impl MultiplexedConnection {
                         kind: PushKind::Disconnection,
                         data: vec![],
                     });
-                }
-            }
-        }
-
-        // Store in cache if applicable
-        if let Some(cache) = &self.cache {
-            if let Ok(value) = &result {
-                if *value != Value::Nil {
-                    cache.set_cached_cmd(cmd, value.clone());
                 }
             }
         }
@@ -946,7 +1203,7 @@ impl MultiplexedConnection {
         let result = self
             .pipeline
             .send_recv(
-                cmd.get_packed_pipeline(),
+                crate::cmd::SendBuf::Segmented(cmd.get_packed_pipeline_segments()),
                 Some(offset + count),
                 self.response_timeout,
                 cmd.is_atomic(),
@@ -998,7 +1255,7 @@ impl MultiplexedConnection {
     }
 
     /// Creates a new `MultiplexedConnectionBuilder` for constructing a `MultiplexedConnection`.
-    pub(crate) fn builder(pipeline: Pipeline<Vec<u8>>) -> MultiplexedConnectionBuilder {
+    pub(crate) fn builder(pipeline: Pipeline<crate::cmd::SendBuf>) -> MultiplexedConnectionBuilder {
         MultiplexedConnectionBuilder::new(pipeline)
     }
 
@@ -1013,7 +1270,7 @@ impl MultiplexedConnection {
 
 /// A builder for creating `MultiplexedConnection` instances.
 pub struct MultiplexedConnectionBuilder {
-    pipeline: Pipeline<Vec<u8>>,
+    pipeline: Pipeline<crate::cmd::SendBuf>,
     db: Option<i64>,
     response_timeout: Option<Duration>,
     push_manager: Option<PushManager>,
@@ -1027,7 +1284,7 @@ pub struct MultiplexedConnectionBuilder {
 
 impl MultiplexedConnectionBuilder {
     /// Creates a new builder with the required pipeline
-    pub(crate) fn new(pipeline: Pipeline<Vec<u8>>) -> Self {
+    pub(crate) fn new(pipeline: Pipeline<crate::cmd::SendBuf>) -> Self {
         Self {
             pipeline,
             db: None,
@@ -1210,6 +1467,7 @@ impl MultiplexedConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cache::{glide_cache::CacheConfig, lru_cache::new_lru_cache};
     use futures::channel::mpsc as futures_mpsc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::task::{Context, Poll};
@@ -1272,6 +1530,160 @@ mod tests {
                 RedisError::from((crate::ErrorKind::IoError, "sink error", e.to_string()))
             })
         }
+    }
+
+    struct ResponseSink {
+        command_tx: mpsc::UnboundedSender<crate::cmd::SendBuf>,
+        response_rx: futures_mpsc::Receiver<RedisResult<Value>>,
+    }
+
+    impl Stream for ResponseSink {
+        type Item = RedisResult<Value>;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Pin::new(&mut self.response_rx).poll_next(cx)
+        }
+    }
+
+    impl Sink<crate::cmd::SendBuf> for ResponseSink {
+        type Error = RedisError;
+
+        fn poll_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn start_send(self: Pin<&mut Self>, item: crate::cmd::SendBuf) -> Result<(), Self::Error> {
+            self.command_tx.send(item).map_err(|error| {
+                RedisError::from((
+                    crate::ErrorKind::IoError,
+                    "mock send error",
+                    error.to_string(),
+                ))
+            })
+        }
+
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_close(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    async fn assert_response_followed_by_invalidation_does_not_cache(
+        command: Cmd,
+        response: Value,
+        invalidated_key: &'static [u8],
+        expected_entry_count: u64,
+    ) {
+        let cache = new_lru_cache(CacheConfig {
+            max_memory_bytes: 10_000,
+            ttl: None,
+            enable_metrics: true,
+        });
+        let (command_tx, mut command_rx) = mpsc::unbounded_channel();
+        let (mut response_tx, response_rx) = futures_mpsc::channel(2);
+        let sink = ResponseSink {
+            command_tx,
+            response_rx,
+        };
+        let (pipeline, driver) = Pipeline::new(sink, None, Some(cache.clone()));
+        let driver = tokio::spawn(driver);
+        let connection = MultiplexedConnection::builder(pipeline)
+            .with_cache(Some(cache.clone()))
+            .build()
+            .await
+            .unwrap();
+
+        let request = tokio::spawn(async move {
+            let mut connection = connection;
+            connection.send_packed_command(&command).await
+        });
+        command_rx.recv().await.expect("command must be sent");
+
+        // Queue both frames before waking the driver. `poll_read` drains them in
+        // one turn, so this reproduces an invalidation processed before the
+        // waiting command task can populate the cache.
+        response_tx.try_send(Ok(response)).unwrap();
+        response_tx
+            .try_send(Ok(Value::Push {
+                kind: PushKind::Invalidate,
+                data: vec![Value::Array(vec![Value::BulkString(
+                    invalidated_key.to_vec().into(),
+                )])],
+            }))
+            .unwrap();
+
+        request.await.unwrap().unwrap();
+        assert_eq!(
+            cache.entry_count(),
+            expected_entry_count,
+            "cache fill did not match the invalidation scope"
+        );
+
+        driver.abort();
+    }
+
+    #[tokio::test]
+    async fn test_get_response_followed_by_invalidation_does_not_cache_stale_value() {
+        let mut command = crate::cmd("GET");
+        command.arg("key");
+        assert_response_followed_by_invalidation_does_not_cache(
+            command,
+            Value::BulkString(b"stale".to_vec().into()),
+            b"key",
+            0,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_mget_response_followed_by_invalidation_does_not_cache_stale_value() {
+        let mut command = crate::cmd("MGET");
+        command.arg("key");
+        assert_response_followed_by_invalidation_does_not_cache(
+            command,
+            Value::Array(vec![Value::BulkString(b"stale".to_vec().into())]),
+            b"key",
+            0,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_get_response_followed_by_unrelated_invalidation_caches_value() {
+        let mut command = crate::cmd("GET");
+        command.arg("key");
+        assert_response_followed_by_invalidation_does_not_cache(
+            command,
+            Value::BulkString(b"current".to_vec().into()),
+            b"other-key",
+            1,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn test_mget_response_followed_by_unrelated_invalidation_caches_value() {
+        let mut command = crate::cmd("MGET");
+        command.arg("key");
+        assert_response_followed_by_invalidation_does_not_cache(
+            command,
+            Value::Array(vec![Value::BulkString(b"current".to_vec().into())]),
+            b"other-key",
+            1,
+        )
+        .await;
     }
 
     /// A mock connection used to benchmark the pipeline buffer in isolation,
@@ -1611,7 +2023,7 @@ mod tests {
         // If poll_read is called during poll_ready (the fix), this response will be
         // delivered to cmd1_handle. If not (the bug), cmd1_handle will hang.
         resp_tx
-            .try_send(Ok(Value::BulkString(b"response1".to_vec())))
+            .try_send(Ok(Value::BulkString(b"response1".to_vec().into())))
             .expect("Failed to inject response");
 
         // Wait for command #1 to complete — with the bug, this times out
@@ -1624,7 +2036,7 @@ mod tests {
 
         match result {
             Ok(Ok(Ok(value))) => {
-                assert_eq!(value, Value::BulkString(b"response1".to_vec()));
+                assert_eq!(value, Value::BulkString(b"response1".to_vec().into()));
             }
             Ok(Ok(Err(e))) => {
                 panic!("Command 1 returned error: {:?}", e);

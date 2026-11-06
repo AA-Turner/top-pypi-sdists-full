@@ -67,6 +67,12 @@ class Twist3dTest(unittest.TestCase):
         T = SE3.Rx(0) * SE3(1, 2, 3)
         array_compare(Twist3(T).SE3(), T)
 
+        # from an SE(3) matrix, with and without checking
+        for check in (True, False):
+            tw = Twist3(T.A, check=check)
+            self.assertEqual(len(tw), 1)
+            array_compare(tw.SE3(), T)
+
     def test_conversion_se3(self):
         s = [1, 2, 3, 4, 5, 6]
         x = Twist3(s)
@@ -82,6 +88,12 @@ class Twist3dTest(unittest.TestCase):
                 ]
             ),
         )
+
+        # from an se(3) matrix, with and without checking
+        for check in (True, False):
+            tw = Twist3(x.skewa(), check=check)
+            self.assertEqual(len(tw), 1)
+            array_compare(tw, x)
 
     def test_conversion_Plucker(self):
         pass
@@ -190,6 +202,32 @@ class Twist3dTest(unittest.TestCase):
         tw = Twist3.UnitRevolute([0, 0, 1], [0, 0, 0], pitch=3)
         self.assertAlmostEqual(tw.pitch, 3.0)
 
+    def test_Ad(self):
+        # pure rotation: Ad is block-diagonal [[R,0],[0,R]], no translation
+        # coupling -- hand-verified ground truth, not derived from Ad() itself.
+        R = SE3.Rx(0.4).R
+        S = Twist3(SE3.Rx(0.4))
+        expected = np.zeros((6, 6))
+        expected[:3, :3] = R
+        expected[3:, 3:] = R
+        nt.assert_almost_equal(S.Ad(), expected)
+
+        # pure translation: Ad couples translation into the top-right block
+        # via skew(t), identity rotation blocks -- also hand-verified.
+        t = np.r_[1, 2, 3]
+        S = Twist3(SE3(t))
+        expected = np.eye(6)
+        expected[:3, 3:] = skew(t)
+        nt.assert_almost_equal(S.Ad(), expected)
+
+        # general case: cross-check against SE3.Ad(), computed from the same
+        # twist's own exponential, for several random transforms.
+        for _ in range(20):
+            T = SE3.Rand()
+            S = Twist3(T)
+            nt.assert_almost_equal(S.Ad(), S.SE3().Ad())
+            nt.assert_almost_equal(S.Ad(), T.Ad())
+
     def test_arith(self):
         # check overloaded *
 
@@ -212,6 +250,28 @@ class Twist3dTest(unittest.TestCase):
 
         x = Twist3([x1, x2])
         array_compare(x.prod().SE3(), T1 * T2)
+
+    def test_unit(self):
+        # general (rotational) twist: normalized so |w| == 1
+        T = SE3(1, 2, 3) * SE3.Rx(0.3)
+        S = Twist3(T)
+        u = S.unit()
+        self.assertAlmostEqual(np.linalg.norm(u.w), 1.0)
+        nt.assert_array_almost_equal(u.S, S.S / np.linalg.norm(S.w))
+
+        # prismatic twist (zero rotation): normalized direction vector,
+        # previously untested -- this branch raised ValueError before the
+        # fix (wrong-shape zero argument, S.w typo)
+        S = Twist3(np.r_[3, 4, 0, 0, 0, 0])
+        u = S.unit()
+        self.assertAlmostEqual(np.linalg.norm(u.v), 1.0)
+        nt.assert_array_almost_equal(u.w, [0, 0, 0])
+
+    def test_pole(self):
+        T = SE3(1, 2, 3) * SE3.Rx(0.3)
+        S = Twist3(T)
+        p = S.pole
+        self.assertEqual(len(p), 3)
 
 
 class Twist2dTest(unittest.TestCase):
@@ -271,6 +331,12 @@ class Twist2dTest(unittest.TestCase):
         self.assertIsInstance(tw.SE2(), SE2)
         self.assertEqual(len(tw.SE2()), 1)
 
+        # from an SE(2) matrix, with and without checking
+        for check in (True, False):
+            tw = Twist2(T.A, check=check)
+            self.assertEqual(len(tw), 1)
+            array_compare(tw.SE2(), T)
+
     def test_conversion_se2(self):
         s = [1, 2, 3]
         x = Twist2(s)
@@ -278,6 +344,12 @@ class Twist2dTest(unittest.TestCase):
         array_compare(
             x.skewa(), np.array([[0.0, -3.0, 1.0], [3.0, 0.0, 2.0], [0.0, 0.0, 0.0]])
         )
+
+        # from an se(2) matrix, with and without checking
+        for check in (True, False):
+            tw = Twist2(x.skewa(), check=check)
+            self.assertEqual(len(tw), 1)
+            array_compare(tw, x)
 
     def test_list_constuctor(self):
         x = Twist2([1, 0, 0])
@@ -374,6 +446,32 @@ class Twist2dTest(unittest.TestCase):
 
         x = Twist2([x1, x2])
         array_compare(x.prod().SE2(), T1 * T2)
+
+    def test_unit(self):
+        # general (rotational) twist: normalized so |w| == 1. Previously
+        # broken: branches were swapped (this case fell into the "zero
+        # rotation" branch and tried to construct Twist2 with a 3-element
+        # zero argument instead of scalar 0, raising ValueError).
+        T = SE2(1, 2, 0.3)
+        S = Twist2(T)
+        u = S.unit()
+        self.assertAlmostEqual(abs(u.w), 1.0)
+        nt.assert_array_almost_equal(u.S, S.S / abs(S.w))
+
+        # prismatic twist (zero rotation): normalized direction vector
+        S = Twist2([3, 4], 0)
+        u = S.unit()
+        self.assertAlmostEqual(np.linalg.norm(u.v), 1.0)
+        self.assertEqual(u.w, 0)
+
+    def test_pole(self):
+        # previously broken: docstring example called S.pole() but pole
+        # is a @property, not a method -- TypeError: 'numpy.ndarray'
+        # object is not callable
+        T = SE2(1, 2, 0.3)
+        S = Twist2(T)
+        p = S.pole
+        self.assertEqual(len(p), 2)
 
 
 # ---------------------------------------------------------------------------------------#

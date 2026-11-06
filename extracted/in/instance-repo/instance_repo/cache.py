@@ -6,6 +6,7 @@ oss2 Bucket 按 (bucket,prefix,security_token) 缓存以复用底层连接池。
 """
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
 from datetime import datetime, timezone
@@ -29,13 +30,36 @@ def parse_expiry(rfc3339: str | None) -> float | None:
     return dt.timestamp()
 
 
+_identity_lock = threading.Lock()
+
+
+def transport_cache_identity(transport):
+    """Opaque per-instance token: no credentials or recyclable object addresses."""
+    with _identity_lock:
+        token = getattr(transport, "_config_cache_identity", None)
+        if token is None:
+            token = object()
+            try:
+                setattr(transport, "_config_cache_identity", token)
+            except (AttributeError, TypeError):
+                pass  # Immutable adapters safely disable reuse instead of sharing.
+        subject = getattr(transport, "token", "")
+        digest = hashlib.sha256(subject.encode("utf-8", "surrogatepass")).digest() if isinstance(subject, str) else b""
+        return token, digest
+
+
 class TTLCache:
     """线程安全 TTL 缓存。"""
 
-    def __init__(self, *, safety: float = 60.0) -> None:
+    def __init__(self, *, safety: float = 60.0, max_entries: int | None = None) -> None:
         self._d: dict[Any, tuple[Any, float | None]] = {}
         self._lock = threading.Lock()
         self._safety = safety
+        if max_entries is not None and (isinstance(max_entries, bool)
+                                        or not isinstance(max_entries, int)
+                                        or max_entries < 1):
+            raise ValueError("max_entries must be a positive integer")
+        self._max_entries = max_entries
 
     def get(self, key: Any) -> Any | None:
         with self._lock:
@@ -50,6 +74,13 @@ class TTLCache:
 
     def put(self, key: Any, value: Any, expiry: float | None) -> None:
         with self._lock:
+            if self._max_entries is not None:
+                now = time.time()
+                for stale, (_, exp) in list(self._d.items()):
+                    if exp is not None and now >= exp - self._safety:
+                        self._d.pop(stale, None)
+                if key not in self._d and len(self._d) >= self._max_entries:
+                    self._d.pop(next(iter(self._d)))
             self._d[key] = (value, expiry)
 
     def clear(self) -> None:

@@ -555,6 +555,10 @@ class Client(OpenApiClient):
             body['mediaFileUrl'] = request.media_file_url
         if not UtilClient.is_unset(request.media_type):
             body['mediaType'] = request.media_type
+        if not UtilClient.is_unset(request.summary_template_id):
+            body['summaryTemplateId'] = request.summary_template_id
+        if not UtilClient.is_unset(request.summary_template_type):
+            body['summaryTemplateType'] = request.summary_template_type
         if not UtilClient.is_unset(request.title):
             body['title'] = request.title
         real_headers = {}
@@ -616,6 +620,10 @@ class Client(OpenApiClient):
             body['mediaFileUrl'] = request.media_file_url
         if not UtilClient.is_unset(request.media_type):
             body['mediaType'] = request.media_type
+        if not UtilClient.is_unset(request.summary_template_id):
+            body['summaryTemplateId'] = request.summary_template_id
+        if not UtilClient.is_unset(request.summary_template_type):
+            body['summaryTemplateType'] = request.summary_template_type
         if not UtilClient.is_unset(request.title):
             body['title'] = request.title
         real_headers = {}
@@ -4742,6 +4750,8 @@ class Client(OpenApiClient):
             body['memberPermissionOperations'] = request.member_permission_operations
         if not UtilClient.is_unset(request.op_type):
             body['opType'] = request.op_type
+        if not UtilClient.is_unset(request.reset_mode):
+            body['resetMode'] = request.reset_mode
         if not UtilClient.is_unset(request.role_code):
             body['roleCode'] = request.role_code
         if not UtilClient.is_unset(request.role_sub_resource_ids):
@@ -4802,6 +4812,8 @@ class Client(OpenApiClient):
             body['memberPermissionOperations'] = request.member_permission_operations
         if not UtilClient.is_unset(request.op_type):
             body['opType'] = request.op_type
+        if not UtilClient.is_unset(request.reset_mode):
+            body['resetMode'] = request.reset_mode
         if not UtilClient.is_unset(request.role_code):
             body['roleCode'] = request.role_code
         if not UtilClient.is_unset(request.role_sub_resource_ids):

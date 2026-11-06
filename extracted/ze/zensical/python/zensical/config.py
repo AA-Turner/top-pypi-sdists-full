@@ -36,12 +36,11 @@ from importlib.metadata import EntryPoint, entry_points
 from importlib.util import find_spec
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, cast
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from click import ClickException
-from deepmerge import always_merger
 from tomli import load as toml_load
 from yaml import Loader, YAMLError
 from yaml.constructor import ConstructorError
@@ -251,6 +250,34 @@ _TAGS_SUPPORTED_OPTIONS = {
 # ----------------------------------------------------------------------------
 
 
+def _extension_alias(name: str) -> str:
+    """Translate compatibility aliases in Python module references."""
+    for prefix in ("material.extensions", "materialx"):
+        if name == prefix or name.startswith(prefix + "."):
+            return "zensical.extensions" + name[len(prefix) :]
+    return name
+
+
+class _ConfigLoader(Loader):
+    def find_python_name(self, name: str, mark: Any) -> Any:
+        """Resolve Python names with the supported extension aliases."""
+        # This PyYAML constructor helper is omitted from its type stubs.
+        return super().find_python_name(  # ty:ignore[unresolved-attribute]
+            _extension_alias(name), mark
+        )
+
+
+def _merge_inherited(parent: dict, child: dict) -> dict:
+    """Merge inherited mappings while replacing child lists and scalars."""
+    # In MkDocs inheritance, mappings are merged and lists are replaced.
+    for key, value in child.items():
+        if isinstance(parent.get(key), dict) and isinstance(value, dict):
+            parent[key] = _merge_inherited(parent[key], value)
+        else:
+            parent[key] = value
+    return parent
+
+
 class ConfigurationError(ClickException):
     """Configuration resolution or validation failed."""
 
@@ -307,16 +334,9 @@ def _yaml_load(source: IO) -> dict[str, Any]:
     different approach in the future, which will allow for composable and
     environment-specific configuration.
     """
-    Loader.add_constructor("!ENV", _construct_env_tag)
+    _ConfigLoader.add_constructor("!ENV", _construct_env_tag)
     try:
-        config = yaml.load(
-            # Compatibility shim: we remap Material's extension namespace to
-            # Zensical's, and the now deprecated materialx namespace as well
-            source.read()
-            .replace("material.extensions", "zensical.extensions")
-            .replace("materialx", "zensical.extensions"),
-            Loader=Loader,  # noqa: S506
-        )
+        config = yaml.load(source.read(), Loader=_ConfigLoader)  # noqa: S506
     except YAMLError as e:
         raise ConfigurationError(
             f"Encountered an error parsing the configuration file: {e}"
@@ -337,7 +357,7 @@ def _yaml_load(source: IO) -> dict[str, Any]:
             )
         with open(abspath, encoding="utf-8") as fd:
             parent = _yaml_load(fd)
-        config = always_merger.merge(parent, config)
+        config = _merge_inherited(parent, config)
 
     # Return resulting configuration
     return config
@@ -452,9 +472,9 @@ def get_custom_theme_dir(path: str, config_path: str) -> str:
 
 
 def _yaml_load_theme_config(source: IO) -> dict[str, Any]:
-    Loader.add_constructor("!ENV", _construct_env_tag)
+    _ConfigLoader.add_constructor("!ENV", _construct_env_tag)
     try:
-        config = yaml.load(source, Loader=Loader)  # noqa: S506
+        config = yaml.load(source, Loader=_ConfigLoader)  # noqa: S506
     except YAMLError as e:
         raise ConfigurationError(
             f"Encountered an error parsing the theme configuration file: {e}"
@@ -462,6 +482,21 @@ def _yaml_load_theme_config(source: IO) -> dict[str, Any]:
     if config is None:
         return {}
     return config
+
+
+def _static_templates(*configs: dict[str, Any]) -> list[str]:
+    """Collect and validate static template names in declaration order."""
+    names = []
+    for config in configs:
+        values = config.get("static_templates", [])
+        if not isinstance(values, list) or any(
+            not isinstance(value, str) for value in values
+        ):
+            raise ConfigurationError(
+                "theme.static_templates must be a list of strings"
+            )
+        names.extend(values)
+    return list(dict.fromkeys(names))
 
 
 def _load_theme_config(theme_dir: str) -> tuple[dict[str, Any], list[str]]:
@@ -481,7 +516,11 @@ def _load_theme_config(theme_dir: str) -> tuple[dict[str, Any], list[str]]:
                 parent_config, parent_dirs = _load_theme_config(
                     parent_theme_dir
                 )
+                static_templates = _static_templates(
+                    parent_config, theme_config
+                )
                 parent_config.update(theme_config)
+                parent_config["static_templates"] = static_templates
                 theme_dirs.extend(parent_dirs)
                 return parent_config, theme_dirs
             # Otherwise we just return the current theme configuration.
@@ -492,6 +531,79 @@ def _load_theme_config(theme_dir: str) -> tuple[dict[str, Any], list[str]]:
 
 
 # ----------------------------------------------------------------------------
+
+
+def _validate_core_settings(config: dict) -> list[str]:
+    """Validate core types before defaults can coerce input values."""
+    string_settings = {
+        "site_name",
+        "site_url",
+        "site_description",
+        "site_author",
+        "docs_dir",
+        "site_dir",
+        "dev_addr",
+        "copyright",
+        "repo_url",
+        "repo_name",
+        "edit_uri",
+        "edit_uri_template",
+        "remote_branch",
+        "remote_name",
+        "exclude_docs",
+        "draft_docs",
+        "not_in_nav",
+    }
+    list_settings = {
+        "watch",
+        "extra_css",
+        "extra_javascript",
+        "extra_templates",
+        "nav",
+    }
+    bool_settings = {"strict", "use_directory_urls"}
+    known = (
+        string_settings
+        | list_settings
+        | bool_settings
+        | {
+            "theme",
+            "extra",
+            "plugins",
+            "markdown_extensions",
+            "validation",
+            "hooks",
+            "google_analytics",
+            "pages",
+            "config_file_path",
+            "mdx_configs",
+        }
+    )
+    types: dict[str, type] = dict.fromkeys(string_settings, str)
+    types.update(dict.fromkeys(list_settings, list))
+    types.update(dict.fromkeys(bool_settings, bool))
+    types["extra"] = dict
+    diagnostics = []
+    for key, value in config.items():
+        if key not in known:
+            message = f"Unrecognised configuration name: '{key}'"
+            diagnostics.append(message)
+            warnings.warn(message, stacklevel=3)
+            if config.get("strict") is True:
+                raise ConfigurationError(
+                    f"Unrecognised configuration name in strict mode: '{key}'"
+                )
+        invalid_theme = value is not None and not isinstance(value, (str, dict))
+        if key == "theme" and invalid_theme:
+            raise ConfigurationError("theme must be a string or mapping")
+        expected = types.get(key)
+        if expected is not None:
+            invalid = value is not None and not isinstance(value, expected)
+            if invalid or (key == "site_name" and value is None):
+                raise ConfigurationError(
+                    f"'{key}' must be a {expected.__name__}"
+                )
+    return diagnostics
 
 
 def _apply_defaults(config: dict, path: str) -> dict:
@@ -505,6 +617,8 @@ def _apply_defaults(config: dict, path: str) -> dict:
     We must set all properties, as well as nested properties to `None`, or PyO3
     will refuse to convert them, as the key must definitely exist.
     """
+    config_warnings = _validate_core_settings(config)
+    config["config_warnings"] = config_warnings
     config["root_dir"] = os.path.dirname(path)
     project_root = Path(config["root_dir"]).resolve()
 
@@ -529,15 +643,22 @@ def _apply_defaults(config: dict, path: str) -> dict:
         raise ConfigurationError("docs_dir must not be empty")
     docs_dir = Path(config["docs_dir"])
     if docs_dir.is_absolute():
-        docs_dir = docs_dir.resolve()
-    else:
-        docs_dir = project_root.joinpath(docs_dir).resolve()
+        raise ConfigurationError("docs_dir must be a relative path")
+    docs_dir = project_root.joinpath(docs_dir).resolve()
     if not docs_dir.is_relative_to(project_root):
         raise ConfigurationError("docs_dir must be within project root")
 
-    # Validate that site_dir is not the same as docs_dir
-    if site_dir == docs_dir:
-        raise ConfigurationError("site_dir and docs_dir must be different")
+    # Root-level documentation remains supported by the existing path policy.
+    # Other overlap is rejected before native output cleanup can reach sources.
+    output_contains_sources = docs_dir.is_relative_to(site_dir)
+    sources_contain_output = (
+        docs_dir != project_root and site_dir.is_relative_to(docs_dir)
+    )
+    if output_contains_sources or sources_contain_output:
+        raise ConfigurationError(
+            "site_dir and docs_dir must be different "
+            "and must not contain one another"
+        )
 
     # Validate that docs directory exists
     if not docs_dir.is_dir():
@@ -563,6 +684,10 @@ def _apply_defaults(config: dict, path: str) -> dict:
     if not all(isinstance(path, str) for path in config["watch"]):
         raise ConfigurationError("'watch' entries must be strings.")
 
+    for watch_path in config["watch"]:
+        if not project_root.joinpath(watch_path).exists():
+            raise ConfigurationError(f"Watch path does not exist: {watch_path}")
+
     # Set defaults for versioning with mike
     set_default(config, "remote_branch", "gh-pages", str)
     set_default(config, "remote_name", "origin", str)
@@ -573,10 +698,28 @@ def _apply_defaults(config: dict, path: str) -> dict:
     set_default(config, "edit_uri_template", None, str)
     set_default(config, "edit_uri", None, str)
 
+    # Absolute URLs are required by MkDocs; empty values remain accepted.
+    for setting in ("site_url", "repo_url"):
+        value = config.get(setting)
+        if value:
+            try:
+                parsed = urlsplit(value)
+            except ValueError as error:
+                raise ConfigurationError(
+                    f"Invalid {setting}: {error}"
+                ) from error
+            if not parsed.scheme or not parsed.netloc:
+                raise ConfigurationError(
+                    f"{setting} must include a scheme and host"
+                )
+            if setting == "site_url" and not parsed.path.endswith("/"):
+                parsed = parsed._replace(path=parsed.path + "/")
+            config[setting] = urlunsplit(parsed)
+
     # Set defaults for repository name settings
     repo_names = {
         "github.com": "GitHub",
-        "gitlab.com": "Gitlab",
+        "gitlab.com": "GitLab",
         "bitbucket.org": "Bitbucket",
     }
     rel_docs_dir = docs_dir.relative_to(project_root)
@@ -587,7 +730,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     }
     repo_url = config.get("repo_url")
     if repo_url:
-        host = urlparse(repo_url).hostname or ""
+        host = urlsplit(repo_url).netloc.lower()
         if not config.get("repo_name"):
             if host in repo_names:
                 set_default(config, "repo_name", repo_names[host], str)
@@ -599,12 +742,12 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Remove trailing slash from edit_uri if present
     edit_uri = config.get("edit_uri")
     if isinstance(edit_uri, str) and edit_uri.endswith("/"):
-        config["edit_uri"] = edit_uri.rstrip("/")
+        config["edit_uri"] = edit_uri.rstrip("/") or edit_uri
 
     # Set defaults for theme font settings
     if "theme" in config and isinstance(config["theme"], str):
         config["theme"] = {"name": config["theme"]}
-    elif "theme" not in config:
+    elif config.get("theme") is None:
         config["theme"] = {}
 
     font_explicit = "font" in config["theme"]
@@ -631,7 +774,11 @@ def _apply_defaults(config: dict, path: str) -> dict:
             # so we use it as base theme.
             theme_dir = get_theme_dir(theme_name)
             base_theme_config, base_theme_dirs = _load_theme_config(theme_dir)
+            static_templates = _static_templates(
+                base_theme_config, theme_config
+            )
             theme_config = {**base_theme_config, **theme_config}
+            theme_config["static_templates"] = static_templates
             theme_dirs = theme_dirs + base_theme_dirs
     else:
         # No custom theme directory
@@ -640,9 +787,14 @@ def _apply_defaults(config: dict, path: str) -> dict:
 
     # Store theme directories for Minijinja and merge theme configuration
     config["theme_dirs"] = theme_dirs
+    static_templates = _static_templates(
+        {"static_templates": ["404.html", "sitemap.xml"]},
+        theme_config,
+        config["theme"],
+    )
     config["theme"] = {**theme_config, **config["theme"]}
 
-    theme = config["theme"]
+    theme: dict[str, Any] = config["theme"]
     theme["font_explicit"] = font_explicit
 
     # Set defaults for theme name
@@ -659,7 +811,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
         font = {"text": "Roboto", "code": "Roboto Mono"}
 
     # Ensure presence of static templates
-    theme["static_templates"] = ["404.html", "sitemap.xml"]
+    theme["static_templates"] = static_templates
 
     # Set defaults for theme settings
     set_default(theme, "language", "en", str)
@@ -761,7 +913,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Ensure all non-existent values are all empty strings (for now)
     config["extra"] = cast("dict[str, Any]", _convert_extra(extra))
     config["extra"]["polyfills"] = _convert_extra_javascript(
-        config["extra"]["polyfills"]
+        config["extra"]["polyfills"], infer_polyfill_modules=True
     )
 
     # Set defaults for extra files
@@ -769,7 +921,8 @@ def _apply_defaults(config: dict, path: str) -> dict:
     set_default(config, "extra_templates", [], list)
 
     # Generate navigation if not defined, and convert
-    config["nav"] = _convert_nav(config.setdefault("nav", []))
+    nav = [] if config.get("nav") is None else config["nav"]
+    config["nav"] = _convert_nav(nav)
     config["extra_javascript"] = _convert_extra_javascript(
         config.setdefault("extra_javascript", [])
     )
@@ -926,7 +1079,7 @@ def _hash(data: Any) -> int:
 
 def _resolve(symbol: str) -> Any:
     """Resolve a symbol to its corresponding Python object."""
-    module_path, func_name = symbol.rsplit(".", 1)
+    module_path, func_name = _extension_alias(symbol).rsplit(".", 1)
     module = importlib.import_module(module_path)
     return getattr(module, func_name)
 
@@ -1545,13 +1698,20 @@ def _convert_extra(data: dict | list) -> dict | list:
     return data
 
 
-def _convert_extra_javascript(value: list) -> list:
+def _convert_extra_javascript(
+    value: list, *, infer_polyfill_modules: bool = False
+) -> list:
     """Ensure extra_javascript uses a structured format."""
     for i, item in enumerate(value):
         if isinstance(item, str):
+            # Module inference is applied only to lowercase string endings.
             value[i] = {
                 "path": item,
-                "type": None,
+                "type": (
+                    "module"
+                    if item.endswith(".mjs") and not infer_polyfill_modules
+                    else None
+                ),
                 "async": False,
                 "defer": False,
             }
@@ -1564,6 +1724,15 @@ def _convert_extra_javascript(value: list) -> list:
             raise ConfigurationError(
                 f"Unknown extra_javascript item type: {type(item)}"
             )
+
+    # Legacy module inference is retained for polyfills, which share the filter.
+    if infer_polyfill_modules:
+        for item in value:
+            if (
+                item["type"] is None
+                and Path(item["path"]).suffix.lower() == ".mjs"
+            ):
+                item["type"] = "module"
 
     # Return resulting value
     return value
@@ -1684,7 +1853,8 @@ def _convert_plugin_markdown_extensions(
     def add(extension: Any, extension_config: Any) -> None:
         if not isinstance(extension, str):
             raise ConfigurationError("Markdown extension names must be strings")
-        if extension_config is None:
+        extension = _extension_alias(extension)
+        if not extension_config:
             extension_config = {}
         if not isinstance(extension_config, dict):
             raise ConfigurationError(
@@ -2215,6 +2385,17 @@ def _convert_plugins(value: Any, config: dict) -> dict:
         elif name == "rss":
             rss.append({"name": name, "config": _normalize_rss(data)})
         else:
+            if name in plugins:
+                # Independent options cannot be retained by singleton shims.
+                # Duplicates are diagnosed; existing precedence is preserved.
+                message = (
+                    f"Plugin '{name}' was specified multiple times; "
+                    "its replacement supports a single configuration"
+                )
+                warnings.warn(message, stacklevel=3)
+                config.setdefault("config_warnings", []).append(message)
+                if config.get("strict"):
+                    raise ConfigurationError(message)
             plugins[name] = data
 
     if value is None:

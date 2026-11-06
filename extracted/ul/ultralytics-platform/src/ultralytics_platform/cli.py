@@ -7,18 +7,22 @@ import importlib.util
 import inspect
 import json
 import os
+import re
 import sys
 import time
 import types
 import typing
 import zipfile
+from base64 import b64encode
 from collections.abc import Sequence
 from contextlib import ExitStack
+from hashlib import file_digest, md5, sha256
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
-from tarfile import is_tarfile
+from pathlib import Path, PurePosixPath
+from tarfile import TarFile, is_tarfile
 from tempfile import TemporaryDirectory
 from typing import Any, BinaryIO, Literal, get_args, get_origin, get_type_hints
+from urllib.request import Request, urlopen
 
 from . import NOT_GIVEN, APIConnectionError, APIError, NotGiven, Platform
 from ._cli_metadata import MULTIPART_FILES
@@ -282,7 +286,7 @@ def platform_model(client: Platform, model: Any) -> str | None:
 
 
 def upload_model(client: Platform, model: Any, owner: str, project: str) -> str:
-    """Upload a local .pt checkpoint as a new model of the project and return its ul:// URI."""
+    """Upload a local .pt checkpoint as a model of the project, reusing an unchanged earlier upload, and return its URI."""
     from ultralytics import YOLO
     from ultralytics.utils.callbacks.platform import slugify
 
@@ -291,7 +295,19 @@ def upload_model(client: Platform, model: Any, owner: str, project: str) -> str:
         raise ValueError(
             f"model= must be a local .pt file, ul://owner/project/model, or official weights hosted on Platform: {model}"
         )
-    body = {"owner": owner, "project": project, "model": slugify(path.stem), "name": path.stem, "task": YOLO(path).task}
+    slug, size = slugify(path.stem), path.stat().st_size
+    with path.open("rb") as file:
+        digest = b64encode(file_digest(file, lambda: md5(usedforsecurity=False)).digest()).decode()
+    for m in client.models.list(owner, project, limit=100)["models"]:
+        if re.fullmatch(rf"{slug}(-\d+)?", m["model"]) and (m.get("file") or {}).get("size") == size:
+            for remote in client.models.files(owner, project, m["model"])["files"]:
+                with urlopen(Request(remote["downloadUrl"], headers={"Range": "bytes=0-0"}), timeout=30) as response:
+                    hashes = ",".join(response.headers.get_all("x-goog-hash", [])).replace(" ", "").split(",")
+                    if f"md5={digest}" in hashes:
+                        uri = f"ul://{owner}/{project}/{m['model']}"
+                        print(f"Model: {uri} (reused)")
+                        return uri
+    body = {"owner": owner, "project": project, "model": slug, "name": path.stem, "task": YOLO(path).task}
     created = client.models.create(body=body)
     upload_file(client, path, "models", created["id"])
     uri = f"ul://{created['owner']}/{created['project']}/{created['model']}"
@@ -480,17 +496,34 @@ def cloud_train(client: Platform, tokens: list[str]) -> int:
     owner, project_slug = resolve_project(client, project)
     with TemporaryDirectory(prefix="ul-cloud-train-") as temporary:
         archive = package_dataset(local_data, temporary, args.get("task")) if local_data else None
-        model = args["model"]
-        if Path(model).is_file() or not (model.startswith("ul://") or model in GITHUB_ASSETS_NAMES):
-            args["model"] = upload_model(client, model, owner, project_slug)
-        else:  # hosted official weights map to their public model; other official names stay bare for the worker
-            args["model"] = platform_model(client, model) or model
-        if archive:
+        if archive:  # an unchanged local dataset reuses the Platform dataset its last upload created
+            slug, existing = slugify(archive.stem) or "dataset", None
+            uri = args["data"] = f"ul://{owner}/datasets/{slug}"
+            if zipfile.is_zipfile(archive):  # names and contents: repacks, copies and checkouts change only dates
+                with zipfile.ZipFile(archive) as zf:
+                    members = [
+                        (i.filename, file_digest(zf.open(i), sha256).digest()) for i in zf.infolist() if not i.is_dir()
+                    ]
+            else:
+                with TarFile.open(archive) as tar:
+                    members = [
+                        (m.name, m.linkname, file_digest(tar.extractfile(m), sha256).digest() if m.isfile() else b"")
+                        for m in tar
+                        if not m.isdir()
+                    ]
+            digest = sha256(repr(sorted(members, key=lambda m: str(PurePosixPath(m[0])))).encode()).hexdigest()
+            try:
+                existing = client.datasets.retrieve(owner, slug)["dataset"]
+            except APIError as error:
+                if error.status_code != 404:
+                    raise
+            if existing and (existing.get("status"), existing["metadata"].get("ul_cloud_sha256")) != ("ready", digest):
+                raise ValueError(f"{uri} exists but is not a ready upload of this data; pass data={uri} or rename it")
+            print(f"Dataset: {uri} ({'reused; Platform edits since its upload are kept' if existing else 'uploading'})")
+        if archive and not existing:
             dataset = client.datasets.create(  # Platform infers the task from the labels during ingest
-                owner=owner, dataset=slugify(archive.stem) or "dataset", name=archive.stem, visibility="private"
+                owner=owner, dataset=slug, name=archive.stem, visibility="private"
             )
-            args["data"] = f"ul://{dataset['owner']}/datasets/{dataset['dataset']}"
-            print(f"Dataset: {args['data']} (reuse this URI to skip uploading next time)")
             session = upload_file(client, archive, "datasets", dataset["id"])
             client.datasets.ingest(dataset["owner"], dataset["dataset"], body={"sessionId": session})
             state = {"status": "processing"}
@@ -499,6 +532,12 @@ def cloud_train(client: Platform, tokens: list[str]) -> int:
                 state = client.datasets.retrieve(dataset["owner"], dataset["dataset"])["dataset"]
             if state.get("status") == "failed":
                 raise CloudJobError(f"Dataset ingestion failed; inspect {args['data']}: {state.get('processingError')}")
+            client.datasets.update(owner, slug, metadata=state["metadata"] | {"ul_cloud_sha256": digest})
+        model = args["model"]
+        if Path(model).is_file() or not (model.startswith("ul://") or model in GITHUB_ASSETS_NAMES):
+            args["model"] = upload_model(client, model, owner, project_slug)
+        else:  # hosted official weights map to their public model; other official names stay bare for the worker
+            args["model"] = platform_model(client, model) or model
         body = {"owner": owner, "project": project_slug}
         if name:
             body |= {"model": slugify(name), "name": name}
@@ -531,7 +570,7 @@ def prediction_result(image, path: str, prediction: dict, names: dict, task: str
 
     rows, values = prediction["results"], {}
     if task == "classify":
-        values["probs"] = np.zeros(len(names), dtype=np.float32)
+        values["probs"] = np.zeros(max(row["class"] for row in rows) + 1, dtype=np.float32)
         for row in rows:
             values["probs"][row["class"]] = row["confidence"]
     elif task not in {"semantic", "depth"}:
@@ -582,13 +621,13 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
     from ultralytics.engine.predictor import BasePredictor
     from ultralytics.nn.autobackend import default_class_names
 
-    metadata = response["metadata"]  # classNames and task are optional in the contract
-    names = dict(enumerate(metadata["classNames"])) if metadata.get("classNames") else default_class_names()
-    if (task := metadata.get("task")) is None:
+    names = default_class_names() | {r["class"]: r["name"] for image in response["images"] for r in image["results"]}
+    if (task := response["metadata"].get("task")) is None:  # optional in the contract
         raise ValueError("Platform did not report the model task, so predictions cannot be converted")
     writer = BasePredictor(cfg=DEFAULT_CFG_DICT | args | {"task": task, "mode": "predict"})
     options, directory = writer.args, writer.save_dir
     writer.dataset = dataset = load_inference_source(str(source), batch=1, vid_stride=options.vid_stride)
+    writer.source_type = dataset.source_type  # setup_source() state that save_predicted_images() reads
     if options.save or options.save_txt or options.save_crop:
         directory.mkdir(parents=True, exist_ok=True)
         directory.joinpath("results.json").write_text(json.dumps(response, indent=2))
@@ -608,6 +647,7 @@ def save_predictions(source: Path, response: dict, args: dict) -> None:
                     labels=options.show_labels,
                 )
             if options.save_txt:
+                (directory / "labels" / f"{stem}.txt").unlink(missing_ok=True)
                 result.save_txt(directory / "labels" / f"{stem}.txt", save_conf=options.save_conf)
             if options.save_crop:
                 result.save_crop(save_dir=directory / "crops", file_name=stem)
@@ -635,12 +675,12 @@ def cloud_predict(client: Platform, tokens: list[str]) -> int:
     from ultralytics.data.build import check_source
 
     args = yolo_args(tokens)
+    check_cfg(args)
     source = check_source(str(args.pop("source", "")))[0]  # newer YOLO decodes extensionless image URLs to a list
     if not isinstance(source, str) or not (source := Path(source).expanduser()).is_file():
         raise ValueError("source= must be a local image or video file, or a URL with an image or video extension")
     model, project = args.pop("model", "yolo26n.pt"), args.pop("project", None)
     local_args = args | {"model": model, "project": project}
-    check_cfg(local_args)  # reject invalid values before the paid Platform prediction, as `yolo predict` would
     uri = platform_model(client, model) or upload_model(client, model, *resolve_project(client, project))
     owner, project, model = uri[5:].split("/")
     # YOLO options the endpoint accepts
@@ -695,17 +735,40 @@ def cloud_export(client: Platform, tokens: list[str]) -> int:
 
 def cloud_download(client: Platform, tokens: list[str]) -> int:
     """ul cloud download model=ul://owner/project/model [project=runs/detect name=train exist_ok=True]
+    ul cloud download data=ul://owner/datasets/slug [save_dir=path]
 
     Waits for training to finish, then saves weights/best.pt, args.yaml, results.csv, and results.json under YOLO's
     save directory, exactly as `ul cloud train ... watch` does.
+    data= instead downloads the full dataset as YOLO files under save_dir=, then project=, else YOLO's datasets
+    directory, and prints the path to train with; rerun after an interruption to reuse completed downloads.
     """
     from ultralytics.cfg import DEFAULT_CFG_DICT, get_cfg
 
     args = yolo_args(tokens)
+    if "data" in args:
+        if unsupported := args.keys() - {"data", "save_dir", "project"}:
+            raise ValueError(f"Unsupported dataset download arguments: {', '.join(sorted(unsupported))}")
+        uri = str(args["data"])
+        if not uri.startswith("ul://") or uri.split("/")[3] != "datasets":
+            raise ValueError("data= must be a ul://owner/datasets/slug URI")
+        import asyncio
+
+        from ultralytics.data.converter import convert_ndjson_to_yolo
+
+        directory = args.get("save_dir") or args.get("project")
+        try:
+            path = asyncio.run(convert_ndjson_to_yolo(uri, Path(directory).expanduser() if directory else None))
+        except RuntimeError as error:  # incomplete image downloads
+            raise CloudJobError(str(error)) from error
+        print(f"Dataset ready: data={path.resolve()}")
+        return 0
     uri = str(args.get("model", ""))
     if not uri.startswith("ul://"):
         raise ValueError("model= must be a ul://owner/project/model URI")
-    return download_model(client, uri, get_cfg(DEFAULT_CFG_DICT | args | {"mode": "train"}))
+    cfg = get_cfg(DEFAULT_CFG_DICT | args | {"mode": "train"})
+    if (client.models.training(*uri[5:].split("/"))["job"] or {}).get("status") in {"pending", "untrained"}:
+        raise CloudJobError(f"{uri} has not been trained yet; start training with `ul cloud train`")
+    return download_model(client, uri, cfg)
 
 
 CLOUD_COMMANDS = {"train": cloud_train, "predict": cloud_predict, "export": cloud_export, "download": cloud_download}

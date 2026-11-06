@@ -1,3 +1,7 @@
+# Copyright (C) 2020 Zurich Instruments
+#
+# This software may be modified and distributed under the terms
+# of the MIT license. See the LICENSE file for details.
 """High-level generic lazy node tree for the zhinst.core package."""
 
 from __future__ import annotations
@@ -11,6 +15,9 @@ from keyword import iskeyword as is_keyword
 from zhinst.toolkit.exceptions import ToolkitError
 from zhinst.toolkit.nodetree.helper import NodeDoc, _NodeInfo
 from zhinst.toolkit.nodetree.node import Node, NodeInfo
+
+#: Characters that make a raw node path a Unix shell-style pattern.
+_WILDCARD_CHARACTERS = frozenset("*?[")
 
 
 class Connection(t.Protocol):
@@ -301,6 +308,25 @@ class NodeTree:
             self._node_infos[node] = NodeInfo(node)
             return self._node_infos[node]
 
+    def _resolve_raw_path(self, raw_path: str) -> list[str]:
+        """Resolve a raw node path, which may contain wildcards, to existing keys.
+
+        An existing path without wildcards can only match itself, so it is
+        looked up directly. Everything else falls back to ``fnmatch``, which
+        has to test every node in the tree. Doing that for every single node
+        access makes e.g. snapshotting a device quadratic in its node count.
+
+        Args:
+            raw_path: Raw node path, optionally with Unix shell-style wildcards.
+
+        Returns:
+            The matching raw node paths. Empty if nothing matches.
+        """
+        is_pattern = not _WILDCARD_CHARACTERS.isdisjoint(raw_path)
+        if not is_pattern and raw_path in self._flat_dict:
+            return [raw_path]
+        return fnmatch.filter(self._flat_dict.keys(), raw_path)
+
     def get_node_info_raw(
         self,
         node: t.Union[Node, str],
@@ -321,8 +347,7 @@ class NodeTree:
                 path and no prefix can be added.
         """
         key = self.to_raw_path(node)
-        # resolve potential wildcards
-        keys = fnmatch.filter(self._flat_dict.keys(), key)
+        keys = self._resolve_raw_path(key)
         result = {}
         for single_key in keys:
             result[self.raw_path_to_node(single_key)] = self._flat_dict.get(single_key)
@@ -353,12 +378,11 @@ class NodeTree:
                 path and no prefix can be added.
         """
         potential_key = self.to_raw_path(node).lower()
-        # resolve potential wildcards
-        keys = fnmatch.filter(self._flat_dict.keys(), potential_key)
+        keys = self._resolve_raw_path(potential_key)
         if not keys:
             if not add:
                 raise KeyError(potential_key)
-            if any(wildcard in potential_key for wildcard in ["*", "?", "["]):
+            if not _WILDCARD_CHARACTERS.isdisjoint(potential_key):
                 # Can be implemented in the future if necessary
                 msg = (
                     f"{potential_key}: Unable to resolve wildcards when adding "

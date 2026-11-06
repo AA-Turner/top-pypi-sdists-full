@@ -19,8 +19,12 @@ from OpenSSL.crypto import X509, PKey
 from OpenSSL.SSL import VERIFY_FAIL_IF_NO_PEER_CERT, VERIFY_PEER, Connection
 
 import attr
-from constantly import FlagConstant, Flags, NamedConstant, Names
+from constantly import NamedConstant, Names
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.x509.oid import NameOID
 from incremental import Version
+from typing_extensions import Self
 
 from twisted.internet.abstract import isIPAddress, isIPv6Address
 from twisted.internet.defer import Deferred
@@ -101,58 +105,6 @@ def _getExcludedTLSProtocols(oldest, newest):
     return excludedVersions
 
 
-class ProtocolNegotiationSupport(Flags):
-    """
-    L{ProtocolNegotiationSupport} defines flags which are used to indicate the
-    level of ALPN support provided by the TLS backend.
-
-    @cvar NOSUPPORT: There is no support for ALPN.  This is exclusive with
-        L{ALPN}.
-
-    @cvar NPN: The implementation supports Next Protocol Negotiation.  (This
-        flag is provided for compatibility only; Twisted no longer supports
-        Next Protocol Negotiation)
-
-    @cvar ALPN: The implementation supports Application Layer Protocol
-        Negotiation.
-    """
-
-    NPN = FlagConstant(0x0001)
-    ALPN = FlagConstant(0x0002)
-
-
-# FIXME: https://twistedmatrix.com/trac/ticket/8074
-# Currently flags with literal zero values behave incorrectly. However,
-# creating a flag by NOTing a flag with itself appears to work totally fine, so
-# do that instead.
-ProtocolNegotiationSupport.NOSUPPORT = (
-    ProtocolNegotiationSupport.NPN ^ ProtocolNegotiationSupport.NPN
-)
-
-
-def protocolNegotiationMechanisms() -> FlagConstant:
-    """
-    Check whether the installed versions of pyOpenSSL and OpenSSL are recent
-    enough to support ALPN.
-
-    @return: A combination of flags from L{ProtocolNegotiationSupport} that
-        indicate which mechanisms for protocol negotiation are supported.
-    """
-    # TODO: deprecate this, as it will always return ALPN and only ALPN on all
-    # supported versions of OpenSSL.
-    support = ProtocolNegotiationSupport.NOSUPPORT
-    ctx = SSL.Context(SSL.SSLv23_METHOD)
-
-    try:
-        ctx.set_alpn_select_callback(lambda connection, protocols: protocols[0])
-    except (AttributeError, NotImplementedError):
-        pass
-    else:
-        support |= ProtocolNegotiationSupport.ALPN
-
-    return support
-
-
 _x509names = {
     "CN": "commonName",
     "commonName": "commonName",
@@ -167,6 +119,29 @@ _x509names = {
     "C": "countryName",
     "countryName": "countryName",
     "emailAddress": "emailAddress",
+}
+
+_x509NameOIDs = {
+    "commonName": NameOID.COMMON_NAME,
+    "organizationName": NameOID.ORGANIZATION_NAME,
+    "organizationalUnitName": NameOID.ORGANIZATIONAL_UNIT_NAME,
+    "localityName": NameOID.LOCALITY_NAME,
+    "stateOrProvinceName": NameOID.STATE_OR_PROVINCE_NAME,
+    "countryName": NameOID.COUNTRY_NAME,
+    "emailAddress": NameOID.EMAIL_ADDRESS,
+}
+
+# Reverse of _x509NameOIDs, for translating a parsed subject back into a
+# DistinguishedName.
+_x509OIDNames = {oid: name for name, oid in _x509NameOIDs.items()}
+
+_digestAlgorithms = {
+    "md5": hashes.MD5,
+    "sha1": hashes.SHA1,
+    "sha224": hashes.SHA224,
+    "sha256": hashes.SHA256,
+    "sha384": hashes.SHA384,
+    "sha512": hashes.SHA512,
 }
 
 
@@ -490,19 +465,52 @@ class CertificateRequest(CertBase):
 
     Certificate requests are given to certificate authorities to be signed and
     returned resulting in an actual certificate.
+
+    @ivar original: The underlying CSR object.
     """
 
-    @classmethod
-    def load(Class, requestData, requestFormat=crypto.FILETYPE_ASN1):
-        req = crypto.load_certificate_request(requestFormat, requestData)
-        dn = DistinguishedName()
-        dn._copyFrom(req.get_subject())
-        if not req.verify(req.get_pubkey()):
-            raise VerifyError(f"Can't verify that request for {dn!r} is self-signed.")
-        return Class(req)
+    original: x509.CertificateSigningRequest
 
-    def dump(self, format=crypto.FILETYPE_ASN1):
-        return crypto.dump_certificate_request(format, self.original)
+    @classmethod
+    def load(
+        cls, requestData: bytes, requestFormat: int = crypto.FILETYPE_ASN1
+    ) -> CertificateRequest:
+        if requestFormat == crypto.FILETYPE_ASN1:
+            req = x509.load_der_x509_csr(requestData)
+        elif requestFormat == crypto.FILETYPE_PEM:
+            req = x509.load_pem_x509_csr(requestData)
+        else:
+            raise ValueError(f"Unsupported format: {requestFormat!r}")
+        if not req.is_signature_valid:
+            subject = req.subject
+            raise VerifyError(
+                f"Can't verify that request for {subject!r} is self-signed."
+            )
+        return cls(req)
+
+    def getSubject(self) -> DistinguishedName:
+        """
+        Retrieve the subject of this certificate request.
+
+        @return: A copy of the subject of this certificate request.
+        @rtype: L{DistinguishedName}
+        """
+        dn = DistinguishedName()
+        for attribute in self.original.subject:
+            try:
+                name = _x509OIDNames[attribute.oid]
+            except KeyError:
+                raise ValueError(f"Unknown X509 name attribute: {attribute.oid!r}")
+            setattr(dn, name, attribute.value)
+        return dn
+
+    def dump(self, format: int = crypto.FILETYPE_ASN1) -> bytes:
+        if format == crypto.FILETYPE_ASN1:
+            return self.original.public_bytes(serialization.Encoding.DER)
+        elif format == crypto.FILETYPE_PEM:
+            return self.original.public_bytes(serialization.Encoding.PEM)
+        else:
+            raise ValueError(f"Unsupported format: {format!r}")
 
 
 class PrivateCertificate(Certificate):
@@ -705,19 +713,30 @@ class KeyPair(PublicKey):
         return "%s-bit %s Key Pair with Hash: %s" % L
 
     @classmethod
-    def generate(Class, kind=crypto.TYPE_RSA, size=2048):
+    def generate(cls, kind: int = crypto.TYPE_RSA, size: int = 2048) -> Self:
         pkey = crypto.PKey()
         pkey.generate_key(kind, size)
-        return Class(pkey)
+        return cls(pkey)
 
     def newCertificate(self, newCertData, format=crypto.FILETYPE_ASN1):
         return PrivateCertificate.load(newCertData, self, format)
 
     def requestObject(self, distinguishedName, digestAlgorithm="sha256"):
-        req = crypto.X509Req()
-        req.set_pubkey(self.original)
-        distinguishedName._copyInto(req.get_subject())
-        req.sign(self.original, digestAlgorithm)
+        req = (
+            x509.CertificateSigningRequestBuilder()
+            .subject_name(
+                x509.Name(
+                    [
+                        x509.NameAttribute(_x509NameOIDs[k], nativeString(v))
+                        for k, v in distinguishedName.items()
+                    ]
+                )
+            )
+            .sign(
+                self.original.to_cryptography_key(),
+                _digestAlgorithms[digestAlgorithm](),
+            )
+        )
         return CertificateRequest(req)
 
     def certificateRequest(
@@ -787,8 +806,8 @@ class KeyPair(PublicKey):
         req = requestObject.original
         cert = crypto.X509()
         issuerDistinguishedName._copyInto(cert.get_issuer())
-        cert.set_subject(req.get_subject())
-        cert.set_pubkey(req.get_pubkey())
+        requestObject.getSubject()._copyInto(cert.get_subject())
+        cert.set_pubkey(crypto.PKey.from_cryptography_key(req.public_key()))
         cert.gmtime_adj_notBefore(0)
         cert.gmtime_adj_notAfter(secondsToExpiry)
         cert.set_serial_number(serialNumber)
@@ -1234,8 +1253,8 @@ class OpenSSLCertificateOptions:
         extraCertChain: list[X509] | None = None,
         acceptableCiphers: IAcceptableCiphers | None = None,
         dhParameters: OpenSSLDiffieHellmanParameters | None = None,
-        trustRoot: IOpenSSLTrustRoot | None = None,
-        acceptableProtocols: list[bytes] | None = None,
+        trustRoot: IOpenSSLTrustRoot | Certificate | None = None,
+        acceptableProtocols: Sequence[bytes] | None = None,
         raiseMinimumTo: NamedConstant | None = None,
         insecurelyLowerMinimumTo: NamedConstant | None = None,
         lowerMaximumSecurityTo: NamedConstant | None = None,
@@ -1656,10 +1675,10 @@ class OpenSSLCertificateOptions:
         return ctx
 
 
-OpenSSLCertificateOptions.__getstate__ = deprecated(  # type:ignore[method-assign]
+OpenSSLCertificateOptions.__getstate__ = deprecated(  # type: ignore[method-assign]
     Version("Twisted", 15, 0, 0), "a real persistence system"
 )(OpenSSLCertificateOptions.__getstate__)
-OpenSSLCertificateOptions.__setstate__ = deprecated(  # type:ignore[method-assign]
+OpenSSLCertificateOptions.__setstate__ = deprecated(  # type: ignore[method-assign]
     Version("Twisted", 15, 0, 0), "a real persistence system"
 )(OpenSSLCertificateOptions.__setstate__)
 

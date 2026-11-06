@@ -26,7 +26,9 @@ test-unit:
 		src/novita_sandbox/core/tests/test_volume_mount_config.py \
 		src/novita_sandbox/core/tests/test_sandbox_clone_reset_compat.py \
 		src/novita_sandbox/core/tests/test_quota_events.py \
-		src/novita_sandbox/core/tests/test_legacy_compat.py
+		src/novita_sandbox/core/tests/test_legacy_compat.py \
+		src/novita_sandbox/core/tests/sync/job/test_job.py \
+		src/novita_sandbox/core/tests/async/job/test_job_async.py
 
 lint:
 	poetry run ruff check src tests

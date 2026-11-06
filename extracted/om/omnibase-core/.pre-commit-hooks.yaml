@@ -1279,6 +1279,21 @@
   require_serial: true
   stages: [pre-commit]
 
+- id: check-public-lab-selection
+  name: A public workflow selects no lab runner (OMN-19998)
+  description: >
+    RULING 2026-11-05T09:10:44Z. Refuse a public-repository job whose runs-on names a label that is not
+    GitHub-hosted, reads a variable that is not a declared hosted seam, or reads a value the workflow
+    cannot prove hosted, and a new caller of a lab-selecting reusable workflow, unless a typed route packaged
+    with this omnibase_core says what replaces the job. Routes only shrink. Pass --repo <name> when the
+    checkout directory is not the repository name; a private repository passes --visibility private.
+  language: python
+  entry: python -m omnibase_core.validation.validator_public_lab_selection
+  files: ^\.github/workflows/[^/]+\.ya?ml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
 - id: check-public-runner-placement
   name: Public repositories add no self-hosted CI job (OMN-19998)
   description: >
@@ -1455,6 +1470,17 @@
   language: python
   entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_event_chain_walker:ValidatorEventChainWalker
   files: (^|/)[^/]*contract\.yaml$
+  pass_filenames: false
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-chain-scenarios
+  name: Refuse chain scenarios that cannot yield a test that fails (OMN-22478)
+  description: Refuses a node's typed chain scenarios with a missing golden or error case, a recorded
+    oracle, undeclared named breaks or a stale or green mutation receipt.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_chain_scenario:ValidatorChainScenario
+  files: (^|/)([^/]*contract\.yaml|chain_scenario_receipts\.json)$
   pass_filenames: false
   require_serial: true
   stages: [pre-commit]
@@ -1766,5 +1792,19 @@
   entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_dep_provenance:ValidatorDepProvenance
   files: '(^|/)pyproject\.toml$'
   pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-error-rule-table
+  name: Validate error-rule rows and action-contract closures (OMN-19998)
+  description: >
+    The closed action registry, transitive capability and target stops, pinned closure digest, source
+    resolution, negative fixtures, terminal none branch and measurement ownership are checked by the core
+    checker. The existing validation node publishes the verdict. Recheck every table when any file under
+    error_rules changes, including a contract manifest.
+  language: python
+  entry: python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run omnibase_core.validation.validator_error_rule_table:ValidatorErrorRuleTable
+  files: '(^|/)(error_rules/.*\.ya?ml|error_rules\.ya?ml|.*\.error_rules\.ya?ml)$'
+  pass_filenames: false
   require_serial: true
   stages: [pre-commit]

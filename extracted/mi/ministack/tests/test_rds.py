@@ -15799,6 +15799,42 @@ def _pg_connect(endpoint, user="admin", password=PASSWORD, database=DATABASE):
     )
 
 
+@pytest.mark.skipif(
+    not os.environ.get("DOCKER_NETWORK"),
+    reason="DOCKER_NETWORK not set -- live PostgreSQL",
+)
+def test_postgres_iam_auth_rds_iam_member_logs_in_with_token(rds):
+    import psycopg2
+
+    db_id = f"pgiam-{uuid.uuid4().hex[:8]}"
+    rds.create_db_instance(
+        DBInstanceIdentifier=db_id, Engine="postgres", DBInstanceClass="db.t3.micro",
+        MasterUsername="admin", MasterUserPassword=PASSWORD, DBName=DATABASE,
+        AllocatedStorage=20, EnableIAMDatabaseAuthentication=True,
+    )
+    try:
+        endpoint = _wait_for_instance(rds, db_id, timeout=180)["Endpoint"]
+        with _pg_connect(endpoint) as conn, conn.cursor() as cursor:
+            conn.autocommit = True
+            cursor.execute("CREATE USER iam_user; GRANT rds_iam TO iam_user")
+        token = rds.generate_db_auth_token(
+            DBHostname=endpoint["Address"], Port=endpoint["Port"], DBUsername="iam_user",
+        )
+        with _pg_connect(endpoint, user="iam_user", password=token) as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT current_user")
+            assert cursor.fetchone() == ("iam_user",)
+
+        rds.modify_db_instance(DBInstanceIdentifier=db_id,
+                               EnableIAMDatabaseAuthentication=False, ApplyImmediately=True)
+        with pytest.raises(psycopg2.OperationalError, match="authentication failed"):
+            _pg_connect(endpoint, user="iam_user", password=token)
+        with _pg_connect(endpoint) as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT current_user")
+            assert cursor.fetchone() == ("admin",)
+    finally:
+        rds.delete_db_instance(DBInstanceIdentifier=db_id, SkipFinalSnapshot=True)
+
+
 @contextlib.contextmanager
 def _live_pg_cluster(rds):
     suffix = uuid.uuid4().hex[:10]
@@ -18300,3 +18336,17 @@ def test_rds_aurora_postgresql_lists_the_current_minors(rds, version):
     listed = rds.describe_db_engine_versions(Engine="aurora-postgresql", EngineVersion=version)["DBEngineVersions"]
     assert [(v["EngineVersion"], v["DBParameterGroupFamily"]) for v in listed] == [
         (version, f"aurora-postgresql{version.split('.')[0]}")]
+
+
+def test_host_port_probe_sees_ports_the_daemon_publishes(monkeypatch):
+    """Inside MiniStack's container a bind probe can't see another container's published port; the daemon can."""
+    import types
+
+    from ministack.services import rds as m
+
+    fake = types.SimpleNamespace(api=types.SimpleNamespace(containers=lambda: [
+        {"Ports": [{"PrivatePort": 6379, "PublicPort": 16381, "Type": "tcp"}]}, {"Ports": []}]))
+    monkeypatch.setattr(m, "_get_docker", lambda: fake)
+    monkeypatch.setattr(m, "_published_cache", [0.0, frozenset()])
+    assert not m._is_host_port_free(16381)
+    assert m._is_host_port_free(16382)

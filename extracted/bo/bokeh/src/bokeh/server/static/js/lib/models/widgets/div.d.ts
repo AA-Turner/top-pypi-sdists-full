@@ -2,6 +2,8 @@ import { Markup, MarkupView } from "./markup";
 import type * as p from "../../core/properties";
 export declare class DivView extends MarkupView {
     model: Div;
+    connect_signals(): void;
+    protected _follow_fragment_link(event: MouseEvent): void;
     render(): void;
 }
 export declare namespace Div {

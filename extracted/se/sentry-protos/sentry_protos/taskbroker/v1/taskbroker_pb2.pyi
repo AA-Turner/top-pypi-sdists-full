@@ -131,6 +131,7 @@ class TaskActivation(google.protobuf.message.Message):
     EXPIRES_FIELD_NUMBER: builtins.int
     DELAY_FIELD_NUMBER: builtins.int
     APPLICATION_FIELD_NUMBER: builtins.int
+    HEARTBEAT_FIELD_NUMBER: builtins.int
     id: builtins.str
     """A GUID for the activation. Used to update activations"""
     namespace: builtins.str
@@ -168,6 +169,11 @@ class TaskActivation(google.protobuf.message.Message):
     is enforced during taskbroker ingestion as adding required fields to a protobuf
     is a breaking change.
     """
+    heartbeat: builtins.int
+    """The duration in seconds that a worker has between heartbeats.
+    When set, an activation in processing that misses a heartbeat is retried
+    without waiting for processing_deadline_duration.
+    """
     @property
     def headers(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
         """A map of headers for the activation."""
@@ -195,15 +201,18 @@ class TaskActivation(google.protobuf.message.Message):
         expires: builtins.int | None = ...,
         delay: builtins.int | None = ...,
         application: builtins.str | None = ...,
+        heartbeat: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "application", b"application", "delay", b"delay", "expires", b"expires", "received_at", b"received_at", "retry_state", b"retry_state"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "application", b"application", "delay", b"delay", "expires", b"expires", "headers", b"headers", "id", b"id", "namespace", b"namespace", "parameters", b"parameters", "parameters_bytes", b"parameters_bytes", "processing_deadline_duration", b"processing_deadline_duration", "received_at", b"received_at", "retry_state", b"retry_state", "taskname", b"taskname"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "_heartbeat", b"_heartbeat", "application", b"application", "delay", b"delay", "expires", b"expires", "heartbeat", b"heartbeat", "received_at", b"received_at", "retry_state", b"retry_state"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_application", b"_application", "_delay", b"_delay", "_expires", b"_expires", "_heartbeat", b"_heartbeat", "application", b"application", "delay", b"delay", "expires", b"expires", "headers", b"headers", "heartbeat", b"heartbeat", "id", b"id", "namespace", b"namespace", "parameters", b"parameters", "parameters_bytes", b"parameters_bytes", "processing_deadline_duration", b"processing_deadline_duration", "received_at", b"received_at", "retry_state", b"retry_state", "taskname", b"taskname"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_application", b"_application"]) -> typing.Literal["application"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_delay", b"_delay"]) -> typing.Literal["delay"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_expires", b"_expires"]) -> typing.Literal["expires"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_heartbeat", b"_heartbeat"]) -> typing.Literal["heartbeat"] | None: ...
 
 global___TaskActivation = TaskActivation
 
@@ -371,6 +380,36 @@ class SetBatchActivationStatusResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___SetBatchActivationStatusResponse = SetBatchActivationStatusResponse
+
+@typing.final
+class UpdateHeartbeatRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ID_FIELD_NUMBER: builtins.int
+    HEARTBEAT_INTERVAL_FIELD_NUMBER: builtins.int
+    id: builtins.str
+    """The id of the activation being processed."""
+    heartbeat_interval: builtins.int
+    """The heartbeat interval in seconds."""
+    def __init__(
+        self,
+        *,
+        id: builtins.str = ...,
+        heartbeat_interval: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["heartbeat_interval", b"heartbeat_interval", "id", b"id"]) -> None: ...
+
+global___UpdateHeartbeatRequest = UpdateHeartbeatRequest
+
+@typing.final
+class UpdateHeartbeatResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___UpdateHeartbeatResponse = UpdateHeartbeatResponse
 
 @typing.final
 class PushTaskRequest(google.protobuf.message.Message):

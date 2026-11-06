@@ -108,7 +108,3 @@ class ChatFlowStateCollection:
             )
             woken += result.modified_count
         return woken
-
-    async def delete_for_chat(self, chat_id: StrObjectId) -> int:
-        """Sin llamador (ENG-156): borraba los estados del chat y vaciaba `flow_ids` por fuera de `ChatRepository`."""
-        raise NotImplementedError("delete_for_chat no tiene llamador (ENG-156)")

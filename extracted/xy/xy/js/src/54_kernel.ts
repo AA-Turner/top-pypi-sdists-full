@@ -4,6 +4,7 @@ import { parseColor } from "./20_theme";
 import {
   lodAggregateStands, lodAggregateStepWindow, lodApplyDensityUpdate, lodApplyDrill,
   lodDrillServesView, lodDropDrill, lodFilterKey, lodPromoteCachedDrill, lodRememberDensity,
+  lodUploadWireGrid,
 } from "./45_lod";
 import { xyCreateRebinWorker } from "./46_worker";
 import { ChartView } from "./50_chartview";
@@ -280,10 +281,12 @@ Object.assign(ChartView.prototype, {
         const hd = g._homeDensity;
         this._applySampleRebinGrid(g, {
           ...hd,
-          tex: this._uploadGrid(
-            hd.grid, hd.w, hd.h, hd.normMax || hd.max || 1, hd.rgba, hd.filter,
-            this._fillOpacity(g.trace.style),
-          ),
+          tex: hd.grid
+            ? this._uploadGrid(
+              hd.grid, hd.w, hd.h, hd.normMax || hd.max || 1, hd.rgba, hd.filter,
+              this._fillOpacity(g.trace.style),
+            )
+            : lodUploadWireGrid(this.gl, hd.wire, hd.w, hd.h, hd.filter),
         }, false);
       }
       return;
@@ -451,6 +454,7 @@ Object.assign(ChartView.prototype, {
       // domain (history inspection must remain stationary).
       if (this._transitionView) this._transitionView.to = { ...nextView };
       else this.view = { ...nextView };
+      this._syncOutsideLegendPlacement(prevSpec);
       this._scheduleAppendRefine(nextView, atHome);
       return;
     }
@@ -467,6 +471,15 @@ Object.assign(ChartView.prototype, {
     } else if (pinnedRight) {
       const w = this.view.x1 - this.view.x0;
       this.view = this._viewFrom({ x1: this.view0.x1, x0: this.view0.x1 - w });
+    }
+    // The append may move the legend into or out of the outside-top band.
+    // Re-laying out resizes (and so clears) the canvases, so while the
+    // context is lost the last frame stays and the move waits for the next
+    // drawable frame (`_drawNow`), compared against the spec still mounted.
+    if (this._glLost || !this.gl) {
+      if (this._outsideLegendSyncFrom == null) this._outsideLegendSyncFrom = prevSpec;
+    } else {
+      this._syncOutsideLegendPlacement(prevSpec);
     }
     // Append payloads are canonical state, so retain them even while the
     // context is lost. The restore path rebuilds every affected GPU object

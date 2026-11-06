@@ -30,6 +30,9 @@ import os
 import sys
 import time
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

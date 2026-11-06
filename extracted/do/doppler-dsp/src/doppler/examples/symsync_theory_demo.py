@@ -27,6 +27,7 @@ import sys
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import SymbolSync
 
 SPS = 8
@@ -121,6 +122,7 @@ def _ted_var(snr_db, nsym=3000, seed=3):
 
 
 def main(out_path="symsync_theory_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

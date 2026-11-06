@@ -3,6 +3,8 @@
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, Self, cast
 
+from numpy.typing import NDArray
+
 from albumentations.core.invocation import SamplingContext
 from albumentations.core.transform_params import SampledParams, TargetSet
 
@@ -17,7 +19,6 @@ from ._transforms_shared import (
     DualTransform,
     Field,
     FullInterpolationType,
-    ImageType,
     PercentChoiceType,
     PercentType,
     PxChoiceType,
@@ -683,7 +684,7 @@ class CropAndPad(DualTransform):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
@@ -861,13 +862,13 @@ class CropAndPad(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         crop_params: tuple[int, int, int, int] | None,
         pad_params: tuple[int, int, int, int] | None,
         fill: tuple[float, ...] | float,
         shape: tuple[int, int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         result = fcrops.crop_and_pad(
             img,
             crop_params,
@@ -884,13 +885,13 @@ class CropAndPad(DualTransform):
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         crop_params: tuple[int, int, int, int] | None,
         pad_params: tuple[int, int, int, int] | None,
         fill_mask: tuple[float, ...] | float,
         shape: tuple[int, int],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fcrops.crop_and_pad(
             mask,
             crop_params,

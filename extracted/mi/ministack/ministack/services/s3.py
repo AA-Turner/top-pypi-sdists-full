@@ -783,6 +783,7 @@ _SSE_STORED_HEADERS = (
     "x-amz-server-side-encryption-aws-kms-key-id",
     "x-amz-server-side-encryption-customer-algorithm",
     "x-amz-server-side-encryption-customer-key-md5",
+    "x-amz-server-side-encryption-bucket-key-enabled",
 )
 
 
@@ -841,6 +842,7 @@ def _resolve_sse_write_headers(headers: dict, bucket_name: str):
     c_alg = headers.get("x-amz-server-side-encryption-customer-algorithm", "")
     c_key = headers.get("x-amz-server-side-encryption-customer-key", "")
     c_md5 = headers.get("x-amz-server-side-encryption-customer-key-md5", "")
+    bucket_key = headers.get("x-amz-server-side-encryption-bucket-key-enabled", "").lower()
 
     if sse and (c_alg or c_key or c_md5):
         return None, _error(
@@ -863,6 +865,8 @@ def _resolve_sse_write_headers(headers: dict, bucket_name: str):
                     400,
                 )
             out["x-amz-server-side-encryption-aws-kms-key-id"] = kms
+            if bucket_key:
+                out["x-amz-server-side-encryption-bucket-key-enabled"] = bucket_key
         return out, None
     if c_alg or c_key or c_md5:
         err = _validate_sse_c_headers(c_alg, c_key, c_md5)
@@ -872,7 +876,10 @@ def _resolve_sse_write_headers(headers: dict, bucket_name: str):
             "x-amz-server-side-encryption-customer-algorithm": "AES256",
             "x-amz-server-side-encryption-customer-key-md5": c_md5,
         }, None
-    return dict(_bucket_default_sse_headers(bucket_name)), None
+    default = dict(_bucket_default_sse_headers(bucket_name))
+    if bucket_key and default.get("x-amz-server-side-encryption") == "aws:kms":
+        default["x-amz-server-side-encryption-bucket-key-enabled"] = bucket_key
+    return default, None
 
 
 def _stored_sse_headers(obj: dict) -> dict:
@@ -2756,7 +2763,7 @@ def _dispatch(method: str, bucket: str, key: str, headers: dict, body: bytes, qu
         if "encryption" in query_params:
             return _put_bucket_encryption(bucket, body)
         if "lifecycle" in query_params:
-            return _put_bucket_lifecycle(bucket, body)
+            return _put_bucket_lifecycle(bucket, body, headers)
         if "cors" in query_params:
             return _put_bucket_cors(bucket, body)
         if "acl" in query_params:
@@ -3308,6 +3315,8 @@ def _bucket_default_sse_headers(bucket_name: str) -> dict:
         kms = _first_text("KMSMasterKeyID")
         if kms:
             out["x-amz-server-side-encryption-aws-kms-key-id"] = kms
+        if (_first_text("BucketKeyEnabled") or "").lower() == "true":
+            out["x-amz-server-side-encryption-bucket-key-enabled"] = "true"
     return out
 
 
@@ -3322,9 +3331,12 @@ def _get_bucket_lifecycle(name: str):
             xml += "<Rule>"
             if rule.get("ID"):
                 xml += f"<ID>{_esc(rule['ID'])}</ID>"
+            legacy = "Filter" not in rule and "Prefix" in rule
+            if legacy:
+                xml += f"<Prefix>{_esc(rule['Prefix'])}</Prefix>"
             # Filter
             filt = rule.get("Filter", {})
-            xml += "<Filter>"
+            xml += "" if legacy else "<Filter>"
             if "Prefix" in filt:
                 xml += f"<Prefix>{_esc(filt['Prefix'])}</Prefix>"
             if "Tag" in filt:
@@ -3346,7 +3358,7 @@ def _get_bucket_lifecycle(name: str):
                 if and_f.get("ObjectSizeLessThan"):
                     xml += f"<ObjectSizeLessThan>{and_f['ObjectSizeLessThan']}</ObjectSizeLessThan>"
                 xml += "</And>"
-            xml += "</Filter>"
+            xml += "" if legacy else "</Filter>"
             xml += f"<Status>{rule.get('Status', 'Enabled')}</Status>"
             for t in rule.get("Transitions", []):
                 xml += "<Transition>"
@@ -3393,7 +3405,8 @@ def _get_bucket_lifecycle(name: str):
             200,
             {
                 "Content-Type": "application/xml",
-                "x-amz-transition-default-minimum-object-size": "all_storage_classes_128K",
+                "x-amz-transition-default-minimum-object-size":
+                    _buckets[name].get("_lifecycle_min_object_size", "all_storage_classes_128K"),
             },
             xml.encode(),
         )
@@ -3405,7 +3418,7 @@ def _get_bucket_lifecycle(name: str):
     )
 
 
-def _put_bucket_lifecycle(name: str, body: bytes):
+def _put_bucket_lifecycle(name: str, body: bytes, headers: dict | None = None):
     if name not in _buckets:
         return _no_such_bucket(name)
     # Parse incoming XML into structured rules for canonical GET responses.
@@ -3465,7 +3478,11 @@ def _put_bucket_lifecycle(name: str, body: bytes):
                     if lt:
                         and_data["ObjectSizeLessThan"] = int(lt)
                     filt["And"] = and_data
-            rule["Filter"] = filt
+            legacy_prefix = _lc_find(rule_el, "Prefix")
+            if legacy_prefix is not None and filt_el is None:
+                rule["Prefix"] = _lc_text(rule_el, "Prefix")
+            else:
+                rule["Filter"] = filt
             # Transitions
             transitions = []
             for t in _lc_findall(rule_el, "Transition"):
@@ -3532,8 +3549,10 @@ def _put_bucket_lifecycle(name: str, body: bytes):
     err = _lifecycle_rules_error(rules)
     if err:
         return err
+    min_size = (headers or {}).get("x-amz-transition-default-minimum-object-size") or "all_storage_classes_128K"
     _bucket_lifecycle[name] = rules
-    return 200, {"x-amz-transition-default-minimum-object-size": "all_storage_classes_128K"}, b""
+    _buckets[name]["_lifecycle_min_object_size"] = min_size
+    return 200, {"x-amz-transition-default-minimum-object-size": min_size}, b""
 
 
 _TRANSITION_STORAGE_CLASSES = ("GLACIER", "STANDARD_IA", "ONEZONE_IA", "INTELLIGENT_TIERING", "DEEP_ARCHIVE", "GLACIER_IR")
@@ -7404,6 +7423,7 @@ def _put_object_retention(bucket_name: str, key: str, body: bytes, headers: dict
         "Mode": mode_el.text,
         "RetainUntilDate": retain_until,
     }
+    _persist_version_state(bucket_name, key, bucket)
     return 200, {"Content-Type": "application/xml"}, b""
 
 
@@ -7454,6 +7474,7 @@ def _put_object_legal_hold(bucket_name: str, key: str, body: bytes, query_params
         return _error("MalformedXML", _MALFORMED_XML, 400)
 
     _object_legal_hold[lock_key] = status_el.text
+    _persist_version_state(bucket_name, key, bucket)
     return 200, {"Content-Type": "application/xml"}, b""
 
 
@@ -7858,6 +7879,9 @@ def _parse_replication_options(rule_el) -> tuple[dict, dict]:
             name: _replication_status(_replication_children(el, ("Status",)))
             for name, el in _replication_children(
                 ssc_el, ("SseKmsEncryptedObjects", "ReplicaModifications")).items()}
+    eor_el = _replication_option(rule_el, "ExistingObjectReplication")
+    if eor_el is not None:
+        rule_opts["ExistingObjectReplication"] = _replication_status(_replication_children(eor_el, ("Status",)))
     dest_el = _find_xml_tag(rule_el, "Destination")
     if dest_el is None:
         return rule_opts, dest_opts
@@ -7990,6 +8014,12 @@ def _replication_ssc_xml(rule_el, rule: dict) -> None:
     for name in ("SseKmsEncryptedObjects", "ReplicaModifications"):
         if name in rule["SourceSelectionCriteria"]:
             SubElement(SubElement(ssc_el, name), "Status").text = rule["SourceSelectionCriteria"][name]["Status"]
+
+
+def _replication_eor_xml(rule_el, rule: dict) -> None:
+    if "ExistingObjectReplication" in rule:
+        SubElement(SubElement(rule_el, "ExistingObjectReplication"), "Status").text = (
+            rule["ExistingObjectReplication"]["Status"])
 
 
 def _replication_destination_options_xml(dest_el, dest: dict) -> None:
@@ -8135,6 +8165,7 @@ def _get_bucket_replication(bucket_name: str):
             SubElement(dmr_el, "Status").text = (rule["DeleteMarkerReplication"] or {}).get(
                 "Status", "Disabled")
         _replication_ssc_xml(rule_el, rule)
+        _replication_eor_xml(rule_el, rule)
         dest = rule.get("Destination", {})
         if dest:
             dest_el = SubElement(rule_el, "Destination")
@@ -8823,7 +8854,14 @@ def _complete_multipart_upload(
             if pn_text is not None:
                 ordered_parts.append((int(pn_text), etag_text, part_checksums))
 
-    ordered_parts.sort(key=lambda x: x[0])
+    if not ordered_parts:
+        return _error("MalformedXML", _MALFORMED_XML, 400, f"/{bucket_name}/{key}")
+    if any(b[0] <= a[0] for a, b in zip(ordered_parts, ordered_parts[1:])):
+        return _error(
+            "InvalidPartOrder",
+            "The list of parts was not in ascending order. The parts list must be specified in order by part number.",
+            400,
+        )
 
     md5_digests = b""
     # Part bodies are joined once at the end: appending each 5 MB+ part to a
@@ -8841,7 +8879,7 @@ def _complete_multipart_upload(
                 400,
             )
         stored = upload["parts"][pn]
-        if req_etag and req_etag.strip('"') != stored["etag"].strip('"'):
+        if not req_etag or req_etag.strip('"') != stored["etag"].strip('"'):
             return _error(
                 "InvalidPart",
                 "One or more of the specified parts could not be found. "
@@ -9306,13 +9344,18 @@ def _persist_version_state(bucket_name: str, key: str, bucket: dict):
         _delete_persisted_object(bucket_name, key)
 
 
+def _key_sidecar_stores():
+    return (("tags", _object_tags), ("acl", _object_acl), ("annotations", _object_annotations),
+            ("retention", _object_retention), ("legal_hold", _object_legal_hold))
+
+
 def _key_history_meta(bucket_name: str, key: str) -> dict:
     versions = _object_versions.get((bucket_name, key)) or []
     extra = {}
     if versions:
         extra["versions"] = [{k: v for k, v in e.items() if k != "data"} for e in versions]
     vids = [None] + [v["version_id"] for v in versions if v["version_id"] != "null" and not v.get("is_delete_marker")]
-    for field, store in (("tags", _object_tags), ("acl", _object_acl), ("annotations", _object_annotations)):
+    for field, store in _key_sidecar_stores():
         found = {vid or "null": store.get((bucket_name, key, vid)) for vid in vids}
         found = {vid: value for vid, value in found.items() if value is not None}
         if found:
@@ -9534,7 +9577,7 @@ def _load_persisted_bucket(account_id, bucket_name, bucket_path):
         }
         if meta.get("version_id"):
             bucket["objects"][key]["version_id"] = meta["version_id"]
-        if "versions" in meta or "tags" in meta or "acl" in meta:
+        if "versions" in meta or any(field in meta for field, _ in _key_sidecar_stores()):
             _load_persisted_history(account_id, bucket, bucket_name, key, meta)
         elif meta.get("version_id"):
             vkey = (bucket_name, key)
@@ -9637,7 +9680,7 @@ def _load_persisted_history(account_id, bucket, bucket_name, key, meta):
     live = {v["version_id"] for v in versions if not v.get("is_delete_marker")}
     if current is not None and not current.get("version_id"):
         live.add("null")
-    for field, store in (("tags", _object_tags), ("acl", _object_acl), ("annotations", _object_annotations)):
+    for field, store in _key_sidecar_stores():
         for vid, value in (meta.get(field) or {}).items():
             if vid in live:
                 store._data[(account_id, (bucket_name, key, None if vid == "null" else vid))] = value

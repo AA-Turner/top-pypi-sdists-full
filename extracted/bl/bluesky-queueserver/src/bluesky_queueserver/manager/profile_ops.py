@@ -456,7 +456,10 @@ def load_startup_script(script_path, *, enable_local_imports=True, nspace=None):
                     # Make sure the module is local before deleting it.
                     # Do not delete common library modules.
                     fl = getattr(sys.modules[key], "__file__", None)
-                    if fl and fl.startswith(p):
+                    # In case 'venv' or '.pixi' directories are in the startup directory, then
+                    #   standard packages can also be recognized as 'local' and removed, which leads
+                    #   to annoying issues. Thus skip the packages with 'site-packages' in the path.
+                    if fl and fl.startswith(p) and "site-packages" not in fl:
                         # print(f"Deleting the key '{key}'")
                         del sys.modules[key]
 
@@ -660,7 +663,10 @@ def load_script_into_existing_nspace(
                     # Make sure the module is local before deleting it.
                     # Do not delete common library modules.
                     fl = getattr(sys.modules[key], "__file__", None)
-                    if fl and fl.startswith(script_root_path):
+                    # In case 'venv' or '.pixi' directories are in the startup directory, then
+                    #   standard packages can also be recognized as 'local' and removed, which leads
+                    #   to annoying issues. Thus skip the packages with 'site-packages' in the path.
+                    if fl and fl.startswith(script_root_path) and "site-packages" not in fl:
                         # print(f"Deleting the key '{key}'")
                         del sys.modules[key]
 
@@ -3297,7 +3303,7 @@ def _prepare_devices(devices, *, max_depth=0, ignore_all_subdevices_if_one_fails
     from bluesky import protocols
     from ophyd.areadetector import ADBase
 
-    def get_device_params(device):
+    def get_device_params(device, device_obj_name):
         movable_protocols = (protocols.Movable,)
         # TODO: remove this check when NamedMovable is available in every Bluesky deployment
         # !!! Checking for NamedMovable involves checking for 'hints' attribute, which tends to
@@ -3313,6 +3319,7 @@ def _prepare_devices(devices, *, max_depth=0, ignore_all_subdevices_if_one_fails
             "is_flyable": isinstance(device, protocols.Flyable),
             "classname": type(device).__name__,
             "module": type(device).__module__,
+            "name": device.name if isinstance(device, protocols.HasName) else device_obj_name,
         }
 
     def get_device_component_names(device):
@@ -3327,7 +3334,7 @@ def _prepare_devices(devices, *, max_depth=0, ignore_all_subdevices_if_one_fails
         return component_names
 
     def create_device_description(device, device_name, *, depth=0, max_depth=0, is_registered=False):
-        description = get_device_params(device)
+        description = get_device_params(device, device_name)
         comps = get_device_component_names(device)
         components = {}
 

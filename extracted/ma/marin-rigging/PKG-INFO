@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: marin-rigging
-Version: 0.2.246.dev41965650011
+Version: 0.2.250.dev42161978473
 Requires-Python: <3.14,>=3.12
 Requires-Dist: aiobotocore>=2.12.2
 Requires-Dist: aiohttp>=3.9

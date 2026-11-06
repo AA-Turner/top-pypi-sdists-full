@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-typesafe
-Version: 0.0.1
+Version: 0.0.2
 Summary: A LangChain integration for TypeSafe classifiers
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/typesafe
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_typesafe/

@@ -1675,7 +1675,7 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @property
     def last_bid_size(self) -> float:
-        """Average bid size"""
+        """Last bid size"""
         ...
 
     @last_bid_size.setter
@@ -1684,7 +1684,7 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @property
     def last_ask_size(self) -> float:
-        """Average ask size"""
+        """Last ask size"""
         ...
 
     @last_ask_size.setter
@@ -1755,9 +1755,9 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
         :param time: DateTime Timestamp of the bar
         :param symbol: Market MarketType Symbol
         :param bid: Bid OLHC bar
-        :param last_bid_size: Average bid size over period
+        :param last_bid_size: Last bid size of the period
         :param ask: Ask OLHC bar
-        :param last_ask_size: Average ask size over period
+        :param last_ask_size: Last ask size of the period
         :param period: The period of this bar, specify null for default of 1 minute
         """
         ...

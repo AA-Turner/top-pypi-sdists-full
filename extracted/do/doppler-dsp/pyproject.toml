@@ -19,7 +19,7 @@ build-backend = "just_buildit"
 
 [project]
 name = "doppler-dsp"
-version = "0.79.0"
+version = "0.80.0"
 description = "Practical, portable, performant digital signal processing."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -67,6 +67,15 @@ cli = [
 ]
 specan = [
     "rich>=13.0",
+]
+examples = [
+    # What the example scripts draw and design with. Not dependencies of the
+    # library: `pip install "doppler-dsp[examples]"` is what a script names when
+    # one is missing (doppler#2857). These are the loosest floors the scripts
+    # run on, for a reader's install; the `dev` group pins newer ones, which are
+    # what CI tests against.
+    "matplotlib>=3.7",
+    "scipy>=1.10",
 ]
 specan-web = [
     "fastapi>=0.100",
@@ -150,18 +159,19 @@ dev = [
     # because a release gate imports it directly.
     "packaging>=24",
     # The stdlib TOML parser under its pre-3.11 name. `tomllib` landed in
-    # 3.11; scripts/check_wfm_enum_tables.py reads just-makeit.toml and is
-    # driven by a test that invokes it with `sys.executable`, so it runs under
-    # every interpreter in the CI matrix — including the 3.9 and 3.10 jobs,
-    # which is where a bare `import tomllib` failed. Marker-gated, so 3.11+
-    # installs nothing and uses the stdlib.
+    # 3.11; scripts and tests that parse TOML (bench_report.py's labels,
+    # test_bit_polarity.py's fragments) run under every interpreter in the
+    # CI matrix — including the 3.9 and 3.10 jobs, which is where a bare
+    # `import tomllib` failed. Marker-gated, so 3.11+ installs nothing and
+    # uses the stdlib. The manifest itself is read through jm's
+    # `load_manifest`, never parsed here (doppler#2751).
     "tomli>=2.0; python_version < '3.11'",
     # jm drives the manifest/codegen and the benchmark suite. Pinned HERE
     # rather than invoked through uvx: an unpinned `uvx just-makeit` silently
     # reuses whatever version happens to be installed as a uv TOOL, which is
     # not "latest" and drifts per machine. Keep in sync with jm_version in
     # just-makeit.toml.
-    "just-makeit==0.114.0",
+    "just-makeit==0.119.0",
     # The lint/format toolchain. It lives HERE, not in
     # .pre-commit-config.yaml's `additional_dependencies`, because that is what
     # makes local and CI resolve identically: the hooks dispatch to
@@ -216,9 +226,18 @@ dev = [
 # Docs toolchain is intentionally separate from dev so wheel builds can
 # uv sync --no-group docs and avoid a docs-dep network blip failing a release.
 docs = [
-    "zensical>=0.0.29; python_version >= '3.10'",
+    # ONE toolchain, Python >= 3.11 (scripts/check_docs_python.py says so on
+    # 3.10). zensical 0.0.45 with mkdocstrings 1.0.4 grew to >4 GB on a cold
+    # build (about 6 MB per page held; 918 pages) and was OOM-killed at the
+    # memory guard's ceiling (#2840); the matched set below builds the same
+    # site cold in about 520 MB. The floors move TOGETHER: zensical 0.0.55+
+    # against the old mkdocstrings fails to render every API page
+    # (Highlight.__init__() missing 'md').
+    "zensical>=0.0.74; python_version >= '3.11'",
     "mkdocs-glightbox>=0.4; python_version >= '3.10'",
-    "mkdocstrings[python]>=0.29; python_version >= '3.10'",
+    "mkdocstrings[python]>=1.0.8; python_version >= '3.11'",
+    "mkdocstrings-python>=2.0.10; python_version >= '3.11'",
+    "mkdocs-autorefs>=1.4.5; python_version >= '3.11'",
     "mkdoxy>=1.2.8",
 ]
 
@@ -323,7 +342,9 @@ ignore = [
 "**/tests/**"           = ["ANN"]
 "**/benchmarks/**"      = ["ANN"]
 "examples/**"           = ["ANN"]
-"src/doppler/examples/**" = ["ANN"]
+# E402: an example calls `require("matplotlib")` BEFORE importing it, so a missing
+# package is named instead of ending in a bare ModuleNotFoundError (#2857).
+"src/doppler/examples/**" = ["ANN", "E402"]
 "scripts/**"            = ["ANN"]
 "conftest.py"           = ["ANN"]
 "**/conftest.py"        = ["ANN"]

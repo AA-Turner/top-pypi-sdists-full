@@ -79,7 +79,7 @@ class _Auto:
     ``_Auto`` is a singleton. There is only ever one of it.
     """
 
-    _singleton = None
+    _singleton: _Auto | None = None
 
     def __new__(cls) -> _Auto:
         if _Auto._singleton is None:

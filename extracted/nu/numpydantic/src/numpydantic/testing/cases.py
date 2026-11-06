@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import Any, TypeAlias
+from typing import Annotated, Any, TypeAlias, TypeVar
 
 import numpy as np
 from pydantic import BaseModel
 
+from numpydantic import L, Range, Repeat
 from numpydantic.dtype import Float, Integer, Number
 from numpydantic.testing.helpers import ValidationCase, merged_product
 from numpydantic.testing.interfaces import (
@@ -35,8 +36,182 @@ class SubClass(BasicModel):
 # Annotations
 # --------------------------------------------------
 
-RGB_UNION = (("*", "*"), ("*", "*", 3), ("*", "*", 3, 4))
+RGB_UNION = ((int, int), (int, int, L[3]), (int, int, L[3], L[4]))
+RANGE_SHAPE = (Range[L[2], L[4]], Range[L[3], int], Range[int, L[3]])
 UNION_TYPE: TypeAlias = np.uint32 | np.float32
+
+N = TypeVar("N", bound=int)
+K = TypeVar("K", bound=int)
+NRange = TypeVar("NRange", bound=Range[L[2], L[4]])
+NLiteral = TypeVar("NLiteral", bound=L[3])
+NLiterals = TypeVar("NLiterals", bound=L[2, 3])
+NUnion = TypeVar("NUnion", bound=L[2] | L[3])
+NConstrained = TypeVar("NConstrained", L[3], L[4])
+NIntConstrained = TypeVar("NIntConstrained", int, L[3])
+NRangeConstrained = TypeVar("NRangeConstrained", Range[L[1], L[2]], Range[L[5], L[6]])
+NLiteralsConstrained = TypeVar("NLiteralsConstrained", L[1, 2], L[5])
+
+
+TYPEVAR_CASES = (
+    ValidationCase(
+        annotation_shape=(N, N), shape=(3, 3), passes=True, id="shape typevar"
+    ),
+    ValidationCase(
+        annotation_shape=(N, N),
+        shape=(0, 0),
+        passes=True,
+        id="shape typevar zero-length",
+    ),
+    ValidationCase(
+        annotation_shape=(N, N),
+        shape=(3, 4),
+        passes=False,
+        id="shape typevar mismatch",
+    ),
+    ValidationCase(
+        annotation_shape=(N, K, N, K),
+        shape=(2, 4, 2, 4),
+        passes=True,
+        id="two shape typevars",
+    ),
+    ValidationCase(
+        annotation_shape=(N, K, N, K),
+        shape=(2, 4, 4, 2),
+        passes=False,
+        id="two shape typevars mismatch",
+    ),
+    ValidationCase(
+        annotation_shape=(N, ...),
+        shape=(2, 2, 2),
+        passes=True,
+        id="repeated shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(N, ...),
+        shape=(2, 2, 3),
+        passes=False,
+        id="repeated shape typevar mismatch",
+    ),
+    ValidationCase(
+        annotation_shape=(L[1], *tuple[N, ...]),
+        shape=(1, 3, 3),
+        passes=True,
+        id="repeated shape typevar after fixed",
+    ),
+    ValidationCase(
+        annotation_shape=(L[1], *tuple[N, ...]),
+        shape=(1, 3, 4),
+        passes=False,
+        id="repeated shape typevar after fixed mismatch",
+    ),
+    ValidationCase(
+        annotation_shape=(Annotated[N, "x"], Annotated[N, "y"]),
+        shape=(3, 3),
+        passes=True,
+        id="labelled shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(Annotated[N, "x"], Annotated[N, "y"]),
+        shape=(3, 4),
+        passes=False,
+        id="labelled shape typevar mismatch",
+    ),
+    ValidationCase(
+        annotation_shape=(NRange, NRange),
+        shape=(3, 3),
+        passes=True,
+        id="range bound shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NRange, NRange),
+        shape=(5, 5),
+        passes=False,
+        id="range bound shape typevar outside bound",
+    ),
+    ValidationCase(
+        annotation_shape=(NConstrained, NConstrained),
+        shape=(4, 4),
+        passes=True,
+        id="constrained shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NConstrained, NConstrained),
+        shape=(5, 5),
+        passes=False,
+        id="constrained shape typevar outside constraints",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiteral, int),
+        shape=(3, 5),
+        passes=True,
+        id="literal bound shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiteral, int),
+        shape=(4, 5),
+        passes=False,
+        id="literal bound shape typevar outside bound",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiterals, NLiterals),
+        shape=(3, 3),
+        passes=True,
+        id="multi-value literal bound shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiterals, NLiterals),
+        shape=(4, 4),
+        passes=False,
+        id="multi-value literal bound shape typevar outside bound",
+    ),
+    ValidationCase(
+        annotation_shape=(NUnion, NUnion),
+        shape=(2, 2),
+        passes=True,
+        id="union bound shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NUnion, NUnion),
+        shape=(4, 4),
+        passes=False,
+        id="union bound shape typevar outside bound",
+    ),
+    ValidationCase(
+        annotation_shape=(NIntConstrained, NIntConstrained),
+        shape=(7, 7),
+        passes=True,
+        id="int constrained shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NRangeConstrained, NRangeConstrained),
+        shape=(5, 5),
+        passes=True,
+        id="range constrained shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NRangeConstrained, NRangeConstrained),
+        shape=(3, 3),
+        passes=False,
+        id="range constrained shape typevar outside constraints",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiteralsConstrained, NLiteralsConstrained),
+        shape=(2, 2),
+        passes=True,
+        id="multi-value literal constrained shape typevar",
+    ),
+    ValidationCase(
+        annotation_shape=(NLiteralsConstrained, NLiteralsConstrained),
+        shape=(3, 3),
+        passes=False,
+        id="multi-value literal constrained shape typevar outside constraints",
+    ),
+)
+"""
+Shape typevars, matched within one array.
+Matching doesn't depend on the interface, so these are only validated with numpy,
+in ``tests/test_shape_typevars.py``, along with matching across the fields of a model.
+"""
 
 SHAPE_CASES = (
     ValidationCase(shape=(10, 10, 2, 2), passes=True, id="valid shape"),
@@ -46,6 +221,36 @@ SHAPE_CASES = (
     ValidationCase(shape=(9, 10, 2, 2), passes=False, id="dimension too small"),
     ValidationCase(shape=(10, 10, 1, 1), passes=True, id="wildcard smaller"),
     ValidationCase(shape=(10, 10, 3, 3), passes=True, id="wildcard larger"),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE, shape=(2, 3, 1), passes=True, id="range minimums"
+    ),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE, shape=(4, 10, 3), passes=True, id="range maximums"
+    ),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE,
+        shape=(1, 3, 1),
+        passes=False,
+        id="range too small",
+    ),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE,
+        shape=(5, 3, 1),
+        passes=False,
+        id="range too large",
+    ),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE,
+        shape=(2, 2, 1),
+        passes=False,
+        id="open range too small",
+    ),
+    ValidationCase(
+        annotation_shape=RANGE_SHAPE,
+        shape=(2, 3, 4),
+        passes=False,
+        id="open range too large",
+    ),
     ValidationCase(
         annotation_shape=RGB_UNION, shape=(5, 5), passes=True, id="Union 2D"
     ),
@@ -81,14 +286,37 @@ SHAPE_CASES = (
         passes=True,
     ),
     ValidationCase(
-        annotation_shape=("*", "*"),
+        annotation_shape=(int, int),
         shape=tuple(),
         id="scalar-min-dimensions",
         marks={"scalar"},
         passes=False,
     ),
     ValidationCase(
-        annotation_shape=("*", 3), shape=(0, 3), id="zero-length", passes=True
+        annotation_shape=(int, L[3]), shape=(0, 3), id="zero-length", passes=True
+    ),
+    ValidationCase(
+        annotation_shape=(L[3], Any), shape=(3, 5), id="any dimension", passes=True
+    ),
+    ValidationCase(
+        annotation_shape=(L[3], Any),
+        shape=(2, 5),
+        id="any dimension fixed mismatch",
+        passes=False,
+    ),
+    # one pair of TYPEVAR_CASES, so each interface's sizes reach the typevar matching.
+    # Video frames have to be an even size
+    ValidationCase(
+        annotation_shape=(int, N, N, L[3]),
+        shape=(5, 4, 4, 3),
+        passes=True,
+        id="shape typevar square frames",
+    ),
+    ValidationCase(
+        annotation_shape=(int, N, N, L[3]),
+        shape=(5, 4, 6, 3),
+        passes=False,
+        id="shape typevar square frames mismatch",
     ),
 )
 """
@@ -313,65 +541,77 @@ ZERO_LENGTH_CASES_PASSING = [c for c in ALL_CASES_PASSING if "zero-length" in c.
 
 MYPY_SHAPE_CASES = [
     ValidationCase(
-        id="mypy-literal", annotation_shape=(3, 3), shape=(3, 3), passes=True
+        id="mypy-literal", annotation_shape=(L[3], L[3]), shape=(3, 3), passes=True
     ),
     ValidationCase(
-        id="mypy-literal-badshape", annotation_shape=(3, 3), shape=(2, 4), passes=False
+        id="mypy-literal-badshape",
+        annotation_shape=(L[3], L[3]),
+        shape=(2, 4),
+        passes=False,
     ),
     ValidationCase(
         id="mypy-literal-badcardinality",
-        annotation_shape=(3, 3),
+        annotation_shape=(L[3], L[3]),
         shape=(3, 3, 3),
         passes=False,
     ),
     ValidationCase(
-        id="mypy-wildcard", annotation_shape=(3, "*"), shape=(3, 5), passes=True
+        id="mypy-wildcard", annotation_shape=(L[3], int), shape=(3, 5), passes=True
     ),
     ValidationCase(
         id="mypy-wildcard-badshape",
-        annotation_shape=(3, "*"),
+        annotation_shape=(L[3], int),
         shape=(2, 5),
         passes=False,
     ),
     ValidationCase(
         id="mypy-wildcard-badcardinality",
-        annotation_shape=(3, "*"),
+        annotation_shape=(L[3], int),
         shape=(3, 3, 3),
         passes=False,
     ),
     ValidationCase(
-        id="mypy-ellipsis",
-        annotation_shape=(3, 3, "..."),
+        id="mypy-any", annotation_shape=(L[3], Any), shape=(3, 5), passes=True
+    ),
+    ValidationCase(
+        id="mypy-any-badshape",
+        annotation_shape=(L[3], Any),
+        shape=(2, 5),
+        passes=False,
+    ),
+    ValidationCase(
+        id="mypy-repeat",
+        annotation_shape=(L[3], L[3], *Repeat),
         shape=(3, 3, 3, 3),
         passes=True,
     ),
     ValidationCase(
-        id="mypy-ellipsis-samecardinality",
-        annotation_shape=(3, 3, "..."),
+        id="mypy-repeat-samecardinality",
+        annotation_shape=(L[3], L[3], *Repeat),
         shape=(3, 3),
         passes=True,
     ),
     ValidationCase(
-        id="mypy-ellipsis-badshape",
-        annotation_shape=(3, 3, "..."),
+        id="mypy-repeat-badshape",
+        annotation_shape=(L[3], L[3], *Repeat),
         shape=(2, 2),
         passes=False,
     ),
     ValidationCase(
         id="mypy-range",
-        annotation_shape=("2-5", "2-5", "2-*"),
+        annotation_shape=(Range[L[2], L[5]], Range[L[2], L[5]], Range[L[2], int]),
         shape=(2, 5, 10),
         passes=True,
     ),
     ValidationCase(
         id="mypy-range-badshape",
-        annotation_shape=("2-5", "2-5", "2-*"),
+        annotation_shape=(Range[L[2], L[5]], Range[L[2], L[5]], Range[L[2], int]),
         shape=(1, 6, 10),
         passes=False,
     ),
     ValidationCase(
         id="mypy-range-badwildcard",
-        annotation_shape=("2-5", "2-5", "2-*"),
+        annotation_shape=(Range[L[2], L[5]], Range[L[2], L[5]], Range[L[2], int]),
         shape=(2, 5, 1),
         passes=False,
     ),

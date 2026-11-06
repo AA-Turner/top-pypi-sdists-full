@@ -29,6 +29,8 @@ export declare abstract class LRTBView extends GlyphView {
     protected _index_data(index: SpatialIndex): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<LRTB.Data>): void;
     protected _clamp_to_viewport(): void;
+    private _enforce_lower_bound;
+    private _enforce_upper_bound;
     protected _hit_rect(geometry: RectGeometry): Selection;
     protected _hit_point(geometry: PointGeometry): Selection;
     protected _hit_span(geometry: SpanGeometry): Selection;

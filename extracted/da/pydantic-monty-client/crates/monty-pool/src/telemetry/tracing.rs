@@ -44,7 +44,7 @@ fn start_span(span: Span) -> Span {
 /// close by being dropped, so a worker that dies mid-turn still closes its own.
 pub(crate) struct Recorder {
     /// OS pid of the worker, recorded on its session spans (`None` for a
-    /// remote WebSocket worker).
+    /// remote worker).
     worker_pid: Option<u32>,
     /// The span of a housekeeping turn (`Load`, `Dump`, ...), closed by the
     /// turn-ending event. Innermost: a `Dump` can run mid-suspension.
@@ -270,6 +270,9 @@ impl Recorder {
                 self.feed = None;
                 self.session = None;
             }
+            // liveness, not a turn (and sent by the transport, never through
+            // the recorder)
+            Some(pb::parent_request::Kind::Pong(_)) => {}
             // `checkout::request` always sets a kind
             None => {}
         }
@@ -416,7 +419,7 @@ impl Recorder {
                 }
                 self.turn = None;
             }
-            // only a serving relay sends this (a WebSocket worker's server is
+            // only a serving relay sends this (a remote worker's server is
             // shutting down); its final state dump is absent when there was no
             // session or the dump failed. The worker is discarded right after,
             // closing its spans.
@@ -441,6 +444,8 @@ impl Recorder {
                     length_limit_exceeded = cut.then_some(true),
                 );
             }
+            // liveness, not a turn (and answered by the transport, never seen here)
+            Some(pb::child_event::Kind::Ping(_)) => {}
             None => logfire::error!(parent: self.context_span(), "event with no kind"),
         }
     }
@@ -608,6 +613,11 @@ fn render_ext_result(result: Option<&pb::ExtFunctionResult>, values: Option<&Wir
             (text.into(), cut)
         }
         Some(pb::ext_function_result::Kind::NotHandled(_)) => ("not handled".into(), false),
+        // The path only: the source is the module's whole text.
+        Some(pb::ext_function_result::Kind::ModuleFile(file)) => {
+            let (text, cut) = capped_text(|writer| write!(writer, "module file: {}", file.path));
+            (text.into(), cut)
+        }
         None => (MISSING.into(), false),
     }
 }
@@ -824,6 +834,19 @@ fn os_call_span(os_call: &pb::OsCall, micros: u64, max_feed_duration: Option<u64
             args_cut |= cut;
             os_call!("import_stubs", args.modules = modules)
         }
+        // a class target is recorded by its `ClassType` id, as `object_id` is for method calls;
+        // the bytes are untrusted and not yet validated, so a malformed id is never formatted
+        Some(Call::GetTypeHints(h)) => match &h.target {
+            Some(pb::os_call::get_type_hints::Target::Function(name)) => {
+                os_call!("get_type_hints", args.function = string_arg!(name))
+            }
+            Some(pb::os_call::get_type_hints::Target::ClassId(id)) => {
+                let class_id = MontyUuid::try_from_slice(&id.data)
+                    .map_or_else(|| "<invalid uuid>".to_owned(), |id| id.to_string());
+                os_call!("get_type_hints", args.class_id = class_id)
+            }
+            None => os_call!("get_type_hints"),
+        },
         // the pattern is recorded joined, as the user wrote it, built only up to the cap
         Some(Call::Scan(s)) => os_call!(
             "scan",
@@ -1083,13 +1106,18 @@ mod tests {
     use logfire::{Logfire, config::AdvancedOptions, set_local_logfire};
     use monty_proto::{WireFunctionCall, pb, pb::os_call::Call};
     use monty_types::{CallArgs, MontyObject, NameLookupResult, SourceRange};
-    use opentelemetry::{logs::AnyValue, trace::SpanId};
+    use opentelemetry::{
+        logs::AnyValue,
+        trace::{SpanContext, SpanId, TraceContextExt as _, TraceFlags, TraceId, TraceState},
+    };
     use opentelemetry_sdk::{
         logs::{InMemoryLogExporter, SimpleLogProcessor},
         trace::{InMemorySpanExporter, SimpleSpanProcessor, SpanData},
     };
+    use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 
     use super::{ATTR_SIZE_LIMIT, PositionAttrs, Recorder, bytes_attr, render_ext_result};
+    use crate::telemetry::TelemetryContext;
 
     /// The suspension position every hand-built event carries.
     fn position() -> SourceRange {
@@ -1128,6 +1156,49 @@ mod tests {
         (logfire, spans, logs)
     }
 
+    /// Explicit parents remain checkout-local on a reused recorder.
+    #[test]
+    fn explicit_logfire_parents_are_isolated_between_sessions() {
+        let (logfire, spans, _logs) = test_logfire();
+        let mut recorder = Recorder::new(Some(42));
+        for id in [1_u64, 2] {
+            let parent = SpanContext::new(
+                TraceId::from(u128::from(id)),
+                SpanId::from(id),
+                TraceFlags::SAMPLED,
+                true,
+                TraceState::default(),
+            );
+            recorder.set_adapter_context(TelemetryContext::for_logfire(logfire.clone()).with_parent(parent));
+            recorder.begin_turn(&request(pb::parent_request::Kind::Configure(pb::Configure::default())));
+            recorder.begin_turn(&request(pb::parent_request::Kind::Reset(pb::Reset {})));
+        }
+        let spans = spans.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 2);
+        for (span, id) in spans.iter().zip([1_u64, 2]) {
+            assert_eq!(span.name, "session {script_name}");
+            assert_eq!(span.span_context.trace_id(), TraceId::from(u128::from(id)));
+            assert_eq!(span.parent_span_id, SpanId::from(id));
+        }
+    }
+
+    /// An absent or invalid explicit parent keeps the caller's ambient span.
+    #[test]
+    fn invalid_explicit_logfire_parent_retains_ambient_parenting() {
+        let (logfire, spans, _logs) = test_logfire();
+        let _guard = set_local_logfire(logfire.clone());
+        let ambient = logfire::span!("ambient");
+        let ambient_context = ambient.context();
+        let _entered = ambient.enter();
+        let mut recorder = Recorder::new(Some(42));
+        recorder.set_adapter_context(TelemetryContext::for_logfire(logfire).with_parent(SpanContext::empty_context()));
+        recorder.begin_turn(&request(pb::parent_request::Kind::Configure(pb::Configure::default())));
+        recorder.begin_turn(&request(pb::parent_request::Kind::Reset(pb::Reset {})));
+        let spans = spans.get_finished_spans().unwrap();
+        let session = spans.iter().find(|s| s.name == "session {script_name}").unwrap();
+        assert_eq!(session.parent_span_id, ambient_context.span().span_context().span_id());
+    }
+
     fn request(kind: pb::parent_request::Kind) -> pb::ParentRequest {
         pb::ParentRequest {
             kind: Some(kind),
@@ -1142,6 +1213,8 @@ mod tests {
             max_suspensions: None,
             restored_script_name: None,
             session_id: None,
+            execution_clock: None,
+            feed_suspended: None,
             feed_execution_micros: 0,
             max_feed_duration_micros: None,
             max_turn_duration_micros: None,
@@ -1291,6 +1364,8 @@ mod tests {
             max_suspensions: None,
             restored_script_name: Some("dumped.py".to_owned()),
             session_id: None,
+            execution_clock: None,
+            feed_suspended: None,
             feed_execution_micros: 0,
             max_feed_duration_micros: None,
             max_turn_duration_micros: None,
@@ -1345,6 +1420,8 @@ mod tests {
             max_suspensions: None,
             restored_script_name: Some("restored.py".to_owned()),
             session_id: None,
+            execution_clock: None,
+            feed_suspended: None,
             feed_execution_micros: 0,
             max_feed_duration_micros: None,
             max_turn_duration_micros: None,

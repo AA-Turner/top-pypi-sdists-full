@@ -28,3 +28,6 @@ class BillingRunCost(BaseModel):
   grading_cents: float
 
   sandbox_cents: float
+
+  waived: bool
+  """Staff made this run free; its charges are returned as promotional credit"""

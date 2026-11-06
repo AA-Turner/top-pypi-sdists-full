@@ -37,7 +37,7 @@ class UserProgrammaticAccessTokenArgs:
         :param pulumi.Input[_builtins.str] comment: Descriptive comment about the programmatic access token.
         :param pulumi.Input[_builtins.int] days_to_expiry: The number of days that the programmatic access token can be used for authentication. This field cannot be altered after the token is created. Instead, you must rotate the token with the `keeper` field. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] disabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`default`)) Disables or enables the programmatic access token. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
-        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         :param pulumi.Input[_builtins.str] keeper: Arbitrary string that, if and only if, changed from a non-empty to a different non-empty value (or known after apply), will trigger a key to be rotated. When you add this field to the configuration, or remove it from the configuration, the rotation is not triggered. When the token is rotated, the `token` and `rotated_token_name` fields are marked as computed.
         :param pulumi.Input[_builtins.int] mins_to_bypass_network_policy_requirement: The number of minutes during which a user can use this token to access Snowflake without being subject to an active network policy. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] name: Specifies the name for the programmatic access token; must be unique for the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
@@ -113,7 +113,7 @@ class UserProgrammaticAccessTokenArgs:
     @pulumi.getter(name="expireRotatedTokenAfterHours")
     def expire_rotated_token_after_hours(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         """
         return pulumi.get(self, "expire_rotated_token_after_hours")
 
@@ -191,7 +191,7 @@ class _UserProgrammaticAccessTokenState:
         :param pulumi.Input[_builtins.str] comment: Descriptive comment about the programmatic access token.
         :param pulumi.Input[_builtins.int] days_to_expiry: The number of days that the programmatic access token can be used for authentication. This field cannot be altered after the token is created. Instead, you must rotate the token with the `keeper` field. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] disabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`default`)) Disables or enables the programmatic access token. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
-        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         :param pulumi.Input[_builtins.str] keeper: Arbitrary string that, if and only if, changed from a non-empty to a different non-empty value (or known after apply), will trigger a key to be rotated. When you add this field to the configuration, or remove it from the configuration, the rotation is not triggered. When the token is rotated, the `token` and `rotated_token_name` fields are marked as computed.
         :param pulumi.Input[_builtins.int] mins_to_bypass_network_policy_requirement: The number of minutes during which a user can use this token to access Snowflake without being subject to an active network policy. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] name: Specifies the name for the programmatic access token; must be unique for the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
@@ -266,7 +266,7 @@ class _UserProgrammaticAccessTokenState:
     @pulumi.getter(name="expireRotatedTokenAfterHours")
     def expire_rotated_token_after_hours(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
-        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         """
         return pulumi.get(self, "expire_rotated_token_after_hours")
 
@@ -464,7 +464,7 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] comment: Descriptive comment about the programmatic access token.
         :param pulumi.Input[_builtins.int] days_to_expiry: The number of days that the programmatic access token can be used for authentication. This field cannot be altered after the token is created. Instead, you must rotate the token with the `keeper` field. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] disabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`default`)) Disables or enables the programmatic access token. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
-        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         :param pulumi.Input[_builtins.str] keeper: Arbitrary string that, if and only if, changed from a non-empty to a different non-empty value (or known after apply), will trigger a key to be rotated. When you add this field to the configuration, or remove it from the configuration, the rotation is not triggered. When the token is rotated, the `token` and `rotated_token_name` fields are marked as computed.
         :param pulumi.Input[_builtins.int] mins_to_bypass_network_policy_requirement: The number of minutes during which a user can use this token to access Snowflake without being subject to an active network policy. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] name: Specifies the name for the programmatic access token; must be unique for the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
@@ -630,7 +630,7 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] comment: Descriptive comment about the programmatic access token.
         :param pulumi.Input[_builtins.int] days_to_expiry: The number of days that the programmatic access token can be used for authentication. This field cannot be altered after the token is created. Instead, you must rotate the token with the `keeper` field. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] disabled: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`default`)) Disables or enables the programmatic access token. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
-        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        :param pulumi.Input[_builtins.int] expire_rotated_token_after_hours: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         :param pulumi.Input[_builtins.str] keeper: Arbitrary string that, if and only if, changed from a non-empty to a different non-empty value (or known after apply), will trigger a key to be rotated. When you add this field to the configuration, or remove it from the configuration, the rotation is not triggered. When the token is rotated, the `token` and `rotated_token_name` fields are marked as computed.
         :param pulumi.Input[_builtins.int] mins_to_bypass_network_policy_requirement: The number of minutes during which a user can use this token to access Snowflake without being subject to an active network policy. External changes for this field won't be detected. In case you want to apply external changes, you can re-create the resource manually using "terraform taint".
         :param pulumi.Input[_builtins.str] name: Specifies the name for the programmatic access token; must be unique for the user. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
@@ -657,6 +657,36 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
         __props__.__dict__["token"] = token
         __props__.__dict__["user"] = user
         return UserProgrammaticAccessToken(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            days_to_expiry: pulumi.Input[Optional[_builtins.int]] = None,
+            disabled: pulumi.Input[Optional[_builtins.str]] = None,
+            expire_rotated_token_after_hours: pulumi.Input[Optional[_builtins.int]] = None,
+            keeper: pulumi.Input[Optional[_builtins.str]] = None,
+            mins_to_bypass_network_policy_requirement: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            role_restriction: pulumi.Input[Optional[_builtins.str]] = None,
+            rotated_token_name: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['UserProgrammaticAccessTokenShowOutputArgs', 'UserProgrammaticAccessTokenShowOutputArgsDict', 'outputs.UserProgrammaticAccessTokenShowOutput']]]]] = None,
+            token: pulumi.Input[Optional[_builtins.str]] = None,
+            user: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["comment"] = comment
+        __props__["daysToExpiry"] = days_to_expiry
+        __props__["disabled"] = disabled
+        __props__["expireRotatedTokenAfterHours"] = expire_rotated_token_after_hours
+        __props__["keeper"] = keeper
+        __props__["minsToBypassNetworkPolicyRequirement"] = mins_to_bypass_network_policy_requirement
+        __props__["name"] = name
+        __props__["roleRestriction"] = role_restriction
+        __props__["rotatedTokenName"] = rotated_token_name
+        __props__["showOutputs"] = show_outputs
+        __props__["token"] = token
+        __props__["user"] = user
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/userProgrammaticAccessToken:UserProgrammaticAccessToken', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -686,7 +716,7 @@ class UserProgrammaticAccessToken(pulumi.CustomResource):
     @pulumi.getter(name="expireRotatedTokenAfterHours")
     def expire_rotated_token_after_hours(self) -> pulumi.Output[Optional[_builtins.int]]:
         """
-        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. You can set this to a value of 0 to expire the current token secret immediately.
+        (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) This field is only used when the token is rotated by changing the `keeper` field. Sets the expiration time of the existing token secret to expire after the specified number of hours. A positive value greater than the existing token's remaining lifetime is capped at that lifetime, rounded down to a whole hour. When less than one hour remains, a positive value is omitted so the existing secret keeps its current expiry. You can set this to a value of 0 to expire the current token secret immediately.
         """
         return pulumi.get(self, "expire_rotated_token_after_hours")
 

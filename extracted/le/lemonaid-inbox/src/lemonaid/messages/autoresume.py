@@ -1,7 +1,8 @@
 """What `tell` does about a recipient that won't read the message: start it, or say why not.
 
 A `done` or archived lemon finished its work, so it is left alone and the
-sender is told how to resume it by hand.
+sender is told how to resume it by hand. So is a parked one: its pane shows
+Claude Code's agents view, and typing there would not reach its conversation.
 """
 
 import sqlite3
@@ -27,7 +28,7 @@ class Recipient(ty.NamedTuple):
     parent: str  # its parent's Lemon-ID, or ""
     row: db.Notification
     brief_text: str
-    inbox: Path
+    mailbox: Path
 
 
 def plan(
@@ -83,7 +84,7 @@ def started(found: Recipient, action: str) -> str:
         )
 
     return (
-        f"{found.lemon_id} was idle with no inbox waiter; lemonaid prompted it to read "
+        f"{found.lemon_id} was idle with no mailbox waiter; lemonaid prompted it to read "
         f"the message.{snoozed}"
     )
 
@@ -100,6 +101,15 @@ def off(lemon_id: str, parent: str, state: recipient.State) -> str:
     return (
         f"queued, but {lemon_id} will not read it until it comes back: {state.state}, "
         f"{state.detail}. Don't send it again; {_ask(parent)}."
+    )
+
+
+def parked(lemon_id: str, state: recipient.State) -> str:
+    return (
+        f"queued, but {lemon_id} will not read it: {state.detail}. lemonaid won't type into "
+        "its pane or start a second copy. Don't send it again; tell your user, your parent "
+        "if you have one, or both. To bring it back and move its brief, see "
+        'docs/recovery.md, under "A parked Claude lemon".'
     )
 
 
@@ -123,10 +133,13 @@ def post(conn: sqlite3.Connection, line: str) -> None:
 def respond(found: Recipient, state: recipient.State, config: Config) -> tuple[str, bool]:
     """What to tell the sender about a recipient in *state*, and whether it will now read the message."""
     state = recipient.confirmed(found.row, state)
+    if state.state == recipient.PARKED:
+        return parked(found.lemon_id, state), False
+
     if state.state == recipient.MOVED:
         return (
             f"queued, but {found.lemon_id} {state.detail}, so lemonaid won't start a second "
-            "copy or type into the old one. It reads the message once its inbox waiter is armed; "
+            "copy or type into the old one. It reads the message once its mailbox waiter is armed; "
             "`lemonaid restore tmux` points its row at its pane."
         ), False
     action = plan(
@@ -150,7 +163,7 @@ def respond(found: Recipient, state: recipient.State, config: Config) -> tuple[s
 
     with db.connect() as conn:
         name_clash.warn(conn, found.lemon_id)
-    outcome = revive.revive(found.row, found.inbox, action == START, config, wake.PROMPT)
+    outcome = revive.revive(found.row, found.mailbox, action == START, config, wake.PROMPT)
     if outcome.kind == revive.STARTING:
         return (
             f"{found.lemon_id} is already being started, and reads the message once it is up.",

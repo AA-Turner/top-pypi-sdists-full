@@ -5,7 +5,7 @@ import numpy.typing
 from piqp import instruction_set
 import scipy.sparse
 import typing
-__all__: list[str] = ['DenseSolver', 'Info', 'KKTSolver', 'PIQP_DUAL_INFEASIBLE', 'PIQP_INVALID_SETTINGS', 'PIQP_MAX_ITER_REACHED', 'PIQP_NUMERICS', 'PIQP_PRIMAL_INFEASIBLE', 'PIQP_SOLVED', 'PIQP_UNSOLVED', 'Result', 'Settings', 'SparseSolver', 'Status', 'dense_cholesky', 'instruction_set', 'sparse_ldlt', 'sparse_ldlt_cond', 'sparse_ldlt_eq_cond', 'sparse_ldlt_ineq_cond', 'sparse_multistage']
+__all__: list[str] = ['DenseSolver', 'Info', 'KKTSolver', 'PIQP_DUAL_INFEASIBLE', 'PIQP_INVALID_SETTINGS', 'PIQP_MAX_ITER_REACHED', 'PIQP_NUMERICS', 'PIQP_PRIMAL_INFEASIBLE', 'PIQP_SOLVED', 'PIQP_UNSOLVED', 'Result', 'Settings', 'SparseSolver', 'Status', 'dense_cholesky', 'instruction_set', 'sparse_ldlt', 'sparse_ldlt_cond', 'sparse_ldlt_eq_cond', 'sparse_ldlt_ineq_cond', 'sparse_multistage', 'sparse_multistage_parallel']
 class DenseSolver:
     def __init__(self: DenseSolver) -> None:
         ...
@@ -241,14 +241,17 @@ class KKTSolver:
       sparse_ldlt_cond
     
       sparse_multistage
+    
+      sparse_multistage_parallel
     """
-    __members__: typing.ClassVar[dict[str, KKTSolver]]  # value = {'dense_cholesky': <KKTSolver.dense_cholesky: 0>, 'sparse_ldlt': <KKTSolver.sparse_ldlt: 1>, 'sparse_ldlt_eq_cond': <KKTSolver.sparse_ldlt_eq_cond: 2>, 'sparse_ldlt_ineq_cond': <KKTSolver.sparse_ldlt_ineq_cond: 3>, 'sparse_ldlt_cond': <KKTSolver.sparse_ldlt_cond: 4>, 'sparse_multistage': <KKTSolver.sparse_multistage: 5>}
+    __members__: typing.ClassVar[dict[str, KKTSolver]]  # value = {'dense_cholesky': <KKTSolver.dense_cholesky: 0>, 'sparse_ldlt': <KKTSolver.sparse_ldlt: 1>, 'sparse_ldlt_eq_cond': <KKTSolver.sparse_ldlt_eq_cond: 2>, 'sparse_ldlt_ineq_cond': <KKTSolver.sparse_ldlt_ineq_cond: 3>, 'sparse_ldlt_cond': <KKTSolver.sparse_ldlt_cond: 4>, 'sparse_multistage': <KKTSolver.sparse_multistage: 5>, 'sparse_multistage_parallel': <KKTSolver.sparse_multistage_parallel: 6>}
     dense_cholesky: typing.ClassVar[KKTSolver]  # value = <KKTSolver.dense_cholesky: 0>
     sparse_ldlt: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_ldlt: 1>
     sparse_ldlt_cond: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_ldlt_cond: 4>
     sparse_ldlt_eq_cond: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_ldlt_eq_cond: 2>
     sparse_ldlt_ineq_cond: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_ldlt_ineq_cond: 3>
     sparse_multistage: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_multistage: 5>
+    sparse_multistage_parallel: typing.ClassVar[KKTSolver]  # value = <KKTSolver.sparse_multistage_parallel: 6>
     def __eq__(self, other: typing.Any) -> bool:
         ...
     def __getstate__(self) -> int:
@@ -358,6 +361,12 @@ class Settings:
     def eps_abs(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
     @property
+    def eps_dual_inf(self) -> float:
+        ...
+    @eps_dual_inf.setter
+    def eps_dual_inf(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    @property
     def eps_duality_gap_abs(self) -> float:
         ...
     @eps_duality_gap_abs.setter
@@ -368,6 +377,12 @@ class Settings:
         ...
     @eps_duality_gap_rel.setter
     def eps_duality_gap_rel(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        ...
+    @property
+    def eps_primal_inf(self) -> float:
+        ...
+    @eps_primal_inf.setter
+    def eps_primal_inf(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None:
         ...
     @property
     def eps_rel(self) -> float:
@@ -428,6 +443,12 @@ class Settings:
         ...
     @max_iter.setter
     def max_iter(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
+        ...
+    @property
+    def num_threads(self) -> int:
+        ...
+    @num_threads.setter
+    def num_threads(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None:
         ...
     @property
     def preconditioner_iter(self) -> int:
@@ -548,10 +569,11 @@ PIQP_NUMERICS: Status  # value = <Status.PIQP_NUMERICS: -8>
 PIQP_PRIMAL_INFEASIBLE: Status  # value = <Status.PIQP_PRIMAL_INFEASIBLE: -2>
 PIQP_SOLVED: Status  # value = <Status.PIQP_SOLVED: 1>
 PIQP_UNSOLVED: Status  # value = <Status.PIQP_UNSOLVED: -9>
-__version__: str = '0.6.4'
+__version__: str = '0.7.0'
 dense_cholesky: KKTSolver  # value = <KKTSolver.dense_cholesky: 0>
 sparse_ldlt: KKTSolver  # value = <KKTSolver.sparse_ldlt: 1>
 sparse_ldlt_cond: KKTSolver  # value = <KKTSolver.sparse_ldlt_cond: 4>
 sparse_ldlt_eq_cond: KKTSolver  # value = <KKTSolver.sparse_ldlt_eq_cond: 2>
 sparse_ldlt_ineq_cond: KKTSolver  # value = <KKTSolver.sparse_ldlt_ineq_cond: 3>
 sparse_multistage: KKTSolver  # value = <KKTSolver.sparse_multistage: 5>
+sparse_multistage_parallel: KKTSolver  # value = <KKTSolver.sparse_multistage_parallel: 6>

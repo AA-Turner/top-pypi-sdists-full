@@ -21,6 +21,7 @@ from botocore.session import Session as BotocoreSession
 from mypy_boto3_accessanalyzer.client import AccessAnalyzerClient
 from mypy_boto3_account.client import AccountClient
 from mypy_boto3_account_access.client import AccountAccessClient
+from mypy_boto3_account_access_runtime.client import AccountAccessRuntimeClient
 from mypy_boto3_acm.client import ACMClient
 from mypy_boto3_acm_pca.client import ACMPCAClient
 from mypy_boto3_agent_registry.client import AgentRegistryClient
@@ -568,6 +569,25 @@ class Session:
     ) -> AccountAccessClient:
         """
         Create client for AccountAccess service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["account-access-runtime"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> AccountAccessRuntimeClient:
+        """
+        Create client for AccountAccessRuntime service.
         """
 
     @overload

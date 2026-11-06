@@ -111,12 +111,6 @@ def _group_level_names(names: list[str]) -> dict[str, LevelGroup]:
             base = name[:-7]  # len("-assets") == 7
             if base in groups:
                 groups[base].has_assets = True
-            elif base + "-report" in groups:
-                # The -report variant was seen first; consolidate under base.
-                old = groups.pop(base + "-report")
-                groups[base] = LevelGroup(
-                    name=base, has_dir=old.has_dir,
-                    has_assets=True, has_report=old.has_report)
             else:
                 # Standalone: no base dir seen (yet).
                 groups[name] = LevelGroup(name=name, has_assets=True)
@@ -124,11 +118,6 @@ def _group_level_names(names: list[str]) -> dict[str, LevelGroup]:
             base = name[:-7]  # len("-report") == 7
             if base in groups:
                 groups[base].has_report = True
-            elif base + "-assets" in groups:
-                old = groups.pop(base + "-assets")
-                groups[base] = LevelGroup(
-                    name=base, has_dir=old.has_dir,
-                    has_assets=old.has_assets, has_report=True)
             else:
                 groups[name] = LevelGroup(name=name, has_report=True)
         else:
@@ -211,7 +200,7 @@ def parse_dataset_level(
     """Discover version/split structure from OSS directory layout.
 
     Performs ``1 + min(N, max_versions)`` LIST calls where *N* is the number
-    of Level 1 entries; the per-group probes run concurrently (8-way).
+    of Level 1 entries; the per-group probes run concurrently (16-way).
 
     语义消歧（``metadata_model``）：
     - ``split_first``（SDK 默认）：level-1 目录 `X/` 下**只有 .json、无子目录**
@@ -221,7 +210,7 @@ def parse_dataset_level(
 
     Args:
         content_store: :class:`~instance_repo.store.oss.OssContentStore` instance.
-        dataset: Canonical dataset name with one or two segments.
+        dataset: Canonical dataset name with one or more segments.
         oss_prefix: Root prefix inside the bucket (default ``"swe/datasets"``).
         max_versions: Upper bound on the number of versions to probe.  When
             exceeded the result is truncated and ``truncated=True`` is set.
@@ -235,6 +224,9 @@ def parse_dataset_level(
         DatasetNotFound: The OSS prefix contains no objects or no recognisable
             version/split structure.
     """
+    from ..errors import SchemaError
+    if type(max_versions) is not int or not 1 <= max_versions <= 500:
+        raise SchemaError("max_versions must be an integer between 1 and 500")
     root = f"{_dataset_base(dataset, '', oss_prefix)}/"
 
     # -- Level 1: list immediate children under the dataset root -----------
@@ -296,11 +288,8 @@ def parse_dataset_level(
         """分析单个 level-1 group，返回 OssVersionInfo / OssUnversionedSplit。"""
         grp = l1_groups[name]
         group_dir = f"{root}{name}/"
-        try:
-            level2_names, level2_keys = content_store.list_level(
-                group_dir, list_only=True, dataset=dataset)
-        except Exception:  # noqa: BLE001
-            level2_names, level2_keys = [], []
+        level2_names, level2_keys = content_store.list_level(
+            group_dir, list_only=True, dataset=dataset)
         l2_groups = _group_level_names(level2_names)
         direct_json = _direct_json_keys(level2_keys, group_dir)
         subdirs = [g for g in l2_groups.values() if g.has_dir or g.has_assets]
@@ -319,12 +308,9 @@ def parse_dataset_level(
         instance_count = len(direct_json)
         for s_name in splits:
             split_dir = f"{group_dir}{s_name}/"
-            try:
-                _s_dirs, s_keys = content_store.list_level(
-                    split_dir, list_only=True, dataset=dataset)
-                instance_count += len(_direct_json_keys(s_keys, split_dir))
-            except Exception:  # noqa: BLE001, S110
-                pass  # best-effort
+            _s_dirs, s_keys = content_store.list_level(
+                split_dir, list_only=True, dataset=dataset)
+            instance_count += len(_direct_json_keys(s_keys, split_dir))
         return OssVersionInfo(
             version=name,
             has_three_layer_content=grp.has_assets,
@@ -334,11 +320,10 @@ def parse_dataset_level(
             default_instance_count=len(direct_json),
         )
 
-    try:
-        from ..concurrency import map_concurrent
-        results = map_concurrent(probe, names, concurrency=16)
-    except Exception:  # noqa: BLE001 - 并发不可用时退化为串行
-        results = [probe(n) for n in names]
+    # A failed probe is not an empty directory or zero instances. Propagate the
+    # failure rather than replaying all probes or reporting a complete snapshot.
+    from ..concurrency import map_concurrent
+    results = map_concurrent(probe, names, concurrency=16)
 
     versions: list[OssVersionInfo] = []
     unversioned_splits: list[OssUnversionedSplit] = []

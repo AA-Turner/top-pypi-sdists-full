@@ -6,6 +6,7 @@ Licensed under the MIT License.
 import base64
 import json
 import logging
+import re
 import warnings
 from dataclasses import dataclass
 from typing import (
@@ -15,13 +16,16 @@ from typing import (
     Callable,
     Generic,
     List,
+    NamedTuple,
     Optional,
     Sequence,
     TypeGuard,
     TypeVar,
+    cast,
+    overload,
 )
 
-from httpx import HTTPStatusError
+from httpx2 import HTTPStatusError
 from microsoft_teams.api import (
     Account,
     ActivityBase,
@@ -29,6 +33,7 @@ from microsoft_teams.api import (
     ApiClient,
     CardAction,
     CardActionType,
+    ChannelData,
     ConversationReference,
     GetBotSignInResourceParams,
     GetUserTokenParams,
@@ -51,8 +56,9 @@ from microsoft_teams.api.models.attachment.card_attachment import (
 from microsoft_teams.api.models.oauth import OAuthCard
 from microsoft_teams.cards import AdaptiveCard
 from microsoft_teams.common import Storage
-from microsoft_teams.common.experimental import ExperimentalWarning
+from microsoft_teams.common.experimental import experimental
 from microsoft_teams.common.http.client_token import Token
+from typing_extensions import deprecated
 
 from ..activity_send import send_or_update_activity
 from ..diagnostics._constants import (
@@ -62,14 +68,15 @@ from ..diagnostics._constants import (
 )
 from ..diagnostics._helpers import trace_oauth_operation
 from ..files import FilesAccessor
-from ..files.download import GraphCredential
-from ..http_stream import HttpStream
+from ..files.download import BotApiCredential, GraphCredential
+from ..http_stream import HttpStream, StreamOptions, StreamReplyChain
 from ..oauth_connection import connection_lookup_key, normalize_connection_name
 from ..oauth_state import (
     get_pending_oauth_sign_ins,
     record_pending_oauth_sign_in,
     replace_pending_oauth_sign_ins,
 )
+from ..plan import Plan, PlanReplyChain
 from ..plugins.streamer import StreamerProtocol
 from ..state import TurnStateContainer
 from ..utils import create_graph_client
@@ -79,6 +86,49 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound=ActivityBase, contravariant=True)
 logger = logging.getLogger(__name__)
+
+_NUMERIC_MESSAGE_ID = re.compile(r"0*[1-9][0-9]*")
+
+
+def _is_quotable_activity(activity: ActivityBase) -> bool:
+    """Whether the inbound activity's id is a plain numeric message id.
+
+    Typed messages, edits, deletes and reactions carry a numeric message id.
+    Invokes, and the messages sent by card buttons, carry a service-generated id such as ``f:<guid>``.
+    All-zero ids are rejected.
+    A numeric id does not prove the message exists or can be quoted.
+    It only marks the id as a candidate for an automatic quote.
+    """
+    return _NUMERIC_MESSAGE_ID.fullmatch(activity.id or "") is not None
+
+
+def _has_source_name(channel_data: Optional[ChannelData]) -> bool:
+    """Whether `channel_data.source` is present, which it is when it carries a non-empty string `name`."""
+    source = channel_data.source if channel_data is not None else None
+    name = source.name if source is not None else None
+    return isinstance(name, str) and name != ""
+
+
+def _message_payload_id(value: Any) -> Optional[str]:
+    """The id of `value.messagePayload`, for a typed invoke value or one that was left as a dict.
+
+    Returns None when there is no string id.
+    """
+    if isinstance(value, dict):
+        payload = cast(dict[str, Any], value).get("messagePayload")
+        payload_id = cast(dict[str, Any], payload).get("id") if isinstance(payload, dict) else None
+    else:
+        payload_id = getattr(getattr(value, "message_payload", None), "id", None)
+    return payload_id if isinstance(payload_id, str) else None
+
+
+CONVERSATION_REF_SEND_DEPRECATION = (
+    "Passing a conversation reference is deprecated and will be removed in a future release. "
+    "Use `App.send()` to send to a different conversation. "
+    "`App.send()` uses the service URL the app is configured with unless `service_url` is passed, "
+    "unlike the context methods, which use the service URL of the conversation reference "
+    "(by default, the inbound activity's)."
+)
 
 
 @dataclass
@@ -101,6 +151,12 @@ class SignInOptions:
 
 
 DEFAULT_SIGNIN_OPTIONS = SignInOptions()
+
+
+class _ReplyChainPlacement(NamedTuple):
+    chat_or_channel_id: str
+    reply_chain_id: str
+    in_channel: bool
 
 
 class ActivityContext(Generic[T]):
@@ -131,6 +187,7 @@ class ActivityContext(Generic[T]):
         cloud: CloudEnvironment = PUBLIC,
         oauth_connection_names: Optional[Sequence[str]] = None,
         files_credential: Optional[GraphCredential] = None,
+        files_bot_api_credential: Optional[BotApiCredential] = None,
     ):
         self.activity = activity
         self.app_id = app_id
@@ -149,8 +206,10 @@ class ActivityContext(Generic[T]):
         # module, so holding it here would be circular.
         self._oauth_connection_names: List[str] = list(oauth_connection_names or [])
         self._stream: Optional[StreamerProtocol] = None
+        self._plan: Optional[Plan] = None
         self._files: Optional[FilesAccessor] = None
         self._files_credential = files_credential
+        self._files_bot_api_credential = files_bot_api_credential
 
         self._next_handler: Optional[Callable[[], Awaitable[None]]] = None
 
@@ -160,22 +219,68 @@ class ActivityContext(Generic[T]):
 
     @property
     def stream(self) -> StreamerProtocol:
+        """The stream for the current conversation.
+
+        The first message of the stream goes to the reply chain (thread) where ``send`` would place a response.
+        In a chat the stream goes into the reply chain when the inbound activity is inside one,
+        and at top level otherwise.
+        In a channel the stream goes into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, the first message is created in the inbound conversation.
+        An inbound activity without `channel_data.reply_chain` is not placed in a reply chain.
+        """
         if self._stream is None:
-            self._stream = HttpStream(self.api, self.conversation_ref)
+            placement = self._get_inbound_reply_chain_placement()
+            self._stream = HttpStream(
+                self.api,
+                self.conversation_ref,
+                StreamOptions(StreamReplyChain(placement.chat_or_channel_id, placement.reply_chain_id))
+                if placement is not None
+                else None,
+            )
         return self._stream
 
     @property
     def files(self) -> FilesAccessor:
         """
         The uploaded files on the current inbound activity, i.e. the `content_type: file.download.info` subset of
-        `activity.attachments`, mapped to `IncomingFile`. See `FilesAccessor`.
+        `activity.attachments`, plus images pasted inline, mapped to `IncomingFile`. See `FilesAccessor`.
         """
         if self._files is None:
             # Reuse the API client's underlying connection pool rather than building a new one per download. The raw
-            # `httpx.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
+            # `httpx2.AsyncClient` is used deliberately: the SDK wrapper injects the bot's `Authorization` header per
             # request, and a download URL carries its own `tempauth` credential that a bearer token can displace.
-            self._files = FilesAccessor(self.activity, self.api.http.http, self._files_credential)
+            self._files = FilesAccessor(
+                self.activity,
+                self.api.http.http,
+                self._files_credential,
+                self._files_bot_api_credential,
+            )
         return self._files
+
+    @experimental("ExperimentalTeamsPlan")
+    def plan(self) -> Plan:
+        """Create or reference the existing Plan for the incoming activity.
+
+        In a chat thread, a standalone ``complete()`` is posted to the reply chain, as ``ctx.send`` does.
+        Typing updates, completions in a channel, and prompts outside a thread use the conversation.
+
+        Diagnostic: ExperimentalTeamsPlan
+        """
+        if self._plan is None:
+            placement = self._get_inbound_reply_chain_placement()
+            self._plan = Plan(
+                conversation_id=self.conversation_ref.conversation.id,
+                reply_to_id=self.activity.id,
+                reply_chain=(
+                    PlanReplyChain(
+                        chat_or_channel_id=placement.chat_or_channel_id, reply_chain_id=placement.reply_chain_id
+                    )
+                    if placement is not None and not placement.in_channel
+                    else None
+                ),
+                api_client=self.api.from_service_url(self.conversation_ref.service_url),
+            )
+        return self._plan
 
     @property
     def user_graph(self) -> "GraphServiceClient":
@@ -238,6 +343,19 @@ class ActivityContext(Generic[T]):
 
         return self._app_graph
 
+    @overload
+    async def send(
+        self, message: str | ActivityParams | AdaptiveCard, conversation_ref: None = None
+    ) -> SentActivity: ...
+
+    @overload
+    @deprecated(CONVERSATION_REF_SEND_DEPRECATION)
+    async def send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: ConversationReference,
+    ) -> SentActivity: ...
+
     async def send(
         self,
         message: str | ActivityParams | AdaptiveCard,
@@ -245,14 +363,35 @@ class ActivityContext(Generic[T]):
     ) -> SentActivity:
         """Send a message in the current conversation without quoting.
 
-        In channels, sends to the current thread. In scopes that do not
-        support threading (group chat, meetings), sends as a normal message.
+        In a chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        Otherwise it sends at top level.
+        The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
+        In a channel, sends into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
+        An inbound activity without `channel_data.reply_chain` is not placed,
+        and the activity is sent to the inbound conversation.
         To send with a visual quote of the inbound message, use :meth:`reply`.
 
         Args:
             message: The message to send, can be a string, ActivityParams, or AdaptiveCard
-            conversation_ref: Optional conversation reference to send to a different conversation or thread
+            conversation_ref: Conversation reference to send to a different conversation.
+
+                .. deprecated::
+                    Passing a conversation reference is deprecated and will be removed in a future release.
+                    Use ``App.send()`` to send to a different conversation.
+                    ``App.send()`` uses the service URL the app is configured with unless ``service_url`` is passed,
+                    unlike the context methods, which use the service URL of the conversation reference
+                    (by default, the inbound activity's).
         """
+        if conversation_ref is not None:
+            warnings.warn(CONVERSATION_REF_SEND_DEPRECATION, DeprecationWarning, stacklevel=2)
+        return await self._send(message, conversation_ref)
+
+    async def _send(
+        self,
+        message: str | ActivityParams | AdaptiveCard,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> SentActivity:
         if isinstance(message, str):
             activity = MessageActivityInput(text=message)
         elif isinstance(message, AdaptiveCard):
@@ -266,6 +405,24 @@ class ActivityContext(Generic[T]):
         self._add_targeted_message_info_entity(activity)
 
         ref = conversation_ref or self.conversation_ref
+        placement = self._get_chat_reply_chain_placement(activity, conversation_ref)
+        if placement is not None:
+            try:
+                return await send_or_update_activity(
+                    self.api,
+                    activity,
+                    ref.model_copy(
+                        update={
+                            "conversation": ref.conversation.model_copy(update={"id": placement.chat_or_channel_id})
+                        }
+                    ),
+                    agentic_identity=self.activity.recipient.agentic_identity,
+                    reply_chain_id=placement.reply_chain_id,
+                )
+            except HTTPStatusError as e:
+                if not placement.in_channel or e.response.status_code != 404:
+                    raise
+
         return await send_or_update_activity(
             self.api,
             activity,
@@ -274,13 +431,28 @@ class ActivityContext(Generic[T]):
         )
 
     async def reply(self, input: str | ActivityParams) -> SentActivity:
-        """Send a message in the current conversation with a visual quote of the inbound message.
+        """Send a message in the current conversation, quoting the inbound message when its id allows it.
 
-        In channels, sends to the current thread with a quoted reply.
-        In other scopes, sends with a quoted reply.
+        In a chat, sends into the reply chain (thread) of the inbound activity when it is inside one.
+        Otherwise it sends at top level.
+        The inbound activity can be a message, a card action, an invoke, a reaction, an edit or a delete.
+        In a channel, sends into the reply chain of the inbound message.
+        In a channel, when the service answers HTTP 404, sends to the inbound conversation instead.
+        An inbound activity without `channel_data.reply_chain` is not placed,
+        and the activity is sent to the inbound conversation.
+        The response is automatically quoted only when the inbound activity id is a plain numeric message id.
+        Otherwise, such as an invoke or a card action whose id is ``f:<guid>``, the activity is sent without a quote.
+        It is then sent exactly like :meth:`send`.
+        To quote a specific message, use :meth:`quote` with that message's id.
         To send without quoting, use :meth:`send`.
+
+        Args:
+            input: The response text or activity to send.
+
+        Returns:
+            The ``SentActivity`` returned by the conversation API call.
         """
-        if self.activity.id:
+        if _is_quotable_activity(self.activity):
             return await self.quote(self.activity.id, input)
         activity = MessageActivityInput(text=input) if isinstance(input, str) else input
         return await self.send(activity)
@@ -336,6 +508,101 @@ class ActivityContext(Generic[T]):
 
         return not activity.id and activity.recipient is None
 
+    def _get_inbound_reply_chain_placement(self) -> Optional[_ReplyChainPlacement]:
+        """Find the chat or channel and reply chain (thread) a response to the inbound activity is posted to.
+
+        In a channel a response to a message always goes to the reply chain of the inbound message.
+        `channel_data.reply_chain.id` is the root of that reply chain.
+        It equals the inbound message's own id for a top-level post.
+        The destination is the channel, `channel_data.channel.id`.
+        Other inbound activities in a channel are not placed.
+        In a chat see `_is_inside_thread` for which activities are inside a thread.
+        The destination is the chat, `channel_data.chat.id`.
+        When the inbound activity is on a top-level message, the response is sent as a top-level message.
+        The conversation type of a chat does not matter: the payload carrying `channel_data.reply_chain` is what
+        places a response.
+        Returns None when an id is missing or blank, so the send goes to the inbound conversation.
+        """
+        conversation_type = self.activity.conversation.conversation_type
+        channel_data = self.activity.channel_data
+        reply_chain_id = channel_data.reply_chain.id if channel_data and channel_data.reply_chain else None
+        if reply_chain_id is None or not reply_chain_id.strip():
+            return None
+
+        if conversation_type == "channel":
+            channel_id = channel_data.channel.id if channel_data and channel_data.channel else None
+            if self.activity.type != "message" or channel_id is None or not channel_id.strip():
+                return None
+            return _ReplyChainPlacement(channel_id, reply_chain_id, True)
+
+        chat_id = channel_data.chat.id if channel_data and channel_data.chat else None
+        if chat_id is None or not chat_id.strip() or not self._is_inside_thread(reply_chain_id):
+            return None
+        return _ReplyChainPlacement(chat_id, reply_chain_id, False)
+
+    def _is_inside_thread(self, reply_chain_id: str) -> bool:
+        """Whether the inbound activity in a chat is inside a thread.
+
+        That is when `channel_data.reply_chain.id` differs from the id of the message the activity acts on.
+        The message it acts on is:
+
+        - `activity.id` for a message, an edit and a delete.
+        - `reply_to_id` (the reacted message) for a reaction and for a message sent by a card button
+          (a message with `channel_data.source`).
+        - `value.message_payload.id` for a message action, and `reply_to_id` (the message the user acted on, for
+          example a card or a message with feedback buttons) for any other invoke.
+
+        An invoke that is not tied to a message (for example a compose-box extension or a `task/fetch` from a bot
+        command) is inside a thread when `channel_data.reply_chain.id` is present.
+        A `reply_to_id` or `message_payload.id` that is not a plain number is never inside a thread, and neither are
+        other inbound activities.
+        A `source` without a non-empty string `name` and a `reply_to_id` that is null count as absent.
+        """
+        activity: Any = self.activity
+        activity_type = activity.type
+
+        def is_other_plain_id(message_id: Optional[str]) -> bool:
+            return bool(
+                message_id
+                and message_id.isascii()
+                and message_id.isdigit()
+                and any(c != "0" for c in message_id)
+                and message_id != reply_chain_id
+            )
+
+        if activity_type == "message":
+            if _has_source_name(activity.channel_data):
+                return is_other_plain_id(activity.reply_to_id)
+            return activity.id != reply_chain_id
+
+        if activity_type in ("messageUpdate", "messageDelete"):
+            return activity.id != reply_chain_id
+
+        if activity_type == "messageReaction":
+            return is_other_plain_id(activity.reply_to_id)
+
+        if activity_type == "invoke":
+            message_id = _message_payload_id(getattr(activity, "value", None))
+            if message_id is None:
+                message_id = activity.reply_to_id
+            return True if message_id is None else is_other_plain_id(message_id)
+
+        return False
+
+    def _get_chat_reply_chain_placement(
+        self,
+        activity: ActivityParams,
+        conversation_ref: Optional[ConversationReference] = None,
+    ) -> Optional[_ReplyChainPlacement]:
+        if (
+            not isinstance(activity, MessageActivityInput)
+            or activity.id
+            or not self._is_same_conversation(conversation_ref)
+        ):
+            return None
+
+        return self._get_inbound_reply_chain_placement()
+
     def _is_same_conversation(self, conversation_ref: Optional[ConversationReference] = None) -> bool:
         if conversation_ref is None:
             return True
@@ -370,9 +637,7 @@ class ActivityContext(Generic[T]):
         if not self._is_targeted_outbound(activity_params):
             return
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", ExperimentalWarning)
-            activity_params.add_targeted_message_info(self.activity.id)
+        activity_params.add_targeted_message_info(self.activity.id)
 
     async def sign_in(self, options: Optional[SignInOptions] = None) -> Optional[str]:
         """
@@ -482,7 +747,7 @@ class ActivityContext(Generic[T]):
             )
             if self.state is not None:
                 await self.state._save()  # pyright: ignore[reportPrivateUsage]
-            await self.send(payload, self.conversation_ref)
+            await self.send(payload)
         except Exception:
             # Best-effort rollback: the card never went out, so the pending hint must not
             # linger and mis-route a later callback. A failure here must not replace the

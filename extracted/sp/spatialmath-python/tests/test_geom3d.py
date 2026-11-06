@@ -17,6 +17,73 @@ import sys
 import matplotlib.pyplot as plt
 
 
+@pytest.mark.parametrize(
+    "p1, w1, p2, w2, expected",
+    [
+        ([0, 0, 0], [1, 0, 0], [0, 3, 4], [1, 0, 0], 5),
+        ([1, 2, 3], [1, 0, 0], [4, 2, 3], [-1, 0, 0], 0),
+        ([1, 2, 3], [2, 0, 0], [1, 2, 3], [0, 5, 0], 0),
+        ([0, 0, 0], [1, 0, 0], [0, 0, 2], [0.6, 0.8, 0], 2),
+        ([1, 2, 3], [2, 0, 0], [1, 2, 5], [3, 4, 0], 2),
+    ],
+    ids=["parallel", "coincident", "intersecting", "skew-unit", "skew-scaled"],
+)
+@pytest.mark.parametrize("scale1, scale2", [(1, 1), (2, 5), (-2, 0.25), (1e-8, 1e-8)])
+def test_line_distance(p1, w1, p2, w2, expected, scale1, scale2):
+    # Scaling either set of Plucker coordinates does not change the line.
+    line1 = Line3.PointDir(p1, np.array(w1) * scale1)
+    line2 = Line3.PointDir(p2, np.array(w2) * scale2)
+    for first, second in [(line1, line2), (line2, line1)]:
+        distance = first.distance(second)
+        assert np.isscalar(distance)
+        assert distance == pytest.approx(expected, abs=1e-12)
+
+
+def test_line_distance_parallel_tolerance():
+    line1 = Line3.PointDir([0, 0, 0], [1, 0, 0])
+    line2 = Line3.PointDir([0, 1, 2], [1, 1e-8, 0])
+    assert line1.distance(line2) == pytest.approx(2)
+    # A larger angular tolerance treats the directions as parallel.
+    assert line1.distance(line2, tol=1e8) == pytest.approx(np.sqrt(5))
+
+
+@pytest.mark.parametrize(
+    "point, direction1, direction2",
+    [
+        ([0, 0, 0], [1, 0, 0], [0, 1, 0]),
+        ([1, 2, 3], [1, 0, 0], [1, 1, 0]),
+        ([-3, 1, 2], [1, 2, 3], [-2, 1, 1]),
+    ],
+    ids=["origin", "oblique", "spatial"],
+)
+@pytest.mark.parametrize(
+    "scale1, scale2", [(1, 1), (2, 5), (-2, 0.25), (1e-8, 1e-8), (1e-8, 1e8)]
+)
+def test_line_intersection_point(point, direction1, direction2, scale1, scale2):
+    point = np.array(point)
+    direction1, direction2 = np.array(direction1), np.array(direction2)
+    line1 = Line3.PointDir(point + 2 * direction1, scale1 * direction1)
+    line2 = Line3.PointDir(point - 3 * direction2, scale2 * direction2)
+
+    for first, second in [(line1, line2), (line2, line1)]:
+        intersection = first.intersects(second)
+        assert intersection is not None
+        assert intersection.shape == (3,)
+        nt.assert_allclose(intersection, point, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "point, direction",
+    [([0, 1, 0], [1, 0, 0]), ([2, 0, 0], [-2, 0, 0]), ([0, 0, 1], [0, 1, 0])],
+    ids=["parallel", "coincident", "skew"],
+)
+def test_line_intersection_none(point, direction):
+    line1 = Line3.PointDir([0, 0, 0], [1, 0, 0])
+    line2 = Line3.PointDir(point, direction)
+    assert line1.intersects(line2) is None
+    assert line2.intersects(line1) is None
+
+
 class Line3Test(unittest.TestCase):
     # Primitives
     def test_constructor1(self):
@@ -207,6 +274,26 @@ class Line3Test(unittest.TestCase):
         self.assertFalse(L1.isparallel(L3))
         self.assertFalse(L1 | L3)
 
+    def test_parallel_plucker_scale(self):
+        for scale1, scale2 in ((1, 1), (1e-8, 1e-8), (-1e-8, 1e-8)):
+            l1 = Line3.PointDir([0, 0, 0], [scale1, 0, 0])
+            perpendicular = Line3.PointDir([0, 0, 1], [0, scale2, 0])
+            parallel = Line3.PointDir([0, 0, 1], [scale2, 0, 0])
+
+            self.assertFalse(l1.isparallel(perpendicular))
+            self.assertFalse(l1 | perpendicular)
+            self.assertTrue(l1.isparallel(parallel))
+            self.assertTrue(l1 | parallel)
+
+        # A loose angular tolerance must not shrink when Plucker coordinates grow.
+        l1 = Line3.PointDir([0, 0, 0], [1, 0, 0])
+        # Only the directions matter here. A zero moment also avoids
+        # round-off in the constructor's Plucker orthogonality check.
+        almost_parallel = Line3.PointDir([0, 0, 0], [1, 1e-9, 0])
+        scaled = Line3.PointDir([0, 0, 0], [1e8, 0.1, 0])
+        self.assertTrue(l1.isparallel(almost_parallel, tol=1e8))
+        self.assertTrue(l1.isparallel(scaled, tol=1e8))
+
     def test_intersect(self):
         L1 = Line3.PointDir([4, 5, 6], [1, 2, 3])
         L2 = Line3.PointDir([5, 5, 6], [1, 2, 3])
@@ -223,6 +310,22 @@ class Line3Test(unittest.TestCase):
             L3 ^ L4,
         )
 
+    def test_intersect_plucker_scale(self):
+        for scale in (1, 1e-8, 1e8):
+            l1 = Line3.PointDir([0, 0, 0], [scale, 0, 0])
+            crossing = Line3.PointDir([0, 0, 0], [0, scale, 0])
+            skew = Line3.PointDir([0, 0, 1e-7], [0, scale, 0])
+
+            self.assertTrue(l1.isintersecting(crossing))
+            self.assertTrue(l1 ^ crossing)
+            self.assertFalse(l1.isintersecting(skew))
+            self.assertFalse(l1 ^ skew)
+
+        # Tolerance on the miss distance is independent of direction magnitude.
+        l1 = Line3.PointDir([0, 0, 0], [1e8, 0, 0])
+        near = Line3.PointDir([0, 0, 1e-8], [0, 1e8, 0])
+        self.assertTrue(l1.isintersecting(near, tol=1e9))
+
     def test_commonperp(self):
         L1 = Line3.PointDir([4, 5, 6], [0, 0, 1])
         L2 = Line3.PointDir([6, 5, 6], [0, 1, 0])
@@ -236,6 +339,22 @@ class Line3Test(unittest.TestCase):
 
         self.assertTrue(L ^ L1)
         self.assertTrue(L ^ L2)
+
+    def test_commonperp_plucker_scale(self):
+        for scale1, scale2 in ((1, 1), (1e-8, 1e-8), (-1e-8, 1e8)):
+            l1 = Line3.PointDir([1, 2, 3], [scale1, 0, 0])
+            l2 = Line3.PointDir([0, 2, 4], [scale2, scale2, 0])
+
+            common = l1.commonperp(l2)
+            self.assertIsNotNone(common)
+            nt.assert_allclose(common.pp, [0, 2, 0], atol=1e-12)
+            self.assertAlmostEqual(abs(common.uw[2]), 1)
+            self.assertTrue(common.isintersecting(l1))
+            self.assertTrue(common.isintersecting(l2))
+
+            nearest, distance = l1.closest_to_line(l2)
+            nt.assert_allclose(nearest, [0, 2, 3], atol=1e-12)
+            self.assertAlmostEqual(distance, 1)
 
     def test_line(self):
         # mindist
@@ -321,6 +440,34 @@ class Line3Test(unittest.TestCase):
     #
     #     px.intersect_plane(plane)
     #     py.intersect_plane(plane)
+
+
+@pytest.mark.parametrize("point", [[0, 0, 0], [1, 2, 3], [-1.5, 2, 3.25]])
+@pytest.mark.parametrize(
+    "normals", [np.eye(3), np.array([[1, 2, 0], [0, 1, 3], [2, 0, 1]])]
+)
+@pytest.mark.parametrize("scales", [[1, 1, 1], [-2, 0.5, 3]])
+def test_three_plane_intersection(point, normals, scales):
+    normals = normals * np.array(scales)[:, None]
+    planes = [Plane3.PointNormal(point, normal) for normal in normals]
+    intersection = Plane3.intersection(*planes)
+
+    assert intersection.shape == (3,)
+    nt.assert_allclose(intersection, point, atol=1e-12)
+    # Each plane is defined by n @ x + d = 0, regardless of coefficient scale.
+    nt.assert_allclose(
+        normals @ intersection + np.array([plane.d for plane in planes]),
+        0,
+        atol=1e-12,
+    )
+    nt.assert_allclose(Plane3.intersection(*reversed(planes)), point, atol=1e-12)
+
+
+@pytest.mark.parametrize("offset", [0, 1])
+def test_three_plane_intersection_singular(offset):
+    planes = [Plane3([1, 0, 0, 0]), Plane3([1, 0, 0, offset]), Plane3([0, 1, 0, 0])]
+    with pytest.raises(np.linalg.LinAlgError):
+        Plane3.intersection(*planes)
 
 
 if __name__ == "__main__":

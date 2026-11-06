@@ -162,12 +162,15 @@ class RESTClient(ABC):
         if self._oauth_token:
             headers["Authorization"] = "Bearer " + self._oauth_token
         elif self._use_basic_auth:
-            api_key_secret = "{key}:{secret}".format(
-                key=self._api_key, secret=self._secret_key
-            ).encode("utf-8")
-            encoded_api_key_secret = base64.b64encode(api_key_secret).decode("utf-8")
-            headers["Authorization"] = "Basic " + encoded_api_key_secret
-        else:
+            if self._api_key and self._secret_key:
+                api_key_secret = "{key}:{secret}".format(
+                    key=self._api_key, secret=self._secret_key
+                ).encode("utf-8")
+                encoded_api_key_secret = base64.b64encode(api_key_secret).decode(
+                    "utf-8"
+                )
+                headers["Authorization"] = "Basic " + encoded_api_key_secret
+        elif self._api_key or self._secret_key:
             headers["APCA-API-KEY-ID"] = self._api_key
             headers["APCA-API-SECRET-KEY"] = self._secret_key
 
@@ -323,8 +326,8 @@ class RESTClient(ABC):
         Private method for converting an iterator that yields results to the proper pagination type result.
         """
         if handle_pagination == PaginationType.NONE:
-            # user wants no pagination, so just do a single page
-            return next(iterator)
+            # One page. An empty first page is an empty list, not StopIteration.
+            return next(iterator, [])
         elif handle_pagination == PaginationType.FULL:
             # the iterator returns "pages", so we use chain to flatten them all into 1 list
             return list(chain.from_iterable(iterator))

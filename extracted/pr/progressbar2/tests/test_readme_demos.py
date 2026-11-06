@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 import re
 import sys
@@ -22,12 +23,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import scripts.render_demos as demos  # noqa: E402
 
 
+def _has_bar(line: str) -> bool:
+    """Return whether `line` contains a rendered ``|...|`` bar frame.
+
+    Matched against SGR-stripped text: the default bar's fill is colored
+    (the red->green gradient), and BAR_RE's inner group cannot match a
+    fill with escape codes woven through it.
+    """
+    return bool(demos.BAR_RE.search(demos.ANSI_SGR_RE.sub('', line)))
+
+
 def _bar_widths(frames: list[list[str]]) -> list[int]:
     return [
         len(match.group('inner'))
         for frame in frames
         for line in frame
-        if (match := demos.BAR_RE.search(line))
+        if (match := demos.BAR_RE.search(demos.ANSI_SGR_RE.sub('', line)))
     ]
 
 
@@ -225,42 +236,37 @@ def test_render_svg_labels_root_for_accessibility(tmp_path: Path) -> None:
     )
 
 
-def test_render_svg_reduced_motion_rule_freezes_on_last_frame(
+def test_render_svg_animates_regardless_of_reduced_motion(
     tmp_path: Path,
 ) -> None:
+    # The demos must animate for everyone. A prefers-reduced-motion rule
+    # froze them on the last frame for anyone with OS animations turned
+    # off (e.g. Windows "Animation effects"), which read as broken SVGs.
     output = tmp_path / 'demo.svg'
     demos.render_svg(output, title='Demo', frames=[['a'], ['b'], ['c']])
     text = output.read_text(encoding='utf-8')
 
-    assert '@media (prefers-reduced-motion: reduce)' in text
-    assert 'animate { display: none; }' in text
-    # The override must be strong enough (!important) to beat the SMIL
-    # animation, and must land on the *last* frame group, not the first --
-    # confirmed live in a browser (see task-9-report.md) that a plain,
-    # non-!important opacity override is silently outranked by the still-
-    # running animated value every frame, and that landing on the last
-    # frame (not the first) shows a finished bar rather than an empty one.
-    assert 'g { display: none !important; opacity: 0 !important; }' in text
-    assert (
-        'g:last-of-type { display: inline !important; opacity: 1 !important; }'
-    ) in text
+    assert 'prefers-reduced-motion' not in text
+    assert '@media' not in text
+    assert '!important' not in text
+    assert text.count('<animate ') == 3
 
 
 def test_demo_description_strips_single_backtick_markup_from_real_docstring() -> (  # noqa: E501
     None
 ):
-    # docs/examples/howto/custom_widget.py's docstring uses RST's
+    # docs/examples/howto/redirect_stdout.py's docstring uses RST's
     # single-backtick inline-code style (`WidgetBase`) -- unlike the
     # widgets/*.py docstrings, which use double backticks (``Widget``).
     # Regression guard: an earlier version of demo_description only
     # stripped the double-backtick pattern, leaking single backticks
     # verbatim into 11 of the registry's 50 demos' <desc> text.
-    demo = demos.DEMOS_BY_NAME['howto/custom-widget']
+    demo = demos.DEMOS_BY_NAME['howto/redirect-stdout']
 
     description = demos.demo_description(demo)
 
     assert '`' not in description
-    assert 'WidgetBase' in description
+    assert 'print()' in description
 
 
 def test_demo_description_strips_double_and_single_backtick_markup(
@@ -388,13 +394,150 @@ def test_parse_frames_groups_multibar_redraws_by_offset() -> None:
     ]
 
 
+def test_parse_frames_groups_repeated_manual_line_offsets() -> None:
+    output: str = (
+        '\x1b[F\x1b[F\rbuild 10%\x1b[B\x1b[B'
+        '\x1b[F\rtest 5%\x1b[B'
+        '\x1b[F\x1b[F\rbuild 20%\x1b[B\x1b[B'
+        '\x1b[F\x1b[F\r\x1b[B\x1b[B'
+    )
+    assert demos.parse_frames(output) == [
+        ['build 10%'],
+        ['build 10%', 'test 5%'],
+        ['build 20%', 'test 5%'],
+    ]
+
+
+def test_multibar_clear_removes_only_the_retired_row() -> None:
+    output: str = (
+        '\x1b[2Fbuild 100%\x1b[2E\x1b[1Ftest 50%\x1b[1E\x1b[2F\x1b[2K\x1b[2E'
+    )
+    assert demos.parse_frames(output)[-1] == ['test 50%']
+
+
+def test_manual_line_offset_capture_shows_four_actual_rows() -> None:
+    frames: list[list[str]] = demos.capture_demo(
+        demos.DEMOS_BY_NAME['howto/multibar-line-offset']
+    )
+    assert any(
+        len(frame) == 4 and all(_has_bar(line) for line in frame)
+        for frame in frames
+    )
+    assert len(frames[-1]) == 4
+    assert all(
+        '(20 of 20)' in demos.ANSI_SGR_RE.sub('', line) for line in frames[-1]
+    )
+    assert min(_bar_widths(frames)) >= 20
+
+
+def test_parallel_execution_capture_shows_three_active_workers() -> None:
+    frames: list[list[str]] = demos.capture_demo(
+        demos.DEMOS_BY_NAME['howto/parallel-execution']
+    )
+    active_workers: set[str]
+    frame: list[str]
+    for frame in frames:
+        active_workers = set()
+        line: str
+        for line in frame:
+            plain_line: str = demos.ANSI_SGR_RE.sub('', line)
+            match: re.Match[str] | None = demos.PERCENT_RE.search(plain_line)
+            if match and 0 < int(match.group()[:-1]) < 100:
+                active_workers.add(plain_line[: match.start()].strip())
+        if len(active_workers) >= 3:
+            break
+    else:
+        pytest.fail('No frame shows three workers making progress together')
+    last_frame: str = demos.ANSI_SGR_RE.sub('', '\n'.join(frames[-1]))
+    assert 'Total' in last_frame
+    assert '3 of 3 files' in last_frame
+
+
+def test_parallel_worker_keeps_filename_after_early_render(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+    from collections.abc import Callable
+
+    import progressbar
+
+    module: types.ModuleType = demos.load_example(
+        demos.DEMOS_BY_NAME['howto/parallel-execution']
+    )
+
+    def render_before_worker(
+        function: Callable[[str], str],
+        filenames: list[str],
+        *,
+        bar: progressbar.MultiBar,
+        **kwargs: object,
+    ) -> list[str]:
+        bar.fd = io.StringIO()
+        task_bar: progressbar.ProgressBar = progressbar.ProgressBar(
+            max_value=progressbar.UnknownLength
+        )
+        bar[filenames[0]] = task_bar
+        task_bar.start()
+        bar.render(force=True)
+        monkeypatch.setattr(progressbar, 'current_task_bar', lambda: task_bar)
+        function(filenames[0])
+        assert task_bar._format_line().count(filenames[0]) == 1
+        return filenames
+
+    monkeypatch.setattr(progressbar, 'map', render_before_worker)
+    monkeypatch.setattr(module.time, 'sleep', lambda _: None)
+    module.main()
+
+
+def test_non_tty_capture_keeps_increasing_updates_in_history() -> None:
+    frames: list[list[str]] = demos.capture_demo(
+        demos.DEMOS_BY_NAME['howto/non-tty']
+    )
+    percentages: list[list[int]] = [
+        [
+            int(match.group()[:-1])
+            for line in frame
+            if (
+                match := demos.PERCENT_RE.search(
+                    demos.ANSI_SGR_RE.sub('', line)
+                )
+            )
+        ]
+        for frame in frames
+    ]
+    assert max(map(len, frames)) == 4
+    assert any(
+        len(values) == 4 and all(a < b for a, b in itertools.pairwise(values))
+        for values in percentages
+    )
+    assert percentages[-1][-1] == 100
+
+
+def test_history_keeps_newlines_but_replaces_carriage_return_updates() -> None:
+    frames: list[list[str]] = demos.parse_frames(
+        'first\r\n0%\r10%\r\n20%\r\n30%\r\n40%',
+        history_lines=3,
+    )
+    assert frames == [
+        ['first'],
+        ['first', '0%'],
+        ['first', '10%'],
+        ['first', '10%', '20%'],
+        ['10%', '20%', '30%'],
+        ['20%', '30%', '40%'],
+    ]
+
+
 def test_readme_demos_are_registered_in_display_order() -> None:
     readme_demos = [
         demo for demo in demos.DEMOS if demo.name.startswith('readme/')
     ]
     assert [(demo.name, demo.title) for demo in readme_demos] == [
+        ('readme/cli', 'progressbar data.bin -o copy.bin'),
+        ('readme/colors', 'Gradients, colors and animated markers'),
         ('readme/hero', 'Progress with clean logs'),
         ('readme/multibar', 'Multiple active jobs'),
+        ('readme/parallel', 'progressbar.map with per-task bars'),
         ('readme/unknown-length', 'Unknown length'),
     ]
 
@@ -418,6 +561,22 @@ def test_every_demo_animates_across_at_least_two_frames(
         f'{demo.name} produced only one distinct frame -- its animation '
         'never visibly changes'
     )
+
+
+def test_tutorial_recording_preserves_intermediate_progress() -> None:
+    frames: list[list[str]] = demos.capture_demo(
+        demos.DEMOS_BY_NAME['tutorial/step1']
+    )
+    percentages: list[int] = [
+        int(match.group()[:-1])
+        for frame in frames
+        for line in frame
+        if (match := demos.PERCENT_RE.search(demos.ANSI_SGR_RE.sub('', line)))
+    ]
+    assert percentages[0] == 0
+    assert percentages[-1] == 100
+    assert len(set(percentages)) >= 80
+    assert max(b - a for a, b in itertools.pairwise(percentages)) <= 2
 
 
 # Demos whose entire purpose is a time-derived reading (an elapsed duration,
@@ -469,23 +628,32 @@ def test_time_derived_widget_reading_visibly_changes(
     )
 
 
+#: Every generated demo/race asset the README embeds.
+README_ASSETS = (
+    'readme-race.svg',
+    'readme-colors.svg',
+    'readme-hero.svg',
+    'readme-multibar.svg',
+    'readme-parallel.svg',
+    'readme-cli.svg',
+    'readme-unknown-length.svg',
+)
+
+
 def test_readme_uses_absolute_demo_asset_urls() -> None:
-    # README.rst is rendered as the PyPI package description, which serves
+    # README.md is rendered as the PyPI package description, which serves
     # the file with no repository around it -- relative image paths (e.g.
     # `docs/_static/...`) 404 there, so demo assets must be absolute URLs
-    # back to this repo instead, pointing at the registry's committed demo
-    # names under docs/_static/demos/ (see docs/examples/_registry.py's
-    # Demo.svg_path), not the superseded docs/_static/progressbar-*.svg
-    # assets those replaced.
-    readme = (demos.ROOT / 'README.rst').read_text(encoding='utf-8')
+    # back to this repo instead, pointing at the committed generated
+    # assets under docs/_static/demos/ (see docs/examples/_registry.py's
+    # Demo.svg_path and scripts/render_race.py), not the superseded
+    # docs/_static/progressbar-*.svg assets those replaced.
+    readme = (demos.ROOT / 'README.md').read_text(encoding='utf-8')
 
-    assert f'.. image:: {_RAW_ASSET_BASE}/demos/readme-hero.svg' in readme
-    assert f'.. image:: {_RAW_ASSET_BASE}/demos/readme-multibar.svg' in readme
-    assert (
-        f'.. image:: {_RAW_ASSET_BASE}/demos/readme-unknown-length.svg'
-        in readme
-    )
-    assert '.. image:: docs/_static/' not in readme
+    for asset in README_ASSETS:
+        assert f'{_RAW_ASSET_BASE}/demos/{asset}' in readme
+    assert '](docs/_static/' not in readme
+    assert 'src="docs/_static/' not in readme
     assert 'progressbar-hero.svg' not in readme
     assert 'progressbar-multibar.svg' not in readme
     assert 'progressbar-unknown-length.svg' not in readme
@@ -494,34 +662,32 @@ def test_readme_uses_absolute_demo_asset_urls() -> None:
 
 
 def _readme_demo_block(example_name: str) -> str:
-    """Return ``docs/examples/readme/{example_name}.py``, RST-indented.
+    """Return ``docs/examples/readme/{example_name}.py`` as a Markdown fence.
 
-    README.rst is plain RST rendered standalone on PyPI -- no Sphinx, so no
-    ``literalinclude`` -- meaning each ``.. code:: python`` block is a
-    literal copy of the matching example file's current contents, indented
-    four spaces per RST's code-block convention. This must stay a copy
-    checked by a test, not just a one-time paste: nothing else would catch
-    the block silently drifting out of sync the next time someone edits the
-    example but not the README.
+    README.md is rendered standalone on PyPI -- no Sphinx, so no
+    ``literalinclude`` -- meaning each ```` ```python ```` block is a
+    literal copy of the matching example file's current contents. This
+    must stay a copy checked by a test, not just a one-time paste:
+    nothing else would catch the block silently drifting out of sync the
+    next time someone edits the example but not the README.
     """
     source = (
         demos.ROOT / 'docs' / 'examples' / 'readme' / f'{example_name}.py'
     ).read_text(encoding='utf-8')
-    return '\n'.join(
-        f'    {line}' if line else '' for line in source.splitlines()
-    )
+    return f'```python\n{source}```'
 
 
 @pytest.mark.parametrize(
-    'example_name', ['hero', 'multibar', 'unknown_length']
+    'example_name',
+    ['colors', 'hero', 'multibar', 'parallel', 'unknown_length'],
 )
 def test_readme_code_blocks_match_example_sources(example_name: str) -> None:
-    readme = (demos.ROOT / 'README.rst').read_text(encoding='utf-8')
+    readme = (demos.ROOT / 'README.md').read_text(encoding='utf-8')
     assert _readme_demo_block(example_name) in readme
 
 
 def test_readme_omits_obsolete_gpg_release_verification() -> None:
-    readme = (demos.ROOT / 'README.rst').read_text(encoding='utf-8')
+    readme = (demos.ROOT / 'README.md').read_text(encoding='utf-8')
 
     assert 'Release verification' not in readme
     assert 'GPG' not in readme
@@ -561,6 +727,51 @@ def test_multibar_demo_shows_both_bars_finishing() -> None:
     assert last_frame.count('(24 of 24)') == 2
 
 
+def test_colors_demo_captures_colored_multibar() -> None:
+    demo = demos.DEMOS_BY_NAME['readme/colors']
+    frames = demos.capture_demo(demo)
+    text = '\n'.join(line for frame in frames for line in frame)
+
+    assert 'download' in text
+    assert 'render' in text
+    assert 'scan' in text
+    # The gradient/fixed colors must survive capture as extended SGR
+    # sequences -- a colorless montage would defeat the demo.
+    assert '\x1b[38;' in text
+    # All three styled bars visible together at least once.
+    assert any(len(frame) == 3 for frame in frames)
+
+
+def test_parallel_demo_captures_total_and_task_bars() -> None:
+    demo = demos.DEMOS_BY_NAME['readme/parallel']
+    frames = demos.capture_demo(demo)
+    text = '\n'.join(line for frame in frames for line in frame)
+
+    assert frames
+    assert 'Total' in text
+    # Some frame shows the overall bar together with at least one
+    # per-task bar -- the entire point of ``bar='multi'``.
+    assert any(
+        len(frame) >= 2 and any('Total' in line for line in frame)
+        for frame in frames
+    )
+    # The batch completes: the final frame reports every item done.
+    assert '(8 of 8)' in '\n'.join(frames[-1])
+
+
+def test_cli_demo_captures_pv_style_transfer() -> None:
+    demo = demos.DEMOS_BY_NAME['readme/cli']
+    frames = demos.capture_demo(demo)
+    text = '\n'.join(line for frame in frames for line in frame)
+
+    # The pv-style widgets all render: percentage, byte counter, rate.
+    assert '%' in text
+    assert 'B/s' in text
+    assert 'iB' in text
+    # The transfer completes on screen.
+    assert any('100%' in line for line in frames[-1])
+
+
 def test_capture_demo_reports_a_crashing_example_clearly(
     tmp_path: Path,
 ) -> None:
@@ -572,6 +783,8 @@ def test_capture_demo_reports_a_crashing_example_clearly(
         term_width=80,
         log_lines=0,
         max_frames=24,
+        capture_real_time=False,
+        history_lines=0,
     )
 
     with pytest.raises(SystemExit) as error:
@@ -602,6 +815,8 @@ def test_capture_demo_reports_a_hanging_example_clearly(
         term_width=80,
         log_lines=0,
         max_frames=24,
+        capture_real_time=False,
+        history_lines=0,
     )
 
     with pytest.raises(SystemExit) as error:
@@ -638,7 +853,7 @@ def test_logging_integration_demo_keeps_recent_logs_visible_above_progress() -> 
     assert max(len(frame) for frame in frames) >= 2
     assert any(
         any('completed step 8' in line for line in frame)
-        and any(demos.BAR_RE.search(line) for line in frame)
+        and any(_has_bar(line) for line in frame)
         for frame in frames
     )
 
@@ -655,7 +870,7 @@ def test_redirect_stdout_demo_keeps_recent_prints_visible_above_progress() -> (
     assert max(len(frame) for frame in frames) >= 2
     assert any(
         any('Processing errors.log' in line for line in frame)
-        and any(demos.BAR_RE.search(line) for line in frame)
+        and any(_has_bar(line) for line in frame)
         for frame in frames
     )
 
@@ -683,7 +898,7 @@ def test_tutorial_step5_demo_keeps_recent_prints_visible_above_progress() -> (
     assert max(len(frame) for frame in frames) >= 2
     assert any(
         any('Reached step 0' in line for line in frame)
-        and any(demos.BAR_RE.search(line) for line in frame)
+        and any(_has_bar(line) for line in frame)
         for frame in frames
     )
 
@@ -799,7 +1014,11 @@ def test_bouncing_bar_demo_respects_narrow_term_width() -> None:
     assert demo.term_width == 30
 
     frames = demos.capture_demo(demo)
-    widths = [len(line) for frame in frames for line in frame]
+    widths: list[int] = [
+        len(demos.ANSI_SGR_RE.sub('', line))
+        for frame in frames
+        for line in frame
+    ]
 
     assert widths
     assert max(widths) <= demo.term_width

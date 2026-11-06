@@ -62,9 +62,7 @@ class LocalRuntime:
     must run inside one. Two ``asyncio.run`` calls have two runtimes, which share no session.
 
     ``async with agents.local_runtime() as runtime:`` starts the runtime if it has not started, and
-    its exit stops every session of that runtime: running turns, subagents and sandboxes. The
-    sessions of an ``async with agent.local_runtime()`` block run in a runtime of their own and
-    are not stopped.
+    its exit stops every session of that runtime: running turns, subagents and sandboxes.
     The exit frees the stopped sessions: a read or command on one then raises
     ``SessionTerminatedError``. With ``journal_factory``, a new block with the same journals
     continues them. The next local call starts a new runtime. In a nested block, only the outermost
@@ -117,8 +115,15 @@ class LocalRuntime:
 
         The arguments are those of ``agents.list_sessions``. An ended session is listed as
         ``"terminated"`` until the event loop stops. Listing starts nothing: before the runtime
-        starts, it lists no session. The sessions of an ``async with agent.local_runtime()`` block
-        run in a runtime of their own and are not listed.
+        starts, it lists no session.
+
+        Args:
+            scope: ``"roots"`` for root sessions, ``"children"`` for the direct subagents of ``parent``, or
+                ``"tree"`` for ``root`` and all its subagents.
+            root: The root session of ``scope="tree"``.
+            parent: The session whose subagents ``scope="children"`` lists.
+            status: Keeps only the sessions in that status.
+            limit: Stops after that many sessions. ``None`` lists them all.
         """
         params = _catalog_params(scope, root, parent, status, limit)
         return _iterate(self._page, params, status, limit)
@@ -183,17 +188,16 @@ def local_runtime(
     with`` block is entered, and the budget is fixed when the loop's runtime starts, so enter the
     block before the first local session: ``async with
     agents.local_runtime(program_timeout_seconds=600):``. Entering the block while the runtime
-    runs with another budget raises ``SdkError``; listing reads no budget.
+    runs with another budget raises ``SdkError``. ``list_sessions()`` neither sets nor checks the budget.
 
-    ``journal_factory`` is experimental: a minor release may change it, and passing it warns
-    ``ExperimentalWarning`` once per process. It saves each root session that
-    ``agent.start_session()`` starts in the block, so that a later process continues it with
-    ``agent.session(session_id)``. An ``agent.run()`` in the block saves its session too, ended
-    with the run. Use it as ``async with
-    agents.local_runtime(journal_factory=experimental.JsonFileSessionJournal.in_directory("./sessions")):``,
-    with ``from mistralai.agents import experimental``. It is fixed when the loop's runtime starts,
-    as the budget is: entering the block while the runtime runs with another one raises
-    ``SdkError``. Without it, sessions end with the process.
+    The outermost block's exit ends and frees the sessions of the runtime: a later call on one raises
+    ``SessionTerminatedError``. Each event loop remembers the newest 10,000 sessions freed this way;
+    a call on an older one raises ``SessionNotFoundError`` instead.
+
+    Args:
+        program_timeout_seconds: The time budget, in seconds, of each program the model runs with
+            ``run_typescript``. Defaults to 60 seconds.
+        journal_factory: Experimental; see ``experimental.JsonFileSessionJournal``.
     """
     if journal_factory is not None:
         # Here as well, so the warning points at the caller's line; the constructor's is then silent.
@@ -218,17 +222,29 @@ def list_sessions(
     subagents. ``status=`` keeps only the sessions in that status. ``limit=`` stops after that
     many sessions. Archived sessions are not listed.
 
-    ``host="deployed"`` (the default) lists the sessions that your API key started on the control
-    plane, through ``client``. Without one, a default ``agents.Client()`` is used: the API key and
+    ``host="deployed"`` (the default) lists the sessions of your deployed agents that your API key
+    started, through ``client``. Without one, a default ``agents.Client()`` is used: the API key and
     URLs come from the environment, and a missing ``MISTRAL_API_KEY`` raises ``SdkError`` at the
     call. ``list_sessions(client=client)`` is ``client.list_sessions()``. ``host="local"`` lists the
     sessions of this event loop's local runtime, as ``agents.local_runtime().list_sessions()`` does, and
     takes no ``client``.
 
     A ``root=`` or ``parent=`` that is not a UUID raises ``SdkError`` at the call. One that names no
-    session of the host raises ``SessionNotFoundError``, a ``LookupError``, whose ``session_id`` is that
-    id, and so does a subagent as the ``root=`` of ``scope="tree"``, on both hosts. Any other wrong
+    session there raises ``SessionNotFoundError``, a ``LookupError``, whose ``session_id`` is that
+    ID, and so does a subagent as the ``root=`` of ``scope="tree"``, for both ``host`` values. Any other wrong
     argument raises ``SdkError`` at the call too.
+
+    Args:
+        host: ``"deployed"`` for the sessions of your deployed agents that your API key started,
+            ``"local"`` for the sessions of this event loop's local runtime.
+        scope: ``"roots"`` for root sessions, ``"children"`` for the direct subagents of ``parent``, or
+            ``"tree"`` for ``root`` and all its subagents.
+        root: The root session of ``scope="tree"``.
+        parent: The session whose subagents ``scope="children"`` lists.
+        status: Keeps only the sessions in that status.
+        limit: Stops after that many sessions. ``None`` lists them all.
+        client: The client of a deployed listing. Defaults to a client configured from the environment,
+            as ``agents.Client()`` is, that opens and closes one connection per page.
     """
     if host not in _HOSTS:
         raise sdk_errors.SdkError(f"host must be 'deployed' or 'local', got {host!r}")

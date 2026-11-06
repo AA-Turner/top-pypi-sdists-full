@@ -61,7 +61,10 @@ from script.sync_boards import (
     _backfill_mcu,
     _backfill_rp2040_wifi,
     _consolidate_full_setup_bundles,
+    _detach_occupancy_pins,
+    _fill_detached_esp32_pins,
     _has_pin_conflict,
+    _reattach_occupancy_pins,
     _stamp_featured_locked_pins,
     _stamp_featured_requires,
 )
@@ -96,13 +99,14 @@ def test_split_artefacts_match_manifests() -> None:
     Scoped to the manifest-derived backbone. Two platform sets matter:
     ``generated`` platforms add disk-only boards from esphome's tables (allowed
     to appear without a manifest); ``esphome_filled`` is the subset whose
-    *manifested* pins come from esphome (LibreTiny ships ``pins: []`` and gets
-    filled), which are version-dependent (CI runs beta/dev) so they're excluded
+    *manifested* pins come from esphome (LibreTiny and nRF52 ship ``pins: []``
+    and get filled), which are version-dependent (CI runs beta/dev) so they're excluded
     from the pin compare. RP2040 manifests keep their hand-curated pins, so those
     stay checked; only its disk-only generated boards are exempt. esp8266 is a
     mix: curated manifests stay checked, empty product manifests get filled.
     """
     from_yaml = build_board_catalog_from_manifests(strict=True)
+    occupancy = _detach_occupancy_pins(from_yaml.boards)
     # Variant / wifi / mcu backfills are part of emission (sync_boards.build_catalog),
     # so apply them here too or esp32 boards carrying only a PIO board id (and rp2040
     # / LibreTiny boards lacking the WiFi tag or chip series) mismatch disk.
@@ -117,7 +121,9 @@ def test_split_artefacts_match_manifests() -> None:
     esp8266_empty = {
         b.id for b in from_yaml.boards if b.esphome.platform.value == "esp8266" and not b.pins
     }
+    _fill_detached_esp32_pins(from_yaml.boards, occupancy)
     _backfill_donor_pins(from_yaml.boards)
+    _reattach_occupancy_pins(from_yaml.boards, occupancy)
     _augment_rmii_data_pins(from_yaml.boards)
     _stamp_featured_locked_pins(from_yaml.boards)
     _stamp_featured_requires(from_yaml.boards)
@@ -129,7 +135,7 @@ def test_split_artefacts_match_manifests() -> None:
         "esp32",
         "esp8266",
     }
-    esphome_filled = set(_LIBRETINY_FAMILIES)
+    esphome_filled = set(_LIBRETINY_FAMILIES) | {_NRF52_PLATFORM}
     manifest_ids = {b.id for b in from_yaml.boards}
     disk_by_id = {b.id: b for b in from_disk.boards}
 
@@ -179,6 +185,16 @@ def test_no_duplicate_platform_name_boards() -> None:
         else:
             seen[key] = board.id
     assert not dups, "Duplicate (platform, name) board entries:\n" + "\n".join(dups)
+
+
+def test_generic_manufacturer_marks_only_plain_chip_boards() -> None:
+    """A generic board with ``manufacturer: Generic`` never imports a package."""
+    projects = [
+        board.id
+        for board in load_board_catalog().boards
+        if board.is_generic and board.manufacturer == "Generic" and board.package_import_url
+    ]
+    assert not projects, f"Generic-manufacturer boards importing a package: {projects}"
 
 
 def test_wiznet_w6300_resolves_to_curated_ethernet_board() -> None:

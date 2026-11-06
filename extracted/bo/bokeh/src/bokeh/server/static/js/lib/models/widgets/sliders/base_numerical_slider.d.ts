@@ -1,6 +1,6 @@
 import { AbstractSlider, AbstractSliderView } from "./abstract_slider";
 import { TickFormatter } from "../../formatters/tick_formatter";
-import type * as p from "../../../core/properties";
+import * as p from "../../../core/properties";
 export declare abstract class BaseNumericalSliderView extends AbstractSliderView<number> {
     model: BaseNumericalSlider;
     connect_signals(): void;
@@ -22,5 +22,9 @@ export declare abstract class BaseNumericalSlider extends AbstractSlider<number>
     properties: BaseNumericalSlider.Props;
     declare__view_type__: BaseNumericalSliderView;
     constructor(attrs?: Partial<BaseNumericalSlider.Attrs>);
+    initialize(): void;
+    connect_signals(): void;
+    protected _bounds(): [number, number];
+    protected abstract _enforce_bounds(): void;
 }
 //# sourceMappingURL=base_numerical_slider.d.ts.map

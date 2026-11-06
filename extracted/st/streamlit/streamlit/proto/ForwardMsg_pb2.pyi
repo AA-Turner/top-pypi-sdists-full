@@ -402,6 +402,8 @@ class ForwardMsgMetadata(_message.Message):
     CACHEABLE_FIELD_NUMBER: _builtins.int
     DELTA_PATH_FIELD_NUMBER: _builtins.int
     ACTIVE_SCRIPT_HASH_FIELD_NUMBER: _builtins.int
+    AGENT_PROPS_FIELD_NUMBER: _builtins.int
+    RUN_FIELD_NUMBER: _builtins.int
     cacheable: _builtins.bool
     """Marks a message as cacheable for the frontend."""
     active_script_hash: _builtins.str
@@ -409,10 +411,25 @@ class ForwardMsgMetadata(_message.Message):
     For multipage apps v1, this will always be the page file running
     For multipage apps v2, this can be the main script or the page script
     """
+    agent_props: _builtins.str
+    """JSON description of the command that emitted this delta, set only for
+    sessions the agent API created. "type" is the public command name and
+    "props" its parameters, including ones that are not proto fields. Kept in
+    metadata so it does not affect the ForwardMsg hash.
+    """
     @_builtins.property
     def delta_path(self) -> _containers.RepeatedScalarFieldContainer[_builtins.int]:
         """The path that identifies a delta's location in the report tree.
         Only set for Delta messages.
+        """
+
+    @_builtins.property
+    def run(self) -> Global___RunIdentity:
+        """The run that this message starts (new_session) or ends (script_finished).
+        - Deltas never set it: a delta belongs to the most recent new_session
+          before it.
+        - A script_finished omits it when the backend doesn't know which run
+          finished.
         """
 
     def __init__(
@@ -421,14 +438,49 @@ class ForwardMsgMetadata(_message.Message):
         cacheable: _builtins.bool = ...,
         delta_path: _abc.Iterable[_builtins.int] | None = ...,
         active_script_hash: _builtins.str = ...,
+        agent_props: _builtins.str | None = ...,
+        run: Global___RunIdentity | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_agent_props", b"_agent_props", "agent_props", b"agent_props", "run", b"run"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_agent_props", b"_agent_props", "active_script_hash", b"active_script_hash", "agent_props", b"agent_props", "cacheable", b"cacheable", "delta_path", b"delta_path", "run", b"run"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__agent_props: _TypeAlias = _typing.Literal["agent_props"]  # noqa: Y015
+    _WhichOneofArgType__agent_props: _TypeAlias = _typing.Literal["_agent_props", b"_agent_props"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__agent_props) -> _WhichOneofReturnType__agent_props | None: ...
+
+Global___ForwardMsgMetadata: _TypeAlias = ForwardMsgMetadata  # noqa: Y015
+
+@_typing.final
+class RunIdentity(_message.Message):
+    """Identifies one script run: a full-app rerun, or a rerun of one or more
+    fragments. The frontend uses it to tell which elements are stale after a run.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SCRIPT_RUN_ID_FIELD_NUMBER: _builtins.int
+    FRAGMENT_IDS_FIELD_NUMBER: _builtins.int
+    script_run_id: _builtins.str
+    @_builtins.property
+    def fragment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Fragments this run reruns, with parent fragments before nested ones. Empty
+        for a full-app run.
+        """
+
+    def __init__(
+        self,
+        *,
+        script_run_id: _builtins.str = ...,
+        fragment_ids: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["active_script_hash", b"active_script_hash", "cacheable", b"cacheable", "delta_path", b"delta_path"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["fragment_ids", b"fragment_ids", "script_run_id", b"script_run_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
-Global___ForwardMsgMetadata: _TypeAlias = ForwardMsgMetadata  # noqa: Y015
+Global___RunIdentity: _TypeAlias = RunIdentity  # noqa: Y015
 
 @_typing.final
 class ForwardMsgList(_message.Message):

@@ -518,10 +518,14 @@ def _extract_df_columns(
             # Make a best-effort attempt to determine the pkey and ts column fqn from the root namespace
             # of the other features
 
+            # Only registered namespaces count: an output expression column may be aliased to a dotted
+            # name such as `profile.age` that is not a feature of any class.
             root_namespaces: "set[str]" = set()
             for x in df_columns:
                 if not x.startswith(f"{PSEUDONAMESPACE}.") and "." in x:
-                    root_namespaces.add(x.split(".")[0])
+                    ns = x.split(".")[0]
+                    if ns in FeatureSetBase.registry:
+                        root_namespaces.add(ns)
 
             if len(root_namespaces) == 1:
                 # There is a unique root namespace.

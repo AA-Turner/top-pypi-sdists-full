@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: hishel
-Version: 1.4.0
+Version: 2.0.0
 Summary:  Elegant HTTP Caching for Python
 Project-URL: Homepage, https://hishel.com
 Project-URL: Source, https://github.com/karpetrosyan/hishel
 Author-email: Kar Petrosyan <kar.petrosyanpy@gmail.com>
 License-File: LICENSE
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Trio
@@ -22,15 +22,17 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
-Requires-Dist: msgpack>=1.1.2
-Requires-Dist: typing-extensions>=4.14.1
+Requires-Dist: msgpack>=1.2.2
+Requires-Dist: typing-extensions>=4.16.0
 Provides-Extra: async
-Requires-Dist: anyio>=4.9.0; extra == 'async'
+Requires-Dist: anyio>=4.14.2; extra == 'async'
 Requires-Dist: anysqlite>=0.0.5; extra == 'async'
 Provides-Extra: fastapi
-Requires-Dist: fastapi>=0.119.1; extra == 'fastapi'
+Requires-Dist: anyio>=4.14.2; extra == 'fastapi'
+Requires-Dist: anysqlite>=0.0.5; extra == 'fastapi'
+Requires-Dist: fastapi>=0.141.1; extra == 'fastapi'
 Provides-Extra: httpx
-Requires-Dist: anyio>=4.9.0; extra == 'httpx'
+Requires-Dist: anyio>=4.14.2; extra == 'httpx'
 Requires-Dist: anysqlite>=0.0.5; extra == 'httpx'
 Requires-Dist: httpx>=0.28.1; extra == 'httpx'
 Provides-Extra: httpx2
@@ -38,9 +40,9 @@ Requires-Dist: anyio>=4.9.0; extra == 'httpx2'
 Requires-Dist: anysqlite>=0.0.5; extra == 'httpx2'
 Requires-Dist: httpx2>=2.9.1; extra == 'httpx2'
 Provides-Extra: redis
-Requires-Dist: redis>=7.0.0; extra == 'redis'
+Requires-Dist: redis>=8.1.0; extra == 'redis'
 Provides-Extra: requests
-Requires-Dist: requests>=2.32.5; extra == 'requests'
+Requires-Dist: requests>=2.34.2; extra == 'requests'
 Description-Content-Type: text/markdown
 
 
@@ -74,20 +76,18 @@ Description-Content-Type: text/markdown
 
 ---
 
-**Hishel** (հիշել, *to remember* in Armenian) is a modern HTTP caching library for Python that implements [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html) specifications. It provides seamless caching integration for popular HTTP clients with minimal code changes.
+**Hishel** (հիշել, *to remember* in Armenian) is a modern HTTP caching library for Python. It adds caching to [HTTPX](https://www.python-httpx.org/), [Requests](https://requests.readthedocs.io/) and ASGI applications with minimal code changes, either by your own limits or by following the [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html) specification.
 
 ## ✨ Features
 
-- 🎯 **RFC 9111 Compliant** - Fully compliant with the latest HTTP caching specification
-- 🔌 **Easy Integration** - Drop-in support for HTTPX, HTTPX2, Requests, ASGI, FastAPI, and BlackSheep
-- 💾 **Flexible Storage** - SQLite backend with more coming soon
+- 🎯 **RFC 9111 Mode** - Optionally follow the latest HTTP caching specification
+- 🔌 **Easy Integration** - Drop-in support for HTTPX, HTTPX2, Requests, ASGI and FastAPI
+- 💾 **Flexible Storage** - SQLite and Redis backends, or write your own
 - ⚡ **High Performance** - Efficient caching with minimal overhead
 - 🔄 **Async & Sync** - Full support for both synchronous and asynchronous workflows
 - 🎨 **Type Safe** - Fully typed with comprehensive type hints
 - 🧪 **Well Tested** - Extensive test coverage and battle-tested
-- 🎛️ **Configurable** - Fine-grained control over caching behavior with flexible policies
+- 🎛️ **Configurable** - TTL, TTI and size limits, with per-request overrides
 - 💨 **Memory Efficient** - Streaming support prevents loading large payloads into memory
-- 🌐 **Universal** - Works with any ASGI application (Starlette, Litestar, BlackSheep, etc.)
-- 🎯 **GraphQL Support** - Cache GraphQL queries with body-sensitive content caching
 
 Documentation is available at: [https://hishel.com](https://hishel.com)

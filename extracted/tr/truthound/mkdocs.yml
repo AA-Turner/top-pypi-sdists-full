@@ -1,7 +1,7 @@
 site_name: Truthound — Data Quality Workflow
 site_description: Truthound data quality validation and workflow automation with a Polars-first core
 site_author: SEO DONG GYUN
-site_url: https://truthound.netlify.app/
+site_url: https://www.truthound-docs.tech/
 docs_dir: build/full-docs
 
 repo_name: seadonggyun4/Truthound
@@ -220,6 +220,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/language-redirect.js
+  - javascripts/vercel-insights.js
 
 nav:
   - Home: index.md
@@ -570,7 +571,8 @@ nav:
       - Prompt Hardening: ai/prompt-hardening.md
       - Smoke and Release Gates: ai/release-gate.md
   - Release Notes:
-      - Truthound 3.3.2: releases/truthound-3.3.2.md
+      - Truthound 3.3.4: releases/truthound-3.3.4.md
+      - Truthound 3.3.3: releases/truthound-3.3.3.md
       - Truthound 3.3.1: releases/truthound-3.3.1.md
       - Truthound 3.3.0: releases/truthound-3.3.0.md
       - Latest Verified Benchmark Summary: releases/latest-benchmark-summary.md

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from together.types.chat import ChatCompletion as TogetherChatCompletion
     from together.types.chat import ChatCompletionChunk as TogetherChatCompletionChunk
 
+    from any_llm.types.audio import AudioSpeechParams
     from any_llm.types.batch import Batch
     from any_llm.types.completion import (
         ChatCompletion,
@@ -47,6 +48,10 @@ if TYPE_CHECKING:
 
 DEFAULT_SCHEMA_NAME = "response_schema"
 _SCHEMA_METADATA_KEYS = ("name", "description", "strict")
+# Together's speech endpoint encodes mp3, wav and raw, and serves raw only on a streaming request
+# (https://docs.together.ai/reference/audio-speech). So any-llm's pcm has no equivalent on the
+# unary call made here, and opus, aac and flac have none at all.
+_SPEECH_RESPONSE_FORMATS = frozenset({"mp3", "wav"})
 
 
 def _convert_response_format(response_format: dict[str, Any]) -> dict[str, Any]:
@@ -91,6 +96,7 @@ class TogetherProvider(AnyLLM):
     SUPPORTS_BATCH = True
     SUPPORTS_RERANK = True
     SUPPORTS_VIDEO_GENERATION = True
+    SUPPORTS_AUDIO_SPEECH = True
 
     # The Together SDK accepts a per-request `timeout` on its client calls, so it forwards unchanged.
     TIMEOUT_SUPPORT = "native"
@@ -286,6 +292,42 @@ class TogetherProvider(AnyLLM):
         return self._convert_list_models_response(models_list)
 
     @override
+    async def _aspeech(self, params: AudioSpeechParams, **kwargs: Any) -> bytes:
+        """Generate speech through Together's ``/audio/speech`` endpoint.
+
+        Together's TTS models (``hexgrad/Kokoro-82M``, ``canopylabs/orpheus-3b-0.1-ft``,
+        ``cartesia/sonic``) take ``model``, ``input``, ``voice`` and ``response_format``; the
+        Together-only knobs such as ``language`` and ``sample_rate`` pass through ``kwargs``.
+        There is no ``instructions`` or ``speed`` field, so both raise
+        ``UnsupportedParameterError``, as do the formats Together does not serve on a unary
+        request (opus, aac, flac and pcm).
+        """
+        if params.instructions is not None:
+            parameter_name = "instructions"
+            raise UnsupportedParameterError(parameter_name, self.PROVIDER_NAME)
+        if params.speed is not None:
+            parameter_name = "speed"
+            raise UnsupportedParameterError(parameter_name, self.PROVIDER_NAME)
+        if params.response_format is not None and params.response_format not in _SPEECH_RESPONSE_FORMATS:
+            parameter_name = "response_format"
+            raise UnsupportedParameterError(
+                parameter_name,
+                self.PROVIDER_NAME,
+                f"Together speech returns {', '.join(sorted(_SPEECH_RESPONSE_FORMATS))}, "
+                f"not {params.response_format!r}.",
+            )
+
+        api_kwargs = params.to_api_kwargs()
+        api_kwargs.update(kwargs)
+        response = await self.client.audio.speech.create(
+            model=params.model_id,
+            input=params.input,
+            voice=params.voice,
+            **api_kwargs,
+        )
+        return cast("bytes", await response.read())
+
+    @override
     async def _arerank(
         self,
         model: str,
@@ -306,12 +348,20 @@ class TogetherProvider(AnyLLM):
 
         Together takes the size as ``width``/``height``, the length as a string, and the first
         and last frames as ``frame_images`` entries, which merge with any the caller passes.
+        ``resolution``, ``ratio`` and ``media.audio_inputs`` are fields the pinned SDK has no
+        argument for, so they ride in ``extra_body`` and merge with whatever the caller passes there.
         """
         create_kwargs: dict[str, Any] = {"model": params.model_id, "prompt": params.prompt}
         if params.seconds is not None:
             create_kwargs["seconds"] = str(params.seconds)
-        if (dimensions := params.parse_size()) is not None:
-            create_kwargs["width"], create_kwargs["height"] = dimensions
+        extra_body = dict(kwargs.pop("extra_body", None) or {})
+        if (shape := params.parse_shape()) is not None:
+            if shape.dimensions is not None:
+                create_kwargs["width"], create_kwargs["height"] = shape.dimensions
+            if params.resolution is not None:
+                extra_body["resolution"] = f"{shape.short_side}p"
+            if params.aspect_ratio is not None:
+                extra_body["ratio"] = params.aspect_ratio
         if params.seed is not None:
             create_kwargs["seed"] = params.seed
         if params.negative_prompt is not None:
@@ -325,6 +375,10 @@ class TogetherProvider(AnyLLM):
             frame_images.append({"input_image": params.last_frame, "frame": "last"})
         if frame_images:
             create_kwargs["frame_images"] = frame_images
+        if params.reference_audios is not None:
+            extra_body["media"] = {**(extra_body.get("media") or {}), "audio_inputs": params.reference_audios}
+        if extra_body:
+            create_kwargs["extra_body"] = extra_body
         create_kwargs.update(kwargs)
         return create_kwargs
 

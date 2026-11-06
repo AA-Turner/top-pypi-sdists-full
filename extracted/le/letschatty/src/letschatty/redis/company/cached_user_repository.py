@@ -8,7 +8,6 @@ the store.
 """
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional
 
 from ...models.company.assets.users.user import User
@@ -23,14 +22,7 @@ class CachedUserRepository(CachedCatalogByIdWithPreviews[User]):
     async def get_fresh(self, user_id: StrObjectId) -> User:
         """The asset service's `get_by_id(ignore_cache=True)`: no cache read, and the store's answer written back (a
         failed write is silent)."""
-        user = await self.inner.get_fresh(user_id)
-        try:
-            await self.assets.cache.set(self.assets.item_key(user_id),
-                                        json.dumps(user.model_dump(by_alias=True, mode="json")),
-                                        ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return user
+        return await self.assets.item(user_id, lambda: self.inner.get_fresh(user_id), ignore_cache=True)
 
     async def set_fields(self, company_id: StrObjectId, user_id: StrObjectId, fields: Dict[str, Any]) -> None:
         """The asset service's `partial_update(…, invalidate_previews=True, company_id=…)`: the item and the lists."""

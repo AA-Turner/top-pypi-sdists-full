@@ -2,7 +2,7 @@
 
 A lemon with a parent and no `--group` goes into its parent's groups.
 `--parent parent` names the caller's own parent, or no one if it has none.
-A parent other than the caller is told, in its inbox, that it has a new child.
+A parent other than the caller is told, in its mailbox, that it has a new child.
 
 Everything is checked before a window is touched, and the live channels are
 taken then too, so a lemon that starts quickly still counts as new.
@@ -15,7 +15,7 @@ from pathlib import Path
 from .. import brief, groups, lineage
 from ..inbox import db
 from ..log import get_logger
-from ..messages import store as inbox_store
+from ..messages import store
 
 _log = get_logger("launch.handoff")
 
@@ -130,8 +130,8 @@ def prepare(
 def _announce(handoff: Handoff) -> None:
     child, parent = handoff.link or ("", "")
     try:
-        inbox_store.send(
-            inbox_store.inbox_for_id(parent),
+        store.send(
+            store.mailbox_for_id(parent),
             f"{handoff.announce} started {handoff.name or child} as your child ({handoff.brief})",
             handoff.announce,
         )
@@ -139,8 +139,9 @@ def _announce(handoff: Handoff) -> None:
         _log.warning("Could not tell %s about its new child %s: %s", parent, child, error)
 
 
-def complete(handoff: Handoff, session: str, index: str, window_id: str) -> str:
-    """Wait on the window for its lemon, and record the parent link and groups now.
+def complete(handoff: Handoff, session: str, index: str, window_id: str, token: str = "") -> str:
+    """Wait for the lemon by its launch *token* or its tmux window, and record the parent
+    link and groups now.
 
     Returns a warning for the caller to show when the lemon's name is another's too.
     """
@@ -149,7 +150,14 @@ def complete(handoff: Handoff, session: str, index: str, window_id: str) -> str:
 
     with db.connect() as conn:
         brief.attached.attach_pending(
-            conn, session, index, handoff.brief, handoff.live_before, window_id, handoff.name
+            conn,
+            session,
+            index,
+            handoff.brief,
+            handoff.live_before,
+            window_id,
+            handoff.name,
+            token,
         )
         if handoff.link:
             lineage.links.set_parent(conn, *handoff.link)

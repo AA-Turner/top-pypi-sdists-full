@@ -39,15 +39,6 @@ if TYPE_CHECKING:
 
 _eps = np.finfo(np.float64).eps
 
-try:  # pragma: no cover
-    # print('Using SymPy')
-    import sympy
-
-    _symbolics = True
-
-except ImportError:  # pragma: no cover
-    _symbolics = False
-
 
 # ---------------------------------------------------------------------------------------#
 def rot2(theta: float, unit: str = "rad") -> SO2Array:
@@ -170,8 +161,13 @@ def tr2xyt(T: SE2Array, unit: str = "rad") -> R3:
     :seealso: trot2
     """
 
-    if T.dtype == "O" and _symbolics:
-        angle = sympy.atan2(T[1, 0], T[0, 0])
+    if T.dtype == "O":
+        try:
+            import sympy
+        except ImportError:
+            angle = math.atan2(T[1, 0], T[0, 0])
+        else:
+            angle = sympy.atan2(T[1, 0], T[0, 0])
     else:
         angle = math.atan2(T[1, 0], T[0, 0])
     return np.r_[T[0, 2], T[1, 2], angle]
@@ -367,7 +363,12 @@ def ishom2(T: Any, check: bool = False, tol: float = 20) -> bool:  # TypeGuard(S
         and T.shape == (3, 3)
         and (
             not check
-            or (smb.isR(T[:2, :2], tol=tol) and all(T[2, :] == np.array([0, 0, 1])))
+            or (
+                smb.isR(T[:2, :2], tol=tol)
+                and T[2, 0] == 0
+                and T[2, 1] == 0
+                and T[2, 2] == 1
+            )
         )
     )
 
@@ -544,7 +545,7 @@ def trlog2(
         else:
             st = T[1, 0]
             ct = T[0, 0]
-            theta = math.atan(st / ct)
+            theta = math.atan2(st, ct)
             if abs(theta) < tol * _eps:
                 tr = T[:2, 2].flatten()
             else:
@@ -559,7 +560,7 @@ def trlog2(
 
     elif isrot2(T, check=check, tol=tol):
         # SO(2) rotation matrix
-        theta = math.atan(T[1, 0] / T[0, 0])
+        theta = math.atan2(T[1, 0], T[0, 0])
         if twist:
             return theta
         else:
@@ -785,15 +786,15 @@ def tr2adjoint2(T):
 
     Computes an adjoint matrix that maps the Lie algebra between frames.
 
-    .. math:
+    .. math::
 
-        Ad(\mat{T}) \vec{X} X = \vee \left( \mat{T} \skew{\vec{X} \mat{T}^{-1} \right)
+        \mathrm{Ad}(\mat{T})\,\vec{X} = \vex{\mat{T}\,\sk{\vec{X}}\,\mat{T}^{-1}}
 
-    where :math:`\mat{T} \in \SE2`.
+    where :math:`\mat{T} \in \SE{2}`.
 
-    ``tr2jac2(T)`` is an adjoint matrix (6x6) that maps spatial velocity or
-    differential motion between frame {B} to frame {A} which are attached to the
-    same moving body.  The pose of {B} relative to {A} is represented by the
+    ``tr2adjoint2(T)`` is an adjoint matrix (3x3 for SE(2), 1x1 for SO(2)) that
+    maps spatial velocity or differential motion between frame {B} to frame {A}
+    which are attached to the same moving body.  The pose of {B} relative to {A} is represented by the
     homogeneous transform T = :math:`{}^A {\bf T}_B`.
 
     .. runblock:: pycon
@@ -1312,7 +1313,11 @@ def ICP2d(
 
         num_iter += 1
 
-    return T
+    # T accumulates roundoff error through repeated composition
+    # (T = T @ new_T) over the iterations above, and can drift just
+    # outside ishom2()'s orthonormality tolerance -- restore exact
+    # orthonormality before returning.
+    return trnorm2(T)
 
 
 if _matplotlib_exists:
@@ -1336,7 +1341,6 @@ if _matplotlib_exists:
         width: float = 1,
         d1: float = 0.1,
         d2: float = 1.15,
-        **kwargs,
     ):
         """
         Plot a 2D coordinate frame
@@ -1603,9 +1607,18 @@ if _matplotlib_exists:
         """
         dims = kwargs.pop("dims", None)
         ax = kwargs.pop("ax", None)
+
+        # Animate2.run()'s own parameters must not also be forwarded to
+        # trplot2's drawing call, which now validates its keywords strictly
+        # (see Animate2.run's signature for this parameter set)
+        run_kwargs = {
+            k: kwargs.pop(k)
+            for k in ("movie", "repeat", "interval", "nframes", "wait")
+            if k in kwargs
+        }
         anim = smb.animate.Animate2(dims=dims, axes=ax, **kwargs)
         anim.trplot2(T, **kwargs)
-        return anim.run(**kwargs)
+        return anim.run(**run_kwargs)
 
 
 if __name__ == "__main__":  # pragma: no cover

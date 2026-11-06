@@ -20,7 +20,7 @@ import requests
 from curl_cffi import requests as curl_requests
 from requests.adapters import HTTPAdapter
 
-from akshare.exceptions import RateLimitError
+from akshare.exceptions import APIError, RateLimitError
 from akshare.utils.context import config
 
 # 东方财富 push2 系行情服务器（push2、push2his、push2ex、push2delay 及 82.push2 等编号子域）
@@ -33,6 +33,17 @@ _PUSH2_BAN_MESSAGE = (
     "首次限流一般约 5 分钟后恢复，反复触发后可能需要 40 分钟以上；"
     "等待期间不要重复调用东方财富的行情接口，否则会延长限流。"
 )
+# 大连商品交易所全站启用了瑞数动态反爬虫验证（1.18.99 时已出现，2026-11-05 实测含首页
+# 在内的所有页面与数据接口均如此）：程序请求返回 HTTP 412 和一个需要浏览器执行混淆脚本
+# 的验证页，各接口随后报 BadZipFile、JSONDecodeError 等难以理解的错误，或返回空表。
+# 识别出来后直接报错说明原因；大商所解除限制后无需改代码即可恢复
+_DCE_HOST = re.compile(r"(?:^|\.)dce\.com\.cn$")
+_DCE_BLOCKED_MESSAGE = (
+    "大连商品交易所网站（dce.com.cn）对程序访问启用了反爬虫验证，请求被拒绝（HTTP 412），"
+    "大商所相关接口暂时无法获取数据。大商所合约的成交持仓排名可改用 "
+    'ak.futures_hold_pos_sina(symbol="多单持仓", contract="M2701", date="20261104")，'
+    "按单个合约查询。"
+)
 # 值得重试的状态码；其余状态码原样返回，由调用方处理
 _RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 # 值得重试的异常：连接失败（含代理、SSL）、超时、传输中断
@@ -41,6 +52,18 @@ _RETRY_EXCEPTIONS = (
     requests.exceptions.Timeout,
     requests.exceptions.ChunkedEncodingError,
 )
+
+
+class DceBlockedError(APIError):
+    """
+    大连商品交易所网站启用反爬虫验证，拒绝程序访问
+    """
+
+
+def _raise_if_dce_blocked(url: str, response) -> None:
+    host = urlsplit(url).hostname or ""
+    if response.status_code == 412 and _DCE_HOST.search(host):
+        raise DceBlockedError(_DCE_BLOCKED_MESSAGE, status_code=412)
 
 
 class Push2RateLimitError(RateLimitError, requests.exceptions.ConnectionError):
@@ -91,12 +114,15 @@ def request(method: str, url: str, **kwargs) -> requests.Response:
     :return: 响应对象
     :rtype: requests.Response
     :raises Push2RateLimitError: 东方财富 push2 限流
+    :raises DceBlockedError: 大连商品交易所拒绝程序访问
     """
     try:
-        return requests.request(method, url, **_apply_defaults(kwargs))
+        response = requests.request(method, url, **_apply_defaults(kwargs))
     except requests.exceptions.ConnectionError as exc:
         _raise_if_push2_ban(url, exc)
         raise
+    _raise_if_dce_blocked(url, response)
+    return response
 
 
 def get(url: str, params=None, **kwargs) -> requests.Response:
@@ -149,10 +175,12 @@ class Session(requests.Session):
 
     def request(self, method, url, **kwargs):
         try:
-            return super().request(method, url, **_apply_defaults(kwargs))
+            response = super().request(method, url, **_apply_defaults(kwargs))
         except requests.exceptions.ConnectionError as exc:
             _raise_if_push2_ban(url, exc)
             raise
+        _raise_if_dce_blocked(url, response)
+        return response
 
 
 def request_with_retry(
@@ -162,6 +190,7 @@ def request_with_retry(
     max_retries: int = 3,
     base_delay: float = 1.0,
     fresh_session: bool = False,
+    retry_if=None,
     **kwargs,
 ) -> requests.Response:
     """
@@ -178,7 +207,10 @@ def request_with_retry(
     :type base_delay: float
     :param fresh_session: 每次请求都新建连接、不复用连接池；部分东方财富接口复用连接时会被断开
     :type fresh_session: bool
-    :return: 响应对象；用尽次数后若仍是 429 或 5xx，返回最后一次的响应
+    :param retry_if: 可选，接收响应、返回是否需要重试的函数；用于上游以 200 状态码返回错误
+        内容的情况（如新浪偶发的数据库错误），与 429、5xx 一样按指数退避重试
+    :type retry_if: Callable[[requests.Response], bool]
+    :return: 响应对象；用尽次数后若仍是 429、5xx 或 retry_if 判定需要重试，返回最后一次的响应
     :rtype: requests.Response
     :raises Push2RateLimitError: 东方财富 push2 限流
     :raises requests.RequestException: 用尽次数后仍连接失败或超时，抛出最后一次的异常
@@ -199,7 +231,10 @@ def request_with_retry(
         except _RETRY_EXCEPTIONS as exc:
             last_exc = exc
         else:
-            if response.status_code not in _RETRY_STATUS or attempt == max_retries - 1:
+            retry = response.status_code in _RETRY_STATUS or (
+                retry_if is not None and retry_if(response)
+            )
+            if not retry or attempt == max_retries - 1:
                 return response
             last_exc = None
         if attempt < max_retries - 1:
@@ -219,7 +254,9 @@ def curl_request(method: str, url: str, **kwargs) -> curl_requests.Response:
     :return: 响应对象
     :rtype: curl_cffi.requests.Response
     """
-    return curl_requests.request(method=method, url=url, **_apply_defaults(kwargs))
+    response = curl_requests.request(method=method, url=url, **_apply_defaults(kwargs))
+    _raise_if_dce_blocked(url, response)
+    return response
 
 
 def curl_get(url: str, **kwargs) -> curl_requests.Response:
@@ -250,4 +287,6 @@ class CurlSession(curl_requests.Session):
     """
 
     def request(self, method, url, *args, **kwargs):
-        return super().request(method, url, *args, **_apply_defaults(kwargs))
+        response = super().request(method, url, *args, **_apply_defaults(kwargs))
+        _raise_if_dce_blocked(url, response)
+        return response

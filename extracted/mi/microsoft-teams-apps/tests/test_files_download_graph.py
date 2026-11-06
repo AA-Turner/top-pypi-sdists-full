@@ -10,14 +10,20 @@ import json
 import logging
 from typing import List, Optional
 
-import httpx
+import httpx2
 import pytest
 from microsoft_teams.apps.files.download import (
     FileFetchTarget,
     GraphCredential,
     open_file_stream,
 )
-from microsoft_teams.apps.files.errors import FileAccessError, FileActor, FileCredentialError, FileUrlExpiredError
+from microsoft_teams.apps.files.errors import (
+    FileAccessError,
+    FileActor,
+    FileCredentialError,
+    FileScopeNotSupportedError,
+    FileUrlExpiredError,
+)
 from microsoft_teams.apps.files.graph_share import encode_sharing_url
 
 CONTENT_URL = "https://contoso.sharepoint.com/personal/a/Documents/report.pdf"
@@ -45,25 +51,25 @@ class _Recorder:
         self._statuses = statuses
         self._error_body = error_body
         self._i = 0
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         status = self._statuses[min(self._i, len(self._statuses) - 1)]
         self._i += 1
         if status == 200:
-            return httpx.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
+            return httpx2.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
         if self._error_body is not None:
-            return httpx.Response(status, content=self._error_body.encode())
-        return httpx.Response(status, json={"error": {"code": "err"}})
+            return httpx2.Response(status, content=self._error_body.encode())
+        return httpx2.Response(status, json={"error": {"code": "err"}})
 
     @property
-    def client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler))
+    def client(self) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler))
 
-    def client_with(self, **kwargs: object) -> httpx.AsyncClient:
+    def client_with(self, **kwargs: object) -> httpx2.AsyncClient:
         """A client carrying extra configuration, so a test can prove the SDK strips what the client would add."""
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
     def auth_of(self, index: int) -> Optional[str]:
         return self.calls[index].headers.get("Authorization")
@@ -328,6 +334,84 @@ class TestGraphSharePath:
         assert "mysite" in str(err.value)
 
 
+class TestGraphRouteOutsidePersonalScope:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_opens_for_an_agentic_user_in_group_chat_and_channel_as_one_shares_read_carrying_the_agent_token(
+        self, scope: str
+    ):
+        rec = _Recorder([200])
+
+        async with open_file_stream(
+            _target(scope=scope, content_url=CONTENT_URL),
+            client=rec.client,
+            credential=_credential("agentic_user", AGENTIC_JWT),
+        ) as opened:
+            assert opened.content_type == "application/pdf"
+
+        assert len(rec.calls) == 1
+        assert f"/shares/{encode_sharing_url(CONTENT_URL)}/driveItem/content" in str(rec.calls[0].url)
+        assert AGENTIC_JWT in str(rec.auth_of(0))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("scope", ["groupChat", "channel"])
+    async def test_stays_closed_to_an_app_credential_before_any_request(self, scope: str):
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope=scope, content_url=CONTENT_URL), client=rec.client, credential=_credential("app", APP_JWT)
+            ):
+                pass
+
+        assert err.value.scope == scope
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_reports_the_scope_not_a_missing_credential_when_no_credential_exists(self):
+        # In `personal` the same file fails as a credential problem. Here no identity could open the route, so naming a
+        # credential would send the reader after the wrong fix.
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError):
+            async with open_file_stream(_target(scope="groupChat", content_url=CONTENT_URL), client=rec.client):
+                pass
+
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_scope_error_for_a_file_carrying_a_download_url_even_for_an_agentic_user(self):
+        # Graph is never substituted for a URL the platform supplied, and the pre-authorized route is unvalidated
+        # outside `personal`.
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope="groupChat", download_url=DOWNLOAD_URL, content_url=CONTENT_URL),
+                client=rec.client,
+                credential=_credential("agentic_user", AGENTIC_JWT),
+            ):
+                pass
+
+        assert err.value.scope == "groupChat"
+        assert len(rec.calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_stays_closed_in_a_scope_it_does_not_recognize_even_for_an_agentic_user(self):
+        rec = _Recorder([200])
+
+        with pytest.raises(FileScopeNotSupportedError) as err:
+            async with open_file_stream(
+                _target(scope="meeting", content_url=CONTENT_URL),
+                client=rec.client,
+                credential=_credential("agentic_user", AGENTIC_JWT),
+            ):
+                pass
+
+        assert err.value.scope == "meeting"
+        assert len(rec.calls) == 0
+
+
 class TestExpiredUrl:
     @pytest.mark.asyncio
     async def test_an_expired_url_is_terminal(self):
@@ -379,16 +463,16 @@ class _RedirectRecorder:
 
     def __init__(self, location: str) -> None:
         self._location = location
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
         if len(self.calls) == 1:
-            return httpx.Response(302, headers={"location": self._location})
-        return httpx.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
+            return httpx2.Response(302, headers={"location": self._location})
+        return httpx2.Response(200, content=b"bytes", headers={"content-type": "application/pdf"})
 
-    def client(self, **kwargs: object) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+    def client(self, **kwargs: object) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
     def auth_of(self, index: int) -> Optional[str]:
         return self.calls[index].headers.get("Authorization")
@@ -398,20 +482,20 @@ class _AlwaysRedirectRecorder:
     """Serves a 302 to a fresh https location on every call, recording each hop."""
 
     def __init__(self) -> None:
-        self.calls: List[httpx.Request] = []
+        self.calls: List[httpx2.Request] = []
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
         self.calls.append(request)
-        return httpx.Response(302, headers={"location": f"https://storage.example/hop/{len(self.calls)}"})
+        return httpx2.Response(302, headers={"location": f"https://storage.example/hop/{len(self.calls)}"})
 
-    def client(self, **kwargs: object) -> httpx.AsyncClient:
-        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
+    def client(self, **kwargs: object) -> httpx2.AsyncClient:
+        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler), **kwargs)  # type: ignore[arg-type]
 
 
 class TestRedirects:
     """
-    Graph answers `/shares/.../content` with a 302 to ODSP storage and httpx follows it inside one call, so the
-    bearer's survival across that hop is decided by httpx rather than by anything the SDK writes. These pin it.
+    Graph answers `/shares/.../content` with a 302 to ODSP storage and httpx2 follows it inside one call, so the
+    bearer's survival across that hop is decided by httpx2 rather than by anything the SDK writes. These pin it.
     """
 
     @pytest.mark.asyncio
@@ -428,8 +512,45 @@ class TestRedirects:
         assert rec.auth_of(1) is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "label,location",
+        [
+            ("a subdomain of the original host", "https://files.graph.microsoft.com/blob/1"),
+            ("another port on the original host", "https://graph.microsoft.com:8443/blob/1"),
+        ],
+    )
+    async def test_drops_the_bearer_on_a_redirect_to(self, label: str, location: str):
+        # A subdomain and a port change are both a different origin, and neither is as obviously foreign as a
+        # SharePoint host. Node's redirect follower keeps `Authorization` on a subdomain hop, so TypeScript strips
+        # it by hand; httpx drops it on any host or port change, and this pins that rather than trusting it.
+        rec = _RedirectRecorder(location)
+
+        async with open_file_stream(
+            _target(content_url=CONTENT_URL), client=rec.client(), credential=_credential("agentic_user", AGENTIC_JWT)
+        ):
+            pass
+
+        assert len(rec.calls) == 2
+        assert rec.auth_of(1) is None
+
+    @pytest.mark.asyncio
+    async def test_drops_a_lowercase_authorization_default_on_a_cross_origin_redirect(self):
+        # A caller's own default header can arrive in any casing, so the drop cannot be keyed on the exact spelling
+        # the SDK happens to write.
+        rec = _RedirectRecorder("https://files.graph.microsoft.com/blob/1")
+        client = rec.client(headers={"authorization": "Bearer caller-default"})
+
+        async with open_file_stream(
+            _target(content_url=CONTENT_URL), client=client, credential=_credential("agentic_user", AGENTIC_JWT)
+        ):
+            pass
+
+        assert len(rec.calls) == 2
+        assert rec.auth_of(1) is None
+
+    @pytest.mark.asyncio
     async def test_the_preauth_path_follows_a_redirect(self):
-        # httpx defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
+        # httpx2 defaults follow_redirects to False, so the pre-authorized path has to opt in explicitly. TypeScript
         # (fetch, which defaults to "follow") and .NET (HttpClientHandler.AllowAutoRedirect, which defaults to true)
         # both follow without being asked, and this path used to be the one place across the three SDKs that did not.
         # Losing the flag does not hand the caller a redirect body: a 302 is not 2xx, so it would fall through to the
@@ -552,10 +673,10 @@ class TestErrorBodyBounding:
                 served += 4096
                 yield b"x" * 4096
 
-        def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(403, content=body())
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(403, content=body())
 
-        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        client = httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
 
         with pytest.raises(FileAccessError) as err:
             async with open_file_stream(
@@ -624,7 +745,7 @@ class TestRedirectSafety:
             async with open_file_stream(_target(download_url=DOWNLOAD_URL), client=client):
                 pass
 
-        # httpx's default, which is the ceiling a caller gets when they configure nothing.
+        # httpx2's default, which is the ceiling a caller gets when they configure nothing.
         assert client.max_redirects == 20
         assert len(rec.calls) == 1 + client.max_redirects
 

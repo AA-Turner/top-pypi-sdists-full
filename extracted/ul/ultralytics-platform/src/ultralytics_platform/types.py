@@ -2116,6 +2116,7 @@ ImagesPredictResponse = TypedDict(
         "confidences": NotRequired[list[float]],
         "modelUsed": str,
         "inferenceTime": NotRequired[float],
+        "usage": NotRequired[list[Any]],
         "cost": NotRequired[float],
     },
 )
@@ -2313,6 +2314,7 @@ ExportsRetrieveResponseExport = TypedDict(
             "hailo",
             "ascend",
             "xilinx",
+            "nxp",
         ],
         "args": NotRequired[dict[str, Any]],
         "gpuType": NotRequired[str],
@@ -2369,6 +2371,7 @@ ExportsCreateResponse = TypedDict(
             "hailo",
             "ascend",
             "xilinx",
+            "nxp",
         ],
         "status": Literal["queued", "running"],
         "gpuType": NotRequired[str],

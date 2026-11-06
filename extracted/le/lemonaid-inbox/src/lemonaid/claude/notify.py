@@ -28,7 +28,7 @@ import sys
 import typing as ty
 from pathlib import Path
 
-from .. import auto_read, daily_date
+from .. import auto_read, daily_date, launch_token, wezterm
 from ..brief.handoff import state as handoff_state
 from ..brief.handoff import transfer as handoff_transfer
 from ..config import load_config
@@ -272,12 +272,16 @@ def _resolve_session(data: dict, notification_type: str) -> tuple[str, str, str,
     if branch:
         metadata["git_branch"] = branch
 
+    metadata.update(launch_token.metadata())
+
     tty = get_tty()  # for pane matching
     if tty:
         metadata["tty"] = tty
         surface = get_cmux_surface()
         if surface:
             metadata["cmux_surface"] = surface
+    if switch_source == "wezterm":
+        metadata.update(wezterm.location.metadata())
 
     # Where this session sits, so a lost tmux server can be rebuilt from the
     # inbox. Absent when the hook runs outside tmux, which is why `db.add`

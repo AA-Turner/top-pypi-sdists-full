@@ -3,7 +3,16 @@ from mistralai.observability.otel import AttributeMaskCallback, CallbackRedactio
 from .errors import SdkError
 
 type RedactionPolicy = OperationDataTransformer | AttributeMaskCallback
+"""One way the agent's traces mask secrets and personal data: a redaction policy or a
+``(key, value)`` function.
+
+``OperationDataTransformer`` is what a redaction policy is, such as ``RegexRedactionPolicy``: an
+object whose ``transform`` method returns the value to record, or ``None`` to drop it.
+``OperationDataValue`` is a trace field's value: a string, a number, a boolean, bytes, ``None``,
+or a list or a mapping of these."""
 type Redaction = RedactionPolicy | list[RedactionPolicy] | tuple[RedactionPolicy, ...]
+"""What ``Agent(redaction=...)`` takes: one ``RedactionPolicy`` or a list of them, applied in order.
+``[]`` turns redaction off."""
 
 
 def resolve_redaction(redaction: Redaction) -> tuple[OperationDataTransformer, ...]:

@@ -67,30 +67,21 @@ class AttentionPool2d(nn.Module):
         self.num_heads = num_heads
 
     def forward(self, x):
-        x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3]).permute(2, 0, 1)  # NCHW -> (HW)NC
-        x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
-        x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
-        x, _ = F.multi_head_attention_forward(
-            query=x, key=x, value=x,
-            embed_dim_to_check=x.shape[-1],
-            num_heads=self.num_heads,
-            q_proj_weight=self.q_proj.weight,
-            k_proj_weight=self.k_proj.weight,
-            v_proj_weight=self.v_proj.weight,
-            in_proj_weight=None,
-            in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
-            bias_k=None,
-            bias_v=None,
-            add_zero_attn=False,
-            dropout_p=0.,
-            out_proj_weight=self.c_proj.weight,
-            out_proj_bias=self.c_proj.bias,
-            use_separate_proj_weight=True,
-            training=self.training,
-            need_weights=False
-        )
+        x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3]).permute(0, 2, 1)  # NCHW -> N(HW)C
+        x = torch.cat([x.mean(dim=1, keepdim=True), x], dim=1)  # N(HW+1)C
+        x = x + self.positional_embedding[None, :, :].to(x.dtype)  # N(HW+1)C
 
-        return x[0]
+        N, L, C = x.shape
+        head_dim = C // self.num_heads
+        q = self.q_proj(x).reshape(N, L, self.num_heads, head_dim).transpose(1, 2)
+        k = self.k_proj(x).reshape(N, L, self.num_heads, head_dim).transpose(1, 2)
+        v = self.v_proj(x).reshape(N, L, self.num_heads, head_dim).transpose(1, 2)
+
+        x = F.scaled_dot_product_attention(q, k, v)
+        x = x.transpose(1, 2).reshape(N, L, C)
+        x = self.c_proj(x)
+
+        return x[:, 0]
 
 
 class ModifiedResNet(nn.Module):
@@ -159,15 +150,39 @@ class ModifiedResNet(nn.Module):
                 if name.endswith("bn3.weight"):
                     nn.init.zeros_(param)
 
-    def lock(self, unlocked_groups=0, freeze_bn_stats=False):
-        assert unlocked_groups == 0, 'partial locking not currently supported for this model'
-        for param in self.parameters():
-            param.requires_grad = False
-        if freeze_bn_stats:
-            freeze_batch_norm_2d(self)
+    def layer_groups(self, pooler_in_head: bool = True):
+        """Ordered, complete partition into named ``(name, [members])`` groups, input -> output, shared by ``lock``
+        and layer-wise LR decay. Groups: ``embeddings`` (the 3-conv stem + BNs), ``layer.{0..3}`` (the residual
+        stages), and ``proj`` (the attention-pool head). ``pooler_in_head`` is accepted for a common signature with
+        the text towers but has no effect here.
+        """
+        groups = [
+            ("embeddings", [self.conv1, self.bn1, self.conv2, self.bn2, self.conv3, self.bn3]),
+            ("layer.0", [self.layer1]),
+            ("layer.1", [self.layer2]),
+            ("layer.2", [self.layer3]),
+            ("layer.3", [self.layer4]),
+        ]
+        if self.attnpool is not None:
+            groups.append(("proj", [self.attnpool]))
+        return groups
 
-    @torch.jit.ignore
-    def set_grad_checkpointing(self, enable=True):
+    def lock(self, unlocked_groups=0, freeze_bn_stats=False):
+        # Freeze the tower top-down via the shared ``layer_groups`` enumeration: ``unlocked_groups`` counts the top
+        # groups (the attn-pool head first) left trainable, so unlocked_groups=0 freezes everything. Each group is
+        # set explicitly (frozen -> False, unlocked -> True) so repeated calls with different counts are
+        # idempotent (progressive unfreezing / multi-stage training).
+        groups = self.layer_groups()
+        n_freeze = len(groups) if not unlocked_groups else len(groups) - unlocked_groups
+        for i, (_, members) in enumerate(groups):
+            freeze = i < n_freeze
+            for module in members:  # ResNet group members are all modules
+                for p in module.parameters():
+                    p.requires_grad = not freeze
+                if freeze and freeze_bn_stats:
+                    freeze_batch_norm_2d(module)
+
+    def set_grad_checkpointing(self, enable: bool = True, impl: str = 'inline'):
         # FIXME support for non-transformer
         pass
 
@@ -193,7 +208,8 @@ class ModifiedResNet(nn.Module):
         Args:
             x: Input image tensor
             indices: Take last n blocks if int, all if None, select matching indices if sequence
-            stop_early: Stop iterating over blocks when last desired intermediate hit
+            stop_early: Stop at the last requested intermediate when intermediates_only=True;
+                pooled features require the full trunk.
             normalize_intermediates: Apply final norm layer to all intermediates
             intermediates_only: Only return intermediate features
             output_fmt: Shape of intermediate feature outputs
@@ -208,7 +224,7 @@ class ModifiedResNet(nn.Module):
         output = {}
         intermediates = []
         blocks = [self.stem, self.layer1, self.layer2, self.layer3, self.layer4]
-        if torch.jit.is_scripting() or not stop_early:  # can't slice blocks in torchscript
+        if stop_early and intermediates_only:
             blocks = blocks[:max_index + 1]
         for i, blk in enumerate(blocks):
             x = blk(x)

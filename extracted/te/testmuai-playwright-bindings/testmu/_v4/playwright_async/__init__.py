@@ -23,7 +23,7 @@ from testmu._v4._heal_patch import install, _in_heal, _NOT_HANDLED
 _log = logging.getLogger("testmu")
 
 HEAL_METHODS = [
-    "click", "dblclick", "fill", "type", "press",
+    "click", "dblclick", "fill", "type", "press_sequentially", "press",
     "hover", "check", "uncheck", "select_option",
     "set_input_files", "scroll_into_view_if_needed",
     "focus", "tap", "drag_to",
@@ -39,7 +39,7 @@ HEAL_METHODS = [
 _METHOD_TO_ACTION_TYPE = {
     "click": "click", "dblclick": "click", "tap": "click",
     "hover": "click", "check": "click", "uncheck": "click",
-    "fill": "type", "type": "type", "press": "type", "set_input_files": "type",
+    "fill": "type", "type": "type", "press_sequentially": "type", "press": "type", "set_input_files": "type",
     "select_option": "select",
     "scroll_into_view_if_needed": "scroll",
     # The heal API has no neutral value; "click" is the generic
@@ -61,6 +61,14 @@ def _capped_retry_kwargs(kwargs):
     orig = kwargs.get("timeout")
     capped = min(orig if orig is not None else _DEFAULT_TIMEOUT_MS, _RETRY_TIMEOUT_CAP_MS)
     return {**kwargs, "timeout": capped}
+
+
+def _capped_typing_kwargs(text, kwargs):
+    """Cap only the wait: press_sequentially's timeout also covers the typing itself."""
+    budget = len(str(text)) * kwargs.get("delay", 0)
+    orig = kwargs.get("timeout")
+    wait = (orig - budget) if orig is not None else _DEFAULT_TIMEOUT_MS
+    return {**kwargs, "timeout": min(wait, _RETRY_TIMEOUT_CAP_MS) + budget}
 
 
 async def _default_heal(page, description, method_name, original_locator, *args, **kwargs):
@@ -143,7 +151,13 @@ async def _default_heal(page, description, method_name, original_locator, *args,
                                 if k not in ("value", "label", "index", "element")}
                 result = await fresh.select_option(index=option_index, **retry_kwargs)
             else:
-                result = await getattr(fresh, method_name)(*args, **_capped_retry_kwargs(kwargs))
+                retry_kwargs = _capped_retry_kwargs(kwargs)
+                if method_name == "press_sequentially":
+                    # testmu.fill cleared the stale locator, not this one, and an
+                    # earlier attempt may have typed part of the text here.
+                    await fresh.fill("", timeout=retry_kwargs["timeout"])
+                    retry_kwargs = _capped_typing_kwargs(args[0], kwargs)
+                result = await getattr(fresh, method_name)(*args, **retry_kwargs)
         except Exception as e:
             _log.warning(
                 "[heal] retry on fresh locator %r failed: %s",

@@ -1,4 +1,4 @@
-# Copyright (C) 2023 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2023 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 #
@@ -19,18 +19,20 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 """Provides the ``PreferredUnits`` class."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import TypeAlias
 
 from typing_extensions import Protocol, override
 
 from ansys.units._unit_parsing import _units_to_dim
 from ansys.units.base_dimensions import BaseDimensions
 from ansys.units.dimensions import Dimensions
-from ansys.units.quantity_tables.keys import *  # noqa: F403
+from ansys.units.quantity_tables.keys import UnitKey
 
 
 class UnitLike(Protocol):
@@ -43,8 +45,8 @@ class UnitLike(Protocol):
     def dimensions(self) -> Dimensions: ...
 
 
-PreferredUnit = UnitKey | str | UnitLike
-PreferredUnitInput = Sequence[PreferredUnit] | PreferredUnit | None
+PreferredUnit: TypeAlias = UnitKey | str | UnitLike
+PreferredUnitInput: TypeAlias = Sequence[PreferredUnit] | PreferredUnit | None
 
 
 def _iter_preferred_units(units: PreferredUnitInput) -> Sequence[PreferredUnit]:

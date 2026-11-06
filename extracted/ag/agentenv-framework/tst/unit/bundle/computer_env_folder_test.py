@@ -14,7 +14,7 @@ from agent_env.bundle.plan import plan_bundle, plan_entities
 from agent_env.bundle.resolve import resolve_bundle
 from agent_env.bundle.run import dry_run_bundle
 from agent_env.env import Env
-from agent_env.env.envs.computer.utils import composer
+from agent_env.env.envs.computer.utils.composed import composition
 from agent_env.env.envs.computer.utils.composer import Composing
 from agent_env.env.envs.computer.env import ComputerEnv
 from agent_env.providers.sandbox_providers.local_docker.provider import LocalSandboxProvider
@@ -38,22 +38,6 @@ APPS = {f"envs/{name}/{file}": text for name in ("mail", "notes") for file, text
     ("env.toml", APP_TOML), ("app.py", APP.format(supports=LINUX, skill="skill.md", linux_skill="skill-linux.md")),
     ("requirements.txt", "agentenv-framework-protocol\n"), ("skill.md", "# Mail\n"),
     ("skill-linux.md", "# Mail on Linux\n"))}
-
-
-@pytest.fixture
-def composed(tmp_path, monkeypatch, local_stores, cli_routing, builds):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr("agent_env.env.published_images._registry_digest", lambda ref: None)
-    calls = []
-
-    def compose(env, pairs=None, composing=Composing()):
-        if composing.on_progress is not None:
-            composing.on_progress("composing")
-        calls.append((env.id, env.computer.id, env.driver.id, composing.sandbox_provider)
-                     + ((pairs,) if pairs is not None else ()))
-
-    monkeypatch.setattr(composer, "compose", compose)
-    return calls
 
 
 def _bundle(root, toml=DESKTOP, extra=None):
@@ -107,7 +91,8 @@ def test_a_reused_computer_env_composes_what_it_has_left_on_the_runs_provider_an
                           on_progress=lambda write, line: told.append((write.id, line)))
     again = materialize(_plan(root), build_here=local_builds(_plan(root)), composing=Composing(provider),
                         on_progress=lambda write, line: told.append((write.id, line)))
-    built_ = {form: {arch: {"status": "ready", "image": f"{form}-{arch}"} for arch in ("amd64", "arm64")}
+    built_ = {form: {arch: {"status": "ready", "image": f"{form}-{arch}", "composer": composition()}
+                     for arch in ("amd64", "arm64")}
               for form in ("container", "disk")}
     env.update_metadata({**env.metadata, "composed": built_, "computer": {
         "id": "c", "version": 1, "images": {"amd64": "container-amd64", "arm64": "container-arm64"},

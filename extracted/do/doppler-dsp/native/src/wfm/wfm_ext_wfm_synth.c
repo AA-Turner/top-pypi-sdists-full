@@ -220,101 +220,6 @@ _SynthEngine_steps (_SynthEngineObject *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-_SynthEngine_get_wtype (_SynthEngineObject *self,
-                        PyObject           *Py_UNUSED (ignored))
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  return PyLong_FromLong ((long)dp_wfm_synth_get_wtype (self->handle));
-}
-
-static PyObject *
-_SynthEngine_set_wtype (_SynthEngineObject *self, PyObject *args)
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  int v = 0;
-  if (!PyArg_ParseTuple (args, "i", &v))
-    return NULL;
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  dp_wfm_synth_set_wtype (self->handle, v);
-  Py_RETURN_NONE;
-}
-
-static PyObject *
-_SynthEngine_get_nsps (_SynthEngineObject *self, PyObject *Py_UNUSED (ignored))
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  return PyLong_FromLong ((long)dp_wfm_synth_get_nsps (self->handle));
-}
-
-static PyObject *
-_SynthEngine_set_nsps (_SynthEngineObject *self, PyObject *args)
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  int v = 0;
-  if (!PyArg_ParseTuple (args, "i", &v))
-    return NULL;
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  dp_wfm_synth_set_nsps (self->handle, v);
-  Py_RETURN_NONE;
-}
-
-static PyObject *
-_SynthEngine_get_sym_pos (_SynthEngineObject *self,
-                          PyObject           *Py_UNUSED (ignored))
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  return PyLong_FromLong ((long)dp_wfm_synth_get_sym_pos (self->handle));
-}
-
-static PyObject *
-_SynthEngine_set_sym_pos (_SynthEngineObject *self, PyObject *args)
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  int v = 0;
-  if (!PyArg_ParseTuple (args, "i", &v))
-    return NULL;
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  dp_wfm_synth_set_sym_pos (self->handle, v);
-  Py_RETURN_NONE;
-}
-
-static PyObject *
 _SynthEngine_get_cur_re (_SynthEngineObject *self,
                          PyObject           *Py_UNUSED (ignored))
 {
@@ -377,6 +282,143 @@ _SynthEngine_set_cur_im (_SynthEngineObject *self, PyObject *args)
   dp_wfm_synth_set_cur_im (self->handle, v);
   Py_RETURN_NONE;
 }
+static PyObject *
+_SynthEngine_get_wtype (_SynthEngineObject *self,
+                        PyObject           *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int y = dp_wfm_synth_get_wtype (self->handle);
+  return PyLong_FromLong ((long)y);
+}
+
+static PyObject *
+_SynthEngine_set_wtype (_SynthEngineObject *self, PyObject *args,
+                        PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "val", NULL };
+  int          val       = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "i", _kwlist, &val))
+    return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_wfm_synth_set_wtype (self->handle, val);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_wtype failed",
+                    (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+_SynthEngine_get_nsps (_SynthEngineObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int y = dp_wfm_synth_get_nsps (self->handle);
+  return PyLong_FromLong ((long)y);
+}
+
+static PyObject *
+_SynthEngine_set_nsps (_SynthEngineObject *self, PyObject *args,
+                       PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "val", NULL };
+  int          val       = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "i", _kwlist, &val))
+    return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_wfm_synth_set_nsps (self->handle, val);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_nsps failed",
+                    (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+_SynthEngine_get_sym_pos (_SynthEngineObject *self,
+                          PyObject           *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int y = dp_wfm_synth_get_sym_pos (self->handle);
+  return PyLong_FromLong ((long)y);
+}
+
+static PyObject *
+_SynthEngine_set_sym_pos (_SynthEngineObject *self, PyObject *args,
+                          PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "val", NULL };
+  int          val       = 0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "i", _kwlist, &val))
+    return NULL;
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  int _rc = dp_wfm_synth_set_sym_pos (self->handle, val);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_sym_pos failed",
+                    (long long)_rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
 static PyObject *
 _SynthEngine_set_chirp_span (_SynthEngineObject *self, PyObject *args,
                              PyObject *kwds)
@@ -722,37 +764,6 @@ static PyMethodDef _SynthEngine_methods[] = {
     "[(1+0j), (1+0j), (1+0j), (1+0j)]\n"
     "\n" },
 
-  { "get_wtype", (PyCFunction)_SynthEngine_get_wtype, METH_NOARGS,
-    "Return the active waveform type discriminant. Maps to the WFM_SYNTH_* "
-    "enum: 0=tone, 1=noise, 2=pn, 3=bpsk, 4=qpsk, 5=chirp, 6=bits, 7=symbols, "
-    "8=dsss. Use this to inspect which synthesis path is active at "
-    "runtime.\n" },
-  { "set_wtype", (PyCFunction)_SynthEngine_set_wtype, METH_VARARGS,
-    "Override the waveform type discriminant in-place. Changing wtype does "
-    "not reinitialise sub-objects (no PN, LO, AWGN or pattern is created or "
-    "freed, and the value is not validated); use with care.\n" },
-  { "get_nsps", (PyCFunction)_SynthEngine_get_nsps, METH_NOARGS,
-    "Return the samples-per-symbol count. For symbol types (PN, BPSK, QPSK, "
-    "bits, symbols, dsss chips) each symbol is held for nsps consecutive "
-    "output samples.  For tone/noise/chirp this field is present but unused "
-    "by the synthesis path.\n" },
-  { "set_nsps", (PyCFunction)_SynthEngine_set_nsps, METH_VARARGS,
-    "Override the samples-per-symbol count in-place. Does not flush the "
-    "symbol-position counter (sym_pos); set sym_pos=0 as well when changing "
-    "sps mid-stream.  Not validated, and does not rebuild an attached RRC "
-    "shaper (whose taps and polyphase split were fixed for the nsps at "
-    "dp_wfm_synth_set_rrc() time) or rescale the noise.\n" },
-  { "get_sym_pos", (PyCFunction)_SynthEngine_get_sym_pos, METH_NOARGS,
-    "Return the current position within the current symbol (0..nsps-1). "
-    "Reaches nsps and wraps to 0 each time a new symbol is latched from the "
-    "active source (PN LFSR, bit pattern, symbol stream or DSSS chip). Useful "
-    "for frame alignment: sym_pos==0 on a step boundary means the very next "
-    "sample begins a fresh symbol.  Not advanced on the polyphase-shaper path "
-    "(power-of-two sps with RRC), nor for tone/noise/chirp.\n" },
-  { "set_sym_pos", (PyCFunction)_SynthEngine_set_sym_pos, METH_VARARGS,
-    "Override the symbol-position counter in-place. Injecting 0 forces the "
-    "next dp_wfm_synth_step() to latch a new symbol; any other value "
-    "fast-forwards into the middle of the current symbol hold.\n" },
   { "get_cur_re", (PyCFunction)_SynthEngine_get_cur_re, METH_NOARGS,
     "Return the real part of the current held symbol. For modulated types "
     "this is the I component latched at the last symbol boundary (±1 for "
@@ -770,6 +781,172 @@ static PyMethodDef _SynthEngine_methods[] = {
   { "set_cur_im", (PyCFunction)_SynthEngine_set_cur_im, METH_VARARGS,
     "Override the held-symbol imaginary (Q) component in-place. Takes effect "
     "on the next dp_wfm_synth_step() within the current symbol hold.\n" },
+  { "get_wtype", (PyCFunction)_SynthEngine_get_wtype, METH_NOARGS,
+    "get_wtype() -> int\n"
+    "\n"
+    "Return the active waveform type discriminant. Maps to the\n"
+    "WFM_SYNTH_* enum: 0=tone, 1=noise, 2=pn, 3=bpsk, 4=qpsk, 5=chirp,\n"
+    "6=bits, 7=symbols, 8=dsss. Use this to inspect which synthesis path is\n"
+    "active at runtime.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Integer waveform type index (WFM_SYNTH_TONE .. WFM_SYNTH_DSSS), the\n"
+    "    create-time `type` unless overridden.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"tone\", fs=1e6, freq=1e3, snr=100.0)\n"
+    ">>> s.get_wtype()\n"
+    "0\n" },
+  { "set_wtype", (PyCFunction)(void *)_SynthEngine_set_wtype,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_wtype(val) -> None\n"
+    "\n"
+    "Override the waveform type discriminant in-place. Changing wtype\n"
+    "does not reinitialise sub-objects (no PN, LO, AWGN or pattern is\n"
+    "created or freed), so a type that would read a PN source this engine\n"
+    "lacks is refused: PN, BPSK and QPSK read it, and so does every type but\n"
+    "symbols, bits and dsss once set_rrc has attached a shaper. create()\n"
+    "builds the source only for PN, BPSK and QPSK, and for dsss when its\n"
+    "length has an MLS polynomial. A value that is not a waveform type is\n"
+    "refused too. set_state asks the same rule of the type a blob carries.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "val : int\n"
+    "    New wtype value (WFM_SYNTH_TONE .. WFM_SYNTH_DSSS).\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_wtype failed``, with the return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"tone\", fs=1e6, freq=1e3, snr=100.0)\n"
+    ">>> s.set_wtype(1)\n"
+    ">>> s.get_wtype()\n"
+    "1\n"
+    ">>> s.set_wtype(2)\n"
+    "Traceback (most recent call last):\n"
+    "    ...\n"
+    "ValueError: set_wtype failed (rc=-4)\n"
+    ">>> s.get_wtype()\n"
+    "1\n" },
+  { "get_nsps", (PyCFunction)_SynthEngine_get_nsps, METH_NOARGS,
+    "get_nsps() -> int\n"
+    "\n"
+    "Return the samples-per-symbol count. For symbol types (PN, BPSK,\n"
+    "QPSK, bits, symbols, dsss chips) each symbol is held for nsps\n"
+    "consecutive output samples. For tone/noise/chirp this field is present\n"
+    "but unused by the synthesis path.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Samples per symbol: the create-time `sps` clamped to >= 1, or\n"
+    "    whatever dp_wfm_synth_set_nsps() last stored.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"qpsk\", sps=8, snr=100.0)\n"
+    ">>> s.get_nsps()\n"
+    "8\n" },
+  { "set_nsps", (PyCFunction)(void *)_SynthEngine_set_nsps,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_nsps(val) -> None\n"
+    "\n"
+    "Override the samples-per-symbol count in-place. Does not flush the\n"
+    "symbol-position counter (sym_pos). A hold at or below the current\n"
+    "sym_pos is refused, so when changing sps mid-stream set sym_pos first\n"
+    "(0 is always legal), then this: refusing the other order keeps sym_pos\n"
+    "inside the hold. Does not rebuild an attached RRC shaper (whose taps\n"
+    "and polyphase split were fixed for the nsps at dp_wfm_synth_set_rrc()\n"
+    "time) or rescale the noise.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "val : int\n"
+    "    New nsps value: at least 1, and above the current sym_pos.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_nsps failed``, with the return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"qpsk\", sps=8, snr=100.0)\n"
+    ">>> s.set_nsps(4)\n"
+    ">>> s.get_nsps()\n"
+    "4\n"
+    ">>> s.set_nsps(0)\n"
+    "Traceback (most recent call last):\n"
+    "    ...\n"
+    "ValueError: set_nsps failed (rc=-4)\n" },
+  { "get_sym_pos", (PyCFunction)_SynthEngine_get_sym_pos, METH_NOARGS,
+    "get_sym_pos() -> int\n"
+    "\n"
+    "Return the current position within the current symbol (0..nsps-1).\n"
+    "Reaches nsps and wraps to 0 each time a new symbol is latched from the\n"
+    "active source (PN LFSR, bit pattern, symbol stream or DSSS chip).\n"
+    "Useful for frame alignment: sym_pos==0 on a step boundary means the\n"
+    "very next sample begins a fresh symbol. Not advanced on the\n"
+    "polyphase-shaper path (power-of-two sps with RRC), nor for\n"
+    "tone/noise/chirp.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    Symbol position counter (0 <= sym_pos < nsps); 0 after create.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"qpsk\", sps=8, snr=100.0)\n"
+    ">>> s.get_sym_pos()\n"
+    "0\n"
+    ">>> _ = s.steps(3)\n"
+    ">>> s.get_sym_pos()\n"
+    "3\n" },
+  { "set_sym_pos", (PyCFunction)(void *)_SynthEngine_set_sym_pos,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_sym_pos(val) -> None\n"
+    "\n"
+    "Override the symbol-position counter in-place. Injecting 0 forces\n"
+    "the next dp_wfm_synth_step() to latch a new symbol; any other value\n"
+    "fast-forwards into the middle of the current symbol hold.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "val : int\n"
+    "    New sym_pos value: 0 <= val < nsps.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_sym_pos failed``, with the return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.wfm import _SynthEngine\n"
+    ">>> s = _SynthEngine(type=\"qpsk\", sps=8, snr=100.0)\n"
+    ">>> s.set_sym_pos(3)\n"
+    ">>> s.get_sym_pos()\n"
+    "3\n"
+    ">>> s.set_sym_pos(8)\n"
+    "Traceback (most recent call last):\n"
+    "    ...\n"
+    "ValueError: set_sym_pos failed (rc=-4)\n" },
   { "set_chirp_span", (PyCFunction)(void *)_SynthEngine_set_chirp_span,
     METH_VARARGS | METH_KEYWORDS,
     "set_chirp_span(span) -> None\n"

@@ -245,9 +245,7 @@ class _CompiledChild:
 
 
 class ComposeTransformNotFoundError(ArithmeticError, ValueError):
-    """Raised when compose subtraction cannot find a requested transform class, preserving ValueError
-    compatibility while satisfying operator semantics.
-    """
+    """Raised when compose subtraction cannot find a requested transform class."""
 
 
 AVAILABLE_KEYS = (
@@ -1242,7 +1240,7 @@ class BaseCompose(InvocationRngOwner, Serializable):
            and by surviving id onto keypoints.
         """
         bboxes_pre = data.get("bboxes")
-        if isinstance(bboxes_pre, np.ndarray) and bboxes_pre.shape[0] > 0:
+        if isinstance(bboxes_pre, np.ndarray):
             pre_bbox_ids: np.ndarray | None = bboxes_pre[:, -1].astype(np.int64, copy=True)
             n_pre = bboxes_pre.shape[0]
         else:

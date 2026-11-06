@@ -310,7 +310,7 @@ class RequestBuilder:
             ), last_modified_duration_ms
 
         # The caller owns the view traversal so the speculative decision can be made after it
-        # completes (see _submit_sql_request); it must be supplied for non-view execution types.
+        # completes (see StateRequestSubmitter.submit_sql); it must be supplied for non-view execution types.
         if traversal_result is None:
             raise RuntimeError("Traversal result is required for non-view nodes")
 

@@ -256,7 +256,7 @@ async def wait_for_turn(
     """Return the turn's record at its end, or at a callback opened after ``after``.
 
     ``raw`` and the event stream share ``transport``; ``tools`` are the agent's tool objects by tool
-    id. Without ``after``, the first read returns any ``Blocked``. After a position, a callback of
+    ID. Without ``after``, the first read returns any ``Blocked``. After a position, a callback of
     the turn whose opening the events show wakes the wait, and the wait returns only if the host
     still lists it as open: one another client already answered does not. A subagent's callback
     returns while open, unless a ``Blocked`` given as ``after`` lists it. ``timeout`` bounds the
@@ -280,7 +280,7 @@ async def wait_for_turn(
     turn the host never lists is waited for until ``timeout``, or the session's end.
 
     Raises:
-        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
+        TurnNotFoundError: The session has no turn with this ID, and it is not ``confirmed``.
         ObservationLost: The session's events, or its subagents' callbacks, could not be read, and
             the turn has not ended.
         Exception: The approval handler raised this error; its approval stays open.

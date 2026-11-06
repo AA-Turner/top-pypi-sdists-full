@@ -39,6 +39,24 @@ class StoredBlocks:
     accounts: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class StoredFlowStates:
+    """The attention flow's stored states of a company's live reception, read narrow (not the whole document): `base` is
+    the document's own `atencion_estado` (None when it has none) and `accounts` the `atencion_estado` of each account
+    block that has one. Values are as stored: the use case decides which are known states."""
+
+    base: Optional[Any] = None
+    accounts: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FlowStateWrite:
+    """What a write of the flow's state matched and changed (a count of live receptions, 0 or 1)."""
+
+    matched: int
+    modified: int
+
+
 class ReceptionRepository(Protocol):
     async def list_live(self, company_id: StrObjectId) -> List[Recepcion]:
         """The company's receptions without `deleted_at`, through the cache (one when all is well)."""
@@ -79,4 +97,17 @@ class ReceptionRepository(Protocol):
         the account that stops being the default, `to_base` the base's fields the new default's block brings, and
         `retired_account_id` the block that is removed (None: none). The cache of the item and the lists is cleared
         after it: a failed clear is NOT swallowed (as in `main`)."""
+        ...
+
+    async def flow_states(self, company_id: StrObjectId, *, max_time_ms: int) -> Optional[StoredFlowStates]:
+        """The company's live reception's stored flow states (`atencion_estado` of the base and of each account block),
+        read from the store and not from the cache, with a time limit; None when the company has no live reception."""
+        ...
+
+    async def set_flow_state(self, company_id: StrObjectId, state: str, *, account_id: Optional[str] = None,
+                             only_if_missing: bool = False) -> FlowStateWrite:
+        """Writes the flow's state (`atencion_estado`) of the base, or of the block of `account_id` (an account that is not
+        the default's), in ONE write on the company's live reception. `only_if_missing` writes only when the base has no
+        state yet (never over a stored one). It does not touch the item cache: the model does not carry the field. It does
+        not create the reception: no live reception, nothing matched."""
         ...

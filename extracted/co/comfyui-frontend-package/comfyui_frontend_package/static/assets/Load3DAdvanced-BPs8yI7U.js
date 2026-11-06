@@ -1,1 +1,0 @@
-import{t as e}from"./Load3DAdvanced-Cg5WbL3l.js";export{e as default};

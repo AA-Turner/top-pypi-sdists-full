@@ -148,6 +148,86 @@ function xyTextAdvance(text, fontSize) {
   return Number(fontSize) * units / XY_FONT_BASE_PX;
 }
 
+// Spacing, in tick-label font sizes, that one category label needs along a
+// vertical axis: one text line plus a gap, instead of the numeric one-tick-per-
+// 45-px density. Mirrored by `_CATEGORY_LABEL_PITCH` in python/xy/_svg.py.
+const CATEGORY_LABEL_PITCH = 1.6;
+
+// Gap between an outside-top legend band and the top of the plot (or the
+// top-axis tick labels). Mirrored by `_OUTSIDE_LEGEND_GAP` in python/xy/_svg.py.
+const OUTSIDE_LEGEND_GAP = 8;
+// The canonical spelling `xy._validate.legend_loc` returns for every
+// outside-top form, so the client never token-matches it as an in-plot `upper`.
+const OUTSIDE_TOP_LEGEND = "outside top";
+// Tallest an outside-top legend box may be, as a fraction of the chart height;
+// rows past it scroll. One row always shows. Mirrored by
+// `_OUTSIDE_LEGEND_MAX_FRACTION` in python/xy/_svg.py.
+const OUTSIDE_LEGEND_MAX_FRACTION = 0.3;
+// The plot rect's height floor (`Math.max(40, ...)` in `_layout`); an
+// outside-top band's budget leaves it intact. `_PLOT_MIN_PX` in _svg.py.
+const PLOT_MIN_PX = 40;
+// Legend style keys the exporters canonicalize (`_LEGEND_SLOT_ALIASES` in
+// python/xy/_svg.py), so both renderers read padding/row gap from one spelling.
+const XY_LEGEND_STYLE_ALIASES = {
+  "background-color": "background",
+  "box-shadow": "boxShadow",
+  "border-radius": "borderRadius",
+  "row-gap": "rowGap",
+  "font-size": "fontSize",
+  "font_size": "fontSize",
+};
+
+// The legend style the band's column count is computed from: the
+// `styles={"legend": ...}` slot, then `xy.legend(style=...)` on top. Mirrors
+// `legend_options_with_slot` in python/xy/_svg.py — without the slot, a slot
+// padding the exporters honored chose one column more here than in a file.
+function xyLegendBandStyle(slotStyle, ownStyle) {
+  const out = {};
+  for (const [key, value] of Object.entries(slotStyle || {})) {
+    const kebab = key.startsWith("--") ? key : key.replace(/_/g, "-");
+    out[XY_LEGEND_STYLE_ALIASES[kebab] || kebab] = value;
+  }
+  for (const [key, value] of Object.entries(ownStyle || {})) {
+    out[XY_LEGEND_STYLE_ALIASES[key] || key] = value;
+  }
+  return out;
+}
+
+function xyLegendEm(style, key, fallback) {
+  const raw = String((style && style[key]) ?? "").trim();
+  if (!raw.endsWith("em")) return fallback;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) ? Math.max(0, value) : fallback;
+}
+
+// Most columns an outside-top legend can use without ellipsizing a label.
+// Entries fill row-major, as in the in-plot grid, so a column is as wide as its
+// widest label. Same metrics and glyph advances as `_legend_band_columns` in
+// python/xy/_svg.py, so the browser and every export wrap the same entries
+// into the same rows; only the measured row HEIGHT is the browser's own.
+function xyLegendBandColumns(names, options, bandW, fontSize = 11) {
+  const count = names.length;
+  if (count <= 1) return 1;
+  const style = (options && options.style) || {};
+  const pad = 2 * xyLegendEm(style, "padding", 0.4) * fontSize;
+  const handle = Math.max(0, Number(options?.handlelength ?? 2)) * fontSize;
+  const gap = Math.max(0, Number(options?.handletextpad ?? 0.8)) * fontSize;
+  const columnGap = 2 * fontSize;
+  const widths = names.map((name) => xyTextAdvance(String(name ?? ""), fontSize));
+  for (let ncols = count; ncols > 1; ncols--) {
+    let total = pad + (ncols - 1) * columnGap;
+    for (let column = 0; column < ncols; column++) {
+      let widest = 0;
+      for (let index = column; index < count; index += ncols) {
+        widest = Math.max(widest, widths[index]);
+      }
+      total += handle + gap + widest;
+    }
+    if (total <= bandW + 1e-9) return ncols;
+  }
+  return 1;
+}
+
 const COLORBAR_THICKNESS = 18;
 const COLORBAR_GAP = 24;
 const COMPACT_COLORBAR_GAP = 8;
@@ -648,8 +728,6 @@ export class ChartView {
       w: Math.max(this.fluid ? 120 : 48, cw),
       h: Math.max(this.fluidH ? 120 : 48, ch),
     };
-    this._layout();
-
     this._buildDom(el);
     // getComputedStyle yields nothing on a detached element, so a chart
     // constructed before its output node lands in the document (notebook
@@ -754,6 +832,9 @@ export class ChartView {
   }
 
   _layout() {
+    // Relative slot font sizes (`em`, `vw`, `rem`) follow their context, which
+    // a resize or theme change can move; measure them again for this layout.
+    this._cssFontPxCache = null;
     // Plot rect from the current size — margins fixed, data area flexes.
     const compact = this.size.w < 520;
     // Explicit padding (spec.padding = [top,right,bottom,left]) overrides the
@@ -788,8 +869,9 @@ export class ChartView {
     const baseBottom = pad ? pad[2] : compact ? 36 : MARGIN.b;
     const bottomAxes = Object.values<any>(this.axes || {}).filter((axis: any) =>
       axis && String(axis.id || "").startsWith("x") &&
-      (this._axisTickLabelSides(axis).includes("bottom") || axis.side !== "top") &&
-      this._axisTickLabelStrategy(axis) !== "none");
+      (this._axisTickLabelSides(axis).includes("bottom") || axis.side !== "top"
+        || this._axisOutwardTickRoom(axis, "bottom") > 0) &&
+      this._axisGutterVisible(axis, "bottom"));
     const hasBottomAxis = bottomAxes.length > 0;
     // A named x axis can own the top edge even when the primary x axis stays
     // on the bottom. Reserve one shared gutter for every top-side x axis;
@@ -797,8 +879,9 @@ export class ChartView {
     // become part of the public API (the same rule used by secondary y axes).
     const topAxes = Object.values<any>(this.axes || {}).filter((axis: any) =>
       axis && String(axis.id || "").startsWith("x") &&
-      (this._axisTickLabelSides(axis).includes("top") || axis.side === "top") &&
-      this._axisTickLabelStrategy(axis) !== "none");
+      (this._axisTickLabelSides(axis).includes("top") || axis.side === "top"
+        || this._axisOutwardTickRoom(axis, "top") > 0) &&
+      this._axisGutterVisible(axis, "top"));
     const hasTopAxis = topAxes.length > 0;
     const authoredLeft = pad
       ? (responsivePad ? Math.min(pad[3], 46) : pad[3])
@@ -830,11 +913,29 @@ export class ChartView {
       return Math.max(room, candidate);
     }, 0);
     this._titleRoom = titleRoom;
+    // An outside-top legend is a band between the title and the plot, sized at
+    // the title's wrap width for the same reason the title is (the final plot
+    // width depends on the plot height, which depends on this band). Mirrors
+    // `_outside_top_legend_band` in python/xy/_svg.py.
+    // Its height is budgeted against what the title, the axes, and the 40 px
+    // plot floor leave (`_outside_legend_budget`), so on a short card the box
+    // shrinks and scrolls rather than pushing the plot off the canvas.
     const provisionalTopAxisRoom = hasTopAxis ? (compact ? 26 : 32) : 0;
     const provisionalBottomAxisRoom = hasBottomAxis ? (compact ? 36 : MARGIN.b) : 0;
-    const provisionalTop = marginTop + titleRoom + provisionalTopAxisRoom;
     const provisionalBottom =
       Math.max(baseBottom, provisionalBottomAxisRoom) + colorbarBottomRoom;
+    const bandBudget = Math.max(
+      0,
+      this.size.h - marginTop - titleRoom - provisionalTopAxisRoom - provisionalBottom
+        - PLOT_MIN_PX - OUTSIDE_LEGEND_GAP,
+    );
+    const band = this._outsideLegendBand(this._titleWrapWidth, bandBudget);
+    // A band cut to nothing (its box hidden) reserves no gap either.
+    const bandRoom = band && band.h > 0 ? band.h + OUTSIDE_LEGEND_GAP : 0;
+    this._legendBand = band
+      ? { x: authoredLeft, y: marginTop + titleRoom, w: this._titleWrapWidth, h: band.h }
+      : null;
+    const provisionalTop = marginTop + titleRoom + bandRoom + provisionalTopAxisRoom;
     const plotHeight = Math.max(40, this.size.h - provisionalTop - provisionalBottom);
     // Explicit padding is a floor, not permission to clip. Long numeric or
     // categorical ticks and an outside y title reserve the room their actual
@@ -842,8 +943,9 @@ export class ChartView {
     const measuredLeft = Math.max(authoredLeft, this._yAxisLeftRoom(plotHeight));
     const rightAxes = Object.values<any>(this.axes || {}).filter((axis: any) =>
       axis && String(axis.id || "").startsWith("y") &&
-      (this._axisTickLabelSides(axis).includes("right") || axis.side === "right") &&
-      this._axisTickLabelStrategy(axis) !== "none");
+      (this._axisTickLabelSides(axis).includes("right") || axis.side === "right"
+        || this._axisOutwardTickRoom(axis, "right") > 0) &&
+      this._axisGutterVisible(axis, "right"));
     // The vertical colorbar shifts right by this room (see _positionColorbar);
     // the Python SVG/raster exporters apply the identical 42/54 rule.
     this._rightAxisRoom = rightAxes.length ? (compact ? 42 : 54) : 0;
@@ -860,15 +962,34 @@ export class ChartView {
     const topAxisRoom = hasTopAxis
       ? Math.max(provisionalTopAxisRoom, measuredTopAxisRoom)
       : 0;
-    this._topAxisRoom = topAxisRoom;
+    // The band counts toward the room `_positionTitles` lifts the title over,
+    // as `_recutPolarPlot` does with its angular-label room, so the title sits
+    // above the legend rather than on it.
+    this._topAxisRoom = topAxisRoom + bandRoom;
     const bottomAxisRoom = hasBottomAxis
       ? Math.max(provisionalBottomAxisRoom, measuredBottomAxisRoom)
       : 0;
     this._bottomAxisRoom = bottomAxisRoom;
-    const top = marginTop + titleRoom + topAxisRoom;
+    let top = marginTop + titleRoom + bandRoom + topAxisRoom;
     const marginBottom =
       (measuredBottomAxisRoom ? Math.max(baseBottom, measuredBottomAxisRoom) : baseBottom)
       + colorbarBottomRoom;
+    // The band was budgeted against the provisional axis rooms; the measured
+    // ones can be larger (a narrower plot rotates or staggers its x labels).
+    // Shrink the band by what the 40 px plot floor now lacks, so the plot and
+    // its bottom axis stay on the canvas. Mirrors `layout` in _svg.py.
+    if (band) {
+      const excess = top + marginBottom + PLOT_MIN_PX - this.size.h;
+      if (excess > 1e-6) {
+        const shrunk = this._outsideLegendBand(this._titleWrapWidth, Math.max(0, band.h - excess));
+        if (shrunk) {
+          const room = shrunk.h > 0 ? shrunk.h + OUTSIDE_LEGEND_GAP : 0;
+          top -= bandRoom - room;
+          this._topAxisRoom = topAxisRoom + room;
+          this._legendBand.h = shrunk.h;
+        }
+      }
+    }
     this.plot = {
       x: marginLeft,
       y: top,
@@ -881,6 +1002,88 @@ export class ChartView {
     // that object and an alias would freeze the pre-recut geometry.
     this._legendRect = null;
     this._recutPolarPlot(compact);
+  }
+
+  // Height an outside-top legend claims above the plot at band width `bandW`,
+  // or null when there is none. The column count comes from the shared glyph
+  // metrics (so it matches every export); the HEIGHT is measured from the live
+  // box, because the legend slot is author-stylable (padding, gaps, font) and a
+  // formula would under-reserve a restyled legend and let it cover the plot.
+  // A box that cannot be measured yet (the first layout runs before the DOM
+  // exists; a detached chart has no geometry) falls back to the exporters'
+  // formula, and `_buildDom` re-lays out once the box exists.
+  _outsideLegendBand(bandW, budget = Infinity) {
+    const lg = this._outsideLegend;
+    if (!lg) return null;
+    const names = lg._xyLegendNames || [];
+    if (!names.length) return null;
+    const own = lg._xyLegendOptions || {};
+    const style = xyLegendBandStyle(this.spec?.dom?.styles?.legend, own.style);
+    const options = { ...own, style };
+    const computedSize = lg.isConnected
+      ? Number.parseFloat(getComputedStyle(lg).fontSize)
+      : NaN;
+    const fontSize = Number.isFinite(computedSize) && computedSize > 0 ? computedSize : 11;
+    const ncols = xyLegendBandColumns(names, options, bandW, fontSize);
+    lg.style.gridTemplateColumns = `repeat(${ncols},minmax(0,max-content))`;
+    if (lg._xyLegendTitle) lg._xyLegendTitle.style.gridColumn = `1 / span ${ncols}`;
+    // The band, not the plot, bounds this box. Border-box so the height cap
+    // below includes the box's own padding.
+    lg.style.boxSizing = "border-box";
+    lg.style.setProperty("--xy-legend-max-width", `${Math.max(40, bandW)}px`);
+    lg.style.setProperty("--xy-legend-max-height", "none");
+    // Measure from the root's left edge. An absolutely positioned box shrinks
+    // to fit the room right of its `left`, so measuring it where it last sat
+    // (centred, or at an in-plot corner) squeezed the grid and wrapped labels
+    // under their swatches. `_positionLegend` moves it into place afterwards.
+    lg.style.setProperty("--xy-legend-left", "0px");
+    lg.style.setProperty("--xy-legend-right", "auto");
+    lg.style.setProperty("--xy-legend-transform", "none");
+    lg.dataset.xyLegendColumns = String(ncols);
+    const cap = OUTSIDE_LEGEND_MAX_FRACTION * this.size.h;
+    // The 30 % cap is soft (one full row always shows); the budget is hard.
+    const limit = Math.max(0, budget);
+    const measured = lg.isConnected ? lg.offsetHeight : 0;
+    if (measured > 0) {
+      let h = measured;
+      const cs = getComputedStyle(lg);
+      const padV = (Number.parseFloat(cs.paddingTop) || 0) + (Number.parseFloat(cs.paddingBottom) || 0);
+      if (measured > cap) {
+        // Too tall: cap it (the box scrolls, as in-plot legends do), but never
+        // below the title and one full row.
+        const titleH = lg._xyLegendTitle ? lg._xyLegendTitle.offsetHeight + (Number.parseFloat(cs.rowGap) || 0) : 0;
+        const firstRow = (lg._xyItemRows && lg._xyItemRows[0] && lg._xyItemRows[0].row.offsetHeight) || 0;
+        h = Math.min(measured, Math.max(cap, padV + titleH + firstRow));
+      }
+      h = Math.min(h, limit);
+      // A border-box never renders below its own padding and borders, so a
+      // budget smaller than that would leave the box painted over the plot.
+      // Hide it instead (it stays measurable, so a later layout with room
+      // shows it again) and reserve nothing.
+      const frameV = padV + (Number.parseFloat(cs.borderTopWidth) || 0)
+        + (Number.parseFloat(cs.borderBottomWidth) || 0);
+      if (h < frameV) {
+        // Remember the author's own value so showing it again restores that,
+        // not the default (an authored `visibility: hidden` must stay hidden).
+        if (!lg._xyBandHidden) lg._xyBandHidden = { visibility: lg.style.visibility };
+        lg.style.visibility = "hidden";
+        return { h: 0, ncols };
+      }
+      if (lg._xyBandHidden) {
+        lg.style.visibility = lg._xyBandHidden.visibility;
+        lg._xyBandHidden = null;
+      }
+      if (h < measured) lg.style.setProperty("--xy-legend-max-height", `${h}px`);
+      return { h, ncols };
+    }
+    const rows = Math.ceil(names.length / ncols) + (options.title ? 1 : 0);
+    const rowGap = xyLegendEm(style, "rowGap", 0.5) * fontSize;
+    const pad = 2 * xyLegendEm(style, "padding", 0.4) * fontSize;
+    const oneRow = (options.title ? 2 : 1) * fontSize * 1.03 + (options.title ? rowGap : 0) + pad;
+    const estimate = rows * fontSize * 1.03 + Math.max(0, rows - 1) * rowGap + pad;
+    const h = Math.min(estimate, Math.max(cap, oneRow), limit);
+    lg.style.setProperty("--xy-legend-max-height", `${h}px`);
+    return { h, ncols };
   }
 
   // Side and px a polar legend gutter claims, or null when nothing is reserved:
@@ -946,7 +1149,9 @@ export class ChartView {
     // `_layout` clears `_legendRect` just before this call, legend sizing and
     // positioning then fell back to `this.plot` and drew the legend on top of
     // the marks. Track it and skip only the inset.
-    const labelsHidden = this._axisTickLabelStrategy(xAxisSpec) === "none";
+    // The same question every cartesian gutter asks: `"off"` draws no angular
+    // label any more than `"none"` does, and neither does a transparent paint.
+    const labelsHidden = !this._axisTickLabelsVisible(xAxisSpec);
     // A legend gutter comes off the canvas edge FIRST, before the disc is fitted
     // to what remains, so the disc never occupies the gutter and the legend
     // never occupies the disc. Mirrors the same block in `_recut_polar_plot`.
@@ -995,7 +1200,7 @@ export class ChartView {
     // natural home — and it is placed outward past the tick-label room, so a
     // titled radial axis keeps its gutter whole rather than part-reclaimed.
     const yAxis = this._axis("y") || {};
-    const titled = !!yAxis.label;
+    const titled = this._axisTitleVisible(yAxis);
     // `canvasX0` is a left legend gutter; the label room still applies inside
     // it. With no gutter it is 0 and `side >= room`, so this is the old value.
     const left = Math.max(titled ? Math.max(side, p.x) : side, canvasX0 + room);
@@ -1006,7 +1211,8 @@ export class ChartView {
     const xAxis = this._axis("x") || {};
     // A horizontal colorbar hangs off the plot's bottom edge; extending the
     // rect downward would walk it off the canvas.
-    const keepsBottom = !!xAxis.label || this.spec?.colorbar?.orientation === "horizontal";
+    const keepsBottom = this._axisTitleVisible(xAxis)
+      || this.spec?.colorbar?.orientation === "horizontal";
     const bottomReserve = keepsBottom ? reservedBottom : Math.min(reservedBottom, reservedTop);
     const bottom = canvasH - Math.max(room, bottomReserve);
     const top = reservedTop + room;
@@ -1066,7 +1272,26 @@ export class ChartView {
       // still positions by the element's REAL height, so an agreed line count
       // means the reserved band and the painted block are the same box.
       title.style.maxWidth = `${Math.max(40, Number(this._titleWrapWidth) || 40)}px`;
+      // Size to the text, not to the room right of `left`. An absolutely
+      // positioned box with only `left` set shrink-wraps to the containing
+      // block's remaining width, and a centred or right title's `left` is the
+      // plot's midpoint or right edge: on a 320 px card the title wrapped into
+      // lines the band never reserved and its first line left the canvas.
+      title.style.width = "max-content";
       title.style.transform = `translate(${shiftX}, calc(-100% - ${Number(entry.pad ?? 8)}px))`;
+      // A wide measured left gutter moves the plot's centre right of the
+      // canvas centre, and the title (sized at the authored gutters' wrap
+      // width) can then cross the right edge. Keep the box on the canvas: it
+      // is never wider than the canvas, so this only shifts it.
+      // `offsetWidth` rounds to whole px; a 237.08 px title clamped as 237
+      // ended 0.08 px past the edge. One px up covers any rounding.
+      const boxW = title.isConnected ? title.offsetWidth + 1 : 0;
+      if (boxW > 0) {
+        const shift = loc === "left" ? 0 : loc === "right" ? 1 : 0.5;
+        const leftEdge = Math.min(Math.max(x - shift * boxW, 0), Math.max(0, this.size.w - boxW));
+        title.style.left = `${leftEdge}px`;
+        title.style.transform = `translate(0, calc(-100% - ${Number(entry.pad ?? 8)}px))`;
+      }
     }
   }
 
@@ -1074,10 +1299,17 @@ export class ChartView {
     let room = 0;
     for (const axis of Object.values<any>(this.axes || {})) {
       if (!axis || !String(axis.id || "").startsWith("y")) continue;
-      const labelsOnLeft = this._axisTickLabelSides(axis).includes("left");
-      const titleOnLeft = axis.side !== "right";
-      if (!labelsOnLeft && !titleOnLeft) continue;
-      if (this._axisTickLabelStrategy(axis) === "none") continue;
+      const labelsOnLeft = this._axisTickLabelSides(axis).includes("left")
+        && this._axisTickLabelsVisible(axis);
+      // The title is reserved separately from the tick labels, so it answers to
+      // its own paint: `show=False, grid=True` keeps the grid and neither text.
+      const titleOnLeft = axis.side !== "right" && this._axisTitleVisible(axis);
+      // Marks drawn into the left gutter need it as much as text does, and
+      // this room is MEASURED rather than a flat band, so `_axisGutterVisible`
+      // ruling the axis in is not enough — without their length here the ticks
+      // are painted left of `plot.x` and clipped at zero padding.
+      const leftTickRoom = this._axisOutwardTickRoom(axis, "left");
+      if (!labelsOnLeft && !titleOnLeft && leftTickRoom <= 0) continue;
       const size = Math.max(
         8,
         this._axisStyleNumber(
@@ -1090,7 +1322,7 @@ export class ChartView {
       const ticks = labelsOnLeft
         ? this._axisTicks(
           axis.id,
-          this._axisTickTarget(axis.id, Math.max(3, plotHeight / 45)),
+          this._yTickTarget(axis.id, plotHeight),
         )
         : { ticks: [], labels: [] };
       let tickRoom = 0;
@@ -1109,9 +1341,7 @@ export class ChartView {
         ? outward + Math.max(0, this._axisStyleNumber(axis, "tick_padding", 4))
         : 0;
       let needed = labelsOnLeft ? 4 + tickOffset + tickRoom : 0;
-      const rawPosition = axis.label_position;
-      const position = typeof rawPosition === "string" ? rawPosition.replace(/-/g, "_") : "";
-      if (titleOnLeft && axis.label && !position.startsWith("inside_")) {
+      if (titleOnLeft) {
         const labelSize = Math.max(8, this._axisStyleNumber(axis, "label_size", 12));
         const gap = Number.isFinite(Number(axis.label_offset))
           ? Number(axis.label_offset)
@@ -1129,16 +1359,60 @@ export class ChartView {
           + gap
           + labelExtent;
       }
-      room = Math.max(room, needed);
+      room = Math.max(room, needed, leftTickRoom ? 4 + leftTickRoom : 0);
     }
     return room;
   }
 
   _slotFontSize(slot, fallback) {
     const styles = this.spec.dom && this.spec.dom.styles;
-    const value = styles && styles[slot] && styles[slot]["font-size"];
-    const parsed = parseFloat(String(value ?? ""));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    const decls = styles && styles[slot];
+    // Slot styles keep the caller's spelling (`chrome_styles`), so read each.
+    const value = decls && (decls["font-size"] ?? decls.font_size ?? decls.fontSize);
+    // Tick labels paint inside the `labels` layer (its own stylable slot), so
+    // a relative size there resolves against that layer, not the root.
+    const host = slot === "tick_label" && this.labels ? this.labels : this.root;
+    const px = this._cssFontPx(value, host);
+    return Number.isFinite(px) && px > 0 ? px : fallback;
+  }
+
+  // A CSS font-size in px, as the browser paints it. `parseFloat("2rem")` is
+  // 2, not 32, so any unit but px resolves through a probe element styled
+  // the same way inside the chart root (em/% then resolve as they do there).
+  // Cached per value between layouts (draws call it every frame); `_layout`
+  // clears the cache because a relative size can change with its context.
+  _cssFontPx(value, host = this.root) {
+    if (value === null || value === undefined || value === "") return NaN;
+    if (typeof value === "number") return value;
+    const text = String(value).trim();
+    if (/^-?[\d.]+(px)?$/i.test(text)) return parseFloat(text);
+    if (!host || !host.isConnected) return NaN;
+    // Keyed by host as well: the same `1.5em` differs between root and labels.
+    const cache = this._cssFontPxCache || (this._cssFontPxCache = new Map());
+    const key = `${host === this.root ? "root" : "labels"}|${text}`;
+    if (cache.has(key)) return cache.get(key);
+    const probe = document.createElement("span");
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.fontSize = text;
+    host.appendChild(probe);
+    const px = parseFloat(getComputedStyle(probe).fontSize);
+    probe.remove();
+    cache.set(key, px);
+    return px;
+  }
+
+  // The size a Cartesian vertical category axis paints its labels at, or
+  // null for every other axis: the larger of the axis's own size and the
+  // `tick_label` slot's, because the renderers resolve the two in opposite
+  // orders. The one-line target and the collision check both use it.
+  _verticalCategoryLabelFont(axis) {
+    if (!axis || axis.kind !== "category" || axis.theta_unit || this.spec?.coords === "polar") return null;
+    return Math.max(
+      8,
+      this._axisStyleNumber(axis, "tick_label_size", this._axisStyleNumber(axis, "tick_size", 11)),
+      this._slotFontSize("tick_label", 0),
+    );
   }
 
   _xAxisRoom(side, plotWidth) {
@@ -1146,10 +1420,26 @@ export class ChartView {
     for (const axis of Object.values<any>(this.axes || {})) {
       if (!axis || !String(axis.id || "").startsWith("x")) continue;
       const titleSide = axis.side === "top" ? "top" : "bottom";
-      const labelsOnSide = this._axisTickLabelSides(axis).includes(side);
-      if (!labelsOnSide && titleSide !== side) continue;
+      // Tick labels and the title each answer to their own paint. Measuring
+      // text that is switched off reintroduces the gutter `_axisGutterVisible`
+      // just collapsed: `marginBottom` below takes the MEASURED room, not the
+      // gated `bottomAxisRoom`, so a rotated, wrapped, or collision-stacked
+      // label kept its band after `show=False`.
+      const labelsOnSide = this._axisTickLabelSides(axis).includes(side)
+        && this._axisTickLabelsVisible(axis);
+      const titleOnSide = titleSide === side && this._axisTitleVisible(axis);
+      // Marks drawn into this band need it as much as the text does, and
+      // `tick_sides` can put them on a side the labels and the axis itself do
+      // not use. The flat top/bottom bands are 26-62 px, so a longer authored
+      // `tick_length` overran them.
+      const tickRoomOnSide = this._axisOutwardTickRoom(axis, side);
+      if (!labelsOnSide && !titleOnSide && tickRoomOnSide <= 0) continue;
+      // The tick-label strategy decides tick-label room and nothing else. It
+      // is already folded into `labelsOnSide` through `_axisTickLabelsVisible`,
+      // so re-testing it here only dropped the TITLE's room: `"off"` keeps its
+      // title (unlike `"none"`, which suppresses it), and the exporter's
+      // `_x_tick_label_room` returns `title_room` for exactly that case.
       const strategy = this._axisTickLabelStrategy(axis);
-      if (["none", "off"].includes(strategy)) continue;
       const sideAxis = { ...axis, side };
       const size = Math.max(
         8,
@@ -1177,18 +1467,51 @@ export class ChartView {
       const hasMultilineTicks = items.some(
         (item) => this._estimateTickLabel(item.text, size).lines.length > 1,
       );
-      const position = typeof axis.label_position === "string"
-        ? axis.label_position.replace(/-/g, "_") : "center";
       const labelSize = Math.max(8, this._axisStyleNumber(axis, "label_size", 12));
-      const labelBlock = titleSide === side && axis.label && !position.startsWith("inside_")
+      const labelBlock = titleOnSide
         ? this._estimateTickLabel(axis.label, labelSize) : null;
-      const labelExtra = labelBlock
-        ? Math.max(0, labelBlock.h - labelSize * 1.2) : 0;
+
+      // The band the title itself needs, measured from where it is drawn:
+      // `p.y + p.h + 24` on the bottom, `p.y - 34` on the top (the two
+      // branches in `_drawAxisChrome`), plus the same 4 px canvas-edge pad the
+      // exporter's `_x_axis_title_room` uses. Measuring only the overflow past
+      // one line reserved nothing for an ordinary one-line title, so at a small
+      // authored padding the title was drawn past the canvas edge while the
+      // exporter fitted it.
+      //
+      // Only the BOTTOM takes the block height. Both renderers place an x
+      // title from its line-box top, so a second line grows toward the plot on
+      // the top side and away from it on the bottom — which is why
+      // `_x_axis_title_room` adds `(line_count - 1) * line_step` on one branch
+      // and not the other. Adding it on both (the old overflow term did) put a
+      // three-line top title 41 px further out than the exporter.
+      // Signed, not clamped: `_axisLabelCss` applies the authored value as
+      // given and `_x_axis_title_room` adds it as given, so a negative offset
+      // pulls the title toward the plot and needs less room, not more.
+      const titleOffset = Number.isFinite(Number(axis.label_offset))
+        ? Number(axis.label_offset) : 0;
+      // Rounded UP to a whole pixel: the GL canvas is sized `plot.h * dpr`
+      // into an integer attribute, so a fractional band leaves the canvas up
+      // to a pixel short of the rect it is meant to cover
+      // (`render_smoke_nonumpy.py` asserts the two agree). Only THIS term is
+      // rounded — the tick-label band below has always been fractional, and
+      // rounding it too moved charts this change has no business moving.
+      const titleRoom = labelBlock
+        ? Math.ceil(4 + titleOffset + (side === "top" ? 34 : 24 + labelBlock.h))
+        : 0;
+      // Preserve the long-standing flat band for ordinary horizontal text.
+      // An axis drawing no tick label at all qualifies as much as `auto` does:
+      // there is no label to force a taller band, so it keeps the flat one
+      // rather than measuring a tick offset for rows that do not exist. A
+      // title is measured either way — it is not tick-label geometry, and the
+      // flat band is not always big enough to hold it.
+      const flatTickBand = !labelsOnSide || strategy === "auto";
       if (
         !hasAdaptiveLayout
         && !hasMultilineTicks
-        && !labelExtra
-        && strategy === "auto"
+        && !titleRoom
+        && !tickRoomOnSide
+        && flatTickBand
         && this._axisTickLabelAngle(axis) === null
       ) {
         continue;
@@ -1218,7 +1541,24 @@ export class ChartView {
         offset = outward + this._axisStyleNumber(axis, "tick_padding", 4)
           + (side === "top" ? size * 0.2 : size * 0.8);
       }
-      room = Math.max(room, 4 + offset + rows * (size + 4) + extent + labelExtra);
+      // The title's band and the tick labels' band both start at the plot
+      // edge, so the axis needs the larger, not their sum.
+      //
+      // The tick-label term is gated on the labels actually being drawn on
+      // this side. An axis reaches here with `labelsOnSide` false whenever
+      // `tickRoomOnSide` alone kept it in the loop, and then `items` is empty:
+      // the term collapses to `4 + offset`, which is not zero, because
+      // `offset` is measured from the OUTWARD END of the tick mark. That
+      // reserved a whole label's clearance past marks with no label to hold
+      // -- the exporter's `_x_tick_label_room` takes `4 + tick_room` and
+      // stops -- so the two renderers drifted by the tick padding plus the
+      // font's descent at every tick length.
+      room = Math.max(
+        room,
+        titleRoom,
+        tickRoomOnSide ? 4 + tickRoomOnSide : 0,
+        labelsOnSide ? 4 + offset + rows * (size + 4) + extent : 0,
+      );
     }
     return room;
   }
@@ -1480,6 +1820,23 @@ export class ChartView {
       if (index >= 0 && index < axis.tick_labels.length) return String(axis.tick_labels[index]);
     }
     return fmtAxis(axis, value, step);
+  }
+
+  // Tick target for a vertical axis `h` px long. Category axes label every row
+  // that fits a line of text; every other kind keeps one tick per 45 px. An
+  // authored tick_count still wins (`_axisTickTarget`). Mirrors the vertical
+  // category branch of `axis_ticks` in python/xy/_svg.py.
+  _yTickTarget(axisId, h) {
+    // A polar radial axis keeps the numeric density: its labels ride a spoke.
+    const size = this._verticalCategoryLabelFont(this._axis(axisId));
+    if (size !== null) {
+      // Floor of one: a row too short for three labels shows one. At most
+      // 200, so a tall axis strides its labels across every row rather than
+      // `categoryTicks` cutting the list off after the 200th.
+      const fit = Math.floor(h / (size * CATEGORY_LABEL_PITCH));
+      return this._axisTickTarget(axisId, Math.max(1, Math.min(200, fit)));
+    }
+    return this._axisTickTarget(axisId, Math.max(3, h / 45));
   }
 
   _axisTickTarget(axisId, fallback) {
@@ -2513,6 +2870,21 @@ export class ChartView {
     this.size.h = h;
     // Before the layout/paint below, so this frame draws at the new scale.
     this._rescaleDprBakedBuffers();
+    this._applyLayout();
+    // Changing a canvas backing-store dimension clears it immediately. Resize
+    // work is already coalesced into one animation frame, so paint in that same
+    // frame instead of exposing cleared canvases until a second rAF callback.
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = null;
+    this._drawNow();
+    this._scheduleViewRequest();
+  }
+
+  // Lay out the plot rect at the current size and move every positioned layer
+  // to it. Shared by `_resize` and by the first connected frame of a chart that
+  // was built detached (`_healStaleTheme`), whose CSS-dependent axis gutters
+  // and outside-top legend need to be measured once connected.
+  _applyLayout() {
     this._layout();
     const p = this.plot;
     // Legends are bounded by the box they place in, which under polar is the
@@ -2546,13 +2918,45 @@ export class ChartView {
     this._fitModebar();
     this._layoutAxisBands();
     this._pickDirty = true;
-    // Changing a canvas backing-store dimension clears it immediately. Resize
-    // work is already coalesced into one animation frame, so paint in that same
-    // frame instead of exposing cleared canvases until a second rAF callback.
-    if (this._raf) cancelAnimationFrame(this._raf);
-    this._raf = null;
-    this._drawNow();
+  }
+
+  // Whether the first layout guessed at something only the mounted DOM can
+  // measure: an outside-top legend box, or a chrome slot whose font size is
+  // relative (`300%`, `2em`, `1.5rem`), which `_cssFontPx` can only resolve
+  // once the chart root is connected.
+  _needsMountedLayout() {
+    if (this._outsideLegend) return true;
+    const styles = this.spec?.dom?.styles;
+    for (const slot of ["title", "tick_label"]) {
+      const decls = styles && styles[slot];
+      const value = decls && (decls["font-size"] ?? decls.font_size ?? decls.fontSize);
+      if (typeof value === "string" && !/^-?[\d.]+(px)?$/i.test(value.trim())) return true;
+    }
+    return false;
+  }
+
+  // A data update re-resolves `loc="best"`, and its payload can move the main
+  // legend between an in-plot corner and the outside-top band. The band
+  // changes the plot rect, so the mounted legend chrome is rebuilt and laid
+  // out again; a move between in-plot corners stays on the live best path.
+  // Mirrors what a fresh render of the same spec mounts.
+  // A move deferred while the context was lost (`_applyAppend`); `_drawNow`
+  // applies it on the first frame that can draw.
+  _flushOutsideLegendSync() {
+    const from = this._outsideLegendSyncFrom;
+    if (from == null || this._glLost || !this.gl) return;
+    this._outsideLegendSyncFrom = null;
+    this._syncOutsideLegendPlacement(from);
+  }
+
+  _syncOutsideLegendPlacement(prevSpec) {
+    const outside = (spec) => String(spec?.legend?.loc || "") === OUTSIDE_TOP_LEGEND;
+    if (outside(prevSpec) === outside(this.spec) || !this.root) return false;
+    for (const lg of this._legends || []) lg.remove();
+    this._buildLegend(this.root);
+    this._applyLayout();
     this._scheduleViewRequest();
+    return true;
   }
 
   _buildDom(el) {
@@ -2562,8 +2966,6 @@ export class ChartView {
     root.style.cssText =
       `position:relative;width:${this.fluid ? "100%" : this.size.w + "px"};` +
       `height:${this.fluidH ? "100%" : this.size.h + "px"};` +
-      `--xy-legend-max-width:${Math.max(40, (this._legendRect || this.plot).w - 12)}px;` +
-      `--xy-legend-max-height:${Math.max(40, (this._legendRect || this.plot).h - 12)}px;` +
       (this.fluidH ? "min-height:120px;" : "") + // parent without a height -> visible floor
       "user-select:none;";
     this._applySlot(root, "root");
@@ -2576,6 +2978,10 @@ export class ChartView {
     // Visual chrome defaults live in one zero-specificity stylesheet so user
     // classes/styles win (§36). Only structural/state styles stay inline below.
     ensureChromeStylesheet(root);
+    // Axis paints can use CSS colors and variables from the styled root.
+    this._layout();
+    root.style.setProperty("--xy-legend-max-width", `${Math.max(40, (this._legendRect || this.plot).w - 12)}px`);
+    root.style.setProperty("--xy-legend-max-height", `${Math.max(40, (this._legendRect || this.plot).h - 12)}px`);
 
     // Canvas pixels need a parallel semantic surface (§20). Keep the region
     // separate from the plot-area image role so the real toolbar descendants
@@ -2660,6 +3066,29 @@ export class ChartView {
     root.appendChild(this.tooltip);
 
     this._buildLegend(root);
+    if (this._needsMountedLayout()) {
+      // The first `_layout` ran before this DOM existed: it reserved no band
+      // for an outside-top legend, and a relative slot font size (`300%`,
+      // `2em`) fell back to its default. Lay out again now that both can be
+      // measured, and move what was already placed from the provisional rect.
+      // Backing stores are sized later, from this final rect, by GL init.
+      this._layout();
+      const p = this.plot;
+      this.canvas.style.left = p.x + "px";
+      this.canvas.style.top = p.y + "px";
+      this.canvas.style.width = p.w + "px";
+      this.canvas.style.height = p.h + "px";
+      // Bounded by the box legends place in: a polar chart's gutter beside the
+      // disc, not the plot rect (as in `_applyLayout`).
+      const lb = this._legendRect || p;
+      root.style.setProperty("--xy-legend-max-width", Math.max(40, lb.w - 12) + "px");
+      root.style.setProperty("--xy-legend-max-height", Math.max(40, lb.h - 12) + "px");
+      this._positionTitles();
+      for (const lg of this._legends) {
+        const anchor = lg.dataset.xyLegendAnchor ? JSON.parse(lg.dataset.xyLegendAnchor) : null;
+        this._positionLegend(lg, lg.dataset.xyLegendLoc || "upper right", anchor);
+      }
+    }
     this._buildColorbar(root);
     this._buildReductionBadges(root);
   }
@@ -2783,6 +3212,7 @@ export class ChartView {
     this._legendBestMutationObserver?.disconnect();
     this._legendBestMutationObserver = null;
     this._legends = [];
+    this._outsideLegend = null;
     this._legendBestDirty = false;
     // Toggle state survives chrome/GPU rebuilds: it lives on the view keyed
     // by spec-trace index, and freshly built rows re-adopt it below.
@@ -2908,8 +3338,12 @@ export class ChartView {
     // ships the separate intent bit only when the author requested automatic
     // placement. Anchors are authored geometry and polar legends own a gutter,
     // so neither is ever reconsidered here.
+    // A band legend is never handed to the in-plot best pass: Python only
+    // resolves `best` to the band when no in-plot position was empty, and
+    // moving it back inside would shrink and regrow the plot mid-interaction.
     if (
       String(options.auto_loc || "").trim().toLowerCase() === "best" &&
+      loc !== OUTSIDE_TOP_LEGEND &&
       !Array.isArray(options.anchor) &&
       this.spec?.coords !== "polar"
     ) {
@@ -2928,6 +3362,7 @@ export class ChartView {
       title.style.gridColumn = `1 / span ${horizontal ? ncols : 1}`;
       this._applySlot(title, "legend_title");
       lg.appendChild(title);
+      lg._xyLegendTitle = title;
     }
     const rows = [];
     for (const it of items) {
@@ -3088,6 +3523,20 @@ export class ChartView {
       lg.appendChild(row);
     }
     lg._xyItemRows = rows;
+    // Only the main, unanchored legend of a Cartesian chart claims the band
+    // above the plot (`_outsideLegendBand`); an anchor is authored geometry and
+    // a polar legend keeps its gutter. Mirrors `_outside_top_legend_band`.
+    if (
+      source === "main" &&
+      loc === OUTSIDE_TOP_LEGEND &&
+      !Array.isArray(options.anchor) &&
+      this.spec?.coords !== "polar"
+    ) {
+      lg.dataset.xyLegendBand = "top";
+      lg._xyLegendNames = items.map((it) => String(it.name ?? ""));
+      lg._xyLegendOptions = options;
+      this._outsideLegend = lg;
+    }
     root.appendChild(lg);
     this._legends.push(lg); // _resize refreshes each box's responsive anchor
     if (this._legends.some((item) => item.dataset.xyLegendAutoLoc === "best")) {
@@ -4067,6 +4516,25 @@ export class ChartView {
 
   _positionLegend(lg, loc, anchor = null) {
     if (!lg) return;
+    if (lg === this._outsideLegend && this._legendBand) {
+      // Centered over the plot like the title, kept inside the band: the band
+      // spans the authored gutters, which a measured y-axis gutter may have
+      // pushed the plot's left edge past. Mirrors the band branch of
+      // `_legend_layout` in python/xy/_svg.py.
+      const band = this._legendBand;
+      const boxW = lg.isConnected ? lg.offsetWidth : 0;
+      const centre = this.plot.x + this.plot.w / 2;
+      const centred = boxW > 0;
+      const left = centred
+        ? Math.min(Math.max(centre - boxW / 2, band.x), band.x + Math.max(0, band.w - boxW))
+        : centre;
+      lg.style.setProperty("--xy-legend-left", `${left}px`);
+      lg.style.setProperty("--xy-legend-right", "auto");
+      lg.style.setProperty("--xy-legend-top", `${band.y}px`);
+      lg.style.setProperty("--xy-legend-bottom", "auto");
+      lg.style.setProperty("--xy-legend-transform", centred ? "none" : "translate(-50%,0)");
+      return;
+    }
     // Responsive anchors flow through private custom properties consumed by a
     // zero-specificity rule. Author classes or component styles can still set
     // real left/right/top/bottom/transform declarations and win normally.
@@ -6493,7 +6961,6 @@ export class ChartView {
 
 
   _renderGlFrame() {
-    this._healStaleTheme();
     // `_drawPoints` records authored-marker draws here so the Canvas overlay
     // paints the exact direct/sample/drill entries and LOD alpha chosen by
     // this frame.  Reconstructing them from gpuTraces would lose density
@@ -6547,6 +7014,14 @@ export class ChartView {
 
   _drawNow() {
     if (this._destroyed || !this.gl || this._glLost) return;
+    // Heal before the shared host reads the canvas size below: on a chart
+    // built detached, the first connected heal re-lays out CSS-dependent axis
+    // gutters and the outside-top legend band, which can resize the canvas. Healing inside `_renderGlFrame`
+    // drew at the new size but presented at the old one, shifting the marks
+    // against the axes. The later call inside the frame is then a no-op.
+    // A band move deferred while the context was lost resizes it the same way.
+    this._healStaleTheme();
+    this._flushOutsideLegendSync();
     let rendered;
     if (this._glHost) {
       rendered = this._glHost.render(
@@ -7524,6 +7999,133 @@ export class ChartView {
     return style && Object.prototype.hasOwnProperty.call(style, key) ? style[key] : undefined;
   }
 
+  // Whether an axis text paint can contribute visible ink. The visibility
+  // shorthands compile to TRANSPARENT CSS colors rather than to a flag
+  // (`_axis_visibility_style`, python/xy/components.py), so layout has to ask
+  // the paint whether anything will be seen — otherwise `show=False` reserves
+  // a gutter for text nobody can read and cannot produce the documented
+  // edge-to-edge sparkline. An unknown or browser-only paint stays
+  // conservative and keeps its room.
+  // Mirrors `_axis_text_paint_visible` in python/xy/_svg.py, which is why the
+  // SVG and PNG exporters already collapse this gutter and the browser did not.
+  _axisTextPaintVisible(axis, key, fallbackKey?) {
+    let paint = this._axisStyleValue(axis, key);
+    if (paint === undefined && fallbackKey) paint = this._axisStyleValue(axis, fallbackKey);
+    if (paint === undefined || paint === null) return true;
+    return parseColor(this.root, paint, [0, 0, 0, 1])[3] !== 0;
+  }
+
+  // Whether this axis's tick labels claim gutter room at all: a strategy that
+  // draws none, or a paint that shows none, claims nothing. `none` and `off`
+  // are the two strategies that draw no label, and `_xAxisRoom` and
+  // `_axis_tick_label_room` (python/xy/_svg.py) already skip both.
+  _axisTickLabelsVisible(axis) {
+    return !["none", "off"].includes(this._axisTickLabelStrategy(axis))
+      && this._axisTextPaintVisible(axis, "tick_label_color", "tick_color");
+  }
+
+  // Whether this axis claims a gutter at all. Tick labels and the axis title
+  // are separate paints, so either one being visible reserves the band: with
+  // transparent ticks and an opaque title, gating on the ticks alone drew the
+  // title into a gutter that no longer existed — off the canvas for a top or
+  // bottom axis, over the plot for a right-side one. The left gutter already
+  // measured the two separately (`_yAxisLeftRoom`); this is the same rule for
+  // the sides that reserve a flat or measured band instead.
+  _axisGutterVisible(axis, side = null) {
+    return this._axisTickLabelsVisible(axis)
+      || this._axisTitleVisible(axis)
+      || this._axisOutwardTickRoom(axis, side) > 0;
+  }
+
+  // How far this axis's tick marks reach outside the plot, in px. Tick marks
+  // are chrome of their own: they answer to no *text* paint, so an axis with
+  // its labels switched off can still need the gutter for them, and the
+  // colorbar beside it still has to clear them. They do answer to
+  // `tick_color`, and to `tick_label_strategy: "none"`, which silences the
+  // whole axis chrome and takes both tick loops with it — geometry alone does
+  // not mean ink. The
+  // core default `tick_length` is 0, so an unstyled axis reaches nothing, and
+  // the `ticks=False`/`show=False` shorthand's `tick_length: 0, tick_width: 0`
+  // sentinel reaches nothing either.
+  //
+  // Mirrors `_axis_outward_tick_room` in python/xy/_svg.py.
+  _axisOutwardTickRoom(axis, side = null) {
+    if (this._axisTickLabelStrategy(axis) === "none") return 0;
+    // The requested side names its own dimension: a left/right query is about
+    // a y axis however the spec is shaped, and `_axisTickSides` would
+    // otherwise read it off the `id`.
+    const isX = side === null ? null : ["bottom", "top"].includes(side);
+
+    // The two tiers are drawn by two different loops, and almost nothing
+    // about them is shared, so they are measured apart. The major tier is
+    // drawn for the computed ticks, on every `tick_sides`, in
+    // `style.tick_color`; the minor tier only for the primary axes' own
+    // `minor_tick_values`, on `side` alone, in `minor_style.tick_color`.
+    // Taking the larger length
+    // under the major tier's paint and sides reserves phantom gutters and
+    // clips real marks in the same expression.
+    let room = 0;
+    if (this._axisTextPaintVisible(axis, "tick_color")
+        && (side === null || this._axisTickSides(axis, isX).includes(side))) {
+      room = this._tickTierOutwardRoom(axis);
+    }
+
+    // Only the primary x/y axes have a minor tier: both renderers draw minor
+    // marks from `minorTicks(xAxis, "x")` / `minorTicks(yAxis, "y")` alone,
+    // and the named-axis loops draw the major tier and stop. `_normalizeAxes`
+    // stamps every axis's id from its map key, so the id settles it here; the
+    // exporter has no such step and takes the answer from its caller instead.
+    const hasMinorTier = axis && (axis.id === "x" || axis.id === "y");
+    if (hasMinorTier
+        && Array.isArray(axis.minor_tick_values) && axis.minor_tick_values.length) {
+      const minor = { ...axis, style: axis.minor_style || {} };
+      const minorSide = axis.side || (isX === false ? "left" : "bottom");
+      if (this._axisTextPaintVisible(minor, "tick_color")
+          && (side === null || side === minorSide)) {
+        room = Math.max(room, this._tickTierOutwardRoom(minor));
+      }
+    }
+    return room;
+  }
+
+  // One tier's outward reach, from its own `style`.
+  _tickTierOutwardRoom(axis) {
+    const length = Math.max(0, this._axisStyleNumber(axis, "tick_length", 0));
+    // Zero width draws nothing anywhere (see `tickParts`), and the
+    // `ticks=False`/`show=False` sentinel is `tick_length: 0, tick_width: 0`,
+    // so either half of it reaches nothing on its own.
+    if (length <= 0 || this._axisStyleNumber(axis, "tick_width", 1) <= 0) return 0;
+    const direction = String(this._axisStyleValue(axis, "tick_direction") || "out");
+    if (direction === "in") return 0;
+    return direction === "inout" ? length / 2 : length;
+  }
+
+  // Whether this axis draws a title into the gutter, which is what makes the
+  // title worth reserving room for. Three separate conditions, each matched to
+  // what the renderers actually do:
+  //
+  //  - `tick_label_strategy: "none"` suppresses the title as well as the
+  //    labels, in both renderers (the two title branches in `_drawAxisChrome`
+  //    below, and `_axis_label_geometry` in python/xy/_svg.py). Crediting a
+  //    title there reserves a band nothing is drawn into. `"off"` is the
+  //    narrower switch and keeps the title.
+  //  - The title answers to `label_color` and nothing else: both renderers
+  //    paint it from that key alone (`kind === "label"` below, and
+  //    `_css(axis_style.get("label_color"), ...)`), with no `tick_color`
+  //    fallback. Reading a transparent `tick_color` as a hidden title drops
+  //    the gutter out from under a title that is still drawn.
+  //  - An `inside_*` title is drawn over the plot and needs no gutter at all.
+  //
+  // Mirrors `_axis_title_visible` in python/xy/_svg.py.
+  _axisTitleVisible(axis) {
+    if (!axis || !axis.label) return false;
+    if (this._axisTickLabelStrategy(axis) === "none") return false;
+    const raw = axis.label_position;
+    const position = typeof raw === "string" ? raw.replace(/-/g, "_") : "center";
+    if (position.startsWith("inside_")) return false;
+    return this._axisTextPaintVisible(axis, "label_color");
+  }
+
   _axisGridDash(axis) {
     const value = String(this._axisStyleValue(axis, "grid_dash") || "solid");
     if (value === "dashed") return [6, 4];
@@ -7544,11 +8146,22 @@ export class ChartView {
     return id === "y" ? "left" : "right";
   }
 
-  _axisTickSides(axis) {
-    const isX = String(axis && axis.id || "x").startsWith("x");
+  // `isX` defaults to reading the axis `id`; a caller that already knows the
+  // dimension (because it named the gutter it is asking about) passes it, so
+  // an axis dict carrying no `id` is still asked the right question.
+  _axisTickSides(axis, isX = null) {
+    const inferred = isX === null;
+    if (inferred) isX = String(axis && axis.id || "x").startsWith("x");
     const allowed = isX ? ["bottom", "top"] : ["left", "right"];
     if (!Array.isArray(axis && axis.tick_sides)) {
-      return [axis && axis.side || this._axisDefaultSide(axis)];
+      const authored = axis && axis.side;
+      if (authored) return [authored];
+      // An axis that authors no side falls back to the one its id implies,
+      // whether or not the caller supplied the dimension -- the draw loop
+      // asks without a hint, so answering `allowed[0]` here would have had
+      // layout reserve the left gutter for a `y2` whose marks are drawn on
+      // the right. `allowed[0]` remains for an axis with no id to imply one.
+      return [axis && axis.id !== undefined ? this._axisDefaultSide(axis) : allowed[0]];
     }
     return allowed.filter((side) => axis.tick_sides.includes(side));
   }
@@ -7675,7 +8288,10 @@ export class ChartView {
       const angle = this._axisTickLabelAngle(axis);
       return labels.map((label) => ({ ...label, angle: angle === null ? 0 : angle, row: 0 }));
     }
-    const fontSize = Math.max(
+    // A vertical category axis collides at its painted size, the size its
+    // one-line target used; every other axis keeps the axis size.
+    const categoryFont = dim === "y" ? this._verticalCategoryLabelFont(axis) : null;
+    const fontSize = categoryFont ?? Math.max(
       8,
       this._axisStyleNumber(axis, "tick_label_size", this._axisStyleNumber(axis, "tick_size", 11)),
     );
@@ -7843,7 +8459,7 @@ export class ChartView {
       "x",
       this._axisTickTarget("x", Math.max(3, p.w / (xAxis.kind === "time" ? 90 : 80))),
     );
-    const yt = this._axisTicks("y", this._axisTickTarget("y", Math.max(3, p.h / 45)));
+    const yt = this._axisTicks("y", this._yTickTarget("y", p.h));
     const minorTicks = (axis, axisId) => {
       if (!Array.isArray(axis.minor_tick_values)) return [];
       const [lo, hi] = this._axisRange(axisId);
@@ -7934,8 +8550,16 @@ export class ChartView {
     // between throttled zoom frames since the plot rect doesn't move on zoom.
     const tickParts = (axis) => {
       const length = Math.max(0, this._axisStyleNumber(axis, "tick_length", 0));
-      const width = Math.max(0.5, this._axisStyleNumber(axis, "tick_width", 1));
+      // An authored zero width draws nothing, in every renderer: the SVG
+      // exporter emits `stroke-width="0"` and the raster one skips a
+      // non-positive width. The 0.5 floor is for sub-pixel widths at low dpr,
+      // not a way to resurrect a mark the author switched off — clamping
+      // through zero painted a hairline the static renderers had no gutter
+      // for. `_axisOutwardTickRoom` asks the same question.
+      const authoredWidth = this._axisStyleNumber(axis, "tick_width", 1);
+      const width = authoredWidth > 0 ? Math.max(0.5, authoredWidth) : 0;
       const direction = String(this._axisStyleValue(axis, "tick_direction") || "out");
+      if (width <= 0) return { inward: 0, outward: 0, width: 0 };
       if (direction === "in") return { inward: length, outward: 0, width };
       if (direction === "inout") return { inward: length / 2, outward: length / 2, width };
       return { inward: 0, outward: length, width };
@@ -8135,7 +8759,7 @@ export class ChartView {
         if (this._axisTickLabelStrategy(axis) === "none") continue;
         const ticks = this._axisTicks(
           axis.id,
-          this._axisTickTarget(axis.id, Math.max(3, p.h / 45)),
+          this._yTickTarget(axis.id, p.h),
         );
         const tick = tickParts(axis);
         for (const side of this._axisTickSides(axis)) {
@@ -8479,7 +9103,7 @@ export class ChartView {
       }
     };
     for (const axis of extraYAxes) {
-      const ticks = this._axisTicks(axis.id, this._axisTickTarget(axis.id, Math.max(3, p.h / 45)));
+      const ticks = this._axisTicks(axis.id, this._yTickTarget(axis.id, p.h));
       const labelCandidates = [];
       for (const v of (ticks.labels || ticks.ticks)) {
         const py = this._dataPx(axis.id, v);
@@ -9110,17 +9734,33 @@ export class ChartView {
 
   refreshTheme() {
     if (this._destroyed) return;
+    if (this._glLost || this.gl?.isContextLost()) {
+      this._themeStale = true;
+      return;
+    }
+    const previousPlot = this.plot;
     this._applyTheme();
+    // A theme can move the font a relative slot size resolves against; the
+    // draw below re-targets ticks from it, so measure those sizes again.
+    this._cssFontPxCache = null;
+    this._applyLayout();
+    if (this.plot.w !== previousPlot.w || this.plot.h !== previousPlot.h) {
+      this._scheduleViewRequest();
+    }
     this._markBestLegendsDirty();
     this.draw();
   }
 
-  // Once a stale-themed root is connected, re-read tokens and re-resolve mark
-  // colors in place. Returns true when a heal happened (callers outside a
-  // frame should redraw).
+  // Once a stale-themed root is connected, refresh paints and the layout that
+  // depends on them. Returns true when callers outside a frame should redraw.
   _healStaleTheme() {
-    if (!this._themeStale || !this.root.isConnected) return false;
+    if (
+      !this._themeStale || !this.root.isConnected ||
+      this._glLost || this.gl?.isContextLost()
+    ) return false;
     this._applyTheme();
+    this._applyLayout();
+    this._scheduleViewRequest();
     return true;
   }
 

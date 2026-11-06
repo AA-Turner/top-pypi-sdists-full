@@ -55,12 +55,12 @@ JoinEdgesCluster::finish ()
     std::multimap<db::Point, iterator>::iterator j0 = objects_by_p1.begin ();
     std::multimap<db::Point, iterator>::iterator j = j0;
     do {
-      std::multimap<db::Point, iterator>::iterator jj = objects_by_p2.find (j->first);
-      if (jj == objects_by_p2.end ()) {
+      std::multimap<db::Point, iterator>::iterator jj = objects_by_p2.lower_bound (j->first);
+      if (jj == objects_by_p2.end () || jj->first != j->first) {
         break;
       } else {
-        j = objects_by_p1.find (jj->second->first->p1 ());
-        tl_assert (j != objects_by_p1.end ());
+        j = objects_by_p1.lower_bound (jj->second->first->p1 ());
+        tl_assert (j != objects_by_p1.end () && j->first == jj->second->first->p1 ());
       }
     } while (j != j0);
 
@@ -78,7 +78,7 @@ JoinEdgesCluster::finish ()
 
       //  remove the edge as it's taken
       std::multimap<db::Point, iterator>::iterator jj;
-      for (jj = objects_by_p2.find (i->first->p2 ()); jj != objects_by_p2.end () && jj->first == i->first->p2 (); ++jj) {
+      for (jj = objects_by_p2.lower_bound (i->first->p2 ()); jj != objects_by_p2.end () && jj->first == i->first->p2 (); ++jj) {
         if (jj->second == i) {
           break;
         }
@@ -89,8 +89,8 @@ JoinEdgesCluster::finish ()
 
       //  process along the edge to the next one
       //  TODO: this chooses any solution in case of forks. Choose a specific one?
-      j = objects_by_p1.find (i->first->p2 ());
-      if (j != objects_by_p1.end ()) {
+      j = objects_by_p1.lower_bound (i->first->p2 ());
+      if (j != objects_by_p1.end () && j->first == i->first->p2 ()) {
         i = j->second;
       } else {
         break;
@@ -222,8 +222,8 @@ EdgeAngleChecker::EdgeAngleChecker (double angle_start, bool include_angle_start
     include_angle_start = true;
   }
 
-  m_t_start = db::ICplxTrans (1.0, angle_start, false, db::Vector ());
-  m_t_end = db::ICplxTrans (1.0, angle_end, false, db::Vector ());
+  m_t_start = db::CplxTrans (1.0, angle_start, false, db::DVector ());
+  m_t_end = db::CplxTrans (1.0, angle_end, false, db::DVector ());
 
   m_include_start = include_angle_start;
   m_include_end = include_angle_end;
@@ -238,10 +238,10 @@ EdgeAngleChecker::EdgeAngleChecker (double angle_start, bool include_angle_start
 bool
 EdgeAngleChecker::check (const db::Vector &a, const db::Vector &b) const
 {
-  db::Vector vout (b);
+  db::DVector vout (b);
 
-  db::Vector v1 = m_t_start * a;
-  db::Vector v2 = m_t_end * a;
+  db::DVector v1 = m_t_start * a;
+  db::DVector v2 = m_t_end * a;
 
   int vps1 = db::vprod_sign (v1, vout);
   int vps2 = db::vprod_sign (v2, vout);

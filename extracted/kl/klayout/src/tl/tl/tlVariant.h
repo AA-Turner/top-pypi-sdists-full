@@ -89,6 +89,7 @@ public:
   virtual const gsi::ClassBase *gsi_cls () const = 0;
   virtual const tl::EvalClass *eval_cls () const = 0;
   virtual void *deref_proxy (tl::Object *proxy) const = 0;
+  virtual void detach_proxy (tl::Object *proxy) const = 0;
   virtual const tl::VariantUserClassBase *change_constness (bool constness) const = 0;
 
   const void *deref_proxy_const (const tl::Object *proxy) const
@@ -208,7 +209,7 @@ public:
   /**
    *  @brief Move ctor
    */
-  Variant (tl::Variant &&d);
+  Variant (tl::Variant &&d) noexcept;
 
   /**
    *  @brief Initialize the Variant with a std::vector<char>
@@ -582,7 +583,7 @@ public:
   /**
    *  @brief Assignment (move)
    */
-  Variant &operator= (Variant &&v);
+  Variant &operator= (Variant &&v) noexcept;
 
   /**
    *  @brief Assignment of a string

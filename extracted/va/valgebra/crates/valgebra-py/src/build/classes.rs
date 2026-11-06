@@ -14,14 +14,15 @@ use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyNone, PySet, PyString, PyTuple,
-    PyType,
+    IntoPyDict, PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyMapping, PyNone,
+    PySet, PyString, PyTuple, PyType,
 };
-use valgebra_core::{Attribute, Field, MapClause, Schema, SeqShape};
+use valgebra_core::{Attribute, Field, MapClause, Schema, SeqKind, SeqShape};
 
-use super::generics::is_field_qualifier;
+use super::generics::{MAX_QUALIFIER_DEPTH, is_field_qualifier};
 use super::{
-    MAX_BUILD_DEPTH, Pool, build_schema, forms, is_extension, loaded_modules, not_implemented,
+    ClassScope, MAX_BUILD_DEPTH, Pool, build_schema, forms, is_extension, loaded_modules,
+    not_implemented,
 };
 use crate::errors::{summarize, unless_fatal};
 
@@ -52,10 +53,9 @@ struct DataclassReading {
 
 /// Whether `ty` is a dataclass, read as `dataclasses.is_dataclass` reads it.
 ///
-/// That function's body, on every interpreter the matrix runs (3.10 to 3.15
+/// That function's body, on every interpreter the matrix runs (3.11 to 3.15
 /// and `PyPy`), is `hasattr(cls, "__dataclass_fields__")` once its argument is
-/// a class, which `ty` is: 3.10's further test for a `GenericAlias` cannot pass
-/// on an object that is a `type`. So the attribute is asked here and the
+/// a class, which `ty` is. So the attribute is asked here and the
 /// function is not called. That spares a Python frame on every class node past
 /// the enum arm, and it leaves `dataclasses` unimported by a schema that names
 /// classes and no dataclass, for the reason [`DATACLASS_READING`] gives.
@@ -70,6 +70,27 @@ pub(super) fn is_dataclass(ty: &Bound<'_, PyType>) -> PyResult<bool> {
 pub(crate) fn declares_fields(ty: &Bound<'_, PyType>) -> PyResult<bool> {
     Ok(is_dataclass(ty)?
         || (ty.is_subclass_of::<PyTuple>()? && ty.hasattr(intern!(ty.py(), "_fields"))?))
+}
+
+/// Whether `declaration` is of the kind the frontend builds beside the class's
+/// atom: a tuple shape for a named tuple, whose positions are its fields, and
+/// an attribute record for a dataclass. A class of neither kind declares
+/// nothing beside its atom, so no member is its declaration.
+///
+/// The kind, not the member: a record the class does not declare has the kind
+/// too, and only building the class tells the two apart. The tests are the
+/// ones [`build_object`] takes, in its order.
+pub(crate) fn declares_of_kind(ty: &Bound<'_, PyType>, declaration: &Schema) -> PyResult<bool> {
+    if ty.is_subclass_of::<PyTuple>()? && ty.hasattr(intern!(ty.py(), "_fields"))? {
+        return Ok(matches!(
+            declaration,
+            Schema::Seq {
+                container: SeqKind::Tuple,
+                ..
+            }
+        ));
+    }
+    Ok(is_dataclass(ty)? && matches!(declaration, Schema::AttrRecord { .. }))
 }
 
 /// Build the class alone: its instances, whatever it declares.
@@ -201,16 +222,10 @@ pub(super) fn build_type_object(
     if is_truthy_attr(ty, intern!(py, "_is_protocol"))? {
         return build_protocol(ty, lits, defs);
     }
-    // `Any` is a class from 3.11, and `typing_extensions.Any` a class of its
-    // own on 3.10. Read as one, it is an instance check nothing passes.
+    // `Any` is a class. Read as one, it is an instance check nothing passes.
     // `read_annotation` answers `typing.Any` before it reaches this, which
-    // `instance_of` does not pass through: asked only as `typing_extensions`'
-    // copy, which is `typing`'s from 3.11, `instance_of(typing.Any)` would be
-    // the top where that module is loaded and refuse every value where not.
+    // `instance_of` does not pass through.
     if ty.is(forms.any.bind(py)) {
-        return Ok(Schema::ANY);
-    }
-    if is_extension(ty.as_any(), |held| &held.any)? {
         return Ok(Schema::ANY);
     }
     // Any other class names its instances: a bare class is an isinstance check.
@@ -253,8 +268,7 @@ pub(super) enum ProtocolMember<'py> {
 /// derivation that attribute caches -- the keys of each base's namespace and
 /// annotations along the `__mro__`, less the names Python and `typing` write
 /// there themselves. The cache is read first because the derivation of an
-/// older `typing` does not know the names a newer `typing_extensions` writes,
-/// and on 3.10 lists `__protocol_attrs__` itself as a member.
+/// older `typing` does not know the names a newer `typing_extensions` writes.
 ///
 /// A member is a property where the first class on the `__mro__` defining the
 /// name holds one or a `functools.cached_property`, data where an annotation names it, a method where the class
@@ -425,6 +439,7 @@ pub(super) fn build_protocol(
 ) -> PyResult<Schema> {
     let py = ty.py();
     let forms = forms(py)?;
+    let _open = ClassScope::enter(ty, None)?;
     if ty.is(forms.protocol.bind(py)) || is_extension(ty.as_any(), |held| &held.protocol)? {
         return Err(not_implemented(format!(
             "{} is the base a protocol is declared from, not a type: pass the \
@@ -486,7 +501,7 @@ pub(super) fn is_truthy_attr(obj: &Bound<'_, PyAny>, name: &Bound<'_, PyString>)
 /// `_PyObject_LookupAttr`, which answers its miss without building the error,
 /// so there a class is asked through it, with a sentinel no attribute holds
 /// standing for absence. An error other than `AttributeError` propagates on
-/// either road. 3.10 and 3.11 build the error on both, and from 3.13 `PyO3`
+/// either road. 3.11 builds the error on both, and from 3.13 `PyO3`
 /// asks through the lookup that does not, so neither takes the detour; nor
 /// does an object that is not a class, which this lookup reads as `PyO3`
 /// does.
@@ -515,7 +530,7 @@ pub(super) fn optional_attribute<'py>(
 
 /// `obj.name`, or `None` where `obj` has no attribute of that name: `PyO3`'s
 /// `getattr_opt`, which asks without an exception from 3.13 and builds one
-/// either way on 3.10 and 3.11.
+/// either way on 3.11.
 #[cfg(not(all(Py_3_12, not(Py_3_13))))]
 pub(super) fn optional_attribute<'py>(
     obj: &Bound<'py, PyAny>,
@@ -560,11 +575,11 @@ pub(super) fn resolve_type_hints<'py>(ty: &Bound<'py, PyType>) -> PyResult<Bound
 ///
 /// `class Child(Base[int])` declares `x: T` through `Base`, and `typing` hands
 /// the hint back as `T`: the base's arguments are the one place `T` is said to
-/// be `int`. They are read off what each class was written deriving from --
-/// its `__orig_bases__`, or its `__bases__` where it has none -- depth first,
-/// because a `TypedDict`'s bases are not on its `__mro__`. Every class the
-/// walk reaches is generic or derives from one, so a class with no `Generic`
-/// on its `__mro__` binds nothing and pays one scan of the order for it.
+/// be `int`. They are read off what each class was written deriving from
+/// ([`Scopes::of`]), and each field's hint in the scope of the class that
+/// declares it ([`declarers`]). Every class the walk reaches is generic or
+/// derives from one, so a class with no `Generic` on its `__mro__` binds
+/// nothing and pays one scan of the order for it.
 pub(super) fn bound_hints<'py>(
     ty: &Bound<'py, PyType>,
     applied: Option<&Bound<'py, PyTuple>>,
@@ -575,18 +590,20 @@ pub(super) fn bound_hints<'py>(
     if applied.is_none() && !ty.mro().iter_borrowed().any(|base| base.is(generic)) {
         return Ok(hints);
     }
-    let binding = Binding::of(ty, applied)?;
-    let parameters = PyTuple::new(py, &binding.parameters)?;
-    let own = ty
-        .getattr(intern!(py, "__parameters__"))?
-        .cast_into::<PyTuple>()?;
+    let scopes = Scopes::of(ty, applied)?;
+    let declarers = declarers(ty, &hints, &scopes)?;
     let bound = PyDict::new(py);
     for (name, hint) in hints.iter() {
-        let hint = super::substitute(&hint, &parameters, &binding.arguments)?;
+        let scope = match declarers.get_item(&name)? {
+            Some(class) => scopes.of_class(&class),
+            None => &scopes.read,
+        };
+        let hint = super::substitute(&hint, &scope.parameters, &scope.arguments)?;
         // A parameter of the class's own that nothing bound is the class
         // written bare, and a field declared with it names no one type.
-        for parameter in own.iter() {
-            if binding.parameters.iter().any(|held| held.is(&parameter)) {
+        let read = &scopes.read;
+        for (parameter, argument) in read.parameters.iter().zip(&read.arguments) {
+            if !argument.is(&parameter) {
                 continue;
             }
             let names = hint.is(&parameter)
@@ -611,121 +628,408 @@ pub(super) fn bound_hints<'py>(
     Ok(bound)
 }
 
-/// The type variables a class's generic bases bind, each with what it is bound
-/// to, in the order they were met.
-struct Binding<'py> {
-    parameters: Vec<Bound<'py, PyAny>>,
-    arguments: Vec<Bound<'py, PyAny>>,
+/// Refuse binding `class`'s parameters where one of them is no `TypeVar`.
+///
+/// A `TypeVarTuple` stands for a list of types and a `ParamSpec` for a
+/// signature, and an application binds one to a slice of its arguments, which
+/// the schema language has no form for: a field `tuple[*Ts]` of `Row[int, str]`
+/// is `tuple[int, str]`, and read one argument a parameter it held `(1,)` and
+/// refused `(1, "a")`. Refused as an alias declaring one is, where the class is
+/// applied, takes a default, or is a base written applied.
+fn one_type_each(class: &Bound<'_, PyType>, parameters: &Bound<'_, PyTuple>) -> PyResult<()> {
+    let py = class.py();
+    let type_var = forms(py)?.type_var.bind(py);
+    for parameter in parameters.iter() {
+        if !parameter.get_type().is(type_var) {
+            return Err(not_implemented(format!(
+                "{} declares {}, which stands for a list of types or a signature \
+                 rather than for one type, so no argument here substitutes it: write \
+                 the class over TypeVars alone",
+                super::declared_name(class.as_any())?,
+                super::declared_name(&parameter)?
+            )));
+        }
+    }
+    Ok(())
 }
 
-impl<'py> Binding<'py> {
-    /// What `ty`, applied to `applied` or written bare, binds, read off it and
-    /// every class it was written deriving from.
+/// Refuse a `TypedDict` qualifier given as one of `class`'s type arguments.
+///
+/// `Required`, `NotRequired` and `ReadOnly` qualify a `TypedDict` item where it
+/// is declared, and the typing spec admits them nowhere else (PEP 655, PEP
+/// 705): `Holds[NotRequired[int]]` names no type, and the runtime keeps the key
+/// it reaches required. Substituted into the field, the qualifier read as the
+/// item's own, turning a required key optional, or vanished from a dataclass's
+/// field. Read through `Annotated`, which a qualifier may sit under.
+fn no_qualifier_among(class: &Bound<'_, PyType>, arguments: &Bound<'_, PyTuple>) -> PyResult<()> {
+    for argument in arguments.iter() {
+        no_qualifier_as(class, &argument, "a type argument")?;
+    }
+    Ok(())
+}
+
+/// Refuse `given` where it is a `TypedDict` qualifier `class` takes as `role`:
+/// a type argument, or a parameter's default, which reaches a field of the
+/// class left unapplied as an argument would and is no item either.
+fn no_qualifier_as(
+    class: &Bound<'_, PyType>,
+    given: &Bound<'_, PyAny>,
+    role: &str,
+) -> PyResult<()> {
+    let py = class.py();
+    let forms = forms(py)?;
+    let mut held = given.clone();
+    // Bounded as a literal's field is read, so the loop ends whatever a
+    // form's `__origin__` claims.
+    for _ in 0..MAX_QUALIFIER_DEPTH {
+        if !held.get_type().is(forms.annotated_alias.bind(py)) {
+            break;
+        }
+        held = held.getattr(intern!(py, "__origin__"))?;
+    }
+    let origin = forms.get_origin.bind(py).call1((&held,))?;
+    if is_field_qualifier(&origin)? {
+        return Err(not_implemented(format!(
+            "{} as {role} of {} is a TypedDict qualifier, which qualifies an \
+             item where it is declared and nowhere else: declare the field \
+             Required, NotRequired or ReadOnly in the class, and give the type \
+             alone",
+            summarize(given)?,
+            super::declared_name(class.as_any())?
+        )));
+    }
+    Ok(())
+}
+
+/// The PEP 696 default `parameter` takes in one application of its class: where
+/// nothing is `written` for it, and where what is written is the default itself
+/// -- `CPython` hands an application left short back with the default filled in,
+/// as the very object the parameter holds, unsubstituted (`Pairs[int]` is
+/// `Pairs[int, list[T]]`). A default may name the parameters before it, which
+/// the application binds, so the caller substitutes them: `Pairs[int]`'s `U`
+/// is `list[int]`. `None` where an argument of the caller's own is written, or
+/// where the parameter has no default.
+fn defaulted<'py>(
+    parameter: &Bound<'py, PyAny>,
+    written: Option<&Bound<'py, PyAny>>,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let Some(default) = super::default_of(parameter)? else {
+        return Ok(None);
+    };
+    Ok(written
+        .is_none_or(|written| written.is(&default))
+        .then_some(default))
+}
+
+/// What the parameters of a generic class and of each class it derives from
+/// stand for in the class read: the class's own, bound to the arguments it is
+/// applied to or their defaults, and each base's, bound to the arguments it was
+/// written applied to, read through the class written deriving from it.
+///
+/// **A type variable is its class's own.** `class IntBox(Box[int],
+/// Generic[T])` reuses the `T` that `Box` declares its field with, and the two
+/// are two parameters to `typing` -- `Box[int]` closes `Box`'s, and
+/// `IntBox`'s is another, the same object in another scope -- as mypy maps a
+/// base's fields through the arguments the derived class gives it. So each
+/// field is substituted in the scope of the class that declares it, never
+/// through one table keyed by the variable, which reads `IntBox[str]`'s `T` as
+/// `int` and `str` at once. One class reached through two bases under two
+/// arguments is the conflict that is left: a field it declares names two
+/// types, and is refused.
+struct Scopes<'py> {
+    /// The class read.
+    read: Scope<'py>,
+    /// Each class it derives from, once, in the order the walk meets them.
+    bases: Vec<Scope<'py>>,
+}
+
+/// One class's parameters and what each stands for in the class read, and the
+/// classes it was written deriving from.
+struct Scope<'py> {
+    class: Bound<'py, PyType>,
+    parameters: Bound<'py, PyTuple>,
+    arguments: Vec<Bound<'py, PyAny>>,
+    written: Vec<Bound<'py, PyType>>,
+}
+
+impl<'py> Scopes<'py> {
+    /// The scopes `ty`, applied to `applied` or written bare, reaches through
+    /// every class it was written deriving from. A parameter nothing binds
+    /// stands for itself.
     fn of(ty: &Bound<'py, PyType>, applied: Option<&Bound<'py, PyTuple>>) -> PyResult<Self> {
-        let py = ty.py();
-        let generic = forms(py)?.generic.bind(py);
-        let mut binding = Self {
-            parameters: Vec::new(),
-            arguments: Vec::new(),
+        let parameters = parameters_of(ty)?;
+        let mut arguments = Vec::with_capacity(parameters.len());
+        if let Some(applied) = applied {
+            no_qualifier_among(ty, applied)?;
+        }
+        for (at, parameter) in parameters.iter().enumerate() {
+            let written = applied.and_then(|args| args.get_item(at).ok());
+            let argument = match defaulted(&parameter, written.as_ref())? {
+                Some(default) => {
+                    let role = format!("the default of {}", super::declared_name(&parameter)?);
+                    no_qualifier_as(ty, &default, &role)?;
+                    super::substitute(&default, &parameters, &arguments)?
+                }
+                None => written.unwrap_or_else(|| parameter.clone()),
+            };
+            if !argument.is(&parameter) {
+                one_type_each(ty, &parameters)?;
+            }
+            arguments.push(argument);
+        }
+        let mut scopes = Self {
+            read: Scope {
+                class: ty.clone(),
+                parameters,
+                arguments,
+                written: Vec::new(),
+            },
+            bases: Vec::new(),
         };
-        let own = ty
-            .getattr(intern!(py, "__parameters__"))?
-            .cast_into::<PyTuple>()?;
-        for (at, parameter) in own.iter().enumerate() {
-            let argument = match applied.map(|args| args.get_item(at)) {
-                Some(Ok(argument)) => Some(argument),
-                _ => super::default_of(&parameter)?,
-            };
-            if let Some(argument) = argument {
-                binding.bind(parameter, &argument, ty)?;
-            }
-        }
         let mut pending = vec![ty.clone()];
-        let mut seen: Vec<Bound<'py, PyType>> = Vec::new();
         while let Some(class) = pending.pop() {
-            if seen.iter().any(|met| met.is(&class)) {
-                continue;
+            let scope = scopes.of_class(class.as_any());
+            let mut reached = Vec::new();
+            for (base, written) in written_bases(&class)? {
+                let own = parameters_of(&base)?;
+                let arguments = match written {
+                    Some(written) => {
+                        one_type_each(&base, &own)?;
+                        no_qualifier_among(&base, &written)?;
+                        let mut arguments = Vec::with_capacity(written.len());
+                        for (at, argument) in written.iter().enumerate() {
+                            let parameter = own.get_item(at).ok();
+                            let default = match &parameter {
+                                Some(parameter) => defaulted(parameter, Some(&argument))?,
+                                None => None,
+                            };
+                            arguments.push(match default {
+                                Some(default) => super::substitute(&default, &own, &arguments)?,
+                                None => super::substitute(
+                                    &argument,
+                                    &scope.parameters,
+                                    &scope.arguments,
+                                )?,
+                            });
+                        }
+                        arguments
+                    }
+                    None => own.iter().collect(),
+                };
+                reached.push((base, arguments));
             }
-            let written = class
-                .getattr(intern!(py, "__dict__"))?
-                .call_method1(intern!(py, "get"), (intern!(py, "__orig_bases__"),))?;
-            let bases = if written.is_none() {
-                class.getattr(intern!(py, "__bases__"))?
-            } else {
-                written
-            };
-            seen.push(class);
-            for base in bases.try_iter()? {
-                let base = base?;
-                if let Ok(derived) = base.cast::<PyType>() {
-                    pending.push(derived.clone());
-                    continue;
+            let written = reached.iter().map(|(base, _)| base.clone()).collect();
+            for (base, arguments) in reached {
+                if scopes.reach(ty, &base, arguments)? {
+                    pending.push(base);
                 }
-                // An applied generic, `Base[int]`. The function `TypedDict`
-                // and `NamedTuple` are written as carries no origin, and
-                // `Generic[T]` declares the class's own parameters.
-                let Some(origin) = base.getattr_opt(intern!(py, "__origin__"))? else {
-                    continue;
-                };
-                let Ok(origin) = origin.cast_into::<PyType>() else {
-                    continue;
-                };
-                if origin.is(generic) {
-                    continue;
-                }
-                let Some(parameters) = origin.getattr_opt(intern!(py, "__parameters__"))? else {
-                    continue;
-                };
-                let parameters = parameters.cast_into::<PyTuple>()?;
-                let arguments = base
-                    .getattr(intern!(py, "__args__"))?
-                    .cast_into::<PyTuple>()?;
-                for (parameter, argument) in parameters.iter().zip(arguments.iter()) {
-                    binding.bind(parameter, &argument, ty)?;
-                }
-                pending.push(origin);
+            }
+            if let Some(scope) = scopes.find_mut(&class) {
+                scope.written = written;
             }
         }
-        Ok(binding)
+        Ok(scopes)
     }
 
-    /// Bind `parameter` to `argument`, read through what is bound already: an
-    /// argument names the parameters of the class written deriving from the
-    /// base, which a class derived from that one has bound. A variable met
-    /// again bound to an argument it was not bound to before is a field type
-    /// two bases read two ways, and is refused.
-    fn bind(
-        &mut self,
-        parameter: Bound<'py, PyAny>,
-        argument: &Bound<'py, PyAny>,
-        ty: &Bound<'py, PyType>,
-    ) -> PyResult<()> {
-        let py = ty.py();
-        let argument = super::substitute(
-            argument,
-            &PyTuple::new(py, &self.parameters)?,
-            &self.arguments,
-        )?;
-        if let Some(at) = self.parameters.iter().position(|held| held.is(&parameter)) {
-            if let Some(held) = self.arguments.get(at)
-                && !held.eq(&argument)?
-            {
-                return Err(not_implemented(format!(
-                    "{} binds {} to {} through one base and to {} through another, \
-                     so a field declared with it names two types: declare the \
-                     bases over distinct type variables",
-                    super::declared_name(ty.as_any())?,
-                    super::declared_name(&parameter)?,
-                    summarize(held)?,
-                    summarize(&argument)?
-                )));
-            }
-            return Ok(());
-        }
-        self.parameters.push(parameter);
-        self.arguments.push(argument);
-        Ok(())
+    /// The scope of `class`, or the class read's where the walk did not reach
+    /// it.
+    fn of_class(&self, class: &Bound<'py, PyAny>) -> &Scope<'py> {
+        self.find(class).unwrap_or(&self.read)
     }
+
+    /// The scope of `class`, where the walk reached it.
+    fn find(&self, class: &Bound<'py, PyAny>) -> Option<&Scope<'py>> {
+        core::iter::once(&self.read)
+            .chain(&self.bases)
+            .find(|scope| scope.class.is(class))
+    }
+
+    /// [`Self::find`], to be written to.
+    fn find_mut(&mut self, class: &Bound<'py, PyAny>) -> Option<&mut Scope<'py>> {
+        core::iter::once(&mut self.read)
+            .chain(&mut self.bases)
+            .find(|scope| scope.class.is(class))
+    }
+
+    /// Hold `class` under `arguments`, and say whether it is new. Reached
+    /// again under other arguments, it is refused: a field it declares names
+    /// two types.
+    fn reach(
+        &mut self,
+        ty: &Bound<'py, PyType>,
+        class: &Bound<'py, PyType>,
+        arguments: Vec<Bound<'py, PyAny>>,
+    ) -> PyResult<bool> {
+        if let Some(seen) = self.bases.iter().find(|scope| scope.class.is(class)) {
+            let held = seen.parameters.iter().zip(&seen.arguments).zip(&arguments);
+            for ((parameter, held), argument) in held {
+                if !held.eq(argument)? {
+                    return Err(not_implemented(format!(
+                        "{ty} binds {parameter} of {class} to {held} through one base \
+                         and to {argument} through another, so a field {class} \
+                         declares with it names two types: derive from {class} once",
+                        ty = super::declared_name(ty.as_any())?,
+                        parameter = super::declared_name(&parameter)?,
+                        class = super::declared_name(class.as_any())?,
+                        held = summarize(held)?,
+                        argument = summarize(argument)?,
+                    )));
+                }
+            }
+            return Ok(false);
+        }
+        let parameters = parameters_of(class)?;
+        // A base applied to as many arguments as it has parameters binds them;
+        // any other leaves them standing for themselves.
+        let arguments = if arguments.len() == parameters.len() {
+            arguments
+        } else {
+            parameters.iter().collect()
+        };
+        self.bases.push(Scope {
+            class: class.clone(),
+            parameters,
+            arguments,
+            written: Vec::new(),
+        });
+        Ok(true)
+    }
+}
+
+/// A class's `__parameters__`, or none where it has no such attribute.
+fn parameters_of<'py>(class: &Bound<'py, PyType>) -> PyResult<Bound<'py, PyTuple>> {
+    match class.getattr_opt(intern!(class.py(), "__parameters__"))? {
+        Some(found) => Ok(found.cast_into::<PyTuple>()?),
+        None => Ok(PyTuple::empty(class.py())),
+    }
+}
+
+/// A class a class was written deriving from, with the arguments it was
+/// written applied to, or `None` where it was written bare.
+type Written<'py> = (Bound<'py, PyType>, Option<Bound<'py, PyTuple>>);
+
+/// The classes `class` was written deriving from: its `__orig_bases__`, or its
+/// `__bases__` where it has none, since a `TypedDict`'s bases are not on its
+/// `__mro__`.
+fn written_bases<'py>(class: &Bound<'py, PyType>) -> PyResult<Vec<Written<'py>>> {
+    let py = class.py();
+    let generic = forms(py)?.generic.bind(py);
+    let written = class
+        .getattr(intern!(py, "__dict__"))?
+        .call_method1(intern!(py, "get"), (intern!(py, "__orig_bases__"),))?;
+    let bases = if written.is_none() {
+        class.getattr(intern!(py, "__bases__"))?
+    } else {
+        written
+    };
+    let mut found = Vec::new();
+    for base in bases.try_iter()? {
+        let base = base?;
+        if let Ok(derived) = base.cast::<PyType>() {
+            found.push((derived.clone(), None));
+            continue;
+        }
+        // An applied generic, `Base[int]`. The function `TypedDict` and
+        // `NamedTuple` are written as carries no origin, and `Generic[T]`
+        // declares the class's own parameters.
+        let Some(origin) = base.getattr_opt(intern!(py, "__origin__"))? else {
+            continue;
+        };
+        let Ok(origin) = origin.cast_into::<PyType>() else {
+            continue;
+        };
+        if origin.is(generic) {
+            continue;
+        }
+        let arguments = base
+            .getattr(intern!(py, "__args__"))?
+            .cast_into::<PyTuple>()?;
+        found.push((origin, Some(arguments)));
+    }
+    Ok(found)
+}
+
+/// The class that declares each field of `ty`, by the field's name.
+///
+/// The first class on its `__mro__` whose own body annotates the field, which
+/// is the class `get_type_hints` takes the hint from; the order is read until
+/// every field is placed. A `TypedDict` is the exception: its bases are not on
+/// its `__mro__`, and its annotations are its bases' merged with its body's,
+/// so a field is a base's where the base holds it under the hint the class
+/// read holds, down the bases each was written deriving from (`scopes`). Each
+/// class's annotations are read once.
+fn declarers<'py>(
+    ty: &Bound<'py, PyType>,
+    hints: &Bound<'py, PyDict>,
+    scopes: &Scopes<'py>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let py = ty.py();
+    let found = PyDict::new(py);
+    if !ty.hasattr(intern!(py, "__required_keys__"))? {
+        for class in ty.mro().iter() {
+            if found.len() >= hints.len() {
+                break;
+            }
+            let Some(own) = own_body(&class)? else {
+                continue;
+            };
+            for name in own.try_iter()? {
+                let name = name?;
+                if !found.contains(&name)? {
+                    found.set_item(name, &class)?;
+                }
+            }
+        }
+        return Ok(found);
+    }
+    let mut read: Vec<(&Bound<'py, PyType>, Bound<'py, PyDict>)> = Vec::new();
+    for (name, hint) in hints.iter() {
+        let mut at = &scopes.read;
+        'down: loop {
+            for base in &at.written {
+                let held = if let Some((_, hints)) = read.iter().find(|(class, _)| class.is(base)) {
+                    hints.get_item(&name)?
+                } else {
+                    let hints = resolve_type_hints(base)?.cast_into::<PyDict>()?;
+                    let held = hints.get_item(&name)?;
+                    read.push((base, hints));
+                    held
+                };
+                if let Some(held) = held
+                    && held.eq(&hint)?
+                    && let Some(scope) = scopes.find(base)
+                {
+                    at = scope;
+                    continue 'down;
+                }
+            }
+            break;
+        }
+        found.set_item(name, &at.class)?;
+    }
+    Ok(found)
+}
+
+/// What `class` annotates in its own body, read as [`annotations_as_written`]
+/// reads a class's own annotations, or `None` where it annotates nothing.
+fn own_body<'py>(class: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    if annotates_nothing(class) {
+        return Ok(None);
+    }
+    let py = class.py();
+    #[cfg(Py_3_14)]
+    let own = own_annotations(class, &evaluation(py)?.own_annotations)?;
+    #[cfg(not(Py_3_14))]
+    let own = class.getattr(intern!(py, "__dict__"))?.call_method1(
+        intern!(py, "get"),
+        (intern!(py, "__annotations__"), PyDict::new(py)),
+    )?;
+    // A class with no annotations of its own, read as `get_type_hints` reads it.
+    #[cfg(not(Py_3_14))]
+    if own.is_instance(evaluation(py)?.getset_descriptor.bind(py))? {
+        return Ok(None);
+    }
+    Ok(Some(own))
 }
 
 /// The objects [`annotations_as_written`] reads a class and its annotations
@@ -940,11 +1244,11 @@ pub(super) fn annotates_nothing(base: &Bound<'_, PyAny>) -> bool {
     STATIC.iter().any(|class| base.is(class(base.py())))
 }
 
-/// Whether `typing._eval_type` would hand back anything other than `value`./// Whether `typing._eval_type` would hand back anything other than `value`.
+/// Whether `typing._eval_type` would hand back anything other than `value`.
 ///
 /// It resolves a forward reference, and descends only into the `__args__` of
 /// the three alias classes. A builtin `types.GenericAlias` it rebuilds as
-/// `origin[args]` from 3.11: a string argument becomes a forward reference, an
+/// `origin[args]`: a string argument becomes a forward reference, an
 /// unpacked alias becomes `Unpack[...]`, and a `collections.abc.Callable`'s
 /// argument list is re-nested. Each of those is a change, so each is `true`. A
 /// string under any other alias -- a `Literal`'s value -- is returned as it is.
@@ -1025,6 +1329,7 @@ pub(super) fn build_typed_dict<'py>(
     lits: &mut Pool,
     defs: &mut Vec<Schema>,
 ) -> PyResult<Schema> {
+    let _open = ClassScope::enter(ty, applied)?;
     let hints = bound_hints(ty, applied)?;
     let required = ty.getattr(intern!(ty.py(), "__required_keys__"))?;
     let mut fields = Vec::with_capacity(hints.len());
@@ -1107,19 +1412,8 @@ pub(super) fn qualified_required<'py>(
         }
         let mut says = None;
         for (marker, answer) in [(&forms.required, true), (&forms.not_required, false)] {
-            if let Some(marker) = marker
-                && origin.is(marker.bind(py))
-            {
+            if origin.is(marker.bind(py)) {
                 says = Some(answer);
-            }
-        }
-        // `typing_extensions`' spellings, which are forms: the origin of an
-        // `Annotated` or a generic field is a class, and asks nothing.
-        if says.is_none() && !origin.is_instance_of::<PyType>() {
-            if is_extension(&origin, |held| &held.required)? {
-                says = Some(true);
-            } else if is_extension(&origin, |held| &held.not_required)? {
-                says = Some(false);
             }
         }
         if let Some(again) = says {
@@ -1248,9 +1542,69 @@ fn stated_tail<'py>(ty: &Bound<'py, PyType>) -> PyResult<Option<Tail<'py>>> {
     if let Some(extra) = optional_attribute(ty, intern!(py, "__extra_items__"))?
         && !gave_no_extra_items(ty, &extra)?
     {
+        let extra = annotation_of(ty, extra)?;
+        // PEP 728: "It is an error to use `Required[]` or `NotRequired[]` with
+        // `extra_items`". An extra key is never required, and dropped, the
+        // qualifier would read as the type it wraps. `ReadOnly` is admitted.
+        if qualified_required(&extra)?.0.is_some() {
+            return Err(not_implemented(format!(
+                "extra_items={} of {} is a presence qualifier, which PEP 728 \
+                 refuses there: an extra key is never required, so give the type \
+                 alone",
+                summarize(&extra)?,
+                super::declared_name(ty.as_any())?
+            )));
+        }
         return Ok(Some(Tail::Typed(extra)));
     }
     Ok(None)
+}
+
+/// `extra` as the type expression PEP 728 takes for `extra_items`: a string
+/// resolved as `ty`'s own annotations are, and anything else as it is.
+///
+/// The typing spec reads a string where a type expression goes as a string
+/// annotation, and the runtime keeps it as written in `__extra_items__`. Read
+/// as the value it is, it is the literal of its text, which admits the word
+/// and refuses what the annotation admits. A class whose extra items are its
+/// own type has this spelling alone: it cannot name itself before its
+/// statement ends. `get_type_hints` reads a class's annotations in the module
+/// that defines it first and in its namespace after, and the string is read so,
+/// as the one annotation of a namespace holding it.
+fn annotation_of<'py>(
+    ty: &Bound<'py, PyType>,
+    extra: Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if !extra.is_instance_of::<PyString>() {
+        return Ok(extra);
+    }
+    let py = ty.py();
+    let key = intern!(py, "extra_items");
+    let annotations = PyDict::new(py);
+    annotations.set_item(key, &extra)?;
+    let holder = py
+        .import(intern!(py, "types"))?
+        .getattr(intern!(py, "SimpleNamespace"))?
+        .call(
+            (),
+            Some(&[(intern!(py, "__annotations__"), annotations)].into_py_dict(py)?),
+        )?;
+    let module = ty.getattr(intern!(py, "__module__"))?;
+    let module_namespace = match loaded_modules(py)?.get_item(&module)? {
+        Some(module) => module.getattr(intern!(py, "__dict__"))?,
+        None => PyDict::new(py).into_any(),
+    };
+    let class_namespace = PyDict::new(py);
+    class_namespace.update(ty.getattr(intern!(py, "__dict__"))?.cast::<PyMapping>()?)?;
+    let options = PyDict::new(py);
+    options.set_item(intern!(py, "globalns"), class_namespace)?;
+    options.set_item(intern!(py, "localns"), module_namespace)?;
+    options.set_item(intern!(py, "include_extras"), true)?;
+    forms(py)?
+        .get_type_hints
+        .bind(py)
+        .call((holder,), Some(&options))?
+        .get_item(key)
 }
 
 /// What `ty` has for its unnamed keys: its own, or the first a `TypedDict` base
@@ -1335,7 +1689,7 @@ pub(super) fn declared_fields<'py>(ty: &Bound<'py, PyType>) -> PyResult<Vec<Boun
 /// where that call should answer.
 ///
 /// The call is `tuple(f for f in ty.__dataclass_fields__.values() if
-/// f._field_type is _FIELD)` on every interpreter the matrix runs, 3.10 to 3.15
+/// f._field_type is _FIELD)` on every interpreter the matrix runs, 3.11 to 3.15
 /// and `PyPy`, and running that generator in Python is 15% of compiling a
 /// fifty-field dataclass. The same steps are taken here, in its order -- the
 /// table's values, each asked its `_field_type` and kept by identity with the
@@ -1387,6 +1741,7 @@ pub(super) fn build_object<'py>(
     lits: &mut Pool,
     defs: &mut Vec<Schema>,
 ) -> PyResult<Schema> {
+    let _open = ClassScope::enter(ty, applied)?;
     let hints = bound_hints(ty, applied)?;
     let hints = &hints;
     let instance = Schema::Instance(lits.intern_class(ty.as_any()));

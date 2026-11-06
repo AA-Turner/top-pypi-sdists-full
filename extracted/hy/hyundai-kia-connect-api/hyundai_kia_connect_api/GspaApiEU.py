@@ -241,6 +241,9 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
     CCI_API_URL: str = ""
     CCI_PACKAGE_ID: str = ""
     GSPA_BASE_URL: str = ""
+    # Push (Service Hub) REST base — required on push-capable brand classes.
+    SERVICE_HUB_BASE: str = ""
+
     LOGIN_FORM_HOST: str = ""
     CIPHER_BRAND: str = ""
     REQUEST_ID_HEADER: str = ""
@@ -332,6 +335,12 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         # Control token caching lives on the Token object (control_token /
         # control_token_expiry) — same pattern as ApiImplType1 for the Type1
         # regions.
+
+        # Push (Service Hub) session state — used by MqttServiceHubMixin:
+        # per-request tid from the device/host response headers, and one
+        # requests.Session keeping cookies across the Service Hub calls.
+        self._service_hub_tid: str | None = None
+        self._service_hub_session: requests.Session | None = None
 
         self.session = ApiImplSession()
 
@@ -817,6 +826,8 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             non_ccs_refresh_token=non_ccs_refresh_token,
             id_token=id_token,
             user_id=token.user_id,
+            # the push connstate poll keys on this id; it must survive the refresh
+            mqtt_client_id=token.mqtt_client_id,
         )
 
     # ------------------------------------------------------------------
@@ -1874,11 +1885,8 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             get_child_value(state, "Green.BatteryManagement.SoH.Ratio")
         ):
             vehicle.ev_battery_soh_percentage = battery_soh
-        # ConnectorFastening.State follows the connector LOCK, not the
-        # cable: plugged-but-idle reads 0, a released lock after a charge
-        # also reads 0 (0 ambiguous; live: Kia EV6 CCI #1495, legacy
-        # kia_uvo#1837). Plug sensor stays unknown; enum carries the state.
-        vehicle.ev_battery_is_plugged_in = None
+        # State 1 proves the cable is in; 0 is ambiguous — unplugged vs
+        # locked only while a session runs (kia_uvo#2069, #1495).
         fastening_raw = get_child_value(
             state, "Green.ChargingInformation.ConnectorFastening.State"
         )
@@ -1896,6 +1904,12 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
                     fastening_raw,
                 )
                 vehicle.ev_connector_fastening_state = None
+        vehicle.ev_battery_is_plugged_in = (
+            True
+            if vehicle.ev_connector_fastening_state
+            is CONNECTOR_FASTENING_STATE.CONNECTED
+            else None
+        )
         charging_door_state = get_child_value(state, "Green.ChargingDoor.State")
         if charging_door_state in [0, 2]:
             vehicle.ev_charge_port_door_is_open = False
@@ -2084,6 +2098,128 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             defrost2 = schedule2_hvac.get("Defrost")
             if defrost2 is not None:
                 vehicle.ev_second_departure_climate_defrost = bool(defrost2)
+
+        # PV5 GSPA departure carriers (issue #1145 run-23 stored-status):
+        # per-day Sun..Sat flags instead of a DaysOfWeek list, Hour/Min
+        # instead of Time, and per-plan Climate at Departure.Climate
+        # (plan 1) and Schedule2.Climate (plan 2, activation at Schedule2
+        # level). Parsed only where the carriers above left the field
+        # unset. Day flags all zero -> None, like the list carrier.
+        schedule1 = get_child_value(state, "Green.Reservation.Departure.Schedule1")
+        if isinstance(schedule1, dict):
+            if vehicle.ev_first_departure_time is None and "Hour" in schedule1:
+                try:
+                    vehicle.ev_first_departure_time = ccs2_reservation_time_or_none(
+                        schedule1.get("Hour"), schedule1.get("Min")
+                    )
+                except (TypeError, ValueError):
+                    _LOGGER.warning("%s - CCS2 Schedule1 time malformed", DOMAIN)
+            if vehicle.ev_first_departure_days is None:
+                vehicle.ev_first_departure_days = [
+                    i
+                    for i, k in enumerate(
+                        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                    )
+                    if schedule1.get(k) == 1
+                ] or None
+        schedule2 = get_child_value(state, "Green.Reservation.Departure.Schedule2")
+        if isinstance(schedule2, dict):
+            if vehicle.ev_second_departure_time is None and "Hour" in schedule2:
+                try:
+                    vehicle.ev_second_departure_time = ccs2_reservation_time_or_none(
+                        schedule2.get("Hour"), schedule2.get("Min")
+                    )
+                except (TypeError, ValueError):
+                    _LOGGER.warning("%s - CCS2 Schedule2 time malformed", DOMAIN)
+            if vehicle.ev_second_departure_days is None:
+                vehicle.ev_second_departure_days = [
+                    i
+                    for i, k in enumerate(
+                        ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                    )
+                    if schedule2.get(k) == 1
+                ] or None
+
+        climate1 = get_child_value(
+            state, "Green.Reservation.Departure.Schedule1.Climate"
+        ) or get_child_value(state, "Green.Reservation.Departure.Climate")
+        climate2 = get_child_value(
+            state, "Green.Reservation.Departure.Schedule2.Climate"
+        )
+        if isinstance(climate1, dict) or isinstance(climate2, dict):
+            # Temperature string without a unit inherits plan 1's unit.
+            default_temp_unit = 0
+            if (
+                isinstance(climate1, dict)
+                and climate1.get("TemperatureUnit") is not None
+            ):
+                default_temp_unit = climate1["TemperatureUnit"]
+
+            def _parse_departure_climate(
+                climate: dict[str, Any],
+                activation: object = None,
+            ) -> tuple[bool | None, bool | None, tuple[float, str | None] | None]:
+                enabled_at = (
+                    activation if activation is not None else climate.get("Activation")
+                )
+                enabled = bool(enabled_at) if enabled_at is not None else None
+                defrost_at = climate.get("Defrost")
+                defrost = bool(defrost_at) if defrost_at is not None else None
+                temp = None
+                temp_val = climate.get("Temperature")
+                if temp_val is not None:
+                    try:
+                        unit_int = climate.get("TemperatureUnit")
+                        if unit_int is None:
+                            unit_int = default_temp_unit
+                        temp = (
+                            float(temp_val),
+                            TEMPERATURE_UNITS.get(unit_int, TEMPERATURE_UNITS[0]),
+                        )
+                    except (ValueError, TypeError):
+                        # "OFF" / non-numeric — leave the field unset.
+                        pass
+                return enabled, defrost, temp
+
+            if isinstance(climate1, dict):
+                enabled, defrost, temp = _parse_departure_climate(climate1)
+                if (
+                    enabled is not None
+                    and vehicle.ev_first_departure_climate_enabled is None
+                ):
+                    vehicle.ev_first_departure_climate_enabled = enabled
+                if (
+                    defrost is not None
+                    and vehicle.ev_first_departure_climate_defrost is None
+                ):
+                    vehicle.ev_first_departure_climate_defrost = defrost
+                if (
+                    temp is not None
+                    and vehicle.ev_first_departure_climate_temperature is None
+                ):
+                    vehicle.ev_first_departure_climate_temperature = temp
+            if isinstance(climate2, dict):
+                sched2_activation = get_child_value(
+                    state, "Green.Reservation.Departure.Schedule2.Activation"
+                )
+                enabled, defrost, temp = _parse_departure_climate(
+                    climate2, sched2_activation
+                )
+                if (
+                    enabled is not None
+                    and vehicle.ev_second_departure_climate_enabled is None
+                ):
+                    vehicle.ev_second_departure_climate_enabled = enabled
+                if (
+                    defrost is not None
+                    and vehicle.ev_second_departure_climate_defrost is None
+                ):
+                    vehicle.ev_second_departure_climate_defrost = defrost
+                if (
+                    temp is not None
+                    and vehicle.ev_second_departure_climate_temperature is None
+                ):
+                    vehicle.ev_second_departure_climate_temperature = temp
 
         # Off-peak charging window — flat CCS2-schema OffPeakTime block
         # (live EV6/PV5 GSPA stored-status + Sportage PHEV CCS2 dump; the

@@ -25,6 +25,7 @@ from .models import (
     LaneletSlot,
     RouteSearch,
     ScenarioDocument,
+    actor_kind,
     condition_refs,
 )
 from ..route.model import anchor_problem, parse_anchor, parse_route_search
@@ -36,6 +37,8 @@ from ..trajectory.authoring import (
     vertex_problems,
 )
 from ..constants import MIN_BACKGROUND_SPEED_KMH
+from .hydra_config import MAP_EXCLUSION_REF
+from .package_names import framework_name_problem
 from ._builders_generated import (
     FAILURE_ONLY_CONDITIONS,
     ONCE_ACTIONS,
@@ -58,10 +61,6 @@ from .registry import (
 __all__ = ["Issue", "Severity", "ValidationReport", "validate_document"]
 
 Severity = Literal["error", "warning"]
-
-#: Value accepted by ``in_set`` in place of a literal list, resolved from the
-#: map config exactly as the existing sweep YAML does.
-MAP_EXCLUSION_REF = "${map.no_3d_model_lanelet_ids}"
 
 #: The signal states that let traffic through.  Amber is one of them: a junction
 #: showing amber to one movement still has vehicles in it, which is exactly why
@@ -291,19 +290,37 @@ def _check_bounds(
     out.error(f"{path}.{spec.name}", f"{spec.label} {_bounds_text(spec)}.", object_id)
 
 
+def _bound_text(spec: FieldSpec, bound: float) -> str:
+    """*bound* as the message prints it: a whole number field's in full (a
+    seed's ``2147483647``, not ``2.14748e+09``), any other's with ``:g``."""
+    if spec.kind == "int" and float(bound).is_integer():
+        return str(int(bound))
+    return f"{bound:g}"
+
+
 def _bounds_text(spec: FieldSpec) -> str:
     """What :func:`_check_bounds` asks of *spec*'s value, as a predicate."""
     low, inclusive, high = spec.exclusive_minimum, spec.minimum, spec.maximum
     if high is not None and (low is not None or inclusive is not None):
-        opening = f"({low:g}" if low is not None else f"[{inclusive:g}"
-        return f"must be in {opening}, {high:g}]"
+        if low is not None:
+            opening = f"({_bound_text(spec, low)}"
+        else:
+            assert inclusive is not None  # noqa: S101 -- by the test above
+            opening = f"[{_bound_text(spec, inclusive)}"
+        return f"must be in {opening}, {_bound_text(spec, high)}]"
     if high is not None:
-        return f"must be at most {high:g}"
+        return f"must be at most {_bound_text(spec, high)}"
     if low is not None:
-        return "must be positive" if low == 0 else f"must be above {low:g}"
+        return (
+            "must be positive"
+            if low == 0
+            else f"must be above {_bound_text(spec, low)}"
+        )
     assert inclusive is not None  # noqa: S101 -- only called out of bounds
     return (
-        "must not be negative" if inclusive == 0 else f"must be at least {inclusive:g}"
+        "must not be negative"
+        if inclusive == 0
+        else f"must be at least {_bound_text(spec, inclusive)}"
     )
 
 
@@ -595,7 +612,7 @@ def _check_action(out: _Collector, path: str, node: ActionNode, refs: _Refs) -> 
             )
         else:
             kind = refs.entity_kinds.get(str(node.actor), "")
-            if kind and kind not in spec.actor_kinds:
+            if kind and actor_kind(kind) not in spec.actor_kinds:
                 out.error(
                     f"{path}.actor",
                     f"{spec.title} cannot be performed by a {kind}; it is for "
@@ -1367,10 +1384,23 @@ def _check_model(out: _Collector, path: str, entity: Entity) -> None:
     is one the editor accepted and the runtime cannot spawn.  Caught here so
     the answer arrives while the scenario is being written rather than as a
     failed spawn against a live server.
+
+    A motorcycle's ``auto`` is whichever motorcycle the running CARLA has, so
+    it needs no size and takes none.  Whether a named blueprint is a
+    motorcycle's only the server can say; it is refused when it is spawned.
     """
     wanted = "walker." if entity.kind == "pedestrian" else "vehicle."
     if entity.vehicle_type == AUTO_MODEL:
-        if entity.kind != "vehicle":
+        if entity.kind == "motorcycle":
+            if entity.size is not None:
+                out.error(
+                    f"{path}.size",
+                    f"A motorcycle of vehicle_type: {AUTO_MODEL} is whichever "
+                    "motorcycle the server has, so the size would be ignored. "
+                    "Remove it.",
+                    entity.id,
+                )
+        elif entity.kind != "vehicle":
             out.error(
                 f"{path}.vehicle_type",
                 f"Only a vehicle other than the ego is chosen by its size "
@@ -1601,6 +1631,19 @@ def _check_hidden_spawns(out: _Collector, document: ScenarioDocument) -> None:
             )
 
 
+def _check_id(out: _Collector, scenario_id: str) -> None:
+    """Check the package the id *scenario_id* exports as (#1695).
+
+    An error when that package would be the framework's own
+    (``autoware_carla`` and ``autoware_carla_scenario``), so the editor shows
+    it before an export starts rather than ``uv lock`` failing on a package
+    that depends on itself.
+    """
+    problem = framework_name_problem(scenario_id)
+    if problem is not None:
+        out.error("id", problem)
+
+
 def validate_document(document: ScenarioDocument) -> ValidationReport:
     """Return every problem found in *document*.
 
@@ -1608,6 +1651,7 @@ def validate_document(document: ScenarioDocument) -> ValidationReport:
     incomplete draft is still saveable).
     """
     out = _Collector()
+    _check_id(out, document.id)
 
     entity_ids: set[str] = set()
     for index, entity in enumerate(document.entities):
@@ -1682,8 +1726,50 @@ def validate_document(document: ScenarioDocument) -> ValidationReport:
     _check_sweep_shape(out, document)
     _check_signal_controllers(out, document)
     _check_route(out, document)
+    _check_gate(out, document)
 
     return ValidationReport(issues=tuple(out.issues))
+
+
+def _check_gate(out: _Collector, document: ScenarioDocument) -> None:
+    """Check a logical scenario's gate (``docs/gate.md``).
+
+    The thresholds' ranges are the model's own; what is checked here is what
+    the gate is judged on.  A gate belongs to a logical scenario: its cases
+    are the route search's matches and its trajectories are measured along the
+    route, so a document with no route search has nothing for it to judge.
+    """
+    gate = document.gate
+    if gate is None:
+        return
+    if document.route is None:
+        out.error(
+            "gate",
+            "A gate judges a logical scenario over its runs: its cases are the "
+            "route search's matches and the ego's trajectory is measured along "
+            "the route. Add a route search, or drop the gate.",
+        )
+    if gate.judged() == ["min_runs"]:
+        out.warn(
+            "gate",
+            "The gate judges nothing but the number of runs: set a success "
+            "rate, a coverage or a trajectory spread.",
+        )
+    seen: set[str] = set()
+    for index, entry in enumerate(gate.coverage_items):
+        if entry.item in seen:
+            out.error(
+                f"gate.coverage_items[{index}]",
+                f"Cover item {entry.item!r} is named twice.",
+            )
+        seen.add(entry.item)
+    if gate.judges_consistency and gate.min_runs < gate.consistency_min_runs:
+        out.warn(
+            "gate.min_runs",
+            f"The trajectory spread needs {gate.consistency_min_runs} runs at a "
+            f"station, and the gate asks for {gate.min_runs} run(s) in all: "
+            "with fewer, the spread is not measured and the gate fails.",
+        )
 
 
 def _route_sets_goal(document: ScenarioDocument) -> bool:

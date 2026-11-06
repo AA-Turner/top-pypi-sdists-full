@@ -10,6 +10,8 @@ export interface Transform<From = number, To = number> extends Transform.Attrs {
 export declare abstract class Transform<From = number, To = number> extends Model {
     properties: Transform.Props;
     constructor(attrs?: Partial<Transform.Attrs>);
+    /** Whether coordinate date strings should be materialized before this transform. */
+    get materialize_dates_before(): boolean;
     abstract compute(x: From): To;
     abstract v_compute(xs: Arrayable<From>): Arrayable<To>;
 }

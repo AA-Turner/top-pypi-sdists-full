@@ -121,7 +121,7 @@ class PreviewGroup(object):
     def source(self):
         """Gets the source of this PreviewGroup.  # noqa: E501
 
-        Why it is created: All users, one legacy role on one resource, the members of a cloud its projects were shared with, a group of users who share bindings, or the organization's owners. existing and directory: the organization already has it, made on the platform or synced from its identity provider, and its key is its id.  # noqa: E501
+        Why it is created: All users, one legacy role on one resource, the members of a cloud its projects were shared with, a group of users who share bindings, the organization's owners, or the organization admin group, Super Admins, with the person converting as its first member. existing and directory: the organization already has it, made on the platform or synced from its identity provider, and its key is its id.  # noqa: E501
 
         :return: The source of this PreviewGroup.  # noqa: E501
         :rtype: PreviewGroupSource
@@ -132,7 +132,7 @@ class PreviewGroup(object):
     def source(self, source):
         """Sets the source of this PreviewGroup.
 
-        Why it is created: All users, one legacy role on one resource, the members of a cloud its projects were shared with, a group of users who share bindings, or the organization's owners. existing and directory: the organization already has it, made on the platform or synced from its identity provider, and its key is its id.  # noqa: E501
+        Why it is created: All users, one legacy role on one resource, the members of a cloud its projects were shared with, a group of users who share bindings, the organization's owners, or the organization admin group, Super Admins, with the person converting as its first member. existing and directory: the organization already has it, made on the platform or synced from its identity provider, and its key is its id.  # noqa: E501
 
         :param source: The source of this PreviewGroup.  # noqa: E501
         :type: PreviewGroupSource

@@ -36,6 +36,7 @@ import time
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.spectral import PSD
 from doppler.wfm import Composer, Segment, prepare, qpsk
 
@@ -162,6 +163,7 @@ def overrides(plan) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def main(out: str = "plan_background_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

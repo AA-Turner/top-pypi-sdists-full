@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: zhinst-toolkit
-Version: 1.4.0
+Version: 1.5.0
 Summary: Zurich Instruments Toolkit High Level API
 Project-URL: homepage, https://github.com/zhinst/zhinst-toolkit
 Author-email: Zurich Instrument <info@zhinst.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Requires-Dist: jsonref>=0.2

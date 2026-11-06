@@ -15,8 +15,10 @@ from schwifty.bic import BIC
 from schwifty.checksum import Algorithm
 from schwifty.checksum import algorithms
 from schwifty.domain import Bank
+from schwifty.domain import BankStatus
 from schwifty.domain import Component
 from schwifty.domain import IBANSpec
+from schwifty.domain import lookup_rank
 from schwifty.domain import Range
 
 
@@ -39,14 +41,19 @@ def _get_bank(country_code: str, bank_code: str) -> Bank | None:
     if not banks:
         return None
     # A national registry lists one record per branch, so a bank code can map to
-    # several entries. The registry flags the institution's own record with
-    # ``primary``; prefer it so that ``bank`` and ``bic`` describe the same
+    # several entries. Prefer the record that ranks highest, i.e. an active one and the
+    # institution's own record among those, so that ``bank`` and ``bic`` describe the same
     # institution, the way ``BIC.candidates_from_bank_code`` already does.
-    return max(banks, key=lambda bank: bank.primary)
+    return max(banks, key=lookup_rank)
 
 
 def _get_random_bank(country_code: str, random: Random) -> Bank | None:
-    banks = registry.get_banks_by_country(country_code)
+    # Random BBANs should look like current ones, so retired bank codes are never picked.
+    banks = [
+        bank
+        for bank in registry.get_banks_by_country(country_code)
+        if bank.status is BankStatus.ACTIVE
+    ]
     return random.choice(banks) if banks else None
 
 

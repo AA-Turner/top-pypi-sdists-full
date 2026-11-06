@@ -180,6 +180,11 @@ class Predictor:
     f1: Optional[float] = None
     created_at: Optional[datetime] = None
     deletion_protection: bool = False
+    # What the training job was asked for: the goal ("balanced" when none was
+    # named; None when the job's spec isn't known) and the columns it trains
+    # and answers without.
+    intent: Optional[str] = None
+    ignore_columns: List[str] = field(default_factory=list)
 
     # Internal
     _ctx: Optional['ClientContext'] = field(default=None, repr=False)
@@ -1235,11 +1240,14 @@ class Predictor:
         precision/recall/coverage shape (e.g. "Picky / conservative — only fires
         when sure" vs "Wide net — flags anything plausible") with per-intent
         scores and good-fit/poor-fit use cases.
+
+        This predictor's own card: the session-level card is the session's
+        newest, which is another predictor's when the session has several.
         """
         if not self._ctx:
             raise ValueError("Predictor not connected to client")
 
-        return self._ctx.get_json(f"/session/{self.session_id}/model_card")
+        return self._ctx.get_json(f"/session/{self.session_id}/job/{self.id}/model_card")
 
     def what_is_this_model_good_for(self) -> Dict[str, Any]:
         """Concrete, label-aware use-case summary for this predictor.

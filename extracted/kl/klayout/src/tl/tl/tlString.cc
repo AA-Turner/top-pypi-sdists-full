@@ -30,6 +30,7 @@
 #include <vector>
 #include <cwctype>
 #include <algorithm>
+#include <type_traits>
 
 #include "tlString.h"
 #include "tlExpression.h"
@@ -399,7 +400,8 @@ static double local_strtod (const char *cp, const char *&cp_new)
     }
     int en = 0;
     while (safe_isdigit (*cp)) {
-      en = en * 10 + int (*cp - '0');
+      //  cap the exponent to avoid a signed overflow on absurd inputs like "1e9999999999"
+      en = std::min (100000, en * 10 + int (*cp - '0'));
       ++cp;
     }
     if (! epos) {
@@ -410,7 +412,7 @@ static double local_strtod (const char *cp, const char *&cp_new)
 
   cp_new = cp;
 
-  return s * mant * pow(10.0, exponent);
+  return s * mant * pow (10.0, exponent);
 }
 
 // -------------------------------------------------------------------------
@@ -462,64 +464,120 @@ to_string (float d, int prec)
   return os.str ();
 }
 
+//  Shared implementation of the integer to_string conversions. The digits are
+//  generated into a local buffer and the magnitude is computed in the unsigned
+//  domain, so the minimum value never has to be negated.
+
+template <class T> struct integer_to_string_traits
+{
+  using unsigned_type = typename std::make_unsigned<T>::type;
+  static const bool is_signed = std::numeric_limits<T>::is_signed;
+  static const size_t buf_size = std::numeric_limits<T>::digits10 + 3;
+};
+
+#if defined(HAVE_64BIT_COORD)
+//  std::make_unsigned and std::numeric_limits are not reliable for __int128 in strict C++11 mode
+template <> struct integer_to_string_traits<__int128>
+{
+  using unsigned_type = unsigned __int128;
+  static const bool is_signed = true;
+  static const size_t buf_size = 41;
+};
+
+template <> struct integer_to_string_traits<unsigned __int128>
+{
+  using unsigned_type = unsigned __int128;
+  static const bool is_signed = false;
+  static const size_t buf_size = 41;
+};
+#endif
+
+template <class T> static
+typename integer_to_string_traits<T>::unsigned_type
+integer_magnitude (T v, bool &neg, std::true_type)
+{
+  using U = typename integer_to_string_traits<T>::unsigned_type;
+  if (v < 0) {
+    neg = true;
+    return U (0) - U (v);
+  } else {
+    neg = false;
+    return U (v);
+  }
+}
+
+template <class T> static
+typename integer_to_string_traits<T>::unsigned_type
+integer_magnitude (T v, bool &neg, std::false_type)
+{
+  neg = false;
+  return typename integer_to_string_traits<T>::unsigned_type (v);
+}
+
+template <class T> static
+std::string
+integer_to_string (T v)
+{
+  using U = typename integer_to_string_traits<T>::unsigned_type;
+
+  bool neg = false;
+  U x = integer_magnitude (v, neg, std::integral_constant<bool, integer_to_string_traits<T>::is_signed> ());
+
+  //  digits plus sign plus terminating zero
+  char buf[integer_to_string_traits<T>::buf_size];
+  char *p = buf + sizeof (buf);
+  *--p = '\0';
+  do {
+    *--p = char ('0' + int (x % 10));
+    x /= 10;
+  } while (x > 0);
+  if (neg) {
+    *--p = '-';
+  }
+
+  return std::string (p);
+}
+
 template <>
 std::string
 to_string (const int &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 template <>
 std::string
 to_string (const unsigned int &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 template <>
 std::string
 to_string (const long &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 template <>
 std::string
 to_string (const long long &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 template <>
 std::string
 to_string (const unsigned long &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 template <>
 std::string
 to_string (const unsigned long long &d)
 {
-  std::ostringstream os;
-  os.imbue (c_locale);
-  os << d;
-  return os.str ();
+  return integer_to_string (d);
 }
 
 #if defined(HAVE_64BIT_COORD)
@@ -528,45 +586,14 @@ template <>
 std::string
 to_string (const __int128 &d)
 {
-  if (d < 0 ) {
-    return "-" + tl::to_string(static_cast<unsigned __int128> (-d));
-  } else {
-    return tl::to_string(static_cast<unsigned __int128> (d));
-  }
+  return integer_to_string (d);
 }
 
 template <>
 std::string
-to_string (const unsigned __int128 &_x)
+to_string (const unsigned __int128 &d)
 {
-  std::string r;
-  unsigned __int128 x = _x;
-
-  //  this is the max. power of 10 that can be represented with __int128
-  unsigned __int128 m = (unsigned long long) 0x4b3b4ca85a86c47a;
-  m <<= 64;
-  m |= (unsigned long long) 0x98a224000000000;
-
-  if (x == 0) {
-    return "0";
-  }
-
-  bool first = true;
-  while (m > 1) {
-    int d = 0;
-    while (x >= m) {
-      d += 1;
-      x -= m;
-    }
-    if (d > 0 || !first) {
-      r += char ('0' + d);
-      first = false;
-    }
-    m /= 10;
-  }
-
-  r += char('0' + int(x));
-  return r;
+  return integer_to_string (d);
 }
 
 #endif
@@ -859,134 +886,114 @@ from_string (const std::string &s, const unsigned char * &result)
   result = (unsigned char *) s.c_str ();
 }
 
+/**
+ *  @brief Gets a numeric value (supports floating-point and integers) from a string
+ */
+template <class T>
 static void
-from_string_numeric (const std::string &s, double &v, bool eval)
+from_string_numeric (const std::string &s, T &v, bool eval)
 {
-  const char *cp = s.c_str ();
-  while (safe_isspace (*cp)) {
-    ++cp;
-  }
-  if (! *cp) {
+  tl::Extractor ex (s.c_str ());
+
+  if (ex.at_end ()) {
     throw tl::Exception (tl::to_string (tr ("Got empty string where a real number was expected")));
   }
 
-  const char *cp_end = cp;
-  v = local_strtod (cp, cp_end);
-  while (safe_isspace (*cp_end)) {
-    ++cp_end;
+  if (ex.try_read (v) && ex.at_end ()) {
+    return;
   }
-  if (*cp_end) {
-    if (eval) {
-      //  try using an expression (using a clean environment disables all global features and leaves
-      //  only some static functions)
-      v = tl::Eval (0, 0, false).parse (s).execute ().to_double ();
-    } else {
-      throw tl::Exception (tl::to_string (tr ("Unexpected text after numeric value: '...")) + cp_end + "'");
-    }
-  }
-}
 
-template <class T>
-static void
-convert_string_to_int (const std::string &s, T &v, bool eval)
-{
-  double x;
-  // HACK: this should be some real string-to-int conversion
-  tl::from_string_numeric (s, x, eval);
-  if (x < std::numeric_limits <T>::min ()) {
-    throw tl::Exception (tl::to_string (tr ("Range underflow: ")) + s);
-  }
-  if (x > std::numeric_limits <T>::max ()) {
-    throw tl::Exception (tl::to_string (tr ("Range overflow: ")) + s);
-  }
-  v = T (x);
-  if (x != v) {
-    throw tl::Exception (tl::to_string (tr ("Number cannot be represented precisely: ")) + s);
+  if (eval) {
+    //  try using an expression (using a clean environment disables all global features and leaves
+    //  only some static functions)
+    v = tl::Eval (0, 0, false).parse (s).execute ().to<T> ();
+  } else {
+    throw tl::Exception (tl::to_string (tr ("Unexpected text after numeric value: '...")) + ex.get () + "'");
   }
 }
 
 void
 from_string (const std::string &s, double &v)
 {
-  return from_string_numeric (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, int &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, long &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, long long &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, unsigned int &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, unsigned long &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string (const std::string &s, unsigned long long &v)
 {
-  convert_string_to_int (s, v, false);
+  from_string_numeric (s, v, false);
 }
 
 void
 from_string_ext (const std::string &s, double &v)
 {
-  return from_string_numeric (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, int &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, long &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, long long &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, unsigned int &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, unsigned long &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void
 from_string_ext (const std::string &s, unsigned long long &v)
 {
-  convert_string_to_int (s, v, true);
+  from_string_numeric (s, v, true);
 }
 
 void

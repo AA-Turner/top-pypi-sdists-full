@@ -235,6 +235,7 @@ from .literals import (
     SelfUpgradeAdminActionType,
     SelfUpgradeRequestStatusType,
     SelfUpgradeStatusType,
+    ServiceRoleTypeType,
     ServiceTypeType,
     SharingModelType,
     SheetContentTypeType,
@@ -1120,6 +1121,8 @@ __all__ = (
     "DescribeQuickSightQSearchConfigurationResponseTypeDef",
     "DescribeRefreshScheduleRequestTypeDef",
     "DescribeRefreshScheduleResponseTypeDef",
+    "DescribeResourcePermissionsRequestTypeDef",
+    "DescribeResourcePermissionsResponseTypeDef",
     "DescribeRoleCustomPermissionRequestTypeDef",
     "DescribeRoleCustomPermissionResponseTypeDef",
     "DescribeSelfUpgradeConfigurationRequestTypeDef",
@@ -2517,6 +2520,8 @@ __all__ = (
     "UpdateQuickSightQSearchConfigurationResponseTypeDef",
     "UpdateRefreshScheduleRequestTypeDef",
     "UpdateRefreshScheduleResponseTypeDef",
+    "UpdateResourcePermissionsRequestTypeDef",
+    "UpdateResourcePermissionsResponseTypeDef",
     "UpdateRoleCustomPermissionRequestTypeDef",
     "UpdateRoleCustomPermissionResponseTypeDef",
     "UpdateSPICECapacityConfigurationRequestTypeDef",
@@ -5371,6 +5376,10 @@ class DescribeRefreshScheduleRequestTypeDef(TypedDict):
     ScheduleId: str
 
 
+class DescribeResourcePermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+
+
 class DescribeRoleCustomPermissionRequestTypeDef(TypedDict):
     Role: RoleType
     AwsAccountId: str
@@ -7190,6 +7199,16 @@ class UpdateQuickSightQSearchConfigurationRequestTypeDef(TypedDict):
     QSearchStatus: QSearchStatusType
 
 
+UpdateResourcePermissionsRequestTypeDef = TypedDict(
+    "UpdateResourcePermissionsRequestTypeDef",
+    {
+        "AwsAccountId": str,
+        "RoleType": ServiceRoleTypeType,
+        "CustomerManagedRoleArn": str,
+    },
+)
+
+
 class UpdateRoleCustomPermissionRequestTypeDef(TypedDict):
     CustomPermissionsName: str
     Role: RoleType
@@ -8591,6 +8610,18 @@ class DescribeQuickSightQSearchConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+DescribeResourcePermissionsResponseTypeDef = TypedDict(
+    "DescribeResourcePermissionsResponseTypeDef",
+    {
+        "RoleType": ServiceRoleTypeType,
+        "CustomerManagedRoleArn": str,
+        "RequestId": str,
+        "Status": int,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
 class DescribeRoleCustomPermissionResponseTypeDef(TypedDict):
     CustomPermissionsName: str
     RequestId: str
@@ -9054,6 +9085,18 @@ class UpdateRefreshScheduleResponseTypeDef(TypedDict):
     ScheduleId: str
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+UpdateResourcePermissionsResponseTypeDef = TypedDict(
+    "UpdateResourcePermissionsResponseTypeDef",
+    {
+        "RoleType": ServiceRoleTypeType,
+        "CustomerManagedRoleArn": str,
+        "RequestId": str,
+        "Status": int,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class UpdateRoleCustomPermissionResponseTypeDef(TypedDict):

@@ -2,8 +2,33 @@
 # ruff: noqa: I001
 # ruff: noqa: D104
 
-from numpydantic.ndarray import NDArray
-from numpydantic.validation.shape import Shape
-from numpydantic.annotation import NDArraySchema
+from typing import Literal as L
 
-__all__ = ["NDArray", "NDArraySchema", "Shape"]
+from numpydantic.ndarray import NDArray
+from numpydantic.shape import Range, Repeat, Shape, transposed, unliteral, unshape
+from numpydantic.annotation import NDArraySchema
+from numpydantic import dtype
+
+S = Shape
+R = Range
+Rep = Repeat
+ND = NDArray
+figurative = unliteral  # come on lol how could i not
+
+__all__ = [
+    "NDArray",
+    "NDArraySchema",
+    "Range",
+    "Repeat",
+    "Shape",
+    "S",
+    "L",
+    "ND",
+    "R",
+    "Rep",
+    "dtype",
+    "figurative",
+    "transposed",
+    "unliteral",
+    "unshape",
+]

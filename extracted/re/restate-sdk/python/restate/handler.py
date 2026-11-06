@@ -255,7 +255,12 @@ class Handler(Generic[I, O]):
             True preloads all state, False preloads nothing, a list preloads only the listed keys.
         ingress_private: If true, the handler cannot be invoked from the HTTP nor Kafka ingress.
         invocation_retry_policy: Optional retry policy configuration applied to this handler.
-        explicit_recovery: If true, the handler runs with explicit recovery, see restate._preview.explicit_recovery.
+        explicit_recovery: If true, the handler runs with explicit recovery (preview): a retried or resumed
+            invocation runs the handler again from the start, instead of replaying its journal. See the
+            ``explicit_recovery`` option of the handler decorators for what that means for calls, sends,
+            ``ctx.run`` and awakeables.
+        explicit_cancellation: If true, the handler runs with explicit cancellation (preview):
+            see restate._preview.cancellation.
     """
 
     service_tag: ServiceTag
@@ -277,6 +282,7 @@ class Handler(Generic[I, O]):
     invocation_retry_policy: Optional[InvocationRetryPolicy] = None
     context_managers: Optional[List[Callable[[], AsyncContextManager[None]]]] = None
     explicit_recovery: bool = False
+    explicit_cancellation: bool = False
 
 
 # disable too many arguments warning
@@ -301,6 +307,8 @@ def make_handler(
     ingress_private: Optional[bool] = None,
     invocation_retry_policy: Optional[InvocationRetryPolicy] = None,
     context_managers: Optional[List[Callable[[], AsyncContextManager[None]]]] = None,
+    explicit_recovery: bool = False,
+    explicit_cancellation: bool = False,
 ) -> Handler[I, O]:
     """
     Factory function to create a handler.
@@ -325,6 +333,8 @@ def make_handler(
         ingress_private: If true, the handler cannot be invoked from the HTTP nor Kafka ingress.
         invocation_retry_policy: Retry policy used by Restate when invoking this handler.
             NOTE: only supported with restate-server >= 1.5.
+        explicit_recovery: If true, the handler runs with explicit recovery (preview).
+        explicit_cancellation: If true, the handler runs with explicit cancellation (preview).
     """
     # try to deduce the handler name
     handler_name = name
@@ -360,6 +370,8 @@ def make_handler(
         ingress_private=ingress_private,
         invocation_retry_policy=invocation_retry_policy,
         context_managers=context_managers,
+        explicit_recovery=explicit_recovery,
+        explicit_cancellation=explicit_cancellation,
     )
 
     vars(wrapped)[RESTATE_UNIQUE_HANDLER_SYMBOL] = handler

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crosshair-tool"
-version = "0.0.112"
+version = "0.0.113"
 description = "Analyze Python code for correctness using symbolic execution."
 readme = "README.md"
 license = { text = "MIT" }
@@ -46,7 +46,7 @@ dependencies = [
 # CrossHair requires Python 3.10 or newer.
 dev = [
     "autodocsumm>=0.2.2,<1",
-    "black==26.5.1",
+    "black==26.10.1",
     "deal>=4.13.0",
     "flake8==7.1.2",
     "Flake8-pyproject>=1.2",  # lets flake8 read [tool.flake8] below
@@ -63,7 +63,7 @@ dev = [
     "sphinx>=3.4.3",
     "sphinx-rtd-theme>=0.5.1",
     "rst2pdf>=0.102",
-    "z3-solver==5.3.1.0",
+    "z3-solver==5.3.3.0",
 ]
 
 [project.urls]

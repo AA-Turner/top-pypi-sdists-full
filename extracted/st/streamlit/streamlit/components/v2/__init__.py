@@ -28,12 +28,8 @@ from streamlit.components.v2.get_bidi_component_manager import (
 from streamlit.errors import StreamlitInvalidParameterTypeError
 
 if TYPE_CHECKING:
-    from streamlit.components.v2.types import ComponentRenderer
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from streamlit.components.v2.bidi_component import ComponentResult
+    from streamlit.components.v2.types import BidiComponentKey, ComponentRenderer
     from streamlit.elements.lib.layout_utils import Height, Width
     from streamlit.runtime.state.common import WidgetCallback
 
@@ -44,7 +40,7 @@ def _register_component(
     css: str | None = None,
     js: str | None = None,
 ) -> str:
-    """Register a component and return its fully qualified key.
+    """Register a component under ``name`` and return that same key.
 
     This shared function handles the component registration and constructing a
     validated definition against any pre-registered components from
@@ -68,7 +64,7 @@ def _register_component(
     Returns
     -------
     str
-        The fully qualified component key in the form ``<module_name>.<n>``.
+        The same string passed as ``name``.
 
     Raises
     ------
@@ -145,7 +141,7 @@ def _create_component_callable(
     css: str | None = None,
     js: str | None = None,
     isolate_styles: bool = True,
-) -> Callable[..., Any]:
+) -> ComponentRenderer:
     """Create a component callable, handling both lookup and registration cases.
 
     Parameters
@@ -166,7 +162,7 @@ def _create_component_callable(
 
     Returns
     -------
-    Callable[..., Any]
+    ComponentRenderer
         A function that, when called inside a Streamlit script, mounts the
         component and returns its state.
 
@@ -180,7 +176,7 @@ def _create_component_callable(
     # The inner callable that mounts the component.
     def _mount_component(
         *,
-        key: str | None = None,
+        key: BidiComponentKey = None,
         data: Any | None = None,
         default: dict[str, Any] | None = None,
         width: Width = "stretch",
@@ -191,8 +187,9 @@ def _create_component_callable(
 
         Parameters
         ----------
-        key : str or None
-            An optional string to use as the unique key for the component.
+        key : str, int, or None
+            An optional string or integer to use as the unique key for the
+            component.
         data : Any or None
             Data to pass to the component (JSON-serializable).
         default : dict[str, Any] or None
@@ -289,8 +286,13 @@ def component(
         A short, descriptive identifier for the component. This is used
         internally by Streamlit to manage instances of the component.
 
-        Component names must be unique across an app. The names of imported
-        components are prefixed by their module name to avoid collisions.
+        Component names must be unique across an app. Streamlit uses the name
+        exactly as you pass it and doesn't add a prefix. For a component in an
+        installed package, use ``"<project_name>.<component_name>"``, where
+        ``<project_name>`` is the ``name`` in the package's ``[project]``
+        table and ``<component_name>`` is the ``name`` of the component's
+        entry under ``[[tool.streamlit.component.components]]``. Streamlit
+        uses this name to find the component's ``asset_dir``.
 
         If you register multiple components with the same name, a warning is
         logged and the last-registered component is used. Because this can lead

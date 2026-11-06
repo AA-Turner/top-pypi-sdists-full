@@ -1,9 +1,11 @@
 // Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
+use super::rdma_connection::GlideConnection;
 use super::{NodeAddress, TlsMode};
 use async_trait::async_trait;
 use futures_intrusive::sync::ManualResetEvent;
-use logger_core::{log_debug, log_error, log_trace, log_warn};
+use glide_logger::{log_debug, log_error, log_trace, log_warn};
+use glide_telemetry::Telemetry;
 use redis::aio::{DisconnectNotifier, MultiplexedConnection};
 use redis::{
     AddressResolver, GlideConnectionOptions, PushInfo, RedisConnectionInfo, RedisError,
@@ -15,7 +17,6 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{RwLock, RwLockReadGuard};
 use std::time::Duration;
-use telemetrylib::Telemetry;
 use tokio::sync::{Notify, mpsc};
 use tokio::task;
 use tokio::time::timeout;
@@ -69,7 +70,7 @@ impl IAMTokenHandle {
         };
 
         if is_expired {
-            logger_core::log_info(
+            glide_logger::log_info(
                 "IAM reconnect",
                 "Token expired, generating a fresh token before reconnection",
             );
@@ -87,10 +88,13 @@ impl IAMTokenHandle {
                     }
                     return Some(new_token);
                 }
-                Err(err) => {
-                    logger_core::log_error(
+                Err(_err) => {
+                    // Do not include err in the log message — it may contain credential
+                    // material from the user's GlideCredentialProvider implementation.
+                    glide_logger::log_error(
                         "IAM reconnect",
-                        format!("Failed to generate fresh IAM token, using cached token: {err}"),
+                        "Failed to generate fresh IAM token. \
+                         Using cached token. Check your GlideCredentialProvider implementation.",
                     );
                     // Fall through to return the cached (possibly expired) token
                 }
@@ -120,12 +124,15 @@ struct ConnectionBackend {
     client_dropped_flagged: AtomicBool,
     /// Optional handle to the IAM token cache for refreshing the password before reconnection.
     iam_token_handle: Option<IAMTokenHandle>,
+    /// Optional handle to the reloaded mTLS certificate cache for refreshing the
+    /// client TLS params before reconnection.
+    cert_material_handle: Option<crate::tls_reload::CertReloadHandle>,
 }
 
 /// State of the current connection. Allows the user to use a connection only when a reconnect isn't in progress or has failed.
 enum ConnectionState {
     /// A connection has been established.
-    Connected(MultiplexedConnection),
+    Connected(GlideConnection),
     /// There's a reconnection effort on the way, no need to try reconnecting again.
     Reconnecting,
     /// Initial state of connection when no connection was created during initialization.
@@ -152,16 +159,49 @@ impl fmt::Debug for ReconnectingConnection {
 async fn get_multiplexed_connection(
     client: &redis::Client,
     connection_options: &GlideConnectionOptions,
-) -> RedisResult<MultiplexedConnection> {
+) -> RedisResult<GlideConnection> {
     run_with_timeout(
         Some(
             connection_options
                 .connection_timeout
                 .unwrap_or(DEFAULT_CONNECTION_TIMEOUT),
         ),
-        client.get_multiplexed_async_connection(connection_options.clone()),
+        async {
+            let connection = client
+                .get_multiplexed_async_connection(connection_options.clone())
+                .await?;
+            Ok(open_glide_connection(
+                client,
+                connection_options,
+                connection,
+            ))
+        },
     )
     .await
+}
+
+/// Pair a fresh connection with the fabric its RDMA session will be opened on.
+///
+/// The RDMA session is opened with a `BLOB.RDMA_HELLO` by the first transfer requested.
+/// When a connection is replaced, the RDMA session goes too, it does not inherit
+/// the old one. There should be only one `BLOB.RDMA_HELLO` per RESP connection.
+#[cfg(feature = "rdma")]
+fn open_glide_connection(
+    client: &redis::Client,
+    connection_options: &GlideConnectionOptions,
+    connection: MultiplexedConnection,
+) -> GlideConnection {
+    let node = client.get_connection_info().addr.to_string();
+    GlideConnection::open(connection, connection_options.rdma_fabric.clone(), &node)
+}
+
+#[cfg(not(feature = "rdma"))]
+fn open_glide_connection(
+    _client: &redis::Client,
+    _connection_options: &GlideConnectionOptions,
+    connection: MultiplexedConnection,
+) -> GlideConnection {
+    connection
 }
 
 #[derive(Clone)]
@@ -197,7 +237,9 @@ impl TokioDisconnectNotifier {
 
 // The Err variant is large because it hands the connection back for the caller to retry
 // on. Boxing it would change the error type at every call site.
+// TODO: Box the Err payload and drop this allow - https://github.com/valkey-io/valkey-glide/issues/6819
 #[allow(clippy::result_large_err)]
+#[allow(clippy::too_many_arguments)]
 async fn create_connection(
     connection_backend: ConnectionBackend,
     retry_strategy: RetryStrategy,
@@ -206,6 +248,7 @@ async fn create_connection(
     connection_timeout: Duration,
     tcp_nodelay: bool,
     pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
+    _rdma_fabric: Option<crate::rdma::Fabric>,
 ) -> Result<ReconnectingConnection, Box<(ReconnectingConnection, RedisError)>> {
     let client = {
         let guard = connection_backend
@@ -216,6 +259,8 @@ async fn create_connection(
     };
 
     let connection_options = GlideConnectionOptions {
+        #[cfg(feature = "rdma")]
+        rdma_fabric: _rdma_fabric.map(crate::rdma::Fabric::opened),
         push_sender,
         disconnect_notifier: Some::<Box<dyn DisconnectNotifier>>(Box::new(
             TokioDisconnectNotifier::new(),
@@ -226,6 +271,7 @@ async fn create_connection(
         tcp_nodelay,
         pubsub_synchronizer,
         iam_token_provider: None,
+        cert_params_provider: None,
     };
 
     // Wrap retry loop in timeout so total time respects connection_timeout
@@ -233,6 +279,7 @@ async fn create_connection(
         client
             .get_multiplexed_async_connection(connection_options.clone())
             .await
+            .map(|connection| open_glide_connection(&client, &connection_options, connection))
             .map_err(|e| {
                 // Don't retry errors that won't resolve with retries
                 let is_permanent = matches!(
@@ -330,6 +377,7 @@ impl ConnectionBackend {
 impl ReconnectingConnection {
     // Large Err for the same reason as create_connection, and boxing it would change the
     // error type at every call site.
+    // TODO: Box the Err payload and drop this allow - https://github.com/valkey-io/valkey-glide/issues/6819
     #[allow(clippy::result_large_err)]
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn new(
@@ -345,6 +393,8 @@ impl ReconnectingConnection {
         pubsub_synchronizer: Option<Arc<dyn crate::pubsub::PubSubSynchronizer>>,
         address_resolver: Option<&std::sync::Arc<dyn AddressResolver>>,
         iam_token_handle: Option<IAMTokenHandle>,
+        cert_material_handle: Option<crate::tls_reload::CertReloadHandle>,
+        rdma_fabric: Option<crate::rdma::Fabric>,
     ) -> Result<ReconnectingConnection, Box<(ReconnectingConnection, RedisError)>> {
         log_debug(
             "connection creation",
@@ -363,6 +413,7 @@ impl ReconnectingConnection {
             connection_available_signal: ManualResetEvent::new(true),
             client_dropped_flagged: AtomicBool::new(false),
             iam_token_handle,
+            cert_material_handle,
         };
         create_connection(
             backend,
@@ -372,6 +423,7 @@ impl ReconnectingConnection {
             connection_timeout,
             tcp_nodelay,
             pubsub_synchronizer,
+            rdma_fabric,
         )
         .await
     }
@@ -402,7 +454,7 @@ impl ReconnectingConnection {
             .store(true, Ordering::Relaxed)
     }
 
-    pub(super) async fn try_get_connection(&self) -> Option<MultiplexedConnection> {
+    pub(super) async fn try_get_connection(&self) -> Option<GlideConnection> {
         let guard = self.inner.state.lock().unwrap();
         if let ConnectionState::Connected(connection) = &*guard {
             Some(connection.clone())
@@ -411,7 +463,7 @@ impl ReconnectingConnection {
         }
     }
 
-    pub(super) async fn get_connection(&self) -> Result<MultiplexedConnection, RedisError> {
+    pub(super) async fn get_connection(&self) -> Result<GlideConnection, RedisError> {
         loop {
             self.inner.backend.connection_available_signal.wait().await;
             if let Some(connection) = self.try_get_connection().await {
@@ -448,12 +500,19 @@ impl ReconnectingConnection {
         // background, regardless of whether the calling task is dropped or not.
         task::spawn(async move {
             let has_iam = connection_clone.inner.backend.iam_token_handle.is_some();
+            let has_cert_reload = connection_clone
+                .inner
+                .backend
+                .cert_material_handle
+                .is_some();
 
-            // For non-IAM connections, clone the client once before the loop to preserve
-            // the original reconnection behavior (password is fixed at reconnect start).
-            // For IAM connections, the client is cloned inside the loop so each retry
-            // picks up the freshest token written by the IAM handle.
-            let static_client = if !has_iam {
+            // For connections without dynamic credentials, clone the client once
+            // before the loop to preserve the original reconnection behavior
+            // (password/TLS material is fixed at reconnect start). For IAM or
+            // cert-reload connections, the client is cloned inside the loop so each
+            // retry picks up the freshest token / certificate written into the
+            // stored client below.
+            let static_client = if !has_iam && !has_cert_reload {
                 Some({
                     let guard = connection_clone.inner.backend.get_backend_client();
                     guard.clone()
@@ -496,10 +555,29 @@ impl ReconnectingConnection {
                     );
                 }
 
+                // If mTLS certificate reload is configured, apply the freshest
+                // (last-known-good) client certificate/key before reconnecting so
+                // a rotated certificate is adopted on the next connection attempt.
+                if let Some(handle) = &connection_clone.inner.backend.cert_material_handle {
+                    let params = handle.current_params().await;
+                    let mut client = connection_clone
+                        .inner
+                        .backend
+                        .connection_info
+                        .write()
+                        .expect(WRITE_LOCK_ERR);
+                    client.update_tls_params(Some(params));
+                    log_debug(
+                        "reconnect",
+                        "Updated connection TLS params with reloaded client certificate before reconnection attempt",
+                    );
+                }
+
                 let client = if let Some(ref c) = static_client {
                     c.clone()
                 } else {
-                    // IAM path: re-read from backend to pick up the token update above
+                    // IAM / cert-reload path: re-read from backend to pick up the
+                    // token and/or TLS params update applied above.
                     let guard = connection_clone.inner.backend.get_backend_client();
                     guard.clone()
                 };

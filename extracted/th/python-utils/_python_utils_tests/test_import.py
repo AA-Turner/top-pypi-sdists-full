@@ -3,6 +3,7 @@
 import collections.abc
 import pathlib
 import sys
+from types import ModuleType
 
 import pytest
 
@@ -203,3 +204,98 @@ def test_import_global_missing_below_detached_module(
 
     assert type(error) is ImportError
     assert str(error) == f'No module named {name}'
+
+
+@pytest.mark.parametrize(
+    'names', [None, ['virtual', 'none', '_private', 'missing']]
+)
+def test_import_global_lazy_module_exports(
+    monkeypatch: pytest.MonkeyPatch, names: list[str] | None
+) -> None:
+    """Read declared and explicit exports through module __getattr__."""
+    module_name = 'python_utils_lazy_export_fixture'
+    module = ModuleType(module_name)
+    calls: dict[str, int] = {}
+
+    def lookup(name: str) -> types.Any:
+        """Provide public names that are deliberately absent from dir()."""
+        calls[name] = calls.get(name, 0) + 1
+        if name == 'virtual':
+            return 42
+        if name == 'none':
+            return None
+        raise AttributeError(name)
+
+    module.__dict__['__getattr__'] = lookup
+    module.__dict__['__all__'] = ['virtual', 'none', '_private', 'missing']
+    monkeypatch.setitem(sys.modules, module_name, module)
+    scope: dict[str, types.Any] = {}
+    import_.import_global(module_name, names, locals_={}, globals_=scope)
+    assert scope == {'virtual': 42, 'none': None}
+    assert calls['virtual'] == calls['none'] == 1
+
+
+@pytest.mark.parametrize('error', [ImportError, RuntimeError])
+def test_import_global_skips_failing_lazy_exports(
+    monkeypatch: pytest.MonkeyPatch, error: type[Exception]
+) -> None:
+    """Skip a lazy export that fails to resolve, as 4.x did."""
+    module_name = 'python_utils_failing_lazy_fixture'
+    module = ModuleType(module_name)
+
+    def lookup(name: str) -> types.Any:
+        """Serve one working and one failing lazy export."""
+        if name == 'working':
+            return 1
+        if name == 'broken':
+            raise error('optional dependency missing')
+        raise AttributeError(name)
+
+    module.__dict__['__getattr__'] = lookup
+    module.__dict__['__all__'] = ['eager', 'working', 'broken']
+    module.__dict__['eager'] = 0
+    monkeypatch.setitem(sys.modules, module_name, module)
+    scope: dict[str, types.Any] = {}
+    result = import_.import_global(module_name, locals_={}, globals_=scope)
+    assert result is None
+    assert scope == {'eager': 0, 'working': 1}
+
+
+def test_import_global_ignores_names_that_are_not_strings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skip entries of ``modules`` and ``__all__`` that are not names."""
+    module_name = 'python_utils_odd_all_fixture'
+    module = ModuleType(module_name)
+    module.__dict__['__all__'] = ['eggs', 1]
+    module.__dict__['eggs'] = 1
+    monkeypatch.setitem(sys.modules, module_name, module)
+    scope: dict[str, types.Any] = {}
+    import_.import_global(module_name, locals_={}, globals_=scope)
+    assert scope == {'eggs': 1}
+
+    names: types.Any = ['sep', 1, b'sep']
+    scope = {}
+    import_.import_global('os', names, locals_={}, globals_=scope)
+    assert list(scope) == ['sep']
+
+
+def test_import_global_requested_name_needs_an_export(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Leave a catch-all ``__getattr__`` alone for undeclared names."""
+    module_name = 'python_utils_catch_all_fixture'
+    module = ModuleType(module_name)
+    calls: list[str] = []
+
+    def lookup(name: str) -> str:
+        """Answer every name, as a lazy submodule loader would."""
+        calls.append(name)
+        return f'auto-{name}'
+
+    module.__dict__['__getattr__'] = lookup
+    monkeypatch.setitem(sys.modules, module_name, module)
+    scope: dict[str, types.Any] = {}
+    import_.import_global(module_name, ['eggs'], locals_={}, globals_=scope)
+    assert scope == {}
+    assert 'eggs' not in calls

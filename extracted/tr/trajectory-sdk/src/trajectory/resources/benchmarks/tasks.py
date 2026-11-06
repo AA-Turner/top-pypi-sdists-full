@@ -31,6 +31,7 @@ class Tasks(APIResource):
     task_id: SequenceNotStr[str] | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
     environment: Literal["setup_needed", "building", "failed", "ready"] | None | Omit = omit,
+    run_id: SequenceNotStr[str] | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -50,6 +51,9 @@ class Tasks(APIResource):
 
       environment: Return only tasks whose environment needs setup (missing run command or runtime
         not ready), is building, failed to build, or is ready to run.
+
+      run_id: Return only tasks with a trajectory in one of these training or evaluation runs;
+        repeat the parameter for each run ID.
 
       extra_headers: Send extra headers
 
@@ -73,6 +77,7 @@ class Tasks(APIResource):
             "task_id": task_id,
             "split": split,
             "environment": environment,
+            "run_id": run_id,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,
@@ -94,6 +99,7 @@ class Tasks(APIResource):
     search: str | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
     environment: Literal["setup_needed", "building", "failed", "ready"] | None | Omit = omit,
+    run_id: SequenceNotStr[str] | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -108,6 +114,9 @@ class Tasks(APIResource):
 
       environment: Return only tasks whose environment needs setup (missing run command or runtime
         not ready), is building, failed to build, or is ready to run.
+
+      run_id: Return only tasks with a trajectory in one of these training or evaluation runs;
+        repeat the parameter for each run ID.
 
       extra_headers: Send extra headers
 
@@ -131,6 +140,7 @@ class Tasks(APIResource):
             "search": search,
             "split": split,
             "environment": environment,
+            "run_id": run_id,
           }
         ),
         extra_headers=extra_headers,

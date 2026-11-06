@@ -8,7 +8,7 @@ the request (`AssetCache`, ADR-006).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, List, Optional, Type, TypeVar
 
 from ..models.cache import CacheProtocol
 from ..models.utils.types import StrObjectId
@@ -24,10 +24,16 @@ class CachedCatalogBase(Generic[T]):
 
     prefix: str
     item_type: Type[T]
+    # What the catalog's legacy service did differently with the cache, said here and done by `AssetCache` (ENG-68):
+    # how a cached document comes back (a polymorphic catalog's factory) and whether a failed cache read goes up.
+    # A plain function goes in `staticmethod(...)`, or it is bound and called with `self` as the document.
+    build_cached: Optional[Callable[[Any], T]] = None
+    raise_read_failures: bool = False
 
     def __init__(self, inner, cache: CacheProtocol, config: Optional[CacheConfig] = None):
         self.inner = inner
-        self.assets = AssetCache(self.prefix, self.item_type, cache, config)
+        self.assets = AssetCache(self.prefix, self.item_type, cache, config, build=self.build_cached,
+                                 raise_read_failures=self.raise_read_failures)
 
     async def add(self, item: T) -> T:
         added = await self.inner.add(item)

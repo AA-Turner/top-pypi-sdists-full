@@ -447,8 +447,8 @@ class Policy(_Waits):
         `eta_seconds` counts down to when the worker coming up is expected to serve, by what it is
         doing, from the deployment's own measured start; a typical cold
         start (120 s) when the platform has no estimate. Past what its start should take it is None
-        and `eta_unknown` is "past_expected" (stage "waiting": most often its card has not come, which a start
-        waits for up to the platform's 10 minutes). The `stage` of
+        and `eta_unknown` is "past_expected" (stage "waiting": most often its card has not come, which can take
+        more than 10 minutes). The `stage` of
         GET /v1/act/ready's answer says which.
 
         The answer is for this robot: while it waits in line - put there by its connect, its deployment holding its
@@ -460,9 +460,10 @@ class Policy(_Waits):
 
         A seat follows the Policy that holds it: given back the moment that Policy closes (`close()`, the end of a
         `with`) or its process exits or is told to end (SIGTERM, SIGHUP), and within 60 s of a crash; while the Policy
-        is open it is kept between acts by a background keepalive - a robot resetting its scene keeps it - though not
-        past the worker's own idle window (`idle_timeout` after the worker's last act), when the worker stops and its
-        seats go with it. So is what its connect gives this robot before its first act - its seat, the worker started
+        is open it is kept by a background keepalive, and a seat holds its worker, billed as it runs, whether or not the
+        robot acts, with no limit: a robot may stay connected to several policies and act on one at a time. Its worker's
+        `idle_timeout` runs from when the robot goes. So is what its connect gives this robot before its first act - its
+        seat, the worker started
         for it, its place in line, which its polls keep - so a robot that gives up waiting frees them at once, or within
         60 s when it is killed. A robot whose seat went takes one again at its next act, or waits in line.
         """
@@ -474,8 +475,9 @@ class Policy(_Waits):
         still being built — no worker can start yet), `starting` (the worker it holds a place on is booting), `ready`
         (it holds a seat on a running worker), `queued` (this robot waits in line for a slot: `queue_position`, and
         `retry_after_s` for when its connect asks again), or `cold` (it holds nothing: its connect places it, which
-        wait_until_ready() sends - a poll only looks, and starts nothing). A starting answer says how long a start waits
-        for its card (`start_wait_s`). It names this robot's session, so the platform answers for this robot: a
+        wait_until_ready() sends - a poll only looks, and starts nothing). A starting answer says how long a robot stays
+        in line for its card (`start_wait_s`), which no start is held to. It names this robot's session, so the
+        platform answers for this robot: a
         deployment that holds its max_gpus with every slot taken is not ready for it though a worker is up.
         
 """
@@ -731,8 +733,8 @@ class Policy(_Waits):
         library checks joint limits, reachability, collisions, or whether the step is safe at
         the robot's current velocity. Validate before you actuate.
 
-        A worker that is starting - the first, or one starting because the robot's last one stopped `idle_timeout`
-        after its last act - is waited out: within the policy's
+        A worker that is starting - the first, or one starting because the robot's last one ended - is waited out:
+        within the policy's
         `startup_timeout_s` (by default the platform's deadline for the start; 0 raises `Unavailable` at once
         instead), and `interrupt()` from another thread ends the wait.
         """

@@ -11,26 +11,61 @@ maximal number of threads they can use.
 # adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
+
+from __future__ import annotations
+
+import ctypes
+import itertools
 import os
 import re
 import sys
-import ctypes
-import itertools
-import textwrap
-from threading import Thread
-from typing import Callable, Literal, final
 import warnings
 from abc import ABC, abstractmethod
-from functools import lru_cache
+from collections.abc import Callable
 from contextlib import ContextDecorator
+from dataclasses import dataclass, field
+from functools import lru_cache, wraps
+from threading import Lock, Thread, current_thread
+from threading import local as thread_local
+from typing import Literal, TypeVar, final
 
-__version__ = "3.7.0"
+# ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
+# process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
+# builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
+# already avoid on Linux via /proc/self/maps on older versions of Python.
+dllist = None
+if (
+    sys.platform != "emscripten"
+    and (
+        sys.platform != "linux"
+        # Python 3.15 doesn't have the CFUNCTYPE anymore:
+        or sys.version_info[:2] >= (3, 15)
+    )
+):
+    try:
+        from ctypes.util import dllist
+    except ImportError:
+        # CPython before 3.14 does not provide dll inspection.
+        dllist = None
+
+# Ensure we don't get spurious cache invalidation the first time
+# ThreadpoolController is created, as the Windows dll listing methods import
+# from there:
+if sys.platform == "win32":
+    from ctypes import wintypes
+
+    del wintypes
+
+
+__version__ = "3.8.0"
 __all__ = [
-    "threadpool_limits",
-    "threadpool_info",
-    "ThreadpoolController",
     "LibController",
+    "ThreadpoolController",
+    "get_cached_controller",
     "register",
+    "reset_cached_controller",
+    "threadpool_info",
+    "threadpool_limits",
 ]
 
 
@@ -55,6 +90,14 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 # https://linux.die.net/man/3/dl_iterate_phdr for more details.
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
+
+
+_HAS_PROCFS = (
+    # Only available on Linux:
+    sys.platform == "linux"
+    # Make sure /proc is mounted:
+    and os.path.exists("/proc/self")
+)
 
 
 class _dl_phdr_info(ctypes.Structure):
@@ -129,6 +172,7 @@ def _determine_thread_limit_scope(
         thread = Thread(target=get_and_set)
         thread.start()
         thread.join()
+        OpenBLASController.clear_controlling_thread(force=True)
 
         # First, getting in the same thread as a set should always give same
         # number, if it's a number in a reasonable range. A possible exception
@@ -154,6 +198,7 @@ def _determine_thread_limit_scope(
             return "unknown"
     finally:
         set_n_threads(previous)
+        OpenBLASController.clear_controlling_thread(force=True)
 
 
 class LibController(ABC):
@@ -198,7 +243,7 @@ class LibController(ABC):
         self.parent = parent
         self.prefix = prefix
         self.filepath = filepath
-        self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self.dynlib = _CDLL_CACHE.get_cdll(filepath)
         self._symbol_prefix, self._symbol_suffix = self._find_affixes()
         self.version = self.get_version()
         self.set_additional_attributes()
@@ -264,8 +309,184 @@ class LibController(ABC):
         )
 
 
+# Internal marker for missing cache lookups:
+_MISSING = object()
+
+
+_T = TypeVar("_T")
+
+
+@dataclass
+class _CDLLCache:
+    """
+    Cache CDLL instances and their associated method results, as well as which
+    ``LibController`` subclass to use for a given shared library file path.
+    """
+
+    _controller_cache: dict[str, type[LibController] | None] = field(
+        default_factory=dict
+    )
+
+    _cdll_cache: dict[str, ctypes.CDLL] = field(default_factory=dict)
+
+    _method_result_cache: dict[tuple[type[LibController], str, ctypes.CDLL], object] = (
+        field(default_factory=dict)
+    )
+
+    def _check_prefix(
+        self, library_basename: str, filename_prefixes: list[str]
+    ) -> str | None:
+        """Return the prefix library_basename starts with
+
+        Return None if none matches.
+        """
+        for prefix in filename_prefixes:
+            if library_basename.startswith(prefix):
+                return prefix
+        return None
+
+    def create_controller(
+        self, filepath: str, parent: ThreadpoolController
+    ) -> LibController | None:
+        """
+        Create the associated controller, if there is one, relying on cached
+        info for the given ``filepath``.
+        """
+        result = self._controller_cache.get(filepath, _MISSING)
+        if result is not _MISSING:
+            controller_class, filepath, prefix = result
+            if controller_class is None:
+                return None
+            return controller_class(filepath=filepath, prefix=prefix, parent=parent)
+
+        # It's not in the cache, so proceed to actually search for it.
+
+        # Required to resolve symlinks
+        original_filepath = filepath
+        filepath = _realpath(filepath)
+        # `lower` required to take account of OpenMP dll case on Windows
+        # (vcomp, VCOMP, Vcomp, ...)
+        filename = os.path.basename(filepath).lower()
+
+        # Loop through supported libraries to find if this filename corresponds
+        # to a supported one.
+        for controller_class in _ALL_CONTROLLERS:
+            # check if filename matches a supported prefix
+            prefix = self._check_prefix(filename, controller_class.filename_prefixes)
+
+            # filename does not match any of the prefixes of the candidate
+            # library. move to next library.
+            if prefix is None:
+                continue
+
+            # Legacy workaround for BLAS libraries that conda-forge used to expose
+            # on Windows as libblas.dll, disambiguated via implementation-specific
+            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
+            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
+            # kept for older installs but cannot be exercised in today's CI.
+            if prefix == "libblas":
+                if filename.endswith(".dll"):
+                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
+                    if not any(
+                        hasattr(libblas, func)
+                        for func in controller_class.check_symbols
+                    ):
+                        continue
+                else:
+                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
+                    # needed to instantiate a controller and would duplicate entries.
+                    continue
+
+            # filename matches a prefix. Now we check if the library has the symbols we
+            # are looking for. If none of the symbols exists, it's very likely not the
+            # expected library (e.g. a library having a common prefix with one of the
+            # our supported libraries). Otherwise, create and store the library
+            # controller.
+            try:
+                lib_controller = controller_class(
+                    filepath=filepath, prefix=prefix, parent=parent
+                )
+            except OSError:
+                # Probably because we couldn't load the filepath as a CDLL.
+                continue
+
+            if not hasattr(controller_class, "check_symbols") or any(
+                hasattr(lib_controller.dynlib, func)
+                for func in controller_class.check_symbols
+            ):
+                self._controller_cache[original_filepath] = (
+                    controller_class,
+                    filepath,
+                    prefix,
+                )
+                return lib_controller
+
+        # Didn't find any matching libraries.
+        self._controller_cache[original_filepath] = (None, "", "")
+        return None
+
+    def get_cdll(self, filepath: str) -> ctypes.CDLL:
+        """
+        Get the ``CDLL`` for a path, loading if necessary, using a cached
+        version if it was already loaded.
+        """
+        result = self._cdll_cache.get(filepath, _MISSING)
+        if result is _MISSING:
+            result = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+            self._cdll_cache[filepath] = result
+        return result
+
+    def cache_method_on_dynlib(
+        self, method: Callable[[LibController], _T]
+    ) -> Callable[[LibController], _T]:
+        """
+        Caching decorator for idempotent read-only methods of
+        ``LibController``, with the cache shared across instances that have the
+        same ``CDLL`` instance.
+        """
+        cache = self._method_result_cache
+        name = method.__name__
+
+        @wraps(method)
+        def wrapper(self):
+            key = (self.__class__, name, self.dynlib)
+            result = cache.get(key, _MISSING)
+            if result is _MISSING:
+                result = method(self)
+                cache[key] = result
+            return result
+
+        return wrapper
+
+
+_CDLL_CACHE = _CDLLCache()
+
+
 class OpenBLASController(LibController):
-    """Controller class for OpenBLAS"""
+    """Controller class for OpenBLAS.
+
+    When OpenBLAS uses the OpenMP threading layer, each thread that calls into
+    OpenBLAS gets its own OpenBLAS thread pool, and correspondingly the limit
+    set by ``threadpoolctl`` is per-thread.  Each Python thread can therefore
+    set its own limit without consideration for other Python threads.
+
+    In constrast, when the OpenMP threading layer is not used, there is a
+    process-wide shared thread pool, so having multiple Python threads change
+    the limit at the same time makes no sense.  Therefore:
+
+        1. Thread pool size can only be set by a single thread, the first
+           thread to call ``set_num_threads()``.  In practice this will usually
+           be the main thread.
+
+        2. Other threads silently do nothing.
+
+        3. ``clear_controlling_thread()`` can be used to reset the thread that
+           can meaningfully use the limiting API.
+
+    ``with threadpool_limits()`` and the function decorator
+    ``threadpool_limits.wrap()`` will automatically clear the controlling
+    thread when they're done, including when nested.
+    """
 
     user_api = "blas"
     internal_api = "openblas"
@@ -285,6 +506,7 @@ class OpenBLASController(LibController):
         for prefix, suffix in itertools.product(_symbol_prefixes, _symbol_suffixes)
     )
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _find_affixes(self):
         for prefix, suffix in itertools.product(
             self._symbol_prefixes, self._symbol_suffixes
@@ -307,7 +529,56 @@ class OpenBLASController(LibController):
             return get_num_threads_func()
         return None
 
+    class _SHARED_STATE:
+        """Shared state across instances."""
+
+        controlling_thread: Thread | None = None
+        lock = Lock()
+
+    @classmethod
+    def clear_controlling_thread(cls, force: bool = False):
+        """Reset which thread can set limits (on non-OpenMP threading layer).
+
+        It's up the caller to ensure the current controlling thread is done.
+
+        By default, only the controlling thread has an effect when calling this
+        method.  You can have any thread clear the controlling thread by
+        setting ``force=True``.
+        """
+        with cls._SHARED_STATE.lock:
+            if force or cls._SHARED_STATE.controlling_thread is current_thread():
+                cls._SHARED_STATE.controlling_thread = None
+
     def set_num_threads(self, num_threads):
+        if self.threading_layer == "openmp":
+            # Per-thread limits, so no need to be constraining:
+            return self._real_set_num_threads(num_threads)
+
+        # A shared process-wide thread pool, so don't want different Python
+        # threads fighting over limits:
+        this_thread = current_thread()
+        controlling_thread = self._SHARED_STATE.controlling_thread
+        if controlling_thread is this_thread:
+            # This thread controls OpenBLAS:
+            return self._real_set_num_threads(num_threads)
+        elif controlling_thread is None or not controlling_thread.is_alive():
+            # No thread controls OpenBLAS, so try to take control:
+            with self._SHARED_STATE.lock:
+                # Another thread might have changed it, so ensure that's not
+                # the case:
+                if (
+                    self._SHARED_STATE.controlling_thread is None
+                    or not self._SHARED_STATE.controlling_thread.is_alive()
+                ):
+                    self._SHARED_STATE.controlling_thread = this_thread
+            # Controlling thread should now be set, to either this thread or
+            # another, so try again:
+            return self.set_num_threads(num_threads)
+        else:
+            # Some other thread controls OpenBLAS: do nothing.
+            return
+
+    def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
         # limit if possible. When OpenBLAS is backed by OpenMP, using the
         # OpenMP API allows for current thread limiting when OpenMP has that
@@ -330,6 +601,7 @@ class OpenBLASController(LibController):
             return set_num_threads_func(num_threads)
         return None
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
@@ -342,6 +614,7 @@ class OpenBLASController(LibController):
             return None
         return None
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
         get_threading_layer_func = self._get_symbol("openblas_get_parallel")
@@ -354,6 +627,7 @@ class OpenBLASController(LibController):
             return "disabled"
         return "unknown"
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
         get_architecture_func = self._get_symbol("openblas_get_corename")
@@ -361,6 +635,31 @@ class OpenBLASController(LibController):
             get_architecture_func.restype = ctypes.c_char_p
             return get_architecture_func().decode("utf-8")
         return None
+
+
+class _ControllingThreadOwnership(thread_local):
+    """Count how many paired limit-unlimits have modified OpenBLAS.
+
+    Clear controlling thread if it hits zero.
+
+    In the future this could potentialy also apply to non-OpenBLAS libraries
+    that have a shared process pool.
+    """
+
+    count = 0
+
+    def increment(self):
+        """Increment ownership."""
+        self.count += 1
+
+    def decrement(self):
+        """Decrement ownership."""
+        self.count -= 1
+        if self.count <= 0:
+            OpenBLASController.clear_controlling_thread()
+
+
+CONTROLLING_THREAD_OWNERSHIP = _ControllingThreadOwnership()
 
 
 class BLISController(LibController):
@@ -399,6 +698,7 @@ class BLISController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         get_version_ = getattr(self.dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
@@ -407,6 +707,7 @@ class BLISController(LibController):
         get_version_.restype = ctypes.c_char_p
         return get_version_().decode("utf-8")
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
         if getattr(self.dynlib, "bli_info_get_enable_openmp", lambda: False)():
@@ -415,6 +716,7 @@ class BLISController(LibController):
             return "pthreads"
         return "disabled"
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_architecture(self):
         """Return the architecture detected by BLIS"""
         bli_arch_query_id = getattr(self.dynlib, "bli_arch_query_id", None)
@@ -478,6 +780,7 @@ class FlexiBLASController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         get_version_ = getattr(self.dynlib, "flexiblas_get_version", None)
         if get_version_ is None:
@@ -546,6 +849,11 @@ class FlexiBLASController(LibController):
                     f"{self.available_backends} or the path to a valid shared library."
                 )
 
+            # Invalidate the global cached controller:
+            global _CACHED_CONTROLLER
+            with _CACHE_LOCK:
+                _CACHED_CONTROLLER = None
+
             # Trigger a new search of loaded shared libraries since loading a new
             # backend caused a dlopen.
             self.parent._load_libraries()
@@ -587,6 +895,7 @@ class MKLController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         if not hasattr(self.dynlib, "MKL_Get_Version_String"):
             return None
@@ -600,6 +909,7 @@ class MKLController(LibController):
             version = group.groups()[0]
         return version.strip()
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of MKL"""
         # The function mkl_set_threading_layer returns the current threading
@@ -654,10 +964,10 @@ _ALL_CONTROLLERS = [
 ]
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
+_ALL_USER_APIS = list({lib.user_api for lib in _ALL_CONTROLLERS})
 _ALL_INTERNAL_APIS = [lib.internal_api for lib in _ALL_CONTROLLERS]
 _ALL_PREFIXES = list(
-    set(prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes)
+    {prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes}
 )
 _ALL_BLAS_LIBRARIES = [
     lib.internal_api for lib in _ALL_CONTROLLERS if lib.user_api == "blas"
@@ -671,6 +981,9 @@ def register(controller):
     _ALL_USER_APIS.append(controller.user_api)
     _ALL_INTERNAL_APIS.append(controller.internal_api)
     _ALL_PREFIXES.extend(controller.filename_prefixes)
+    # Libraries listed before this call may match the new controller:
+    _CDLL_CACHE._controller_cache.clear()
+    reset_cached_controller()
 
 
 def _format_docstring(*args, **kwargs):
@@ -716,6 +1029,66 @@ def threadpool_info(debugging_info: bool = False):
     return ThreadpoolController().info(debugging_info)
 
 
+_missing = object()
+
+
+def _check_limiter_params(controller, limits, user_api):
+    """Suitable values for the _limits and _user_api attributes"""
+
+    if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
+        (
+            limits,
+            user_api,
+        ) = controller._get_params_for_sequential_blas_under_openmp().values()
+
+    if limits is None or isinstance(limits, int):
+        if user_api is None:
+            user_api = _ALL_USER_APIS
+        elif user_api in _ALL_USER_APIS:
+            user_api = [user_api]
+        else:
+            raise ValueError(
+                f"user_api must be either in {_ALL_USER_APIS} or None. Got "
+                f"{user_api} instead."
+            )
+
+        if limits is not None:
+            limits = {api: limits for api in user_api}
+    else:
+        if isinstance(limits, list):
+            # This should be a list of dicts of library info, for
+            # compatibility with the result from threadpool_info.
+            result = {}
+            for lib_info in limits:
+                # Use prefix key for backwards compatibility with older
+                # versions that didn't use the filepath as the key.
+                if (filepath := lib_info.get("filepath", _missing)) is not _missing:
+                    key = filepath
+                else:
+                    key = lib_info["prefix"]
+                result[key] = lib_info["num_threads"]
+            limits = result
+        elif isinstance(limits, ThreadpoolController):
+            # To set the limits from the library controllers of a
+            # ThreadpoolController object.
+            limits = {
+                lib_controller.filepath: lib_controller.num_threads
+                for lib_controller in limits.lib_controllers
+            }
+
+        if not isinstance(limits, dict):
+            raise TypeError(
+                "limits must either be an int, a list, a dict, or "
+                f"'sequential_blas_under_openmp'. Got {type(limits)} instead"
+            )
+
+        # With a dictionary, can set both specific limit for given
+        # libraries and global limit for user_api. Fetch each separately.
+        user_api = [api for api in limits if api in _ALL_USER_APIS]
+
+    return limits, user_api
+
+
 class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
@@ -729,17 +1102,19 @@ class _ThreadpoolLimiter:
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._controller = controller
-        self._limits, self._user_api, self._prefixes = self._check_params(
-            limits, user_api
+        self._limits, self._user_api = _check_limiter_params(
+            controller, limits, user_api
         )
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
     def __enter__(self):
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
     def __exit__(self, type, value, traceback):
         self.restore_original_limits()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
 
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
@@ -794,71 +1169,18 @@ class _ThreadpoolLimiter:
 
         return num_threads
 
-    def _check_params(self, limits, user_api):
-        """Suitable values for the _limits, _user_api and _prefixes attributes"""
-
-        if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
-            (
-                limits,
-                user_api,
-            ) = self._controller._get_params_for_sequential_blas_under_openmp().values()
-
-        if limits is None or isinstance(limits, int):
-            if user_api is None:
-                user_api = _ALL_USER_APIS
-            elif user_api in _ALL_USER_APIS:
-                user_api = [user_api]
-            else:
-                raise ValueError(
-                    f"user_api must be either in {_ALL_USER_APIS} or None. Got "
-                    f"{user_api} instead."
-                )
-
-            if limits is not None:
-                limits = {api: limits for api in user_api}
-            prefixes = []
-        else:
-            if isinstance(limits, list):
-                # This should be a list of dicts of library info, for
-                # compatibility with the result from threadpool_info.
-                limits = {
-                    lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits
-                }
-            elif isinstance(limits, ThreadpoolController):
-                # To set the limits from the library controllers of a
-                # ThreadpoolController object.
-                limits = {
-                    lib_controller.prefix: lib_controller.num_threads
-                    for lib_controller in limits.lib_controllers
-                }
-
-            if not isinstance(limits, dict):
-                raise TypeError(
-                    "limits must either be an int, a list, a dict, or "
-                    f"'sequential_blas_under_openmp'. Got {type(limits)} instead"
-                )
-
-            # With a dictionary, can set both specific limit for given
-            # libraries and global limit for user_api. Fetch each separately.
-            prefixes = [prefix for prefix in limits if prefix in _ALL_PREFIXES]
-            user_api = [api for api in limits if api in _ALL_USER_APIS]
-
-        return limits, user_api, prefixes
-
     def _set_threadpool_limits(self):
-        """Change the maximal number of threads in selected thread pools.
-
-        Return a list with all the supported libraries that have been found
-        matching `self._prefixes` and `self._user_api`.
-        """
+        """Change the maximal number of threads in selected thread pools."""
         if self._limits is None:
             return
 
         for lib_controller in self._controller.lib_controllers:
-            # self._limits is a dict {key: num_threads} where key is either
-            # a prefix or a user_api. If a library matches both, the limit
-            # corresponding to the prefix is chosen.
-            if lib_controller.prefix in self._limits:
+            # self._limits is a dict {key: num_threads} where key is either a
+            # filepath, a prefix, or a user_api. Libraries are matched in that
+            # order.
+            if lib_controller.filepath in self._limits:
+                num_threads = self._limits[lib_controller.filepath]
+            elif lib_controller.prefix in self._limits:
                 num_threads = self._limits[lib_controller.prefix]
             elif lib_controller.user_api in self._limits:
                 num_threads = self._limits[lib_controller.user_api]
@@ -869,22 +1191,41 @@ class _ThreadpoolLimiter:
                 lib_controller.set_num_threads(num_threads)
 
 
-class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
-    """Same as _ThreadpoolLimiter but to be used as a decorator"""
+class _ThreadpoolLimiterDecorator(ContextDecorator):
+    """Same as _ThreadpoolLimiter but to be used as a decorator.
+
+    If ``controller`` is None, use ``get_cached_controller()``.
+    """
 
     def __init__(self, controller, *, limits=None, user_api=None):
-        self._limits, self._user_api, self._prefixes = self._check_params(
-            limits, user_api
-        )
         self._controller = controller
+        _check_limiter_params(self._get_controller(), limits, user_api)
+        self._limits, self._user_api = limits, user_api
+        self._limiters = thread_local()
+
+    def _get_controller(self):
+        if self._controller is not None:
+            return self._controller
+        return get_cached_controller()
 
     def __enter__(self):
-        # we need to set the limits here and not in the __init__ because we want the
-        # limits to be set when calling the decorated function, not when creating the
-        # decorator.
-        self._original_info = self._controller.info()
-        self._set_threadpool_limits()
+        # we need to set the limits here and not in the __init__ because we
+        # want the limits to be set when calling the decorated function, not
+        # when creating the decorator.
+        if not hasattr(self._limiters, "stack"):
+            self._limiters.stack = []
+        controller = self._get_controller()
+        limiter = _ThreadpoolLimiter(
+            controller, limits=self._limits, user_api=self._user_api
+        )
+        limiter.__enter__()
+        self._limiters.stack.append(limiter)
         return self
+
+    def __exit__(self, type, value, traceback):
+        """Set the limits back to their original values"""
+        limiter = self._limiters.stack.pop()
+        return limiter.__exit__(type, value, traceback)
 
 
 @_format_docstring(
@@ -904,13 +1245,15 @@ class threadpool_limits(_ThreadpoolLimiter):
     the supported libraries to `limit`. This function works for libraries that
     are already loaded in the interpreter and can be changed dynamically.
 
-    This effect is global and impacts the whole Python process. There is no thread level
-    isolation as these libraries do not offer thread-local APIs to configure the number
-    of threads to use in nested parallel calls.
+    This effect is thread-local whenever possible but this is not guaranteed
+    and actual behavior can depend on the controlled libraries. Notably,
+    OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+    process-wide thread pool instead of independently controlled thread pools
+    per calling threads.
 
     Parameters
     ----------
-    limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+    limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
         The maximal number of threads that can be used in thread pools
 
         - If int, sets the maximum number of threads to `limits` for each
@@ -918,7 +1261,14 @@ class threadpool_limits(_ThreadpoolLimiter):
 
         - If it is a dictionary `{{key: max_threads}}`, this function sets a
           custom maximum number of threads for each `key` which can be either a
-          `user_api` or a `prefix` for a specific library.
+          `filepath`, `prefix`, or `user_api` for a specific library,
+          checked in that order.
+
+        - If it is a list, it should be a list of dictionaries of the form
+          `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+          threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+          so for maximal compatibility set both:
+          `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
         - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
           and `user_api` parameters for the specific use case of sequential BLAS
@@ -944,7 +1294,19 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     @classmethod
     def wrap(cls, limits=None, user_api=None):
-        return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
+        """Wrap a function, using ``get_cached_controller()`` on every call."""
+        return super().wrap(None, limits=limits, user_api=user_api)
+
+
+_INCOMPATIBLE_OPENMP_MESSAGE = """
+Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
+the same time. Both libraries are known to be incompatible and this
+can cause random crashes or deadlocks on Linux when loaded in the
+same Python program.
+Using threadpoolctl may cause crashes or deadlocks. For more
+information and possible workarounds, please see
+    https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
+"""
 
 
 class ThreadpoolController:
@@ -960,7 +1322,7 @@ class ThreadpoolController:
     # We use a class level cache instead of an instance level cache because
     # it's very unlikely that a shared library will be unloaded and reloaded
     # during the lifetime of a program.
-    _system_libraries = dict()
+    _system_libraries = {}  # noqa: RUF012
 
     def __init__(self):
         self.lib_controllers = []
@@ -1020,14 +1382,20 @@ class ThreadpoolController:
         This function takes into account the unexpected behavior of OpenBLAS with the
         OpenMP threading layer.
         """
-        if self.select(
-            internal_api="openblas", threading_layer="openmp"
-        ).lib_controllers:
+        # select() matches any of its kwargs: chain two calls to require both.
+        if (
+            self.select(internal_api="openblas")
+            .select(threading_layer="openmp")
+            .lib_controllers
+        ):
+            # Don't change anything: OpenBLAS is already sequential by default when it
+            # is called from an OpenMP parallel region, and limiting it would also
+            # limit the OpenMP parallel regions of the calling thread.
             return {"limits": None, "user_api": None}
         return {"limits": 1, "user_api": "blas"}
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )
@@ -1043,13 +1411,15 @@ class ThreadpoolController:
         the supported libraries to `limits`. This function works for libraries that
         are already loaded in the interpreter and can be changed dynamically.
 
-        This effect is global and impacts the whole Python process. There is no thread
-        level isolation as these libraries do not offer thread-local APIs to configure
-        the number of threads to use in nested parallel calls.
+        This effect is thread-local whenever possible but this is not guaranteed
+        and actual behavior can depend on the controlled libraries. Notably,
+        OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+        process-wide thread pool instead of independently controlled thread pools
+        per calling threads.
 
         Parameters
         ----------
-        limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1057,7 +1427,14 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
             - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
               and `user_api` parameters for the specific use case of sequential BLAS
@@ -1080,7 +1457,7 @@ class ThreadpoolController:
         return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )
@@ -1095,7 +1472,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp', or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1103,7 +1480,19 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
+
+            - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
+              and `user_api` parameters for the specific use case of sequential BLAS
+              calls within an OpenMP parallel region. The `user_api` parameter is
+              ignored.
 
             - If None, this function does not do anything.
 
@@ -1125,24 +1514,31 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
-        # process-lifetime CFUNCTYPE callback that is not fork-safe with some
-        # libffi builds (#225). dllist also uses dl_iterate_phdr internally
-        # (#239), which we already avoid on Linux via /proc/self/maps.
-        dllist = None
-        if sys.platform not in ("linux", "emscripten"):
-            try:
-                from ctypes.util import dllist
-            except ImportError:
-                # CPython before 3.14 does not provide dll inspection.
-                dllist = None
-
-        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
-            # On glibc, dl_iterate_phdr has an internal lock, and that plus
-            # calling back into Python and the need to (re)acquire the GIL
-            # results in deadlocks. To avoid that, use a Linux-specific
-            # mechanism that doesn't have these issues; since it's Linux, musl
-            # works fine too.
+        # On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and
+        # that plus calling back into Python and the need to (re)acquire the
+        # GIL can result in deadlocks.
+        #
+        # On glibc 2.40 and later, dl has a read-write lock, and
+        # dl_iterate_phdr should only use the read version since it's not
+        # modifying anything. So you no longer get deadlocks purely from
+        # dl_iterate_phdr. You can still deadlock with dlopen() though.
+        #
+        # To avoid that deadlock, listing shared libraries can use a
+        # Linux-specific mechanism that doesn't have these issues
+        # (/proc/self/maps). Since it's the Linux kernel, musl works fine too.
+        #
+        # The downside is this mechanism is slower, so avoid it when safe
+        # alternatives are available. In particular, if dllist() is available
+        # (3.14+), written in C so no risk of GC part way (3.15+), and there is
+        # no GIL, no need to use /proc, since dllist() is faster. It's possible
+        # dllist() might work in GIL builds too but see
+        # https://github.com/python/cpython/issues/157573. So we should
+        # consider enabling it on GIL Python too once threadpoolctl supports
+        # 3.15.
+        if _HAS_PROCFS and not (
+            sys.version_info[:2] >= (3, 15)
+            and not getattr(sys, "_is_gil_enabled", lambda: True)()
+        ):
             self._find_libraries_with_linux()
         elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
@@ -1159,24 +1555,19 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
+    _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n^/]*)\n", re.MULTILINE)
+
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones
 
         Uses a Linux-specific mechanism:
         https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
         """
-        with open("/proc/self/maps") as f:
+        with open("/proc/self/maps", "rb") as f:
             maps = f.read()
-        filepaths = set()
-        for line in maps.splitlines():
-            start_index = line.find("/")
-            if start_index == -1 or ".so" not in line:
-                continue
-            filepath = line[start_index:]
-            if os.path.exists(filepath):
-                filepaths.add(filepath)
-
+        filepaths = set(self._PATH_RE.findall(maps))
         for filepath in filepaths:
+            filepath = filepath.decode("utf-8")
             self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self, dllist):
@@ -1559,69 +1950,15 @@ class ThreadpoolController:
 
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""
-        # Required to resolve symlinks
-        filepath = _realpath(filepath)
-        # `lower` required to take account of OpenMP dll case on Windows
-        # (vcomp, VCOMP, Vcomp, ...)
-        filename = os.path.basename(filepath).lower()
-
-        # Loop through supported libraries to find if this filename corresponds
-        # to a supported one.
-        for controller_class in _ALL_CONTROLLERS:
-            # check if filename matches a supported prefix
-            prefix = self._check_prefix(filename, controller_class.filename_prefixes)
-
-            # filename does not match any of the prefixes of the candidate
-            # library. move to next library.
-            if prefix is None:
-                continue
-
-            # Legacy workaround for BLAS libraries that conda-forge used to expose
-            # on Windows as libblas.dll, disambiguated via implementation-specific
-            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
-            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
-            # kept for older installs but cannot be exercised in today's CI.
-            if prefix == "libblas":
-                if filename.endswith(".dll"):
-                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
-                    if not any(
-                        hasattr(libblas, func)
-                        for func in controller_class.check_symbols
-                    ):
-                        continue
-                else:
-                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
-                    # needed to instantiate a controller and would duplicate entries.
-                    continue
-
-            # filename matches a prefix. Now we check if the library has the symbols we
-            # are looking for. If none of the symbols exists, it's very likely not the
-            # expected library (e.g. a library having a common prefix with one of the
-            # our supported libraries). Otherwise, create and store the library
-            # controller.
-            lib_controller = controller_class(
-                filepath=filepath, prefix=prefix, parent=self
-            )
-
-            if filepath in (lib.filepath for lib in self.lib_controllers):
-                # We already have a controller for this library.
-                continue
-
-            if not hasattr(controller_class, "check_symbols") or any(
-                hasattr(lib_controller.dynlib, func)
-                for func in controller_class.check_symbols
+        lib_controller = _CDLL_CACHE.create_controller(filepath, self)
+        if lib_controller is not None:
+            if lib_controller.filepath in (
+                lib.filepath for lib in self.lib_controllers
             ):
-                self.lib_controllers.append(lib_controller)
+                # We already have a controller for this library.
+                return
 
-    def _check_prefix(self, library_basename, filename_prefixes):
-        """Return the prefix library_basename starts with
-
-        Return None if none matches.
-        """
-        for prefix in filename_prefixes:
-            if library_basename.startswith(prefix):
-                return prefix
-        return None
+            self.lib_controllers.append(lib_controller)
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
@@ -1633,19 +1970,8 @@ class ThreadpoolController:
             return
 
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent(
-            """
-            Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
-            the same time. Both libraries are known to be incompatible and this
-            can cause random crashes or deadlocks on Linux when loaded in the
-            same Python program.
-            Using threadpoolctl may cause crashes or deadlocks. For more
-            information and possible workarounds, please see
-                https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """
-        )
         if "libomp" in prefixes and "libiomp" in prefixes:
-            warnings.warn(msg, RuntimeWarning)
+            warnings.warn(_INCOMPATIBLE_OPENMP_MESSAGE, RuntimeWarning)
 
     @classmethod
     def _get_libc(cls):
@@ -1705,9 +2031,61 @@ def _main():
             print("WARNING: could not import", module, file=sys.stderr)
 
     if options.command:
-        exec(options.command)
+        exec(options.command)  # noqa: S102
 
     print(json.dumps(threadpool_info(debugging_info=True), indent=2))
+
+
+# A cached instance of ThreadpoolController, created by
+# get_cached_controller():
+_CACHED_CONTROLLER = None
+# Cached number of modules in sys.modules, used by get_cached_controller()
+_CACHED_SYS_MODULES_LEN = 0
+# The lock controlling access to the above:
+_CACHE_LOCK = Lock()
+
+
+def get_cached_controller() -> ThreadpoolController:
+    """Return a cached ``ThreadpoolController``, as a speed optimization.
+
+    The cached version is regenerated if the number of imported of modules has
+    changed, since this indicates the possibility that a new controllable
+    library has been loaded.  Invalidation also happens if Flexiblas is in use
+    and has changed its backend.
+
+    It is possible that somehow a controllable library gets loaded without
+    importing a Python module, e.g. using ``dlopen()`` on Linux, a ctypes
+    ``CDLL``, and the like.  This is rare, however.  Outside of these
+    situations, using ``get_cached_controller()`` will be much faster than
+    creating a new ``ThreadpoolController`` instance.
+
+    The cached controller can be explicitly invalidated by calling the
+    `reset_cached_controller()` module level function.
+    """
+    global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    # Fast path with no lock: snapshot before the `None` check as
+    # `reset_cached_controller()` and `FlexiBLASController.switch_backend()`
+    # can concurrently set the global to `None`. A stale controller instance is
+    # acceptable but returning `None` would break the caller.
+    controller = _CACHED_CONTROLLER
+    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and controller is not None:
+        return controller
+    with _CACHE_LOCK:
+        # Do this once, so there's no race condition with imports in other
+        # threads:
+        num_modules = len(sys.modules)
+        if _CACHED_CONTROLLER is None or num_modules != _CACHED_SYS_MODULES_LEN:
+            _CACHED_CONTROLLER = ThreadpoolController()
+            _CACHED_SYS_MODULES_LEN = num_modules
+        return _CACHED_CONTROLLER
+
+
+def reset_cached_controller() -> None:
+    """Clear the cached ``ThreadpoolController``, if any."""
+    global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    with _CACHE_LOCK:
+        _CACHED_CONTROLLER = None
+        _CACHED_SYS_MODULES_LEN = 0
 
 
 if __name__ == "__main__":

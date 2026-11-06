@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import pathlib
 
-from pxr import Gf, Usd, UsdGeom, UsdPhysics
+import usdex.test
+from pxr import Gf, Tf, Usd, UsdGeom, UsdPhysics
 
 import urdf_usd_converter
 from tests.util.ConverterTestCase import ConverterTestCase
@@ -102,10 +103,13 @@ class TestPhysics(ConverterTestCase):
         link_cylinder_prim = self.stage.GetPrimAtPath(link_box_prim.GetPath().AppendChild("link_cylinder"))
         self.assertTrue(link_cylinder_prim.IsValid())
 
-        # Rigid body.
+        # A visual with no inertial or collision is not a rigid body. The fixed joint is not authored.
         link_sphere_prim = self.stage.GetPrimAtPath(link_cylinder_prim.GetPath().AppendChild("link_sphere"))
         self.assertTrue(link_sphere_prim.IsValid())
-        self.assertTrue(link_sphere_prim.HasAPI(UsdPhysics.RigidBodyAPI))
+        self.assertFalse(link_sphere_prim.HasAPI(UsdPhysics.RigidBodyAPI))
+        self.assertFalse(link_sphere_prim.HasAPI(UsdPhysics.MassAPI))
+        physics_scope_prim = self.stage.GetPrimAtPath(default_prim_path.AppendChild("Physics"))
+        self.assertFalse(physics_scope_prim.GetChild("joint_cylinder_sphere").IsValid())
 
         # It has no collision prim.
         child_prims = link_sphere_prim.GetChildren()
@@ -119,7 +123,7 @@ class TestPhysics(ConverterTestCase):
         physics_scope_prim = self.stage.GetPrimAtPath(default_prim.GetPath().AppendChild("Physics"))
         self.assertTrue(physics_scope_prim.IsValid())
 
-        joint_prim = physics_scope_prim.GetPrimAtPath(physics_scope_prim.GetPath().AppendChild("joint_cylinder_sphere"))
+        joint_prim = physics_scope_prim.GetPrimAtPath(physics_scope_prim.GetPath().AppendChild("joint_box_cylinder"))
         self.assertTrue(joint_prim.IsValid())
         self.assertTrue(joint_prim.IsA(UsdPhysics.FixedJoint))
         self.assertTrue(joint_prim.HasAPI("NewtonJointAPI"))
@@ -135,7 +139,14 @@ class TestPhysicsMesh(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        with usdex.test.ScopedDiagnosticChecker(
+            self,
+            [
+                (Tf.TF_DIAGNOSTIC_WARNING_TYPE, ".*Unsupported mesh format:.*.dxf.*"),
+            ],
+            level=usdex.core.DiagnosticsLevel.eWarning,
+        ):
+            asset_path = converter.convert(input_path, output_dir)
 
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())

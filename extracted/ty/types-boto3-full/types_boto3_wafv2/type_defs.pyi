@@ -29,6 +29,7 @@ from .literals import (
     BlockchainChainType,
     BodyParsingFallbackBehaviorType,
     ComparisonOperatorType,
+    ConnectedAccountChainType,
     CountryCodeType,
     CurrencyModeType,
     DataProtectionActionType,
@@ -134,6 +135,11 @@ __all__ = (
     "ClientSideActionTypeDef",
     "ClientSideActionUnionTypeDef",
     "ConditionTypeDef",
+    "ConnectedAccountChainConfigOutputTypeDef",
+    "ConnectedAccountChainConfigTypeDef",
+    "ConnectedAccountConfigOutputTypeDef",
+    "ConnectedAccountConfigTypeDef",
+    "ConnectedAccountPriceTypeDef",
     "CookieMatchPatternOutputTypeDef",
     "CookieMatchPatternTypeDef",
     "CookieMatchPatternUnionTypeDef",
@@ -543,6 +549,10 @@ class RegexTypeDef(TypedDict):
 
 class LabelNameConditionTypeDef(TypedDict):
     LabelName: str
+
+class ConnectedAccountPriceTypeDef(TypedDict):
+    Amount: str
+    Currency: Literal["USDC"]
 
 class CookieMatchPatternOutputTypeDef(TypedDict):
     All: NotRequired[dict[str, Any]]
@@ -1234,6 +1244,14 @@ class ConditionTypeDef(TypedDict):
     ActionCondition: NotRequired[ActionConditionTypeDef]
     LabelNameCondition: NotRequired[LabelNameConditionTypeDef]
 
+class ConnectedAccountChainConfigOutputTypeDef(TypedDict):
+    Chain: ConnectedAccountChainType
+    Prices: list[ConnectedAccountPriceTypeDef]
+
+class ConnectedAccountChainConfigTypeDef(TypedDict):
+    Chain: ConnectedAccountChainType
+    Prices: Sequence[ConnectedAccountPriceTypeDef]
+
 class CookiesOutputTypeDef(TypedDict):
     MatchPattern: CookieMatchPatternOutputTypeDef
     MatchScope: MapMatchScopeType
@@ -1559,6 +1577,14 @@ class FilterTypeDef(TypedDict):
     Requirement: FilterRequirementType
     Conditions: Sequence[ConditionTypeDef]
 
+class ConnectedAccountConfigOutputTypeDef(TypedDict):
+    ConnectedAccountArn: str
+    PaymentNetworks: list[ConnectedAccountChainConfigOutputTypeDef]
+
+class ConnectedAccountConfigTypeDef(TypedDict):
+    ConnectedAccountArn: str
+    PaymentNetworks: Sequence[ConnectedAccountChainConfigTypeDef]
+
 class CookiesTypeDef(TypedDict):
     MatchPattern: CookieMatchPatternUnionTypeDef
     MatchScope: MapMatchScopeType
@@ -1809,10 +1835,12 @@ JsonBodyUnionTypeDef = Union[JsonBodyTypeDef, JsonBodyOutputTypeDef]
 
 class MonetizationConfigOutputTypeDef(TypedDict):
     CryptoConfig: NotRequired[CryptoConfigOutputTypeDef]
+    ConnectedAccountConfigs: NotRequired[list[ConnectedAccountConfigOutputTypeDef]]
     CurrencyMode: NotRequired[CurrencyModeType]
 
 class MonetizationConfigTypeDef(TypedDict):
     CryptoConfig: NotRequired[CryptoConfigTypeDef]
+    ConnectedAccountConfigs: NotRequired[Sequence[ConnectedAccountConfigTypeDef]]
     CurrencyMode: NotRequired[CurrencyModeType]
 
 ResponseInspectionUnionTypeDef = Union[ResponseInspectionTypeDef, ResponseInspectionOutputTypeDef]

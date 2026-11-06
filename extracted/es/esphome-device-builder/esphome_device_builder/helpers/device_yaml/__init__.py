@@ -17,7 +17,7 @@ from __future__ import annotations
 from esphome.storage_json import StorageJSON
 
 from ._bootloader import resolve_nrf52_bootloader
-from ._chip import resolve_chip_mcu
+from ._chip import BoardIdDeriver, resolve_chip_mcu
 from ._dependencies import (
     LoadBatch,
     UnreadableDependencyError,
@@ -44,10 +44,11 @@ from ._loading import (
     pending_changes_via_hash,
     resolution_incomplete,
 )
-from ._mqtt_block import build_mqtt_extract, extract_mqtt_block
+from ._mqtt_block import build_mqtt_extract, extract_mqtt_block, extract_mqtt_parts
 from ._ota_old_key import yaml_declares_ota_old_key
 from ._parsing import (
     _UNRESOLVED_SUBSTITUTION_RE,
+    _UNRESOLVED_WHOLE_TOKEN_RE,
     DEFAULT_API_PORT,
     EsphomeMeta,
     _extract_resolved_substitutions,
@@ -91,6 +92,8 @@ __all__ = [
     "NETWORK_PROVIDER_COMPONENT_IDS",
     "WIFI_RADIO_PROVIDER_COMPONENT_IDS",
     "_UNRESOLVED_SUBSTITUTION_RE",
+    "_UNRESOLVED_WHOLE_TOKEN_RE",
+    "BoardIdDeriver",
     "EsphomeConfigUnavailableError",
     "EsphomeMeta",
     "LoadBatch",
@@ -119,6 +122,7 @@ __all__ = [
     "extract_directly_referenced_integrations",
     "extract_esphome_meta_from_config",
     "extract_mqtt_block",
+    "extract_mqtt_parts",
     "generate_adoption_yaml",
     "generate_device_yaml",
     "generate_minimal_stub_yaml",

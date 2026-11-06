@@ -47,6 +47,23 @@ class CommonRoadWorkerError(RuntimeError):
     """The worker could not be started, or failed to answer."""
 
 
+#: How much of an answer out of protocol an error quotes.
+_EXCERPT_CHARS = 200
+
+
+#: How long :meth:`CommonRoadWorker.close` lets the worker exit before
+#: killing it, in seconds.
+_CLOSE_TIMEOUT_S = 5.0
+
+
+def _excerpt(line: str) -> str:
+    """*line*, stripped and cut to :data:`_EXCERPT_CHARS`, quoted."""
+    text = line.strip()
+    if len(text) > _EXCERPT_CHARS:
+        text = text[:_EXCERPT_CHARS] + "..."
+    return repr(text)
+
+
 def _checkout_project() -> Optional[Path]:
     """``commonroad_metrics/`` of the repository this package was installed
     from in place (``uv sync`` installs the workspace editable), if any."""
@@ -113,16 +130,23 @@ class CommonRoadWorker:
             raise CommonRoadWorkerError(
                 f"could not start the CommonRoad worker {self.command}: {exc}"
             ) from exc
-        answer = self.request(
-            {"op": "init", "map": str(map_path), "settings": settings or {}}
-        )
+        try:
+            answer = self.request(
+                {"op": "init", "map": str(map_path), "settings": settings or {}}
+            )
+        except CommonRoadWorkerError:
+            # Not handed to the caller, so not left running.
+            self.close()
+            raise
         self.measures: list[str] = list(answer.get("measures", []))
 
     def request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send *request*; its answer.
 
         Raises:
-            CommonRoadWorkerError: The worker is gone, or answered not ok.
+            CommonRoadWorkerError: The worker is gone, answered out of
+                protocol (a line that is not a JSON object), or answered not
+                ok.
         """
         process = self._process
         if (
@@ -137,13 +161,26 @@ class CommonRoadWorker:
             process.stdin.write(json.dumps(request) + "\n")
             process.stdin.flush()
             line = process.stdout.readline()
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
+            # ValueError: its pipes were closed (close()) meanwhile.
             raise CommonRoadWorkerError(f"the CommonRoad worker failed: {exc}") from exc
         if not line:
             raise CommonRoadWorkerError(
                 f"the CommonRoad worker exited ({process.wait()}) without answering"
             )
-        answer: dict[str, Any] = json.loads(line)
+        try:
+            parsed = json.loads(line)
+        except ValueError as exc:
+            raise CommonRoadWorkerError(
+                f"the CommonRoad worker answered {request.get('op')!r} out of "
+                f"protocol, not with JSON: {_excerpt(line)}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise CommonRoadWorkerError(
+                f"the CommonRoad worker answered {request.get('op')!r} out of "
+                f"protocol, not with a JSON object: {_excerpt(line)}"
+            )
+        answer: dict[str, Any] = parsed
         if not answer.get("ok"):
             raise CommonRoadWorkerError(
                 f"the CommonRoad worker refused {request.get('op')!r}: "
@@ -177,20 +214,39 @@ class CommonRoadWorker:
         return self._process.poll() is None
 
     def close(self) -> None:
-        """Ask the worker to exit, and make sure it does."""
+        """Ask the worker to exit, and make sure it does.
+
+        The ``close`` request is sent, and the worker's input closed, without
+        waiting for an answer: a worker deep in an evaluation (or stuck in
+        one) would not give it, and a run interrupted with Ctrl-C would wait
+        for it forever (#1775).  The worker exits on the request or on the end
+        of its input; one that has not after :data:`_CLOSE_TIMEOUT_S` is
+        killed.  Closing a worker that has exited, or closing it twice, does
+        nothing more.
+        """
         process = self._process
-        if process.poll() is None:
-            try:
-                self.request({"op": "close"})
-            except (CommonRoadWorkerError, ValueError):
-                pass
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        for stream in (process.stdin, process.stdout):
-            if stream is not None:
-                # Flushing a dead worker's stdin raises BrokenPipeError.
-                with contextlib.suppress(OSError):
-                    stream.close()
+        stdin = process.stdin
+        if process.poll() is None and stdin is not None and not stdin.closed:
+            # A dead worker's pipe raises BrokenPipeError (an OSError); one
+            # closed by another thread meanwhile, ValueError.
+            with contextlib.suppress(OSError, ValueError):
+                stdin.write(json.dumps({"op": "close"}) + "\n")
+                stdin.flush()
+        if stdin is not None:
+            # The end of its input, should it not read the request.
+            with contextlib.suppress(OSError, ValueError):
+                stdin.close()
+        try:
+            process.wait(timeout=_CLOSE_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "the CommonRoad worker did not exit within %.0f s of being "
+                "closed; killing it",
+                _CLOSE_TIMEOUT_S,
+            )
+            process.kill()
+            process.wait()
+        if process.stdout is not None:
+            # Its answer to ``close``, if any, is not read.
+            with contextlib.suppress(OSError, ValueError):
+                process.stdout.close()

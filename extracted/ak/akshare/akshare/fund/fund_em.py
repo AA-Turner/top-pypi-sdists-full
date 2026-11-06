@@ -483,12 +483,9 @@ def fund_open_fund_info_em(
             "Asia/Shanghai"
         )
         temp_df["x"] = temp_df["x"].dt.date
-        temp_df.columns = [
-            "净值日期",
-            "单位净值",
-            "日增长率",
-            "_",
-        ]
+        temp_df = temp_df.rename(
+            columns={"x": "净值日期", "y": "单位净值", "equityReturn": "日增长率"}
+        )
         temp_df = temp_df[
             [
                 "净值日期",
@@ -514,10 +511,7 @@ def fund_open_fund_info_em(
             "Asia/Shanghai"
         )
         temp_df["x"] = temp_df["x"].dt.date
-        temp_df.columns = [
-            "净值日期",
-            "累计净值",
-        ]
+        temp_df = temp_df.rename(columns={"x": "净值日期", "y": "累计净值"})
         temp_df = temp_df[
             [
                 "净值日期",
@@ -624,11 +618,13 @@ def fund_open_fund_info_em(
             "Asia/Shanghai"
         )
         temp_df["x"] = temp_df["x"].dt.date
-        temp_df.columns = [
-            "报告日期",
-            "同类型排名-每日近三月排名",
-            "总排名-每日近三月排名",
-        ]
+        temp_df = temp_df.rename(
+            columns={
+                "x": "报告日期",
+                "y": "同类型排名-每日近三月排名",
+                "sc": "总排名-每日近三月排名",
+            }
+        )
         temp_df = temp_df[
             [
                 "报告日期",
@@ -656,10 +652,9 @@ def fund_open_fund_info_em(
             "Asia/Shanghai"
         )
         temp_df["x"] = temp_df["x"].dt.date
-        temp_df.columns = [
-            "报告日期",
-            "同类型排名-每日近3月收益排名百分比",
-        ]
+        temp_df = temp_df.rename(
+            columns={"x": "报告日期", "y": "同类型排名-每日近3月收益排名百分比"}
+        )
         temp_df = temp_df[
             [
                 "报告日期",
@@ -791,84 +786,11 @@ def fund_money_fund_info_em(symbol: str = "000009") -> pd.DataFrame:
     return big_df
 
 
-def fund_financial_fund_daily_em() -> pd.DataFrame:
-    """
-    东方财富网站-天天基金网-基金数据-理财型基金收益
-    # 该接口暂无数据
-    https://fund.eastmoney.com/lcjj.html#1_1__0__ljjz,desc_1_os1
-    :return: 当前交易日的所有理财型基金收益
-    :rtype: pandas.DataFrame
-    """
-    url = "https://api.fund.eastmoney.com/FundNetValue/GetLCJJJZ"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/80.0.3987.149 Safari/537.36",
-        "Referer": "https://fund.eastmoney.com/lcjj.html",
-    }
-    params = {
-        "letter": "",
-        "jjgsid": "0",
-        "searchtext": "",
-        "sort": "ljjz,desc",
-        "page": "1,100",
-        "AttentionCodes": "",
-        "cycle": "",
-        "OnlySale": "1",
-    }
-    r = http.get(url, params=params, headers=headers)
-    data_json = r.json()
-    temp_df = pd.DataFrame(data_json["Data"]["List"])
-    if temp_df.empty:
-        return pd.DataFrame()
-    show_day = data_json["Data"]["showday"]
-    data_df = temp_df[
-        [
-            "Id",
-            "actualsyi",
-            "cycle",
-            "fcode",
-            "kfr",
-            "mui",
-            "shortname",
-            "syi",
-            "zrmui",
-            "zrsyi",
-        ]
-    ]
-    data_df.columns = [
-        "序号",
-        "上一期年化收益率",
-        "封闭期",
-        "基金代码",
-        "申购状态",
-        f"{show_day[0]}-万份收益",
-        "基金简称",
-        f"{show_day[0]}-7日年华",
-        f"{show_day[1]}-万份收益",
-        f"{show_day[1]}-7日年华",
-    ]
-    data_df = data_df[
-        [
-            "序号",
-            "基金代码",
-            "基金简称",
-            "上一期年化收益率",
-            f"{show_day[0]}-万份收益",
-            f"{show_day[0]}-7日年华",
-            f"{show_day[1]}-万份收益",
-            f"{show_day[1]}-7日年华",
-            "封闭期",
-            "申购状态",
-        ]
-    ]
-    return data_df
-
-
 def fund_financial_fund_info_em(symbol: str = "000134") -> pd.DataFrame:
     """
     东方财富网站-天天基金网-基金数据-理财型基金收益-历史净值明细
     https://fundf10.eastmoney.com/jjjz_000791.html
-    :param symbol: 理财型基金代码，可以通过 ak.fund_financial_fund_daily_em() 来获取
+    :param symbol: 基金代码，可以通过 ak.fund_name_em() 来获取
     :type symbol: str
     :return: 东方财富网站-天天基金网-基金数据-理财型基金收益-历史净值明细
     :rtype: pandas.DataFrame
@@ -1279,19 +1201,20 @@ def fund_hk_fund_hist_em(
         r = http.get(url, params=params, headers=headers)
         data_json = r.json()
         temp_one_df = pd.DataFrame(data_json["Data"])
-        temp_one_df.columns = [
-            "_",
-            "_",
-            "_",
-            "净值日期",
-            "单位净值",
-            "_",
-            "日增长值",
-            "日增长率",
-            "_",
-            "单位",
-            "_",
-        ]
+        if temp_one_df.empty:
+            # 已停止披露净值的基金返回空列表
+            return pd.DataFrame(
+                columns=["净值日期", "单位净值", "日增长值", "日增长率", "单位"]
+            )
+        temp_one_df = temp_one_df.rename(
+            columns={
+                "PDATE": "净值日期",
+                "NAV": "单位净值",
+                "NAVCHG": "日增长值",
+                "NAVCHGRT": "日增长率",
+                "CURRENCY": "单位",
+            }
+        )
         temp_one_df = temp_one_df[
             [
                 "净值日期",
@@ -1301,6 +1224,8 @@ def fund_hk_fund_hist_em(
                 "单位",
             ]
         ]
+        for column in ["单位净值", "日增长值", "日增长率"]:
+            temp_one_df[column] = pd.to_numeric(temp_one_df[column], errors="coerce")
     else:
         params = {
             "api": "HKFDApi",
@@ -1315,23 +1240,27 @@ def fund_hk_fund_hist_em(
         r = http.get(url, params=params, headers=headers)
         data_json = r.json()
         temp_one_df = pd.DataFrame(data_json["Data"])
-        temp_one_df.columns = [
-            "_",
-            "_",
-            "_",
-            "_",
-            "_",
-            "年份",
-            "分红金额",
-            "除息日",
-            "权益登记日",
-            "分红发放日",
-            "_",
-            "单位",
-            "_",
-            "_",
-            "_",
-        ]
+        if temp_one_df.empty:
+            return pd.DataFrame(
+                columns=[
+                    "年份",
+                    "权益登记日",
+                    "除息日",
+                    "分红发放日",
+                    "分红金额",
+                    "单位",
+                ]
+            )
+        temp_one_df = temp_one_df.rename(
+            columns={
+                "BYEAR": "年份",
+                "REGDATE": "权益登记日",
+                "EXDDATE": "除息日",
+                "ISSDATE": "分红发放日",
+                "BONUS": "分红金额",
+                "CURRENCY": "单位",
+            }
+        )
         temp_one_df = temp_one_df[
             [
                 "年份",
@@ -1342,6 +1271,9 @@ def fund_hk_fund_hist_em(
                 "单位",
             ]
         ]
+        temp_one_df["分红金额"] = pd.to_numeric(
+            temp_one_df["分红金额"], errors="coerce"
+        )
     return temp_one_df
 
 
@@ -1405,9 +1337,6 @@ if __name__ == "__main__":
 
     fund_money_fund_info_em_df = fund_money_fund_info_em(symbol="000009")
     print(fund_money_fund_info_em_df)
-
-    fund_financial_fund_daily_em_df = fund_financial_fund_daily_em()
-    print(fund_financial_fund_daily_em_df)
 
     fund_financial_fund_info_em_df = fund_financial_fund_info_em(symbol="000134")
     print(fund_financial_fund_info_em_df)

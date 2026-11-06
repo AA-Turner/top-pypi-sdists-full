@@ -41,6 +41,7 @@ from .literals import (
     JobTypeType,
     ManagementTypeType,
     MembershipTypeFilterType,
+    MembershipTypeType,
     NetworkTrafficRuleEffectType,
     PrivateConnectionStatusType,
     PrivateConnectionTypeType,
@@ -252,6 +253,7 @@ __all__ = (
     "GitLabResourceCapabilitiesOutputTypeDef",
     "GitLabResourceCapabilitiesTypeDef",
     "GitLabResourceCapabilitiesUnionTypeDef",
+    "GroupMetadataTypeDef",
     "HttpVerificationTypeDef",
     "IdCConfigurationTypeDef",
     "ImportSecurityRequirementsInputTypeDef",
@@ -980,7 +982,7 @@ class DeleteMembershipRequestTypeDef(TypedDict):
     applicationId: str
     agentSpaceId: str
     membershipId: str
-    memberType: NotRequired[Literal["USER"]]
+    memberType: NotRequired[MembershipTypeType]
 
 
 class DeletePrivateConnectionInputTypeDef(TypedDict):
@@ -1100,6 +1102,11 @@ class GitLabRepositoryMetadataTypeDef(TypedDict):
 class GitLabRepositoryResourceTypeDef(TypedDict):
     name: str
     namespace: str
+
+
+class GroupMetadataTypeDef(TypedDict):
+    displayName: NotRequired[str]
+    description: NotRequired[str]
 
 
 class HttpVerificationTypeDef(TypedDict):
@@ -2432,6 +2439,7 @@ class ListThreatsOutputTypeDef(TypedDict):
 
 class MemberMetadataTypeDef(TypedDict):
     user: NotRequired[UserMetadataTypeDef]
+    group: NotRequired[GroupMetadataTypeDef]
 
 
 class MembershipConfigTypeDef(TypedDict):
@@ -2689,7 +2697,7 @@ class CreateMembershipRequestTypeDef(TypedDict):
     applicationId: str
     agentSpaceId: str
     membershipId: str
-    memberType: Literal["USER"]
+    memberType: MembershipTypeType
     config: NotRequired[MembershipConfigTypeDef]
 
 
@@ -2697,7 +2705,7 @@ class MembershipSummaryTypeDef(TypedDict):
     membershipId: str
     applicationId: str
     agentSpaceId: str
-    memberType: Literal["USER"]
+    memberType: MembershipTypeType
     createdAt: datetime
     updatedAt: datetime
     createdBy: str

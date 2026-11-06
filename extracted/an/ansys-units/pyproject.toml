@@ -5,10 +5,10 @@ build-backend = "flit_core.buildapi"
 [project]
 # Check https://flit.readthedocs.io/en/latest/pyproject_toml.html for all available sections
 name = "ansys-units"
-version = "0.15.0"
+version = "0.16.0"
 description = "Pythonic interface for units, unit systems, and unit conversions."
 readme = "README.rst"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.12,<3.15"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{name = "ANSYS, Inc.", email = "pyansys.core@ansys.com"}]
@@ -30,7 +30,7 @@ dependencies = [
 doc = [
     "ansys-sphinx-theme==1.9.0",
     "pdf2image==1.17.0",
-    "quarto-cli==1.10.18",
+    "quarto-cli==1.10.19",
     "matplotlib==3.10.9",
     "numpydoc==1.11.0",
     "Sphinx==7.4.7",
@@ -40,18 +40,16 @@ doc = [
 ]
 tests = [
     "numpy>=1.24,<3",
-    "pandas>=3.0.0; python_version >= '3.11'",
-    "pandas>=2.2,<3.0; python_version < '3.11'",
+    "pandas>=3.0.0",
     "pandas-stubs>=2",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "pytest-mock==3.15.1",
+    "pytest-mock==3.17.0",
     "pint==0.24.4"
 ]
 additional = [
     "numpy>=1.24,<3",
-    "pandas>=3.0.0; python_version >= '3.11'",
-    "pandas>=2.2,<3.0; python_version < '3.11'",
+    "pandas>=3.0.0",
     "pandas-stubs>=2",
     "pydantic>=2.11.7",
     "pydantic_core>=2.33.2"
@@ -60,16 +58,15 @@ additional = [
 ci_types = [
     "basedpyright",
     "matplotlib==3.10.9",
-    "pandas>=3.0.0; python_version >= '3.11'",
-    "pandas>=2.2,<3.0; python_version < '3.11'",
+    "pandas>=3.0.0",
     "pandas-stubs>=2",
     "pydantic>=2.11.7",
     "pydantic_core>=2.33.2",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
-    "pytest-mock==3.15.1",
+    "pytest-mock==3.17.0",
     "pint==0.24.4",
-    "black==26.5.1"
+    "black==26.10.1"
 ]
 
 [project.urls]

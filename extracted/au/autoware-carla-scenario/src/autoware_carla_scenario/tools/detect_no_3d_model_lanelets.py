@@ -81,6 +81,7 @@ from autoware_carla_scenario.maps.opendrive import (
     map_asset_path,
 )
 from autoware_carla_scenario.scenario_config import EntityConfig
+from autoware_carla_scenario.serve_cli import port
 
 logger = logging.getLogger(__name__)
 
@@ -412,7 +413,8 @@ def _update_yaml(yaml_path: Path, lanelet_ids: list[int]) -> None:
     The file is edited as text (see :func:`update_no_3d_model_lanelet_ids_text`)
     and replaced atomically (a symlink's target, not the link itself); when
     the edit cannot be made safely, :class:`YamlUpdateError` is raised and
-    the file is left untouched.
+    the file is left untouched.  A file that cannot be read or written
+    raises ``OSError``.
     """
     raw = yaml_path.read_bytes()
     try:
@@ -429,6 +431,31 @@ def _update_yaml(yaml_path: Path, lanelet_ids: list[int]) -> None:
     _write_atomically(Path(os.path.realpath(yaml_path)), updated.encode("utf-8"))
 
 
+class _PartialWriteError(OSError):
+    """Writing a file in place failed after it was opened and emptied."""
+
+
+def _write_in_place(path: Path, data: bytes) -> None:
+    """Overwrite *path* with *data* without replacing the file.
+
+    The file keeps its mode and owner.  Opening it does not truncate, so
+    an error from the open leaves it unchanged and propagates as is; an
+    error after that (a full disk, an I/O error, a quota) may leave it
+    empty or partial and is raised as :class:`_PartialWriteError`.
+    """
+    fd = os.open(path, os.O_WRONLY)
+    try:
+        try:
+            os.ftruncate(fd, 0)
+            view = memoryview(data)
+            while view:
+                view = view[os.write(fd, view) :]
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise _PartialWriteError(exc.errno, exc.strerror, str(path)) from exc
+
+
 def _write_atomically(path: Path, data: bytes) -> None:
     """Replace *path*'s content with *data* through a temporary file.
 
@@ -442,7 +469,7 @@ def _write_atomically(path: Path, data: bytes) -> None:
             dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
         )
     except PermissionError:
-        path.write_bytes(data)
+        _write_in_place(path, data)
         return
     tmp_path = Path(tmp_name)
     try:
@@ -650,9 +677,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--port",
-        type=int,
+        type=port,
         default=2000,
-        help="CARLA server port (default: 2000)",
+        help="CARLA server port, 1-65535 (default: 2000)",
     )
     parser.add_argument(
         "--ray-upper",
@@ -794,13 +821,47 @@ def main(argv: Sequence[str] | None = None) -> None:
     # ------------------------------------------------------------------
     # Update YAML config
     # ------------------------------------------------------------------
+    _write_detected_ids(args.yaml_path, no_model_ids)
+
+
+def _describe_os_error(path: Path, exc: OSError) -> str:
+    """*exc* as text, prefixed with *path* unless it already names it."""
+    if exc.filename is not None and os.fspath(exc.filename) in (
+        str(path),
+        os.path.realpath(path),
+    ):
+        return str(exc)
+    return f"{path}: {exc}"
+
+
+def _write_detected_ids(yaml_path: Path, lanelet_ids: list[int]) -> None:
+    """Write *lanelet_ids* into *yaml_path*, or say how to do it by hand.
+
+    Runs after the long ray-cast pass, so a failure must not be a
+    traceback that loses the result: whether the edit was refused
+    (:class:`YamlUpdateError`) or the file could not be read or written
+    (``OSError``: a read-only filesystem, an unreadable file, a directory
+    and file that are both unwritable, a write in place that failed half
+    way), the detected IDs are printed and the process exits with status 1.
+    """
     try:
-        _update_yaml(args.yaml_path, no_model_ids)
+        _update_yaml(yaml_path, lanelet_ids)
     except YamlUpdateError as exc:
         logger.error("%s; the file was not changed", exc)
-        logger.error("Set %s by hand to: %s", NO_3D_MODEL_KEY, no_model_ids)
+        logger.error("Set %s by hand to: %s", NO_3D_MODEL_KEY, lanelet_ids)
         sys.exit(1)
-    logger.info("Updated %s with %d lanelet IDs", args.yaml_path, len(no_model_ids))
+    except _PartialWriteError as exc:
+        logger.error(
+            "%s; the file may have been left incomplete",
+            _describe_os_error(yaml_path, exc),
+        )
+        logger.error("Set %s by hand to: %s", NO_3D_MODEL_KEY, lanelet_ids)
+        sys.exit(1)
+    except OSError as exc:
+        logger.error("%s; the file was not changed", _describe_os_error(yaml_path, exc))
+        logger.error("Set %s by hand to: %s", NO_3D_MODEL_KEY, lanelet_ids)
+        sys.exit(1)
+    logger.info("Updated %s with %d lanelet IDs", yaml_path, len(lanelet_ids))
 
 
 if __name__ == "__main__":

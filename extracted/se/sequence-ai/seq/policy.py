@@ -35,9 +35,6 @@ _ALLOWED_KWARGS = frozenset({
     "min_workers", "buffer_workers", "max_gpus",
 
 
-    "region",
-
-
 
 
 
@@ -93,6 +90,10 @@ _GONE = {
 
 
 
+_UNREAD = frozenset({"region"})
+
+
+
 PLAYS_HOW = ("@seq.policy(hz=15, action_chunk_valid_len=15, action_chunk_replan_at=8) - hz the steps a second its "
              "answers play at, action_chunk_valid_len the steps of an answer that are valid, action_chunk_replan_at the "
              "step, counted from when its act is sent, at which its robot asks for the next answer (its last valid "
@@ -106,10 +107,11 @@ def _reject_bad_kwarg_names(kwargs: dict[str, Any]) -> None:
     """Raise a readable error for any not-a-kwarg / unknown name, BEFORE building the spec.
 
     WHY name-check before pydantic: pydantic's `extra=forbid` would also reject unknowns, but with a generic message. A
-    user who typed `gpuu=` deserves to be told the names there are. region= names the platform's regions now
-    (registry.region_of), never a provider's.
+    user who typed `gpuu=` deserves to be told the names there are.
     """
     for name in kwargs:
+        if name in _UNREAD:
+            continue
 
         if name in _NOT_A_KWARG:
             raise PolicyDefinitionError(

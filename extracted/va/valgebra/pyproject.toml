@@ -1,12 +1,12 @@
 [build-system]
 # >= 1.9.4 injects the pyo3 extension-module behavior at build time, so it is
 # not hard-coded as a Cargo feature (see crates/valgebra-py/Cargo.toml).
-requires = ["maturin>=1.15.0,<2"]
+requires = ["maturin>=1.16.0,<2"]
 build-backend = "maturin"
 
 [project]
 name = "valgebra"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dynamic = ["version"]
 description = "Fast runtime validation via a closed Boolean algebra of schemas on a compiled Rust core."
 readme = "README.md"
@@ -25,7 +25,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -56,14 +55,14 @@ test = [
 ]
 dev = [
     { include-group = "test" },
-    "maturin>=1.15.0,<2",
+    "maturin>=1.16.0,<2",
     "mypy>=2.4.0",
     "pre-commit>=4.6.2",
     "pyright>=1.1.414",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.3",
-    "ty>=0.0.92",
+    "ty>=0.0.97",
 ]
 # The wall-clock harness and the external comparison points: the libraries the
 # benchmarks time valgebra against, and the same libraries the boundary suite
@@ -171,7 +170,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 src = ["python", "tests"]
 
 [tool.ruff.lint]
@@ -197,8 +196,11 @@ ignore = [
 # messages, and carry descriptive (not commented-out) comments in data tables.
 # A test's name states its claim, so a docstring is written where there is more
 # to say than the name; and a helper typed `Any` takes any value on purpose,
-# since what a validator is handed is anything a caller has.
+# since what a validator is handed is anything a caller has. `Unpack[X]` is a
+# form under test, which the star builds as another object, so a row spells it
+# as written.
 "tests/**" = [
+    "UP044",
     "D100",
     "D101",
     "D102",
@@ -269,12 +271,12 @@ typeCheckingMode = "standard"
 
 [tool.ty.environment]
 # The newest interpreter the package supports, because the suite is what this
-# setting governs: `tests/` names `typing.Unpack`, `ReadOnly`, `TypeVarTuple`
-# and `Required` to check that the frontend reads each, and those are members
-# releases after the floor added.
+# setting governs: `tests/` names `typing.ReadOnly`, `TypeAliasType` and a
+# `TypeVar`'s `default=` to check that the frontend reads each, and those are
+# members releases after the floor added.
 #
 # The floor is checked too, and separately: `ty check python/ --python-version
-# 3.10` reads the shipped package alone at the oldest release `requires-python`
+# 3.11` reads the shipped package alone at the oldest release `requires-python`
 # claims. Both run in the type lane, because one setting cannot answer both
 # questions -- the newest release accepts a construct the floor cannot import,
 # and the floor rejects the names the suite exists to exercise.

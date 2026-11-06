@@ -37,6 +37,8 @@ import sysconfig
 import numpy as np
 import pytest
 
+from momwire._build_jobs import build_jobs
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PKG = ROOT / "src" / "momwire"
 SPLIT = ROOT / "scripts" / "core_split"
@@ -268,11 +270,11 @@ def driver(accel, tmp_path_factory):
         cmds.append([*base, "-MD", "-MF", str(dep), "-c", str(src), "-o", str(obj)])
         objects[src.stem] = str(obj)
         deps.append(dep)
-    # Concurrently, as setup.py's ParallelCompile does and with its knob and
-    # default (momwire#1703): at most NPY_NUM_BUILD_JOBS compilers, the CPU
-    # count when it is unset or 0. All 61 at once peaked near 20 GB (an -O3
-    # core TU is 330-380 MB) and OOM-killed a 15 GB machine.
-    jobs = int(os.environ.get("NPY_NUM_BUILD_JOBS") or 0) or os.cpu_count() or 1
+    # Concurrently, by setup.py's own rule (momwire#1703, `_build_jobs`):
+    # MOMWIRE_BUILD_JOBS, else the physical cores capped by available memory.
+    # All 61 at once peaked near 20 GB (an -O3 core TU is 330-380 MB) and
+    # OOM-killed a 15 GB machine.
+    jobs = build_jobs()
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
         runs = list(
             pool.map(
@@ -643,9 +645,9 @@ def test_the_mixed_decks_print_as_python_on_the_nec42_sinusoidal(driver, monkeyp
     crossing junction through the point-matched lane in C++ alone -- the
     stitched basis, the two transmitted pair classes over the table
     `_somm_transmitted_core` fills, the class blocks -- byte for byte as
-    `_nec4.render(text, basis="sinusoidal")` prints them. Two decline by
-    name: two radii (the class kernels read one) and a near field over a
-    buried wire."""
+    `_nec4.render(text, basis="sinusoidal")` prints them. One declines by
+    name: two radii (the class kernels read one). A near field over a buried
+    wire is refused in Python's words, and that refusal prints as Python's."""
     monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
     decks = sorted(
         (ROOT / "tests" / "fixtures" / "transmitted_mixed").glob("*.nec")
@@ -657,7 +659,7 @@ def test_the_mixed_decks_print_as_python_on_the_nec42_sinusoidal(driver, monkeyp
         / "probes"
         / "p9_above_and_buried_gn2.nec"
     ]
-    assert _nec42_sinusoidal_printouts(driver, decks) == len(decks) - 2
+    assert _nec42_sinusoidal_printouts(driver, decks) == len(decks) - 1
 
 
 def _nec42_sinusoidal_printouts(driver, decks, basis="sinusoidal") -> int:

@@ -160,7 +160,7 @@ def run_pep508_check(project, system, python):
 
 def check_pep508_requirements(project, results, quiet):
     """Verify PEP 508 environment markers in Pipfile match the current environment."""
-    with open(project.pipfile.location) as pipfile:
+    with open(project.pipfile.location, encoding="utf-8-sig") as pipfile:
         p = plette.Pipfile.load(pipfile)
     p = plette.Lockfile.with_meta_from(p)
     failed = False
@@ -273,7 +273,7 @@ def install_safety(project, system=False, auto_install=False):
         err.print(
             "[red]Failed to install safety. Please install it manually with 'pip install pipenv[safety]'[/red]"
         )
-        return False
+        sys.exit(1)
 
     console.print("[green]Safety installed successfully![/green]")
     return True
@@ -434,7 +434,7 @@ def do_scan(  # noqa: PLR0913
                     "[red]Safety installation was reported successful but module not found. "
                     "Please try again or install manually with 'pip install pipenv[safety]'[/red]"
                 )
-                return
+                sys.exit(1)
 
         # Set up environment variables for safety
         os.environ["SAFETY_CUSTOM_INTEGRATION"] = "True"

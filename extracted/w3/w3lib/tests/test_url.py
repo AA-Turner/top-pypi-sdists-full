@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from inspect import isclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,7 +17,7 @@ from urllib.parse import (
 )
 
 import pytest
-from hypothesis import HealthCheck, assume, example, given, settings, strategies as st
+from hypothesis import example, given, strategies as st
 from hypothesis.provisional import urls as hyp_urls
 
 from w3lib._infra import (
@@ -69,7 +68,7 @@ if TYPE_CHECKING:
 # (encoding, input URL, output URL or exception)
 SAFE_URL_ENCODING_CASES: list[tuple[str | None, str | bytes, str | type[Exception]]] = [
     (None, "", ValueError),
-    (None, "https://example.com", "https://example.com"),
+    (None, "https://example.com", "https://example.com/"),
     (None, "https://example.com/©", "https://example.com/%C2%A9"),
     # Paths are always UTF-8-encoded.
     ("iso-8859-1", "https://example.com/©", "https://example.com/%C2%A9"),
@@ -203,7 +202,7 @@ SAFE_URL_URL_CASES = (
     ("", ValueError),
     # Remove any leading and trailing C0 control or space from input.
     *(
-        (f"{char}https://example.com{char}", "https://example.com")
+        (f"{char}https://example.com{char}", "https://example.com/")
         for char in _C0_CONTROL_OR_SPACE
         if char not in _ASCII_TAB_OR_NEWLINE
     ),
@@ -234,57 +233,94 @@ SAFE_URL_URL_CASES = (
     ),
     *SAFE_URL_URL_INVALID_SCHEME_CASES,
     # Authority
-    ("https://a@example.com", "https://a@example.com"),
-    ("https://a:@example.com", "https://a:@example.com"),
-    ("https://:a@example.com", "https://:a@example.com"),
-    ("https://a:a@example.com", "https://a:a@example.com"),
-    ("https://a%3A@example.com", "https://a%3A@example.com"),
+    ("https://a@example.com", "https://a@example.com/"),
+    ("https://a:@example.com", "https://a:@example.com/"),
+    ("https://:a@example.com", "https://:a@example.com/"),
+    ("https://a:a@example.com", "https://a:a@example.com/"),
+    ("https://a%3A@example.com", "https://a%3A@example.com/"),
     (
         f"https://{USERINFO_SAFE}:{USERINFO_SAFE}@example.com",
-        f"https://{USERINFO_SAFE}:{USERINFO_SAFE}@example.com",
+        f"https://{USERINFO_SAFE}:{USERINFO_SAFE}@example.com/",
     ),
     (
         f"https://{USERNAME_TO_ENCODE}:{PASSWORD_TO_ENCODE}@example.com",
-        f"https://{USERNAME_ENCODED}:{PASSWORD_ENCODED}@example.com",
+        f"https://{USERNAME_ENCODED}:{PASSWORD_ENCODED}@example.com/",
     ),
     ("https://@\\example.com", ValueError),
     # "\" ends the authority of a special-scheme URL, so a "\" before "@" is
     # not a userinfo separator: the host is what precedes the "\".
     ("https://evil.com\\@good.com/", "https://evil.com/@good.com/"),
     ("https://good.com\\@evil.com/", "https://good.com/@evil.com/"),
-    ("https://\x80:\x80@example.com", "https://%C2%80:%C2%80@example.com"),
+    ("https://\x80:\x80@example.com", "https://%C2%80:%C2%80@example.com/"),
     # Host
-    ("https://example.com", "https://example.com"),
-    ("https://.example", "https://.example"),
+    ("https://example.com", "https://example.com/"),
+    ("https://.example", "https://.example/"),
     ("https://\x80.example", ValueError),
     ("https://%80.example", ValueError),
     # The 4 cases below test before and after crossing DNS length limits on
     # domain name labels (63 characters) and the domain name as a whole (253
     # characters). However, all cases are expected to pass because the URL
     # living standard does not require domain names to be within these limits.
-    (f"https://{'a' * 63}.example", f"https://{'a' * 63}.example"),
-    (f"https://{'a' * 64}.example", f"https://{'a' * 64}.example"),
+    (f"https://{'a' * 63}.example", f"https://{'a' * 63}.example/"),
+    (f"https://{'a' * 64}.example", f"https://{'a' * 64}.example/"),
     (
         f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 53}.example",
-        f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 53}.example",
+        f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 53}.example/",
     ),
     (
         f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 54}.example",
-        f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 54}.example",
+        f"https://{'a' * 63}.{'a' * 63}.{'a' * 63}.{'a' * 54}.example/",
     ),
-    ("https://ñ.example", "https://xn--ida.example"),
-    ("http://192.168.0.0", "http://192.168.0.0"),
+    ("https://ñ.example", "https://xn--ida.example/"),
+    # The deviation characters ß and ς are kept, as browsers do, instead of
+    # being mapped to ss and σ, which would make a different domain.
+    ("https://straße.de/", "https://xn--strae-oqa.de/"),
+    ("https://STRASSE.de/", "https://strasse.de/"),
+    ("https://STRAẞE.de/", "https://xn--strae-oqa.de/"),
+    ("https://stra%C3%9Fe.de/", "https://xn--strae-oqa.de/"),
+    ("https://user@straße.de:8080/", "https://user@xn--strae-oqa.de:8080/"),
+    ("https://www.straße.de./", "https://www.xn--strae-oqa.de./"),
+    ("https://www.straße\u3002de/", "https://www.xn--strae-oqa.de/"),
+    ("http://ς.example/", "http://xn--3xa.example/"),
+    ("http://ας.example/", "http://xn--mxa8a.example/"),
+    ("http://ΑΣ.example/", "http://xn--mxa0b.example/"),
+    ("http://192.168.0.0", "http://192.168.0.0/"),
     ("http://192.168.0.256", ValueError),
     ("http://192.168.0.0.0", ValueError),
-    ("http://[2a01:5cc0:1:2::4]", "http://[2a01:5cc0:1:2::4]"),
+    # A host that ends in a number is an IPv4 address, whose parts may be
+    # hexadecimal, octal or fewer than four, as browsers and getaddrinfo()
+    # read it.
+    ("http://0x7f.1/", "http://127.0.0.1/"),
+    ("http://0177.0.0.1/", "http://127.0.0.1/"),
+    ("http://127.1/", "http://127.0.0.1/"),
+    ("http://2130706433/", "http://127.0.0.1/"),
+    ("https://0xc0.0250.01:8080/", "https://192.168.0.1:8080/"),
+    ("http://1.2.3.4./", "http://1.2.3.4/"),
+    ("http://\uff10\uff38\uff17\uff46.1/", "http://127.0.0.1/"),
+    ("http://0x100000000/", ValueError),
+    ("http://1.2.3.08/", ValueError),
+    ("http://foo.0x4/", ValueError),
+    ("http://www.0xyz.example/", "http://www.0xyz.example/"),
+    # The host of a special URL is percent-decoded before IDNA and IPv4
+    # parsing, and must not then contain a forbidden domain code point.
+    ("http://%31%32%37%2e%30%2e%30%2e%31/", "http://127.0.0.1/"),
+    ("http://%30x7f.1/", "http://127.0.0.1/"),
+    ("http://ex%61mple.COM/", "http://example.com/"),
+    ("http://EX%41MPLE.com/", "http://example.com/"),
+    ("http://%E4%BE%8B%E3%81%88.jp/", "http://xn--r8jz45g.jp/"),
+    ("http://good.example%2F.evil.example/", ValueError),
+    ("http://evil.example%40good.example/", ValueError),
+    ("http://ho%25st/", ValueError),
+    ("http://a<b/", ValueError),
+    ("http://[2a01:5cc0:1:2::4]", "http://[2a01:5cc0:1:2::4]/"),
     ("http://[2a01:5cc0:1:2:3:4]", ValueError),
-    ("https://[2402:4e00:40:40::2:3b6]", "https://[2402:4e00:40:40::2:3b6]"),
-    ("https://[2402:4e00:40:40::2:3b6]:443", "https://[2402:4e00:40:40::2:3b6]:443"),
-    ("http://[::1]", "http://[::1]"),
+    ("https://[2402:4e00:40:40::2:3b6]", "https://[2402:4e00:40:40::2:3b6]/"),
+    ("https://[2402:4e00:40:40::2:3b6]:443", "https://[2402:4e00:40:40::2:3b6]:443/"),
+    ("http://[::1]", "http://[::1]/"),
     ("http://[::1]:8080/path?q=1", "http://[::1]:8080/path?q=1"),
     # checknetloc, the most of the cases are copied from
     # https://github.com/python/cpython/blob/main/Lib/test/test_urlparse.py
-    ("http://[v6a.ip]", "http://v6a.ip"),
+    ("http://[v6a.ip]", "http://v6a.ip/"),
     # IPv4-in-brackets / invalid host syntax
     ("Scheme://user@[192.0.2.146]/Path?Query", ValueError),
     ("Scheme://user@[important.com:8000]/Path?Query", ValueError),
@@ -328,8 +364,15 @@ SAFE_URL_URL_CASES = (
     ("scheme://user@prefix.[v6a.ip]", ValueError),
     ("scheme://user@[v6a.ip].suffix", ValueError),
     # brackets confined to the userinfo, leaving a plain host
-    ("scheme://us[er]@example.com", ValueError),
+    ("scheme://us[er]@example.com", "scheme://us%5Ber%5D@example.com"),
     ("scheme://us[er]@[::1]", "scheme://us%5Ber%5D@[::1]"),
+    ("https://us[er]@example.com", "https://us%5Ber%5D@example.com/"),
+    ("https://us[er]@example.com:8080/", "https://us%5Ber%5D@example.com:8080/"),
+    ("https://us[er]:pa[ss]@example.com", "https://us%5Ber%5D:pa%5Bss%5D@example.com/"),
+    ("https://[::1]@example.com", "https://%5B:%3A1%5D@example.com/"),
+    ("https://us[er]@[::1]:8080", "https://us%5Ber%5D@[::1]:8080/"),
+    ("//us[er]@example.com", "//us%5Ber%5D@example.com"),
+    ("//u[s@ex]ample.com", ValueError),
     # unmatched / broken bracket structures
     ("scheme://[v6a.ip", ValueError),
     ("scheme://v6a.ip]", ValueError),
@@ -344,8 +387,8 @@ SAFE_URL_URL_CASES = (
     ("scheme://v6a.ip[suffix", ValueError),
     # Port
     ("https://example.com:", "https://example.com:"),
-    ("https://example.com:1", "https://example.com:1"),
-    ("https://example.com:443", "https://example.com:443"),
+    ("https://example.com:1", "https://example.com:1/"),
+    ("https://example.com:443", "https://example.com:443/"),
     ("https://example.com:bad_port", ValueError),
     ("https://example.com:-1", ValueError),
     ("https://example.com:66000", ValueError),
@@ -377,7 +420,7 @@ SAFE_URL_URL_CASES = (
     ("https://example.com/%3F", "https://example.com/%3F"),
     ("https://example.com/%23", "https://example.com/%23"),
     # Query
-    ("https://example.com?", "https://example.com?"),
+    ("https://example.com?", "https://example.com/?"),
     ("https://example.com/?", "https://example.com/?"),
     ("https://example.com?a", "https://example.com/?a"),
     ("https://example.com?a=", "https://example.com/?a="),
@@ -407,11 +450,11 @@ SAFE_URL_URL_CASES = (
     ("https://example.com?ñ", "https://example.com/?%C3%B1"),
     ("https://example.com?ñ%C3%B1", "https://example.com/?%C3%B1%C3%B1"),
     # Fragment
-    ("https://example.com#", "https://example.com#"),
+    ("https://example.com#", "https://example.com/#"),
     ("https://example.com/#", "https://example.com/#"),
-    ("https://example.com?#", "https://example.com?#"),
+    ("https://example.com?#", "https://example.com/?#"),
     ("https://example.com/?#", "https://example.com/?#"),
-    ("https://example.com#a", "https://example.com#a"),
+    ("https://example.com#a", "https://example.com/#a"),
     (
         f"a://example.com#{FRAGMENT_SAFE}",
         f"a://example.com#{FRAGMENT_SAFE}",
@@ -420,8 +463,8 @@ SAFE_URL_URL_CASES = (
         f"a://example.com#{FRAGMENT_TO_ENCODE}",
         f"a://example.com#{FRAGMENT_ENCODED}",
     ),
-    ("https://example.com#ñ", "https://example.com#%C3%B1"),
-    ("https://example.com#ñ%C3%B1", "https://example.com#%C3%B1%C3%B1"),
+    ("https://example.com#ñ", "https://example.com/#%C3%B1"),
+    ("https://example.com#ñ%C3%B1", "https://example.com/#%C3%B1%C3%B1"),
     # All fields, UTF-8 wherever possible.
     (
         "https://ñ:ñ@ñ.example:1/ñ?ñ#ñ",
@@ -437,7 +480,7 @@ SAFE_URL_URL_CASES = (
     ("https://evil.com\uff3c.example.com", ValueError),
     ("https://evil.com\ufe68.example.com", ValueError),
     # changed after NFKC normalisation
-    ("https://examplｅ.com", "https://example.com"),
+    ("https://examplｅ.com", "https://example.com/"),
     # "[" and "]" outside the authority are ordinary characters and must not
     # be treated as IPv6 host delimiters.
     ("https://example.com/[x]", "https://example.com/%5Bx%5D"),
@@ -445,6 +488,16 @@ SAFE_URL_URL_CASES = (
     ("http://example.com/search?tags[]=a", "http://example.com/search?tags%5B%5D=a"),
     ("https://example.com/a#f[1]", "https://example.com/a#f%5B1%5D"),
     ("http://[::1]:8080/p?q=[1]", "http://[::1]:8080/p?q=%5B1%5D"),
+    # A non-special URL with an empty host keeps a path starting with "//".
+    ("sc:///..//x", "sc:////x"),
+    # Special schemes other than file skip any number of "/" and "\" before
+    # the host.
+    ("https:example.com/a", "https://example.com/a"),
+    ("https:/example.com/a", "https://example.com/a"),
+    ("https:///example.com/a", "https://example.com/a"),
+    ("https:/\\/\\example.com/a", "https://example.com/a"),
+    ("HTTPS:example.com?a#b", "https://example.com/?a#b"),
+    ("http:user:pass@example.com:81/", "http://user:pass@example.com:81/"),
 )
 
 
@@ -517,9 +570,6 @@ KNOWN_SAFE_URL_STRING_URL_ISSUES = {
     # are not escaped.
     "https://@\\example.com",  # Invalid URL
     "https://\x80.example",  # Invalid domain name (non-visible character)
-    "https://%80.example",  # Invalid domain name (non-visible character)
-    "http://192.168.0.256",  # Invalid IP address
-    "http://192.168.0.0.0",  # Invalid IP address / domain name
     "https://example.com:",  # Removes the :
     # Some path characters that RFC 2396 and RFC 3986 require escaping (%)
     # are not escaped.
@@ -763,9 +813,9 @@ class TestUrl:
                 "http://www.brændendekærlighed.com/brændende/kærlighed",
                 "http://www.xn--brndendekrlighed-vobh.com/br%C3%A6ndende/k%C3%A6rlighed",
             ),
-            ("http://www.예비교사.com", "http://www.xn--9d0bm53a3xbzui.com"),
-            ("http://理容ナカムラ.com", "http://xn--lck1c3crb1723bpq4a.com"),
-            ("http://あーるいん.com", "http://xn--l8je6s7a45b.com"),
+            ("http://www.예비교사.com", "http://www.xn--9d0bm53a3xbzui.com/"),
+            ("http://理容ナカムラ.com", "http://xn--lck1c3crb1723bpq4a.com/"),
+            ("http://あーるいん.com", "http://xn--l8je6s7a45b.com/"),
             # --- real websites ---
             # in practice, this redirect (301) to http://www.buecher.de/?q=b%C3%BCcher
             (
@@ -790,11 +840,11 @@ class TestUrl:
                 "http://xn--2e0b17htvgtvj9haj53ccob62ni8d.xn--3e0b707e/",
             ),
             # Arabic
-            ("http://nic.شبكة", "http://nic.xn--ngbc5azd"),
+            ("http://nic.شبكة", "http://nic.xn--ngbc5azd/"),
             # Chinese
-            ("https://www.贷款.在线", "https://www.xn--0kwr83e.xn--3ds443g"),
-            ("https://www2.xn--0kwr83e.在线", "https://www2.xn--0kwr83e.xn--3ds443g"),
-            ("https://www3.贷款.xn--3ds443g", "https://www3.xn--0kwr83e.xn--3ds443g"),
+            ("https://www.贷款.在线", "https://www.xn--0kwr83e.xn--3ds443g/"),
+            ("https://www2.xn--0kwr83e.在线", "https://www2.xn--0kwr83e.xn--3ds443g/"),
+            ("https://www3.贷款.xn--3ds443g", "https://www3.xn--0kwr83e.xn--3ds443g/"),
         )
         for idn_input, safe_result in websites:
             safeurl = safe_url_string(idn_input)
@@ -817,6 +867,8 @@ class TestUrl:
             safe_url_string(f"http://www.{'éxamplé' * 11}.com/résumé?q=résumé")
             == f"http://www.{'éxamplé' * 11}.com/r%C3%A9sum%C3%A9?q=r%C3%A9sum%C3%A9"
         )
+        assert safe_url_string(f"http://{'ß' * 64}.de/") == f"http://{'ß' * 64}.de/"
+        assert safe_url_string("http://a..straße.de/") == "http://a..straße.de/"
 
         # the fallback works when a non-UTF-8 page encoding is given
         assert (
@@ -824,8 +876,8 @@ class TestUrl:
             == "http://.éxamplé.com/"
         )
         assert (
-            safe_url_string("http://.éxamplé.com:80/?q=a", encoding="utf-16")
-            == "http://.éxamplé.com:80/?%FF%FEq%00=%00a%00"
+            safe_url_string("http://.éxamplé.com:80/?q=a", encoding="utf-16-le")
+            == "http://.éxamplé.com:80/?q%00=%00a%00"
         )
 
     def test_safe_url_port_number(self):
@@ -864,7 +916,7 @@ class TestUrl:
     def test_safe_url_string_encode_idna_domain_with_port(self):
         assert (
             safe_url_string("http://新华网.中国:80")
-            == "http://xn--xkrr14bows.xn--fiqs8s:80"
+            == "http://xn--xkrr14bows.xn--fiqs8s:80/"
         )
 
     def test_safe_url_string_encode_idna_domain_with_username_password_and_port_number(
@@ -872,7 +924,7 @@ class TestUrl:
     ):
         assert (
             safe_url_string("ftp://admin:admin@新华网.中国:21")
-            == "ftp://admin:admin@xn--xkrr14bows.xn--fiqs8s:21"
+            == "ftp://admin:admin@xn--xkrr14bows.xn--fiqs8s:21/"
         )
         assert (
             safe_url_string("http://Åsa:abc123@➡.ws:81/admin")
@@ -888,11 +940,11 @@ class TestUrl:
     ):
         assert (
             safe_url_string("ftp://admin:@新华网.中国:21")
-            == "ftp://admin:@xn--xkrr14bows.xn--fiqs8s:21"
+            == "ftp://admin:@xn--xkrr14bows.xn--fiqs8s:21/"
         )
         assert (
             safe_url_string("ftp://admin@新华网.中国:21")
-            == "ftp://admin@xn--xkrr14bows.xn--fiqs8s:21"
+            == "ftp://admin@xn--xkrr14bows.xn--fiqs8s:21/"
         )
 
     def test_safe_url_string_userinfo_unsafe_chars(
@@ -900,38 +952,43 @@ class TestUrl:
     ):
         assert (
             safe_url_string("ftp://admin:|%@example.com")
-            == "ftp://admin:%7C%25@example.com"
+            == "ftp://admin:%7C%25@example.com/"
         )
 
     def test_safe_url_string_user_and_pass_percentage_encoded(self):
         assert (
             safe_url_string("http://%25user:%25pass@host")
-            == "http://%25user:%25pass@host"
+            == "http://%25user:%25pass@host/"
         )
 
         assert (
-            safe_url_string("http://%user:%pass@host") == "http://%25user:%25pass@host"
+            safe_url_string("http://%user:%pass@host") == "http://%25user:%25pass@host/"
         )
 
         assert (
-            safe_url_string("http://%26user:%26pass@host") == "http://&user:&pass@host"
+            safe_url_string("http://%26user:%26pass@host") == "http://&user:&pass@host/"
         )
 
         assert (
             safe_url_string("http://%2525user:%2525pass@host")
-            == "http://%2525user:%2525pass@host"
+            == "http://%2525user:%2525pass@host/"
         )
 
         assert (
             safe_url_string("http://%2526user:%2526pass@host")
-            == "http://%2526user:%2526pass@host"
+            == "http://%2526user:%2526pass@host/"
         )
 
         assert (
             safe_url_string("http://%25%26user:%25%26pass@host")
-            == "http://%25&user:%25&pass@host"
+            == "http://%25&user:%25&pass@host/"
         )
 
+    def test_safe_download_url_deprecated(self):
+        with pytest.warns(FutureWarning, match="safe_download_url"):
+            safe_download_url("http://www.example.org")
+
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     def test_safe_download_url(self):
         assert safe_download_url("http://www.example.org") == "http://www.example.org/"
         assert (
@@ -949,6 +1006,8 @@ class TestUrl:
             safe_download_url(b"http://www.example.org/dir/")
             == "http://www.example.org/dir/"
         )
+        assert safe_download_url("foo://example.org") == "foo://example.org"
+        assert safe_download_url("foo:?a=b") == "foo:?a=b"
 
         # trailing slash handling
         assert (
@@ -986,6 +1045,7 @@ class TestUrl:
             == "http://www.example.org/%A3?%C2%A3"
         )
 
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     def test_safe_download_url_encoded_dot_segments(self):
         # "%2e", ".%2e", "%2e." and "%2e%2e" are the percent-encoded forms of
         # the single-dot and double-dot path segments of the URL living
@@ -1016,6 +1076,21 @@ class TestUrl:
         assert is_url("file:///some/path")
         assert not is_url("foo://bar")
         assert not is_url("foo--bar")
+
+    def test_is_url_scheme_case_insensitive(self):
+        assert is_url("HTTP://www.example.org")
+        assert is_url("HTTPS://www.example.org")
+        assert is_url("Https://www.example.org")
+        assert is_url("FILE:///some/path")
+        assert not is_url("FOO://bar")
+
+    def test_is_url_requires_delimiter(self):
+        assert not is_url("http")
+        assert not is_url("https")
+        assert not is_url("file")
+        assert not is_url("HTTP")
+        assert not is_url("HTTPS")
+        assert not is_url("FILE")
 
     def test_add_http_if_no_scheme(self):
         assert add_http_if_no_scheme("www.example.com") == "http://www.example.com"
@@ -1455,6 +1530,7 @@ class TestUrl:
 
 
 class TestSafeDownloadUrlProperties:
+    @pytest.mark.filterwarnings("ignore::FutureWarning")
     @given(hyp_urls())
     def test_no_exception(self, url: str) -> None:
         safe_download_url(url)
@@ -1811,6 +1887,10 @@ class TestCanonicalizeUrl:
     def test_domains_are_case_insensitive(self):
         assert canonicalize_url("http://www.EXAMPLE.com/") == "http://www.example.com/"
 
+    def test_idna_deviation_characters(self):
+        assert canonicalize_url("http://straße.de/") == "http://xn--strae-oqa.de/"
+        assert canonicalize_url("http://strasse.de/") == "http://strasse.de/"
+
     def test_userinfo_is_case_sensitive(self):
         assert (
             canonicalize_url("sftp://UsEr:PaSsWoRd@www.EXAMPLE.com/")
@@ -1898,6 +1978,19 @@ class TestCanonicalizeUrl:
         assert (
             canonicalize_url("http://user:pass@[::1]/a") == "http://user:pass@[::1]/a"
         )
+
+    def test_normalize_ipv4_host(self):
+        # every spelling of 127.0.0.1 that a browser connects to it with
+        for url in (
+            "http://127.0.0.1/a",
+            "http://0x7f.1/a",
+            "http://0177.0.0.1/a",
+            "http://127.1/a",
+            "http://2130706433/a",
+            "http://0X7F000001/a",
+            "http://%31%32%37.0.0.1/a",
+        ):
+            assert canonicalize_url(url) == "http://127.0.0.1/a"
 
     def test_canonicalize_idns(self):
         assert (
@@ -2247,6 +2340,31 @@ class TestDataURI:
         assert result.media_type == "text/plain"
         assert result.data == b"Hello, world."
 
+    @pytest.mark.parametrize(
+        "uri",
+        [
+            "data:;base64,SGVsbG8=",
+            "data:;base64,SGVs bG8=",
+            "data:;base64,SGVsbG8",
+        ],
+    )
+    def test_base64_forgiving(self, uri):
+        assert parse_data_uri(uri).data == b"Hello"
+
+    @pytest.mark.parametrize(
+        "uri",
+        [
+            "data:;base64,S!G@V$b G8=",
+            "data:;base64,!!!! ",
+            "data:;base64,SGVsbG8==",
+            "data:;base64,SGV=bG8",
+            "data:;base64,SGVsb",
+        ],
+    )
+    def test_invalid_base64(self, uri):
+        with pytest.raises(ValueError, match="invalid data URI"):
+            parse_data_uri(uri)
+
     def test_wrong_base64_param(self):
         with pytest.raises(ValueError, match="invalid data URI"):
             parse_data_uri("data:text/plain;baes64,SGVsbG8sIHdvcmxkLg%3D%3D")
@@ -2254,6 +2372,8 @@ class TestDataURI:
     def test_missing_comma(self):
         with pytest.raises(ValueError, match="invalid data URI"):
             parse_data_uri("data:A%20brief%20note")
+        with pytest.raises(ValueError, match="invalid data URI"):
+            parse_data_uri("data:text/plain")
 
     def test_missing_scheme(self):
         with pytest.raises(ValueError, match="invalid URI"):
@@ -2454,22 +2574,14 @@ class TestPrivateHelpersProperties:
         expected = unquote_to_bytes(data.replace("+", " "))
         assert result == expected
 
-    # assume() rejects most generated inputs on Python 3.10, tripping the check
-    @settings(suppress_health_check=[HealthCheck.filter_too_much])
     @given(st.text())
     def test_parse_qs_matches_stdlib(self, data: str) -> None:
-        if sys.version_info < (3, 11):
-            # https://github.com/python/cpython/issues/74668
-            assume(data.isascii())
         result = _parse_qs(data)
         expected = parse_qs(data.encode("utf-8"))
         assert result == expected
 
-    @settings(suppress_health_check=[HealthCheck.filter_too_much])
     @given(st.text())
     def test_parse_qsl_matches_stdlib(self, data: str) -> None:
-        if sys.version_info < (3, 11):
-            assume(data.isascii())
         result = _parse_qsl(data)
         expected = parse_qsl(data.encode("utf-8"))
         assert result == expected

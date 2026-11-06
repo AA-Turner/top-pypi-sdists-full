@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .operator_errors import run_with_operator_error_handling
+from .command_help import HELP_FLAGS, content_command_help, wants_help
 from .accession import (
     build_reference_accession_assignment_records,
     execute_reference_accession_assignment,
@@ -273,6 +274,8 @@ PORTED_COMMANDS = frozenset(
         "references:approve",
         "references:reject",
         "references:request-delegation",
+        "references:link",
+        "references:set-stars",
         "references:list-predictions",
         "references:audit",
         "references:auto-accept",
@@ -321,6 +324,9 @@ PORTED_COMMANDS = frozenset(
         "references:backfill-monitor-deliveries",
         "references:backfill-feed-keys",
         "references:backfill-medium",
+        "references:backfill-word-index",
+        "references:backfill-public-fields",
+        "references:queue-predictions",
         "references:retire-citation-stubs",
         "references:backfill-corpus-storage-paths",
         "assignments:list",
@@ -514,8 +520,11 @@ def is_ported_command(group: str, command: str) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
     args = list(argv if argv is not None else sys.argv[1:])
+    if wants_help(args):
+        # Before .env, sign-in, site selection or any command: help never reads or writes anything.
+        return run_with_operator_error_handling(lambda: content_command_help(args))
+    load_dotenv()
     if len(args) < 2:
         print_usage()
         return 1
@@ -534,6 +543,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def dispatch(group: str, command: str, flags: list[str]) -> None:
+    if command in HELP_FLAGS or wants_help(flags):
+        # The one place every delegated command passes through: none of them sees `--help`, and mutations write by default.
+        content_command_help([group] if command in HELP_FLAGS else [group, command])
+        return
     route = f"{group}:{command}"
     if not is_ported_command(group, command):
         raise unsupported_command(f"command: {group} {command}")
@@ -610,6 +623,12 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
     elif route == "references:request-delegation":
         from .references_commands import references_request_delegation
         references_request_delegation(flags)
+    elif route == "references:link":
+        from .signed_in_concepts import references_link
+        references_link(flags)
+    elif route == "references:set-stars":
+        from .references_commands import references_set_stars_on_behalf_of
+        references_set_stars_on_behalf_of(flags)
     elif route == "references:review-curation":
         references_review_curation(flags)
     elif route == "references:list-predictions":
@@ -737,6 +756,15 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
     elif route == "references:backfill-medium":
         from .references_commands import references_backfill_medium
         references_backfill_medium(flags)
+    elif route == "references:backfill-word-index":
+        from .references_commands import references_backfill_word_index
+        references_backfill_word_index(flags)
+    elif route == "references:backfill-public-fields":
+        from .references_commands import references_backfill_public_fields
+        references_backfill_public_fields(flags)
+    elif route == "references:queue-predictions":
+        from .references_commands import references_queue_predictions
+        references_queue_predictions(flags)
     elif route == "references:retire-citation-stubs":
         from .references_commands import references_retire_citation_stubs
         references_retire_citation_stubs(flags)
@@ -1245,6 +1273,8 @@ def references_register_catalog(flags: list[str]) -> None:
         return
     apply_record_changes(client, result["changes"])
     update_newsroom_summary_after_reference_registration(client, result["changes"], result["plan"])
+    from .reference_prediction_queue import request_for_created
+    request_for_created(client, result["changes"], "references\tcreate-from-catalog")   # one Cyclotron prediction per new Reference, requested once, here
 
 
 def references_register_catalog_split(flags: list[str]) -> None:
@@ -1292,6 +1322,8 @@ def references_register_catalog_split(flags: list[str]) -> None:
         if apply:
             apply_record_changes(client, result["changes"])
             update_newsroom_summary_after_reference_registration(client, result["changes"], result["plan"])
+            from .reference_prediction_queue import request_for_created
+            request_for_created(client, result["changes"], f"references\tcreate-from-catalog-split\t{bucket_name}")
 
 
 def references_source_status(flags: list[str]) -> None:

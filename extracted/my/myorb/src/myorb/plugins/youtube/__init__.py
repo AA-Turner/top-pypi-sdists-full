@@ -8,6 +8,7 @@ import asyncio
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 import httpx2
 from fastapi import APIRouter
@@ -195,6 +196,7 @@ class YouTubePlugin(Plugin):
                     tags=("seen",) if is_seen else ("unseen", "new") if fresh else ("unseen",),
                     group=v["channel"],
                     ref=f"video {v['id']}",
+                    image=f"https://i.ytimg.com/vi/{quote(v['id'], safe='')}/mqdefault.jpg",
                 )
             )
         return WidgetData(

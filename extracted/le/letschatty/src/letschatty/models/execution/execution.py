@@ -1,12 +1,13 @@
 from letschatty.models.utils.types import StrObjectId
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel, Field
 from bson import ObjectId
 from .executor import Executor, ExecutorType
 from letschatty.models.analytics.sources import Source
 from letschatty.models.company.assets.users.user import User
+from letschatty.models.channels.request_account import RequestAccount
 from letschatty.models.whatsapp.account_context import AccountContext
 
 class ExecutionContext(BaseModel):
@@ -21,7 +22,7 @@ class ExecutionContext(BaseModel):
     chain_of_thought_id: Optional[StrObjectId] = Field(default=None, description="If the execution is related to the decision of an ai agent, this will be the id of the chain of thought that was used to make the decision so we can use it to check if the decision is valid")
     workflow_id: Optional[str] = Field(default=None, description="If the execution is a copilot automation (workflow) sending a message/template, this is the originating workflow id, stamped onto the message context for attribution")
     wpp_apb_mode: bool = Field(default=False, description="If the execution is related to the wpp apb mode")
-    account: Optional[AccountContext] = Field(default=None, exclude=True, description="The WhatsApp account this request acts as (multi-account). Set by the webhook entry (from the number the webhook arrived on) or by an endpoint that resolved it. Never serialized: it carries the account token")
+    account: Optional[Union[AccountContext, RequestAccount]] = Field(default=None, exclude=True, description="The account this request acts as (multi-account), of any channel: WhatsApp's is an `AccountContext` (ADR-011 §12, E3). A Union and not just the base: built from a dict, the account must still come out as an `AccountContext` (smart union picks the member that keeps every field). Set by the webhook entry (from the number the webhook arrived on) or by an endpoint that resolved it. Never serialized: it carries the account token")
     agents_can_see_unassigned_chats: bool = Field(default=True, description="Company-wide chat visibility rule for restricted users (plain agents), copied off `messaging_settings.agents_can_see_unassigned_chats` by the route layer. True (the default, and the historical behavior) means an agent sees their own chats plus every unassigned one; False means they only ever see the chats assigned to them. Defaults to True so any context built outside the request path keeps the old behavior instead of silently emptying a list.")
 
     resolved_accounts: dict = Field(default_factory=dict, exclude=True, repr=False, description="Per-request memo of the accounts already resolved for a chat ((company_id, account_id) -> (monotonic time, AccountContext)), so one send does not read the same account and WABA once per message. Owned by api-chatty's account resolution, which bounds its age. Never serialized: it carries account tokens")

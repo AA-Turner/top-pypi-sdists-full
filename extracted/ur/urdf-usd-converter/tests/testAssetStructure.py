@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pathlib
 
-import omni.asset_validator
+import usd_validation_nvidia
 import usdex.core
 import usdex.test
 from pxr import Kind, Sdf, Tf, Usd, UsdGeom, UsdPhysics, UsdShade
@@ -182,7 +182,9 @@ class TestAssetStructure(ConverterTestCase):
 
     def test_prim_stack_no_materials(self):
         input_path = "tests/data/revolute_joints.urdf"
-        asset: Sdf.AssetPath = urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
+        revolute_arms = [("Arm_1", "revolute"), ("Arm_2", "revolute"), ("Arm_3", "revolute"), ("Arm_4", "revolute")]
+        with self.expect_no_mass_source(revolute_arms):
+            asset: Sdf.AssetPath = urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
         parent_path = pathlib.Path(asset.path).parent
         self.assertTrue(pathlib.Path(asset.path).exists())
 
@@ -272,7 +274,7 @@ class TestAssetStructure(ConverterTestCase):
         self.assertTrue(materials_layer_path.exists(), msg=f"Materials layer not found at {materials_layer_path}")
         materials_stage: Usd.Stage = Usd.Stage.Open(materials_layer_path.as_posix())
         # overrides are expected in the material layer
-        self.validationEngine.disable_rule(omni.asset_validator.DanglingOverPrimChecker)
+        self.validationEngine.disable_rule(usd_validation_nvidia.DanglingOverPrimChecker)
         self.assertIsValidUsd(materials_stage)
 
         # Test stage metrics
@@ -320,13 +322,24 @@ class TestAssetStructure(ConverterTestCase):
     def test_physics_layer(self):
         input_path = "tests/data/revolute_joints.urdf"
         robot_name = pathlib.Path(input_path).stem
-        urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
+        revolute_arms = [("Arm_1", "revolute"), ("Arm_2", "revolute"), ("Arm_3", "revolute"), ("Arm_4", "revolute")]
+        with self.expect_no_mass_source(revolute_arms):
+            urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
 
         # kg per unit is authored in the physics layer
         physics_layer_path = pathlib.Path(self.tmpDir()) / "Payload" / "Physics.usda"
         self.assertTrue(physics_layer_path.exists(), msg=f"Physics layer not found at {physics_layer_path}")
         physics_stage: Usd.Stage = Usd.Stage.Open(physics_layer_path.as_posix())
-        self.assertIsValidUsd(physics_stage)
+        # joint body targets are pure overs in this layer, they only resolve to Xformable prims in the composed asset
+        self.assertIsValidUsd(
+            physics_stage,
+            issuePredicates=[
+                usd_validation_nvidia.IssuePredicates.And(
+                    usd_validation_nvidia.IssuePredicates.IsRule(usd_validation_nvidia.PhysicsJointChecker),
+                    usd_validation_nvidia.IssuePredicates.ContainsMessage("body relationship must point to an Xformable prim"),
+                ),
+            ],
+        )
         self.assertEqual(UsdPhysics.GetStageKilogramsPerUnit(physics_stage), 1.0)
 
         # Test stage metrics
@@ -409,7 +422,9 @@ class TestAssetStructure(ConverterTestCase):
                             f"Prim {prim.GetPath()} in {layer.name} layer should not have physics properties, but found {prop.GetName()}",
                         )
 
-        check_layer("revolute_joints")  # has bodies and joints and geoms
+        revolute_arms = [("Arm_1", "revolute"), ("Arm_2", "revolute"), ("Arm_3", "revolute"), ("Arm_4", "revolute")]
+        with self.expect_no_mass_source(revolute_arms):
+            check_layer("revolute_joints")  # has bodies and joints and geoms
         with usdex.test.ScopedDiagnosticChecker(
             self,
             [
@@ -422,7 +437,9 @@ class TestAssetStructure(ConverterTestCase):
 
     def test_physics_scene(self):
         input_path = "tests/data/revolute_joints.urdf"
-        asset: Sdf.AssetPath = urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
+        revolute_arms = [("Arm_1", "revolute"), ("Arm_2", "revolute"), ("Arm_3", "revolute"), ("Arm_4", "revolute")]
+        with self.expect_no_mass_source(revolute_arms):
+            asset: Sdf.AssetPath = urdf_usd_converter.Converter().convert(input_path, self.tmpDir())
 
         stage: Usd.Stage = Usd.Stage.Open(asset.path)
         self.assertIsValidUsd(stage)

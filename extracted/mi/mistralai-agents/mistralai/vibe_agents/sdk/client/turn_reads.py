@@ -1,7 +1,7 @@
 """Read one turn from its host and build its record.
 
 Two requests: the session (its active turn, its open callbacks, its most recent turns and its last
-event id), then the turn's history entries. A turn older than the most recent turns costs one
+event ID), then the turn's history entries. A turn older than the most recent turns costs one
 ``turns/list`` request per page before the history. The session's active turn costs one more: the
 open callbacks of its subagents, from ``callbacks/tree``.
 """
@@ -52,14 +52,14 @@ async def read_turn(
     tools: Mapping[str, _Tool] = NO_TOOLS,
     confirmed: bool = False,
 ) -> TurnState[str]:
-    """Return the turn's state as of the session's last event id, read first.
+    """Return the turn's state as of the session's last event ID, read first.
 
-    ``tools`` are the agent's tool objects by tool id, for the requests of its open approvals.
+    ``tools`` are the agent's tool objects by tool ID, for the requests of its open approvals.
     ``confirmed`` says that the host confirmed the turn, as a start's or a send's answer does: a
     session that does not list it yet reads it ``Running``.
 
     Raises:
-        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
+        TurnNotFoundError: The session has no turn with this ID, and it is not ``confirmed``.
     """
     state, _start = await read_turn_and_start(raw, session_id, turn_id, tools=tools, confirmed=confirmed)
     return state
@@ -73,7 +73,7 @@ async def read_turn_and_start(
     tools: Mapping[str, _Tool] = NO_TOOLS,
     confirmed: bool = False,
 ) -> tuple[TurnState[str], str | None]:
-    """Return what ``read_turn`` does, and the event id the turn's events are read after.
+    """Return what ``read_turn`` does, and the event ID the turn's events are read after.
 
     It is the previous turn's start, which the host records: the events that name no turn
     since the previous turn's end are this turn's too. It is ``None`` for the session's first turn, and
@@ -82,10 +82,10 @@ async def read_turn_and_start(
 
     A deployment answers a start or a send before its session read lists the turn: the read is
     rebuilt from the events the control plane has projected so far. A ``confirmed`` turn it does
-    not list yet reads ``Running`` at the session's last event id; its events come after it.
+    not list yet reads ``Running`` at the session's last event ID; its events come after it.
 
     Raises:
-        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
+        TurnNotFoundError: The session has no turn with this ID, and it is not ``confirmed``.
     """
     read = await raw.request(
         "app_server/session/read",

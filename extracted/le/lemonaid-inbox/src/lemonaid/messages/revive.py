@@ -1,4 +1,4 @@
-"""Bring back a lemon that won't read its inbox, in the terminal it ran in, at most so often.
+"""Bring back a lemon that won't read its mailbox, in the terminal it ran in, at most so often.
 
 A dead lemon is resumed in a new window; an idle one with no waiter has the
 prompt typed into it. Both `tell`'s autoresume and `lemon resume` start
@@ -9,10 +9,12 @@ import time
 import typing as ty
 from pathlib import Path
 
+from .. import front_end
 from ..config import Config
+from ..front_end import pick
 from ..inbox import db
 from ..launch.restart import native, state
-from . import autoresume_cmux, autoresume_tmux, resume_log, wake
+from . import resume_log, wake
 
 STARTED = "started"
 STARTING = "starting"  # a start in the last minute may still be coming up
@@ -27,12 +29,10 @@ class Outcome(ty.NamedTuple):
 
 def bring_back(row: db.Notification, start: bool, config: Config, text: str) -> str:
     """Resume (*start*) or prompt *row*'s lemon on *text*. Returns why not, or ""."""
-    terminal = row.switch_source or ("tmux" if row.metadata.get("tmux_session") else "")
-    if terminal == "tmux":
-        return (autoresume_tmux.start if start else autoresume_tmux.prompt)(row, config, text)
-
-    if terminal == "cmux" and start:
-        return autoresume_cmux.start(row, config, text)
+    terminal = front_end.location.of(row.metadata, row.switch_source).front_end
+    found = pick.named(terminal)
+    if found and (revive := found.start if start else found.prompt):
+        return revive(row, config, text)
 
     by_hand = wake.resume_line(row, config)
     return (
@@ -42,18 +42,18 @@ def bring_back(row: db.Notification, start: bool, config: Config, text: str) -> 
     )
 
 
-def _revive(row: db.Notification, inbox: Path, dead: bool, config: Config, text: str) -> Outcome:
+def _revive(row: db.Notification, mailbox: Path, dead: bool, config: Config, text: str) -> Outcome:
     """Resume *row*'s lemon if *dead*, else prompt it, unless the start log says not to.
 
     A lemon found dead soon after its last start counts that start as failed.
     """
-    now, log = time.time(), resume_log.entries(inbox)
+    now, log = time.time(), resume_log.entries(mailbox)
     if resume_log.starting(log, now):
         return Outcome(STARTING)
 
     if dead and resume_log.died_quickly(log, now):
-        resume_log.record(inbox, resume_log.FAILED)
-        log = resume_log.entries(inbox)
+        resume_log.record(mailbox, resume_log.FAILED)
+        log = resume_log.entries(mailbox)
     if resume_log.within(log, now, config.messages.autoresume_window) >= (
         config.messages.autoresume_max
     ):
@@ -62,13 +62,13 @@ def _revive(row: db.Notification, inbox: Path, dead: bool, config: Config, text:
     if why := bring_back(row, dead, config, text):
         return Outcome(FAILED, why)
 
-    resume_log.record(inbox)
+    resume_log.record(mailbox)
     with db.connect() as conn:
         db.hold_snooze_through_turns(conn, row.id)
     return Outcome(STARTED)
 
 
-def revive(row: db.Notification, inbox: Path, dead: bool, config: Config, text: str) -> Outcome:
+def revive(row: db.Notification, mailbox: Path, dead: bool, config: Config, text: str) -> Outcome:
     with state.admission(row.channel) as allowed:
         if not allowed:
             return Outcome(STARTING, "restart in progress")
@@ -79,4 +79,4 @@ def revive(row: db.Notification, inbox: Path, dead: bool, config: Config, text: 
                 state.inspection(row.channel),
             )
 
-        return _revive(row, inbox, dead, config, text)
+        return _revive(row, mailbox, dead, config, text)

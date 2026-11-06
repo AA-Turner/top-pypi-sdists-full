@@ -1,4 +1,4 @@
-# Copyright (C) 2023 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2023 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 #
@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 """Pyunits is a pythonic interface for units, unit systems, and unit conversions."""
 
 import importlib.metadata
@@ -39,9 +40,13 @@ from ansys.units.preferred_units import (
 )
 from ansys.units.quantity import Quantity, get_si_value
 from ansys.units.quantity_dimensions import QuantityDimensions
+from ansys.units.serialization import (
+    get_application_registry,
+    set_application_registry,
+)
 from ansys.units.systems import UnitSystem
 from ansys.units.unit import Unit
-from ansys.units.unit_registry import UnitRegistry
+from ansys.units.unit_registry import UnitRegistry, load_custom_units
 from ansys.units.variable_descriptor import (
     ConversionStrategy,
     MappingConversionStrategy,
@@ -53,8 +58,8 @@ _THIS_DIRNAME = os.path.dirname(__file__)
 _README_FILE = os.path.normpath(os.path.join(_THIS_DIRNAME, "docs", "README.rst"))
 
 if os.path.exists(_README_FILE):
-    with open(_README_FILE, encoding="utf8") as f:
-        __doc__ = f.read()
+    with open(_README_FILE, encoding="utf8") as _readme:
+        __doc__ = _readme.read()
 
 
 __all__ = [
@@ -65,6 +70,7 @@ __all__ = [
     "UnitSystem",
     "Unit",
     "UnitRegistry",
+    "load_custom_units",
     "QuantityDimensions",
     "PreferredUnits",
     "PreferredUnitAlreadyRegistered",
@@ -73,6 +79,8 @@ __all__ = [
     "VariableCatalog",
     "ConversionStrategy",
     "MappingConversionStrategy",
+    "get_application_registry",
+    "set_application_registry",
 ]
 
 # Conditionally import pandas extension if pandas is available

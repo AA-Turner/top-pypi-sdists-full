@@ -37,27 +37,21 @@ DESCRIPTOR: _descriptor.FileDescriptor
 
 @_typing.final
 class NewSession(_message.Message):
-    """NOTE: These proto types are used by some external services so need to
-    remain relatively stable. While they aren't entirely set in stone, changing
-    them may require a good amount of effort so should be avoided if possible.
-
-    This is the first message that is sent when a new session starts.
+    """This is the first message that is sent when a new session starts.
+    The enclosing ForwardMsg.metadata.run carries the identity of the run this
+    message starts.
     """
 
     DESCRIPTOR: _descriptor.Descriptor
 
     INITIALIZE_FIELD_NUMBER: _builtins.int
-    SCRIPT_RUN_ID_FIELD_NUMBER: _builtins.int
     NAME_FIELD_NUMBER: _builtins.int
     MAIN_SCRIPT_PATH_FIELD_NUMBER: _builtins.int
     CONFIG_FIELD_NUMBER: _builtins.int
     CUSTOM_THEME_FIELD_NUMBER: _builtins.int
     APP_PAGES_FIELD_NUMBER: _builtins.int
     PAGE_SCRIPT_HASH_FIELD_NUMBER: _builtins.int
-    FRAGMENT_IDS_THIS_RUN_FIELD_NUMBER: _builtins.int
     MAIN_SCRIPT_HASH_FIELD_NUMBER: _builtins.int
-    script_run_id: _builtins.str
-    """The script run ID"""
     name: _builtins.str
     """The basename of the script that launched this app. Example: 'foo.py'"""
     main_script_path: _builtins.str
@@ -92,29 +86,21 @@ class NewSession(_message.Message):
     def app_pages(self) -> _containers.RepeatedCompositeFieldContainer[_AppPage_pb2.AppPage]:
         """A list of all of this app's pages, in order and including the main page."""
 
-    @_builtins.property
-    def fragment_ids_this_run(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
-        """The fragment IDs being run in this session if it corresponds to a fragment
-        script run.
-        """
-
     def __init__(
         self,
         *,
         initialize: Global___Initialize | None = ...,
-        script_run_id: _builtins.str = ...,
         name: _builtins.str = ...,
         main_script_path: _builtins.str = ...,
         config: Global___Config | None = ...,
         custom_theme: Global___CustomThemeConfig | None = ...,
         app_pages: _abc.Iterable[_AppPage_pb2.AppPage] | None = ...,
         page_script_hash: _builtins.str = ...,
-        fragment_ids_this_run: _abc.Iterable[_builtins.str] | None = ...,
         main_script_hash: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "custom_theme", b"custom_theme", "initialize", b"initialize"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["app_pages", b"app_pages", "config", b"config", "custom_theme", b"custom_theme", "fragment_ids_this_run", b"fragment_ids_this_run", "initialize", b"initialize", "main_script_hash", b"main_script_hash", "main_script_path", b"main_script_path", "name", b"name", "page_script_hash", b"page_script_hash", "script_run_id", b"script_run_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["app_pages", b"app_pages", "config", b"config", "custom_theme", b"custom_theme", "initialize", b"initialize", "main_script_hash", b"main_script_hash", "main_script_path", b"main_script_path", "name", b"name", "page_script_hash", b"page_script_hash"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

@@ -1,9 +1,10 @@
 from functools import partial
 from itertools import islice
-from typing import Callable, List, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Union
 
 import torch
-import torch.nn.functional as F
+
+from .tokenizer import Tokenizer
 
 
 def batched(iterable, n):
@@ -20,7 +21,7 @@ def batched(iterable, n):
 
 def build_zero_shot_classifier(
         model,
-        tokenizer,
+        tokenizer: Tokenizer,
         classnames: Sequence[str],
         templates: Sequence[Union[Callable, str]],
         num_classes_per_batch: Optional[int] = 10,
@@ -32,14 +33,14 @@ def build_zero_shot_classifier(
         model: CLIP model instance
         tokenizer: CLIP tokenizer instance
         classnames: A sequence of class (label) names
-        templates: A sequence of callables or format() friendly strings to produce templates per class name
+        templates: A sequence of callables or format() friendly strings to produce templates per class name.
+            Strings and callables can be mixed in the same sequence.
         num_classes_per_batch: The number of classes to batch together in each forward, all if None
         device: Device to use.
         use_tqdm: Enable TQDM progress bar.
     """
     assert isinstance(templates, Sequence) and len(templates) > 0
     assert isinstance(classnames, Sequence) and len(classnames) > 0
-    use_format = isinstance(templates[0], str)
     num_templates = len(templates)
     num_classes = len(classnames)
     if use_tqdm:
@@ -51,9 +52,19 @@ def build_zero_shot_classifier(
 
     def _process_batch(batch_classnames):
         num_batch_classes = len(batch_classnames)
-        texts = [template.format(c) if use_format else template(c) for c in batch_classnames for template in templates]
+        texts = [
+            template.format(c) if isinstance(template, str) else template(c)
+            for c in batch_classnames
+            for template in templates
+        ]
         texts = tokenizer(texts).to(device)
-        class_embeddings = model.encode_text(texts, normalize=True)
+        output = model(text=texts)
+        if isinstance(output, dict):
+            class_embeddings = output['text_features']
+        elif isinstance(output, (tuple, list)):
+            class_embeddings = output[1]
+        else:
+            class_embeddings = output
         class_embeddings = class_embeddings.reshape(num_batch_classes, num_templates, -1).mean(dim=1)
         class_embeddings = class_embeddings / class_embeddings.norm(dim=1, keepdim=True)
         class_embeddings = class_embeddings.T
@@ -70,7 +81,7 @@ def build_zero_shot_classifier(
 
 def build_zero_shot_classifier_legacy(
         model,
-        tokenizer,
+        tokenizer: Tokenizer,
         classnames: Sequence[str],
         templates: Sequence[Union[Callable, str]],
         device: Union[str, torch.device] = 'cpu',
@@ -81,7 +92,8 @@ def build_zero_shot_classifier_legacy(
         model: CLIP model instance
         tokenizer: CLIP tokenizer instance
         classnames: A sequence of class (label) names
-        templates: A sequence of callables or format() friendly strings to produce templates per class name
+        templates: A sequence of callables or format() friendly strings to produce templates per class name.
+            Strings and callables can be mixed in the same sequence.
         device: Device to use.
         use_tqdm: Enable TQDM progress bar.
     """
@@ -93,18 +105,25 @@ def build_zero_shot_classifier_legacy(
     else:
         iter_wrap = iter
 
-    use_format = isinstance(templates[0], str)
-
     with torch.no_grad():
         zeroshot_weights = []
         for classname in iter_wrap(classnames):
-            texts = [template.format(classname) if use_format else template(classname) for template in templates]
+            texts = [
+                template.format(classname) if isinstance(template, str) else template(classname)
+                for template in templates
+            ]
             texts = tokenizer(texts).to(device)  # tokenize
-            class_embeddings = model.encode_text(texts)
-            class_embedding = F.normalize(class_embeddings, dim=-1).mean(dim=0)
+            output = model(text=texts)
+            if isinstance(output, dict):
+                class_embeddings = output['text_features']
+            elif isinstance(output, (tuple, list)):
+                class_embeddings = output[1]
+            else:
+                class_embeddings = output
+            # forward() returns L2-normalized features; mean then re-normalize
+            class_embedding = class_embeddings.mean(dim=0)
             class_embedding /= class_embedding.norm()
             zeroshot_weights.append(class_embedding)
         zeroshot_weights = torch.stack(zeroshot_weights, dim=1).to(device)
 
     return zeroshot_weights
-

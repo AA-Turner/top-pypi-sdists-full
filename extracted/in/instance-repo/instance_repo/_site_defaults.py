@@ -37,3 +37,11 @@ ARTIFACT_PREFIX_ROOT = ""
 #: 注入。运行时也可经环境变量 AP_ARTIFACT_BUCKET_MAP（JSON）覆盖，优先级：
 #: 环境变量 > 本模块注入值 > 空（空则 artifact 下载报错并引导配置）。
 ARTIFACT_BUCKET_MAP_JSON = ""
+
+#: 期望 replica policy（canonical 双桶对）的 JSON 串。**源码恒为空**；
+#: 内网构建时由发布脚本注入（与 API_BASE 同模式——静态可审计、无
+#: envvar 通道）。运行时解析为 ``ReplicasPolicy``（严格 JSON/拒重复
+#: keys/构造验证）；公共包通过显式构造参数传入有效 policy 亦可运行。
+#: 优先级：显式构造参数 > 本模块注入值 > 缺失（缺失=新客户端零 IO
+#: typed error）。
+EXPECTED_REPLICA_POLICY_JSON = ""

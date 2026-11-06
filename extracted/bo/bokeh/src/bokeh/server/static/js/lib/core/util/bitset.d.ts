@@ -15,6 +15,7 @@ export declare class BitSet implements Equatable {
     static all_set(size: number): BitSet;
     static all_unset(size: number): BitSet;
     static from_indices(size: number, indices: Iterable<number>): BitSet;
+    static from_indices_array(size: number, indices_array: Arrayable<number>): BitSet;
     static from_booleans(size: number, booleans: Iterable<boolean>): BitSet;
     get_unchecked(k: number): boolean;
     set_unchecked(k: number, v?: boolean): void;
@@ -24,6 +25,7 @@ export declare class BitSet implements Equatable {
     [Symbol.iterator](): Iterator<number>;
     private _count;
     get count(): number;
+    private _popcount;
     protected _get_count(): number;
     ones(): number[];
     zeros(): number[];

@@ -451,9 +451,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _split_ref(ref: str, parts: int) -> list[str]:
+    """切分位置参数 ref:尾部 ``parts-2`` 段是 version/instance-id 槽位,其余(≥1 段)
+    全部是 dataset 名——多段 dataset 名 (``A/B/C``) 因此可以原样出现在 ref 里。
+
+    ``parts=2`` 时 ref 整体就是 dataset 名(无尾部槽位)。
+    """
     segs = ref.split("/")
-    if len(segs) != parts:
-        raise SystemExit(f"ref must have {parts} segments, got {ref!r}")
+    minimum = parts - 1
+    if len(segs) < minimum:
+        raise SystemExit(
+            f"ref must have at least {minimum} segments, got {ref!r}")
     return segs
 
 
@@ -475,15 +482,18 @@ def _split_instance_count(split) -> int:
 
 
 def _resolve_split_ref(args) -> tuple[str, str]:
-    """定位 dataset + split：位置 ref（{L1}/{L2}/{split}）或 --dataset/--split。"""
+    """定位 dataset + split:位置 ref(``{dataset}/{split}``)或 --dataset/--split。
+
+    多段 dataset 名时 split 取最后一节,前面所有段拼回 dataset 名。
+    """
     if args.dataset:
         if not args.split:
             raise SystemExit("给定 --dataset 时 split 需要 --split")
         return args.dataset, args.split
     if args.ref:
         segs = _split_ref(args.ref, 3)
-        return f"{segs[0]}/{segs[1]}", segs[2]
-    raise SystemExit("split get/create/set-run-type 需要 {L1}/{L2}/{split} 或 "
+        return "/".join(segs[:-1]), segs[-1]
+    raise SystemExit("split get/create/set-run-type 需要 {dataset}/{split} 或 "
                      "--dataset/--split")
 
 
@@ -493,15 +503,15 @@ def _split_dataset(dataset: str) -> tuple[str, str]:
         name = P.DatasetName.parse(dataset)
     except InstanceRepoError as exc:
         raise SystemExit(
-            f"--dataset must be one or two canonical segments, got "
+            f"--dataset must be one or more canonical segments, got "
             f"{dataset!r}") from exc
     return name.l1, name.l2
 
 
 _TARGET_SHAPE = {
-    2: ("{L1}/{L2}", "--dataset"),
-    3: ("{L1}/{L2}/{version}", "--dataset --version"),
-    4: ("{L1}/{L2}/{version}/{id}", "--dataset --version --instance-id"),
+    2: ("{dataset}", "--dataset"),
+    3: ("{dataset}/{version}", "--dataset --version"),
+    4: ("{dataset}/{version}/{id}", "--dataset --version --instance-id"),
 }
 
 
@@ -532,9 +542,14 @@ def _resolve_target(args, parts: int) -> tuple[str, str | None, str | None]:
             f"（ref={ref!r}）")
     if ref:
         segs = _split_ref(ref, parts)
-        return ("/".join(segs[:2]),
-                segs[2] if parts >= 3 else None,
-                segs[3] if parts >= 4 else None)
+        # 尾部 parts-2 段是 version/instance-id 槽位,其余全部是 dataset 名
+        # (多段 dataset 名按原样保留)。
+        slots = parts - 2
+        if slots == 0:
+            return ("/".join(segs), None, None)
+        if slots == 1:
+            return ("/".join(segs[:-1]), segs[-1], None)
+        return ("/".join(segs[:-2]), segs[-2], segs[-1])
     if not given:
         raise SystemExit(
             f"需要位置参数 ref（{shape}）或 flag 形式（{flag_hint}）")

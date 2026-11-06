@@ -19,9 +19,22 @@ from .._routing import (
 )
 from ..concurrency import ItemError, map_concurrent
 from ..content import sha256_file, verify_file_digest
-from ..errors import DigestMismatch, PrivateNetworkRequired, TransportError
+from ..errors import DigestMismatch, PrivateNetworkRequired, TransportError, SchemaError
 from ..retry import retry_transient
 from .base import BaseContentStore
+
+def _next_listing_marker(result, seen: set[str]) -> str | None:
+    """Fail closed on truncated/broken listings, without logging opaque markers."""
+    if not result.is_truncated:
+        return None
+    marker = result.next_marker
+    if not isinstance(marker, str) or not marker or marker in seen:
+        raise SchemaError("OSS listing continuation did not advance")
+    if len(seen) >= 1000:
+        raise SchemaError("OSS listing exceeded its 1000-page budget")
+    seen.add(marker)
+    return marker
+
 
 # bucket_factory 签名保持公开兼容：(sts:dict, bucket:str) -> bucket-like。
 BucketFactory = Callable[[dict, str], Any]
@@ -472,18 +485,88 @@ class OssContentStore(BaseContentStore):
         def list_all(bucket):
             keys: list[str] = []
             marker = ""
+            seen = {marker}
             while True:
                 result = bucket.list_objects(
                     prefix=prefix, marker=marker, max_keys=1000)
                 keys.extend(obj.key for obj in result.object_list)
-                if not result.is_truncated or not result.next_marker:
+                marker = _next_listing_marker(result, seen)
+                if marker is None:
                     break
-                marker = result.next_marker
             return keys
 
         return self._execute_oss(
             _OperationIntent.NON_DOWNLOAD, prefix, dataset, list_all,
             list_only=list_only)
+
+    def delete_instance(self, dataset: str, version: str, instance_id: str, *,
+                        split: str, layout) -> None:
+        """Delete only one canonical instance, using server-issued STS privately.
+
+        Per subtree: at most 1000 pages of 200 objects, O(200) memory, sequential
+        requests and existing bounded transport retries. Stop writers/ingesters
+        before calling; this is not an atomic delete or a version-history purge.
+        """
+        from ..errors import SchemaError
+        from ..validate import validate_instance_id
+
+        P.DatasetName.parse(dataset)
+        P.DatasetName.parse(layout.prefix)
+        for value in (instance_id, split):
+            validate_instance_id(value)
+        if version:
+            validate_instance_id(version)
+        scope = layout.sts_prefix(dataset)
+        metadata = layout.metadata_key(dataset, instance_id, version=version, split=split)
+        prefixes = (
+            layout.assets_dir(dataset, instance_id, version=version, split=split),
+            layout.report_key(dataset, instance_id, version=version, split=split)
+            .rsplit("/", 1)[0] + "/",
+        )
+        if not all(key.startswith(scope) for key in (metadata, *prefixes)):
+            raise SchemaError("instance deletion escaped the dataset root")
+
+        def remove(list_bucket, delete_bucket):
+            for prefix in prefixes:
+                marker = ""
+                for _ in range(1000):
+                    page = self._do(lambda: list_bucket.list_objects(
+                        prefix=prefix, marker=marker, max_keys=200))
+                    objects = list(page.object_list)
+                    if len(objects) > 200:
+                        raise SchemaError("OSS deletion page exceeds the requested limit")
+                    keys = [obj.key for obj in objects]
+                    if any(not isinstance(key, str) or not key.startswith(prefix)
+                           or (marker and key <= marker) for key in keys):
+                        raise SchemaError("OSS deletion listing escaped its instance subtree")
+                    next_marker = page.next_marker
+                    if page.is_truncated and (
+                            not isinstance(next_marker, str)
+                            or not next_marker.startswith(prefix)
+                            or next_marker <= marker
+                            or (keys and next_marker < max(keys))):
+                        raise SchemaError("OSS deletion listing returned an invalid marker")
+                    for key in keys:
+                        self._do(lambda key=key: delete_bucket.delete_object(key))
+                    if not page.is_truncated:
+                        break
+                    marker = next_marker
+                else:
+                    raise SchemaError("OSS deletion page budget exceeded; retry after quiescing writers")
+            # Remove the ingest source only after both scoped subtrees succeed.
+            self._do(lambda: delete_bucket.delete_object(metadata))
+
+        # Reuse the existing strict private-endpoint path (also used by downloads),
+        # without the public fallback used for ordinary non-download operations.
+        # Listing and object mutation are distinct grants on the server. Do not
+        # assume a normal writer/admin token includes ListObjects, or try to
+        # mutate with the discovery-only token.
+        list_bucket = self._execute_oss(
+            _OperationIntent.DOWNLOAD, scope, dataset, lambda bucket: bucket,
+            list_only=True)
+        delete_bucket = self._execute_oss(
+            _OperationIntent.DOWNLOAD, scope, dataset, lambda bucket: bucket)
+        remove(list_bucket, delete_bucket)
 
     def list_prefixes(self, prefix: str, *, list_only: bool = False,
                        dataset: str | None = None) -> list[str]:
@@ -502,6 +585,7 @@ class OssContentStore(BaseContentStore):
         def list_dirs(bucket):
             names: list[str] = []
             marker = ""
+            seen = {marker}
             while True:
                 result = bucket.list_objects(
                     prefix=prefix, marker=marker, delimiter="/", max_keys=1000)
@@ -511,9 +595,9 @@ class OssContentStore(BaseContentStore):
                         name = name[:-1]
                     if name:
                         names.append(name)
-                if not result.is_truncated or not result.next_marker:
+                marker = _next_listing_marker(result, seen)
+                if marker is None:
                     break
-                marker = result.next_marker
             return names
 
         return self._execute_oss(
@@ -536,6 +620,7 @@ class OssContentStore(BaseContentStore):
             names: list[str] = []
             keys: list[str] = []
             marker = ""
+            seen = {marker}
             while True:
                 result = bucket.list_objects(
                     prefix=prefix, marker=marker, delimiter="/", max_keys=1000)
@@ -546,9 +631,9 @@ class OssContentStore(BaseContentStore):
                     if name:
                         names.append(name)
                 keys.extend(obj.key for obj in result.object_list)
-                if not result.is_truncated or not result.next_marker:
+                marker = _next_listing_marker(result, seen)
+                if marker is None:
                     break
-                marker = result.next_marker
             return names, keys
 
         return self._execute_oss(
@@ -630,6 +715,21 @@ class OssContentStore(BaseContentStore):
             oss_prefix += "/"
 
         keys = self.list_objects(oss_prefix, list_only=True, dataset=dataset)
+
+        # Object names are untrusted even when listed under an authorized OSS
+        # prefix. Validate every destination before starting any download.
+        root = local_dir.resolve()
+        for key in keys:
+            if not isinstance(key, str) or not key.startswith(oss_prefix):
+                raise SchemaError("directory listing returned an out-of-scope object")
+            rel = key[len(oss_prefix):]
+            if not rel:
+                continue
+            if (rel.startswith("/") or "\\" in rel or ":" in rel or "\0" in rel
+                    or any(part in ("", ".", "..") for part in rel.split("/"))):
+                raise SchemaError("unsafe object path in directory download")
+            if not (root / rel).resolve().is_relative_to(root):
+                raise SchemaError("directory download destination escapes its root")
 
         def _download_one(key: str) -> Path:
             rel = key[len(oss_prefix):]

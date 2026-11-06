@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from numpy_groupies.common import default_fill_value
+from numpy_groupies.fills import default_fill_value
 from numpy_groupies.tests.helpers import (
     assert_same_result,
     func_list,
@@ -22,7 +22,10 @@ from numpy_groupies.tests.reference import aggregate_ref
 
 # the one-out-per-item functions (cum*, sort) have nothing to fill an absent
 # group with - see test_one_out_per_in_cannot_fill in test_axis.py
-default_fill_funcs = tuple(fn for fn in func_list if "cum" not in fn and fn != "sort")
+# the topk answers a row per group, and the test below compares the row with
+# the fill value - one value against many - so the topk is measured by the
+# test of the fill value against the group loop instead
+default_fill_funcs = tuple(fn for fn in func_list if "cum" not in fn and fn not in ("sort", "topk"))
 
 # every spelling of "one value instead of a column": python numbers carry no
 # dtype at all, numpy scalars and 0d arrays carry their own

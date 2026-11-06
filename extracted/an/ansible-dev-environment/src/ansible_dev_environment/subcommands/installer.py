@@ -24,12 +24,15 @@ except ImportError:
 from ansible_dev_environment.collection import Collection, parse_collection_request
 from ansible_dev_environment.constants import GALAXY_YAML
 from ansible_dev_environment.utils import (
+    JSONVal,
     builder_introspect,
+    collect_manifests,
     collections_from_requirements,
     get_dependency_constraint,
     opt_deps_to_files,
     oxford_join,
     subprocess_run,
+    version_satisfies_constraint,
 )
 
 from .checker import Checker
@@ -112,6 +115,50 @@ def galaxy_dependency_specs(dependencies: object) -> list[str]:
             spec = f"{spec}:{version_spec}"
         specs.append(spec)
     return specs
+
+
+def parse_galaxy_collection_spec(spec: str) -> tuple[str, str | None]:
+    """Split an ansible-galaxy collection spec into name and optional version.
+
+    Args:
+        spec: Collection spec (e.g. ``namespace.name:>=1.0.0``).
+
+    Returns:
+        Fully qualified collection name and version specifier, if any.
+    """
+    if ":" in spec:
+        name_part, raw_version = spec.split(":", 1)
+        stripped_version = raw_version.strip()
+        return name_part.strip(), stripped_version or None
+    return spec.strip(), None
+
+
+def _installed_collection_version(
+    installed: dict[str, dict[str, JSONVal]],
+    name: str,
+) -> str | None:
+    """Return the installed version for a collection, if manifest data is usable.
+
+    Args:
+        installed: Manifest data keyed by collection name.
+        name: Fully qualified collection name.
+
+    Returns:
+        Installed version string, or None if missing or malformed.
+    """
+    dependency = installed.get(name)
+    if not isinstance(dependency, dict):
+        return None
+
+    collection_info = dependency.get("collection_info")
+    if not isinstance(collection_info, dict):
+        return None
+
+    dep_version = collection_info.get("version")
+    if not isinstance(dep_version, str):
+        return None
+
+    return dep_version
 
 
 class Installer:
@@ -522,22 +569,22 @@ class Installer:
 
         return "ls", tracked_files_output.stdout
 
-    def _copy_repo_files(
+    def _discover_repo_file_list(
         self,
         local_repo_path: Path,
-        destination_path: Path,
-    ) -> None:
-        """Copy collection files tracked in git to the build directory.
+    ) -> tuple[str, list[str]]:
+        """Return the file listing command used and non-empty paths to copy.
 
         Args:
             local_repo_path: The collection local path.
-            destination_path: The build destination path.
+
+        Returns:
+            Command name (``git ls-files`` or ``ls``) and paths relative to the repo.
 
         Raises:
             SystemExit: If no files are found.
 
         """
-        # Get tracked files from git ls-files command
         found_using, files_stdout = self._find_files_using_git_ls_files(
             local_repo_path=local_repo_path,
         )
@@ -552,34 +599,125 @@ class Installer:
             self._output.critical(msg)
             raise SystemExit(msg)  # pragma: no cover # critical exits
 
-        msg = f"File list generated with '{found_using}'"
-        self._output.info(msg)
+        files_list = [file for file in files_stdout.split("\n") if file.strip()]
 
-        # Parse tracked files output
-        files_list = files_stdout.split("\n")
+        if not files_list:
+            msg = "No files found with either 'git ls-files' or 'ls"
+            self._output.critical(msg)
+            raise SystemExit(msg)  # pragma: no cover # critical exits
 
-        # Create the destination folder if it doesn't exist
+        if found_using is None:  # pragma: no cover
+            msg = "No files found with either 'git ls-files' or 'ls'"
+            self._output.critical(msg)
+            raise SystemExit(msg)
+
+        return found_using, files_list
+
+    def _reject_repo_paths_outside_root(
+        self,
+        local_repo_path: Path,
+        repo_root: Path,
+        files_list: list[str],
+    ) -> None:
+        """Refuse paths that resolve outside the collection root.
+
+        Args:
+            local_repo_path: The collection local path.
+            repo_root: Resolved collection root.
+            files_list: Paths relative to the collection root.
+        """
+        for file in files_list:
+            resolved = (local_repo_path / file).resolve()
+            if not resolved.is_relative_to(repo_root):
+                msg = f"Refusing to copy path outside collection: '{file}'"
+                self._output.critical(msg)
+
+    def _critical_if_git_index_paths_missing(
+        self,
+        local_repo_path: Path,
+        files_list: list[str],
+    ) -> None:
+        """Exit with guidance when git-index paths are absent on disk.
+
+        Args:
+            local_repo_path: The collection local path.
+            files_list: Paths from ``git ls-files``.
+        """
+        missing_files = [
+            file for file in files_list if not (local_repo_path / file).resolve().exists()
+        ]
+        if not missing_files:
+            return
+
+        missing_list = "\n".join(f"  - {file}" for file in missing_files)
+        msg = (
+            "One or more paths from 'git ls-files' are missing from the "
+            f"working tree:\n{missing_list}\n\n"
+            "ADE copies files listed in the git index. Unstaged deletes or "
+            "moves leave the index out of sync with disk until you stage "
+            "or restore changes.\n"
+            "Try: git add -A   (or restore files to match the index)"
+        )
+        self._output.critical(msg)
+
+    def _copy_listed_repo_files(
+        self,
+        local_repo_path: Path,
+        destination_path: Path,
+        files_list: list[str],
+    ) -> None:
+        """Copy listed paths from the collection tree into the build directory.
+
+        Args:
+            local_repo_path: The collection local path.
+            destination_path: The build destination path.
+            files_list: Paths relative to the collection root.
+        """
         Path(destination_path).mkdir(parents=True, exist_ok=True)
 
         for file in files_list:
             src_file_path = Path(local_repo_path) / file
             dest_file_path = Path(destination_path) / file
 
-            # Ensure the destination directory for the file exists
             dest_file_path.parent.mkdir(parents=True, exist_ok=True)
 
             if src_file_path.is_dir():
-                # Skip directories
                 continue
 
             try:
-                # Copy the file
                 shutil.copy2(src_file_path, dest_file_path)
+            except FileNotFoundError:
+                err = f"Failed to copy collection to build directory: missing file '{file}'"
+                self._output.critical(err)
             except shutil.Error as exc:
                 err = f"Failed to copy collection to build directory: {exc}"
                 self._output.critical(err)
 
-    def _install_local_collection(  # noqa: PLR0915
+    def _copy_repo_files(
+        self,
+        local_repo_path: Path,
+        destination_path: Path,
+    ) -> None:
+        """Copy collection files tracked in git to the build directory.
+
+        Args:
+            local_repo_path: The collection local path.
+            destination_path: The build destination path.
+        """
+        found_using, files_list = self._discover_repo_file_list(local_repo_path)
+
+        msg = f"File list generated with '{found_using}'"
+        self._output.info(msg)
+
+        repo_root = local_repo_path.resolve()
+        self._reject_repo_paths_outside_root(local_repo_path, repo_root, files_list)
+
+        if found_using == "git ls-files":
+            self._critical_if_git_index_paths_missing(local_repo_path, files_list)
+
+        self._copy_listed_repo_files(local_repo_path, destination_path, files_list)
+
+    def _install_local_collection(
         self,
         collection: Collection,
     ) -> None:
@@ -655,11 +793,7 @@ class Installer:
             shutil.rmtree(info_dir)
 
         dependency_specs = self._collection_dependency_specs(collection)
-        installed_names: list[str] = []
-        if dependency_specs:
-            installed_names.extend(
-                self._install_collection_dependencies(dependency_specs),
-            )
+        installed_names = self._install_missing_collection_dependencies(dependency_specs)
 
         no_deps = " --no-deps" if dependency_specs else ""
         command = (
@@ -732,6 +866,78 @@ class Installer:
             return []
 
         return galaxy_dependency_specs(galaxy_data.get("dependencies"))
+
+    def _dependency_spec_satisfied(
+        self,
+        spec: str,
+        installed: dict[str, dict[str, JSONVal]],
+    ) -> bool:
+        """Return True if an installed collection satisfies a galaxy dependency spec.
+
+        Args:
+            spec: ansible-galaxy collection spec from galaxy.yml.
+            installed: Manifest data keyed by collection name.
+
+        Returns:
+            Whether the dependency is already satisfied in the venv.
+        """
+        name, version_req = parse_galaxy_collection_spec(spec)
+        dep_version = _installed_collection_version(installed, name)
+        if dep_version is None:
+            return False
+
+        return version_satisfies_constraint(dep_version, version_req)
+
+    def _dependency_specs_to_install(
+        self,
+        dependency_specs: list[str],
+    ) -> tuple[list[str], list[str]]:
+        """Partition galaxy.yml dependency specs into missing and already satisfied.
+
+        Args:
+            dependency_specs: Collection specs from galaxy.yml.
+
+        Returns:
+            Specs that still need ansible-galaxy install, and satisfied collection names.
+        """
+        installed = collect_manifests(
+            target=self._config.site_pkg_collections_path,
+            venv_cache_dir=self._config.venv_cache_dir,
+        )
+        specs_to_install: list[str] = []
+        satisfied_names: list[str] = []
+        for spec in dependency_specs:
+            name, _version = parse_galaxy_collection_spec(spec)
+            if self._dependency_spec_satisfied(spec, installed):
+                msg = f"Collection dependency {name} is already installed; skipping."
+                self._output.debug(msg)
+                satisfied_names.append(name)
+            else:
+                specs_to_install.append(spec)
+        return specs_to_install, satisfied_names
+
+    def _install_missing_collection_dependencies(
+        self,
+        dependency_specs: list[str],
+    ) -> list[str]:
+        """Install galaxy.yml dependencies that are missing or version-mismatched.
+
+        Args:
+            dependency_specs: Collection specs from galaxy.yml.
+
+        Returns:
+            Collection names skipped as satisfied plus those installed via ansible-galaxy.
+        """
+        if not dependency_specs:
+            return []
+
+        specs_to_install, satisfied = self._dependency_specs_to_install(dependency_specs)
+        installed_names: list[str] = list(satisfied)
+        if specs_to_install:
+            installed_names.extend(
+                self._install_collection_dependencies(specs_to_install),
+            )
+        return installed_names
 
     def _install_collection_dependencies(self, dependency_specs: list[str]) -> list[str]:
         """Install galaxy.yml dependencies into the virtual environment.
@@ -815,6 +1021,121 @@ class Installer:
             "you will need to re-run 'ade install -e .' to include them in the editable install."
         )
         self._output.note(msg)
+        self._seed_git_entry(collection=collection)
+
+    def _seed_git_entry(self, collection: Collection) -> None:
+        """Seed a .git entry into the editable collection install directory.
+
+        ansible-test selects InstalledSource when no .git is present, and
+        InstalledSource.get_paths uses os.walk without followlinks=True, silently
+        skipping directory symlinks (including tests/). Seeding .git causes
+        ansible-test to select GitSource instead, which uses git ls-files and
+        returns all tracked paths including tests/integration/targets/.
+
+        Only created when the source collection has a .git entry; silently skipped
+        for non-git working copies.
+
+        A .git file containing a gitdir: line is written for standard clones
+        and worktrees. This keeps the installed collection on the same Git
+        repository without symlinking the .git directory itself.
+
+        Args:
+            collection: The collection object.
+        """
+        source_git = collection.path / ".git"
+        if not source_git.exists():
+            if source_git.is_symlink():
+                msg = f"Dangling .git symlink found at {source_git}, skipping seeding."
+                self._output.warning(msg)
+                return
+            msg = f"No .git found at {collection.path}, skipping seeding."
+            self._output.debug(msg)
+            return
+        dest_git = collection.site_pkg_path / ".git"
+        if dest_git.is_symlink():
+            dest_git.unlink()
+        elif dest_git.exists():
+            msg = f"Non-symlink .git already exists at {dest_git}, skipping seeding."
+            self._output.debug(msg)
+            return
+        gitdir = self._get_gitdir_target(collection, source_git)
+        if gitdir is None:
+            return
+
+        dest_git.write_text(f"gitdir: {gitdir}\n", encoding="utf-8")
+        msg = f"Seeded .git file: {dest_git} -> {gitdir}"
+        self._output.debug(msg)
+
+    def _get_gitdir_target(self, collection: Collection, source_git: Path) -> Path | None:
+        """Return a valid Git directory referenced by the source .git entry.
+
+        Args:
+            collection: The source collection.
+            source_git: The source collection's .git entry.
+
+        Returns:
+            The resolved Git directory, or None when the entry is unsupported.
+        """
+        if source_git.is_dir():
+            gitdir = source_git.resolve()
+        else:
+            # Git worktrees store a relative gitdir path in the .git file.
+            try:
+                content = source_git.read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeError) as exc:
+                msg = f"Failed to read .git file at {source_git}: {exc}, skipping seeding."
+                self._output.warning(msg)
+                return None
+            if not content.startswith("gitdir:"):
+                msg = f"Unknown .git file format at {source_git}, skipping seeding."
+                self._output.warning(msg)
+                return None
+
+            rel_gitdir = content[len("gitdir:") :].strip()
+            if not rel_gitdir:
+                msg = f"Invalid .git file at {source_git}: missing gitdir path, skipping seeding."
+                self._output.warning(msg)
+                return None
+            try:
+                gitdir = (collection.path / rel_gitdir).resolve(strict=True)
+            except OSError:
+                msg = f"Invalid .git file at {source_git}: gitdir target does not exist, skipping seeding."
+                self._output.warning(msg)
+                return None
+            if not self._is_real_gitdir(gitdir):
+                msg = f"Invalid .git file at {source_git}: gitdir target is not a Git directory, skipping seeding."
+                self._output.warning(msg)
+                return None
+        return gitdir
+
+    @staticmethod
+    def _is_real_gitdir(gitdir: Path) -> bool:
+        """Check that a path contains Git directory metadata.
+
+        Args:
+            gitdir: Candidate Git directory path.
+
+        Returns:
+            Whether the path has a valid Git directory structure.
+        """
+        if not gitdir.is_dir() or not (gitdir / "HEAD").is_file():
+            return False
+
+        common_dir_file = gitdir / "commondir"
+        if common_dir_file.is_file():
+            try:
+                common_dir = (gitdir / common_dir_file.read_text(encoding="utf-8").strip()).resolve(
+                    strict=True
+                )
+            except (OSError, UnicodeError):
+                return False
+            return (
+                common_dir.is_dir()
+                and (common_dir / "objects").is_dir()
+                and (common_dir / "refs").is_dir()
+            )
+
+        return (gitdir / "objects").is_dir() and (gitdir / "refs").is_dir()
 
     def _ensure_build_ignore(self, collection: Collection) -> None:
         """Ensure galaxy.yml build_ignore includes dev artifacts created by editable installs.

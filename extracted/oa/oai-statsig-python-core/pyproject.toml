@@ -11,7 +11,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version", "description", "license", "authors", "readme"]
-dependencies = ["requests", "typing_extensions"]
+dependencies = ["typing_extensions; python_version < '3.12'"]
 
 [project.optional-dependencies]
 typed = ["protobuf>=6.33.6"]

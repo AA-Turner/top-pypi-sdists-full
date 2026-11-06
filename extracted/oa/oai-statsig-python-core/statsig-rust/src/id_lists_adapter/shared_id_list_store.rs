@@ -58,6 +58,7 @@ pub(crate) struct SharedIdListCatalog {
     pub(crate) lists: HashMap<String, IdList>,
     pub(crate) propagation: HashMap<String, IdListPropagationUpdate>,
     pub(crate) generation: String,
+    pub(super) content_digest: [u8; 32],
     pub(super) status: RefreshStatus,
 }
 
@@ -223,6 +224,7 @@ impl SharedIdListStore {
         let mut manifest = Manifest {
             format_version: FORMAT_VERSION,
             namespace: hex(&self.namespace),
+            // Older readers identify each publication using this on-disk UUID.
             generation: uuid::Uuid::new_v4().to_string(),
             status: RefreshStatus::default(),
             lists: entries,
@@ -386,6 +388,9 @@ impl SharedIdListStore {
             lists,
             propagation,
             generation: manifest.generation.clone(),
+            // Local installs depend on images, cursors and delivery proof.
+            // Freshness and the publication UUID can advance independently.
+            content_digest: digest(&serde_json::to_vec(&manifest.lists)?),
             status: manifest.status,
         })
     }

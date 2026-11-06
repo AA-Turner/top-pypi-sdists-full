@@ -410,6 +410,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -890,6 +891,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1506,6 +1508,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1706,6 +1709,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1868,6 +1872,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -2772,6 +2777,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3010,6 +3016,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3172,6 +3179,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3334,6 +3342,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -4278,6 +4287,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -4809,6 +4819,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -5477,6 +5488,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -6174,6 +6186,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -7719,6 +7732,7 @@ class Client(BaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl

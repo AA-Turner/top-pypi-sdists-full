@@ -1209,3 +1209,137 @@ def test_unique_list_failed_assignment_takes_membership_back() -> None:
     assert 1 in values
     values.append(3)
     assert values == [1, 2, 3]
+
+
+@pytest.mark.parametrize('index', [0, -1])
+@pytest.mark.parametrize('mode', ['ignore', 'raise'])
+def test_unique_list_nan_self_assignment(
+    index: int, mode: containers.OnDuplicate
+) -> None:
+    """Assigning the same NaN object does not introduce a duplicate."""
+    missing = float('nan')
+    values: containers.UniqueList[float] = containers.UniqueList(
+        missing, on_duplicate=mode
+    )
+    values[index] = missing
+    assert len(values) == 1
+    assert values[index] is missing
+    assert missing in values
+
+
+def test_unique_list_nan_duplicate_in_another_slot() -> None:
+    """The same NaN object remains a duplicate in a different list slot."""
+    missing = float('nan')
+    values: containers.UniqueList[float] = containers.UniqueList(
+        1.0, missing, on_duplicate='raise'
+    )
+    with pytest.raises(ValueError, match='Duplicate value'):
+        values[0] = missing
+    assert values[0] == 1.0
+    assert values[1] is missing
+
+
+def test_lazy_casted_dict_get_casts_values_without_caching() -> None:
+    """Get uses the same key and value casts as indexed reads."""
+    calls: list[str] = []
+
+    def cast(value: str) -> int:
+        """Record each lazy value conversion."""
+        calls.append(value)
+        return int(value)
+
+    values: containers.LazyCastedDict[int, int] = containers.LazyCastedDict(
+        int, cast
+    )
+    values['1'] = '2'
+    assert values.get('1') == 2
+    assert values.get(1) == 2
+    assert calls == ['2', '2']
+    assert raw_items(values) == {1: '2'}
+    assert values.get('3', 'fallback') == 'fallback'
+
+
+def test_lazy_casted_dict_get_defaults_without_value_cast() -> None:
+    """Return missing defaults unchanged and support disabled casts."""
+    values: containers.LazyCastedDict[int, int] = containers.LazyCastedDict(
+        int, int
+    )
+    assert values.get(1) is None
+    fallback = object()
+    assert values.get(1, fallback) is fallback
+    plain: containers.LazyCastedDict[str, str] = containers.LazyCastedDict()
+    plain['key'] = 'value'
+    assert plain.get('key') == 'value'
+    assert plain.get('missing') is None
+
+
+def test_lazy_casted_dict_get_does_not_hide_cast_errors() -> None:
+    """A KeyError raised by a value cast is not a missing-key result."""
+
+    def cast(value: str) -> int:
+        """Reject values with a distinguishable conversion error."""
+        raise KeyError(value)
+
+    values: containers.LazyCastedDict[str, int] = containers.LazyCastedDict(
+        None, cast
+    )
+    values['key'] = 'bad value'
+    with pytest.raises(KeyError, match='bad value'):
+        values.get('key', 0)
+
+
+def test_lazy_casted_dict_get_casts_key_once() -> None:
+    """A non-idempotent key cast runs once per get call."""
+    key_cast = CountingCast()
+    values: containers.LazyCastedDict[int, typing.Any] = (
+        containers.LazyCastedDict(key_cast, int)
+    )
+    dict[int, typing.Any].__setitem__(values, 2, '3')
+    assert values.get(1) == 3
+    assert key_cast.calls == 1
+
+
+@pytest.mark.parametrize('key', [None, '', 'spam', '1.5', float('inf')])
+def test_lazy_casted_dict_get_rejected_key_returns_default(
+    key: typing.Any,
+) -> None:
+    """A key the key cast rejects is missing, as it was for ``dict.get``."""
+    values: containers.LazyCastedDict[int, int] = containers.LazyCastedDict(
+        int, int
+    )
+    values[3] = '4'
+    assert values.get(key) is None
+    assert values.get(key, 'missing') == 'missing'
+
+
+def test_lazy_casted_dict_get_skips_missing() -> None:
+    """A miss returns the default without calling ``__missing__``."""
+
+    class Defaulting(containers.LazyCastedDict[int, int]):
+        """Store a zero for every key read through indexing."""
+
+        def __missing__(self, key: int) -> str:
+            """Store and return a zero."""
+            self[key] = '0'
+            return '0'
+
+    values = Defaulting(int, int)
+    assert values.get(5, 'missing') == 'missing'
+    assert raw_items(values) == {}
+
+
+class PositionalGet(containers.LazyCastedDict[int, int]):
+    """Override ``get`` with the positional-only signature of ``dict``."""
+
+    def get(
+        self, key: typing.Any, default: typing.Any = None, /
+    ) -> typing.Any:
+        """Read through the parent implementation."""
+        return super().get(key, default)
+
+
+def test_lazy_casted_dict_get_positional_override() -> None:
+    """A subclass may keep the positional-only ``dict.get`` signature."""
+    values = PositionalGet(int, int)
+    values['1'] = '2'
+    assert values.get(1) == 2

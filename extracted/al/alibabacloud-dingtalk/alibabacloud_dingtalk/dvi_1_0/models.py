@@ -641,6 +641,178 @@ class BatchUpdateDeviceCutCustomerSwitchResponse(TeaModel):
         return self
 
 
+class BindKanjianRecordTaskHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BindKanjianRecordTaskRequest(TeaModel):
+    def __init__(
+        self,
+        main_task_id: str = None,
+        operator_user_id: str = None,
+        record_id: str = None,
+    ):
+        # This parameter is required.
+        self.main_task_id = main_task_id
+        # This parameter is required.
+        self.operator_user_id = operator_user_id
+        # This parameter is required.
+        self.record_id = record_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.main_task_id is not None:
+            result['mainTaskId'] = self.main_task_id
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('mainTaskId') is not None:
+            self.main_task_id = m.get('mainTaskId')
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        return self
+
+
+class BindKanjianRecordTaskResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        success: bool = None,
+    ):
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class BindKanjianRecordTaskResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: BindKanjianRecordTaskResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = BindKanjianRecordTaskResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class BindKanjianRecordTaskResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BindKanjianRecordTaskResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BindKanjianRecordTaskResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class ControlRecordingHeaders(TeaModel):
     def __init__(
         self,
@@ -962,6 +1134,251 @@ class CreateAsrTranscriptionResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = CreateAsrTranscriptionResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class CreateKanjianTaskHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class CreateKanjianTaskRequestSubTasks(TeaModel):
+    def __init__(
+        self,
+        instruction: str = None,
+        name: str = None,
+        task_id: str = None,
+    ):
+        self.instruction = instruction
+        self.name = name
+        self.task_id = task_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.instruction is not None:
+            result['instruction'] = self.instruction
+        if self.name is not None:
+            result['name'] = self.name
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('instruction') is not None:
+            self.instruction = m.get('instruction')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class CreateKanjianTaskRequest(TeaModel):
+    def __init__(
+        self,
+        admin_user_ids: List[str] = None,
+        description: str = None,
+        executor_user_ids: List[str] = None,
+        name: str = None,
+        operator_user_id: str = None,
+        report_content: str = None,
+        sub_tasks: List[CreateKanjianTaskRequestSubTasks] = None,
+    ):
+        # This parameter is required.
+        self.admin_user_ids = admin_user_ids
+        # This parameter is required.
+        self.description = description
+        # This parameter is required.
+        self.executor_user_ids = executor_user_ids
+        # This parameter is required.
+        self.name = name
+        # This parameter is required.
+        self.operator_user_id = operator_user_id
+        self.report_content = report_content
+        self.sub_tasks = sub_tasks
+
+    def validate(self):
+        if self.sub_tasks:
+            for k in self.sub_tasks:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.admin_user_ids is not None:
+            result['adminUserIds'] = self.admin_user_ids
+        if self.description is not None:
+            result['description'] = self.description
+        if self.executor_user_ids is not None:
+            result['executorUserIds'] = self.executor_user_ids
+        if self.name is not None:
+            result['name'] = self.name
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.report_content is not None:
+            result['reportContent'] = self.report_content
+        result['subTasks'] = []
+        if self.sub_tasks is not None:
+            for k in self.sub_tasks:
+                result['subTasks'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('adminUserIds') is not None:
+            self.admin_user_ids = m.get('adminUserIds')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('executorUserIds') is not None:
+            self.executor_user_ids = m.get('executorUserIds')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('reportContent') is not None:
+            self.report_content = m.get('reportContent')
+        self.sub_tasks = []
+        if m.get('subTasks') is not None:
+            for k in m.get('subTasks'):
+                temp_model = CreateKanjianTaskRequestSubTasks()
+                self.sub_tasks.append(temp_model.from_map(k))
+        return self
+
+
+class CreateKanjianTaskResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        task_id: str = None,
+    ):
+        self.task_id = task_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class CreateKanjianTaskResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: CreateKanjianTaskResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = CreateKanjianTaskResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class CreateKanjianTaskResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: CreateKanjianTaskResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = CreateKanjianTaskResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -1403,6 +1820,171 @@ class CreateTeamResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = CreateTeamResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class DeleteKanjianTaskHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class DeleteKanjianTaskRequest(TeaModel):
+    def __init__(
+        self,
+        operator_user_id: str = None,
+        task_id: str = None,
+    ):
+        # This parameter is required.
+        self.operator_user_id = operator_user_id
+        # This parameter is required.
+        self.task_id = task_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class DeleteKanjianTaskResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        success: bool = None,
+    ):
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class DeleteKanjianTaskResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: DeleteKanjianTaskResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = DeleteKanjianTaskResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class DeleteKanjianTaskResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: DeleteKanjianTaskResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = DeleteKanjianTaskResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -3090,6 +3672,767 @@ class GetCustomerInsightResponse(TeaModel):
         return self
 
 
+class GetKanjianDeviceHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class GetKanjianDeviceRequest(TeaModel):
+    def __init__(
+        self,
+        device_sn: str = None,
+    ):
+        # This parameter is required.
+        self.device_sn = device_sn
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        return self
+
+
+class GetKanjianDeviceResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        battery_level: int = None,
+        bind_status: str = None,
+        charge_status: bool = None,
+        cover_status: str = None,
+        device_name: str = None,
+        device_sn: str = None,
+        firmware_version: str = None,
+        online_status: str = None,
+        recording_start_time_ms: int = None,
+        signal_strength: int = None,
+        storage_free_mb: int = None,
+        storage_total_mb: int = None,
+        work_status: str = None,
+    ):
+        self.battery_level = battery_level
+        self.bind_status = bind_status
+        self.charge_status = charge_status
+        self.cover_status = cover_status
+        self.device_name = device_name
+        self.device_sn = device_sn
+        self.firmware_version = firmware_version
+        self.online_status = online_status
+        self.recording_start_time_ms = recording_start_time_ms
+        self.signal_strength = signal_strength
+        self.storage_free_mb = storage_free_mb
+        self.storage_total_mb = storage_total_mb
+        self.work_status = work_status
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.battery_level is not None:
+            result['batteryLevel'] = self.battery_level
+        if self.bind_status is not None:
+            result['bindStatus'] = self.bind_status
+        if self.charge_status is not None:
+            result['chargeStatus'] = self.charge_status
+        if self.cover_status is not None:
+            result['coverStatus'] = self.cover_status
+        if self.device_name is not None:
+            result['deviceName'] = self.device_name
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        if self.firmware_version is not None:
+            result['firmwareVersion'] = self.firmware_version
+        if self.online_status is not None:
+            result['onlineStatus'] = self.online_status
+        if self.recording_start_time_ms is not None:
+            result['recordingStartTimeMs'] = self.recording_start_time_ms
+        if self.signal_strength is not None:
+            result['signalStrength'] = self.signal_strength
+        if self.storage_free_mb is not None:
+            result['storageFreeMb'] = self.storage_free_mb
+        if self.storage_total_mb is not None:
+            result['storageTotalMb'] = self.storage_total_mb
+        if self.work_status is not None:
+            result['workStatus'] = self.work_status
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('batteryLevel') is not None:
+            self.battery_level = m.get('batteryLevel')
+        if m.get('bindStatus') is not None:
+            self.bind_status = m.get('bindStatus')
+        if m.get('chargeStatus') is not None:
+            self.charge_status = m.get('chargeStatus')
+        if m.get('coverStatus') is not None:
+            self.cover_status = m.get('coverStatus')
+        if m.get('deviceName') is not None:
+            self.device_name = m.get('deviceName')
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        if m.get('firmwareVersion') is not None:
+            self.firmware_version = m.get('firmwareVersion')
+        if m.get('onlineStatus') is not None:
+            self.online_status = m.get('onlineStatus')
+        if m.get('recordingStartTimeMs') is not None:
+            self.recording_start_time_ms = m.get('recordingStartTimeMs')
+        if m.get('signalStrength') is not None:
+            self.signal_strength = m.get('signalStrength')
+        if m.get('storageFreeMb') is not None:
+            self.storage_free_mb = m.get('storageFreeMb')
+        if m.get('storageTotalMb') is not None:
+            self.storage_total_mb = m.get('storageTotalMb')
+        if m.get('workStatus') is not None:
+            self.work_status = m.get('workStatus')
+        return self
+
+
+class GetKanjianDeviceResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: GetKanjianDeviceResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = GetKanjianDeviceResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class GetKanjianDeviceResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: GetKanjianDeviceResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = GetKanjianDeviceResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class GetKanjianRecordHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class GetKanjianRecordRequest(TeaModel):
+    def __init__(
+        self,
+        record_id: str = None,
+    ):
+        # This parameter is required.
+        self.record_id = record_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        return self
+
+
+class GetKanjianRecordResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        ai_description: str = None,
+        device_sn: str = None,
+        duration: int = None,
+        end_time: int = None,
+        execution_id: str = None,
+        main_task_id: str = None,
+        main_task_title: str = None,
+        media_url: str = None,
+        record_id: str = None,
+        report_content: str = None,
+        start_time: int = None,
+        status: str = None,
+        summary: str = None,
+        thumbnail_url: str = None,
+        title: str = None,
+        upload_progress: int = None,
+        version_no: int = None,
+    ):
+        self.ai_description = ai_description
+        self.device_sn = device_sn
+        self.duration = duration
+        self.end_time = end_time
+        self.execution_id = execution_id
+        self.main_task_id = main_task_id
+        self.main_task_title = main_task_title
+        self.media_url = media_url
+        self.record_id = record_id
+        self.report_content = report_content
+        self.start_time = start_time
+        self.status = status
+        self.summary = summary
+        self.thumbnail_url = thumbnail_url
+        self.title = title
+        self.upload_progress = upload_progress
+        self.version_no = version_no
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.ai_description is not None:
+            result['aiDescription'] = self.ai_description
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        if self.duration is not None:
+            result['duration'] = self.duration
+        if self.end_time is not None:
+            result['endTime'] = self.end_time
+        if self.execution_id is not None:
+            result['executionId'] = self.execution_id
+        if self.main_task_id is not None:
+            result['mainTaskId'] = self.main_task_id
+        if self.main_task_title is not None:
+            result['mainTaskTitle'] = self.main_task_title
+        if self.media_url is not None:
+            result['mediaUrl'] = self.media_url
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        if self.report_content is not None:
+            result['reportContent'] = self.report_content
+        if self.start_time is not None:
+            result['startTime'] = self.start_time
+        if self.status is not None:
+            result['status'] = self.status
+        if self.summary is not None:
+            result['summary'] = self.summary
+        if self.thumbnail_url is not None:
+            result['thumbnailUrl'] = self.thumbnail_url
+        if self.title is not None:
+            result['title'] = self.title
+        if self.upload_progress is not None:
+            result['uploadProgress'] = self.upload_progress
+        if self.version_no is not None:
+            result['versionNo'] = self.version_no
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('aiDescription') is not None:
+            self.ai_description = m.get('aiDescription')
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        if m.get('duration') is not None:
+            self.duration = m.get('duration')
+        if m.get('endTime') is not None:
+            self.end_time = m.get('endTime')
+        if m.get('executionId') is not None:
+            self.execution_id = m.get('executionId')
+        if m.get('mainTaskId') is not None:
+            self.main_task_id = m.get('mainTaskId')
+        if m.get('mainTaskTitle') is not None:
+            self.main_task_title = m.get('mainTaskTitle')
+        if m.get('mediaUrl') is not None:
+            self.media_url = m.get('mediaUrl')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        if m.get('reportContent') is not None:
+            self.report_content = m.get('reportContent')
+        if m.get('startTime') is not None:
+            self.start_time = m.get('startTime')
+        if m.get('status') is not None:
+            self.status = m.get('status')
+        if m.get('summary') is not None:
+            self.summary = m.get('summary')
+        if m.get('thumbnailUrl') is not None:
+            self.thumbnail_url = m.get('thumbnailUrl')
+        if m.get('title') is not None:
+            self.title = m.get('title')
+        if m.get('uploadProgress') is not None:
+            self.upload_progress = m.get('uploadProgress')
+        if m.get('versionNo') is not None:
+            self.version_no = m.get('versionNo')
+        return self
+
+
+class GetKanjianRecordResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: GetKanjianRecordResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = GetKanjianRecordResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class GetKanjianRecordResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: GetKanjianRecordResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = GetKanjianRecordResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class GetKanjianTaskHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class GetKanjianTaskRequest(TeaModel):
+    def __init__(
+        self,
+        task_id: str = None,
+    ):
+        # This parameter is required.
+        self.task_id = task_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class GetKanjianTaskResponseBodyResultSubTasks(TeaModel):
+    def __init__(
+        self,
+        instruction: str = None,
+        name: str = None,
+        options: List[str] = None,
+        task_id: str = None,
+        type: str = None,
+    ):
+        self.instruction = instruction
+        self.name = name
+        self.options = options
+        self.task_id = task_id
+        self.type = type
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.instruction is not None:
+            result['instruction'] = self.instruction
+        if self.name is not None:
+            result['name'] = self.name
+        if self.options is not None:
+            result['options'] = self.options
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        if self.type is not None:
+            result['type'] = self.type
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('instruction') is not None:
+            self.instruction = m.get('instruction')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('options') is not None:
+            self.options = m.get('options')
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        if m.get('type') is not None:
+            self.type = m.get('type')
+        return self
+
+
+class GetKanjianTaskResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        admin_user_ids: List[str] = None,
+        creator_user_id: str = None,
+        description: str = None,
+        executor_user_ids: List[str] = None,
+        gmt_creation: int = None,
+        gmt_modification: int = None,
+        name: str = None,
+        report_content: str = None,
+        status: str = None,
+        sub_tasks: List[GetKanjianTaskResponseBodyResultSubTasks] = None,
+        task_id: str = None,
+    ):
+        self.admin_user_ids = admin_user_ids
+        self.creator_user_id = creator_user_id
+        self.description = description
+        self.executor_user_ids = executor_user_ids
+        self.gmt_creation = gmt_creation
+        self.gmt_modification = gmt_modification
+        self.name = name
+        self.report_content = report_content
+        self.status = status
+        self.sub_tasks = sub_tasks
+        self.task_id = task_id
+
+    def validate(self):
+        if self.sub_tasks:
+            for k in self.sub_tasks:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.admin_user_ids is not None:
+            result['adminUserIds'] = self.admin_user_ids
+        if self.creator_user_id is not None:
+            result['creatorUserId'] = self.creator_user_id
+        if self.description is not None:
+            result['description'] = self.description
+        if self.executor_user_ids is not None:
+            result['executorUserIds'] = self.executor_user_ids
+        if self.gmt_creation is not None:
+            result['gmtCreation'] = self.gmt_creation
+        if self.gmt_modification is not None:
+            result['gmtModification'] = self.gmt_modification
+        if self.name is not None:
+            result['name'] = self.name
+        if self.report_content is not None:
+            result['reportContent'] = self.report_content
+        if self.status is not None:
+            result['status'] = self.status
+        result['subTasks'] = []
+        if self.sub_tasks is not None:
+            for k in self.sub_tasks:
+                result['subTasks'].append(k.to_map() if k else None)
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('adminUserIds') is not None:
+            self.admin_user_ids = m.get('adminUserIds')
+        if m.get('creatorUserId') is not None:
+            self.creator_user_id = m.get('creatorUserId')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('executorUserIds') is not None:
+            self.executor_user_ids = m.get('executorUserIds')
+        if m.get('gmtCreation') is not None:
+            self.gmt_creation = m.get('gmtCreation')
+        if m.get('gmtModification') is not None:
+            self.gmt_modification = m.get('gmtModification')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('reportContent') is not None:
+            self.report_content = m.get('reportContent')
+        if m.get('status') is not None:
+            self.status = m.get('status')
+        self.sub_tasks = []
+        if m.get('subTasks') is not None:
+            for k in m.get('subTasks'):
+                temp_model = GetKanjianTaskResponseBodyResultSubTasks()
+                self.sub_tasks.append(temp_model.from_map(k))
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class GetKanjianTaskResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: GetKanjianTaskResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = GetKanjianTaskResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class GetKanjianTaskResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: GetKanjianTaskResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = GetKanjianTaskResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class GetRecordingScheduleHeaders(TeaModel):
     def __init__(
         self,
@@ -4533,6 +5876,92 @@ class GetServiceRecordTranscriptResponseBodyResultAudionText(TeaModel):
         return self
 
 
+class GetServiceRecordTranscriptResponseBodyResultEnhanceChatContentDataList(TeaModel):
+    def __init__(
+        self,
+        channel: str = None,
+        end_time: str = None,
+        start_time: str = None,
+        text: str = None,
+    ):
+        self.channel = channel
+        self.end_time = end_time
+        self.start_time = start_time
+        self.text = text
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.channel is not None:
+            result['channel'] = self.channel
+        if self.end_time is not None:
+            result['endTime'] = self.end_time
+        if self.start_time is not None:
+            result['startTime'] = self.start_time
+        if self.text is not None:
+            result['text'] = self.text
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('channel') is not None:
+            self.channel = m.get('channel')
+        if m.get('endTime') is not None:
+            self.end_time = m.get('endTime')
+        if m.get('startTime') is not None:
+            self.start_time = m.get('startTime')
+        if m.get('text') is not None:
+            self.text = m.get('text')
+        return self
+
+
+class GetServiceRecordTranscriptResponseBodyResultEnhanceChatContent(TeaModel):
+    def __init__(
+        self,
+        data_list: List[GetServiceRecordTranscriptResponseBodyResultEnhanceChatContentDataList] = None,
+        status: str = None,
+    ):
+        self.data_list = data_list
+        self.status = status
+
+    def validate(self):
+        if self.data_list:
+            for k in self.data_list:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['dataList'] = []
+        if self.data_list is not None:
+            for k in self.data_list:
+                result['dataList'].append(k.to_map() if k else None)
+        if self.status is not None:
+            result['status'] = self.status
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data_list = []
+        if m.get('dataList') is not None:
+            for k in m.get('dataList'):
+                temp_model = GetServiceRecordTranscriptResponseBodyResultEnhanceChatContentDataList()
+                self.data_list.append(temp_model.from_map(k))
+        if m.get('status') is not None:
+            self.status = m.get('status')
+        return self
+
+
 class GetServiceRecordTranscriptResponseBodyResultSpeakerDataList(TeaModel):
     def __init__(
         self,
@@ -4611,14 +6040,18 @@ class GetServiceRecordTranscriptResponseBodyResult(TeaModel):
     def __init__(
         self,
         audion_text: GetServiceRecordTranscriptResponseBodyResultAudionText = None,
+        enhance_chat_content: GetServiceRecordTranscriptResponseBodyResultEnhanceChatContent = None,
         speaker: GetServiceRecordTranscriptResponseBodyResultSpeaker = None,
     ):
         self.audion_text = audion_text
+        self.enhance_chat_content = enhance_chat_content
         self.speaker = speaker
 
     def validate(self):
         if self.audion_text:
             self.audion_text.validate()
+        if self.enhance_chat_content:
+            self.enhance_chat_content.validate()
         if self.speaker:
             self.speaker.validate()
 
@@ -4630,6 +6063,8 @@ class GetServiceRecordTranscriptResponseBodyResult(TeaModel):
         result = dict()
         if self.audion_text is not None:
             result['audionText'] = self.audion_text.to_map()
+        if self.enhance_chat_content is not None:
+            result['enhanceChatContent'] = self.enhance_chat_content.to_map()
         if self.speaker is not None:
             result['speaker'] = self.speaker.to_map()
         return result
@@ -4639,6 +6074,9 @@ class GetServiceRecordTranscriptResponseBodyResult(TeaModel):
         if m.get('audionText') is not None:
             temp_model = GetServiceRecordTranscriptResponseBodyResultAudionText()
             self.audion_text = temp_model.from_map(m['audionText'])
+        if m.get('enhanceChatContent') is not None:
+            temp_model = GetServiceRecordTranscriptResponseBodyResultEnhanceChatContent()
+            self.enhance_chat_content = temp_model.from_map(m['enhanceChatContent'])
         if m.get('speaker') is not None:
             temp_model = GetServiceRecordTranscriptResponseBodyResultSpeaker()
             self.speaker = temp_model.from_map(m['speaker'])
@@ -6597,6 +8035,881 @@ class ListDeviceRecordingDurationResponse(TeaModel):
         return self
 
 
+class ListKanjianDevicesHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListKanjianDevicesRequest(TeaModel):
+    def __init__(
+        self,
+        cursor: str = None,
+        page_size: int = None,
+    ):
+        self.cursor = cursor
+        self.page_size = page_size
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.cursor is not None:
+            result['cursor'] = self.cursor
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('cursor') is not None:
+            self.cursor = m.get('cursor')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        return self
+
+
+class ListKanjianDevicesResponseBodyResultItems(TeaModel):
+    def __init__(
+        self,
+        bind_user_id: str = None,
+        device_name: str = None,
+        device_sn: str = None,
+    ):
+        self.bind_user_id = bind_user_id
+        self.device_name = device_name
+        self.device_sn = device_sn
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.bind_user_id is not None:
+            result['bindUserId'] = self.bind_user_id
+        if self.device_name is not None:
+            result['deviceName'] = self.device_name
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('bindUserId') is not None:
+            self.bind_user_id = m.get('bindUserId')
+        if m.get('deviceName') is not None:
+            self.device_name = m.get('deviceName')
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        return self
+
+
+class ListKanjianDevicesResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        has_more: bool = None,
+        items: List[ListKanjianDevicesResponseBodyResultItems] = None,
+        next_cursor: str = None,
+    ):
+        self.has_more = has_more
+        self.items = items
+        self.next_cursor = next_cursor
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        if self.next_cursor is not None:
+            result['nextCursor'] = self.next_cursor
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = ListKanjianDevicesResponseBodyResultItems()
+                self.items.append(temp_model.from_map(k))
+        if m.get('nextCursor') is not None:
+            self.next_cursor = m.get('nextCursor')
+        return self
+
+
+class ListKanjianDevicesResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: ListKanjianDevicesResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = ListKanjianDevicesResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class ListKanjianDevicesResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListKanjianDevicesResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListKanjianDevicesResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class ListKanjianRecordsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListKanjianRecordsRequest(TeaModel):
+    def __init__(
+        self,
+        cursor: str = None,
+        device_sn: str = None,
+        end_time: int = None,
+        main_task_id: str = None,
+        operator_user_id: str = None,
+        page_size: int = None,
+        start_time: int = None,
+    ):
+        self.cursor = cursor
+        self.device_sn = device_sn
+        self.end_time = end_time
+        self.main_task_id = main_task_id
+        self.operator_user_id = operator_user_id
+        self.page_size = page_size
+        self.start_time = start_time
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.cursor is not None:
+            result['cursor'] = self.cursor
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        if self.end_time is not None:
+            result['endTime'] = self.end_time
+        if self.main_task_id is not None:
+            result['mainTaskId'] = self.main_task_id
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        if self.start_time is not None:
+            result['startTime'] = self.start_time
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('cursor') is not None:
+            self.cursor = m.get('cursor')
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        if m.get('endTime') is not None:
+            self.end_time = m.get('endTime')
+        if m.get('mainTaskId') is not None:
+            self.main_task_id = m.get('mainTaskId')
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        if m.get('startTime') is not None:
+            self.start_time = m.get('startTime')
+        return self
+
+
+class ListKanjianRecordsResponseBodyResultItems(TeaModel):
+    def __init__(
+        self,
+        creator_name: str = None,
+        device_sn: str = None,
+        duration: int = None,
+        end_time: int = None,
+        gmt_create: int = None,
+        main_task_id: str = None,
+        main_task_title: str = None,
+        media_url: str = None,
+        record_id: str = None,
+        source: str = None,
+        start_time: int = None,
+        status: str = None,
+        thumbnail_url: str = None,
+        title: str = None,
+        upload_progress: int = None,
+    ):
+        self.creator_name = creator_name
+        self.device_sn = device_sn
+        self.duration = duration
+        self.end_time = end_time
+        self.gmt_create = gmt_create
+        self.main_task_id = main_task_id
+        self.main_task_title = main_task_title
+        self.media_url = media_url
+        self.record_id = record_id
+        self.source = source
+        self.start_time = start_time
+        self.status = status
+        self.thumbnail_url = thumbnail_url
+        self.title = title
+        self.upload_progress = upload_progress
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.creator_name is not None:
+            result['creatorName'] = self.creator_name
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        if self.duration is not None:
+            result['duration'] = self.duration
+        if self.end_time is not None:
+            result['endTime'] = self.end_time
+        if self.gmt_create is not None:
+            result['gmtCreate'] = self.gmt_create
+        if self.main_task_id is not None:
+            result['mainTaskId'] = self.main_task_id
+        if self.main_task_title is not None:
+            result['mainTaskTitle'] = self.main_task_title
+        if self.media_url is not None:
+            result['mediaUrl'] = self.media_url
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        if self.source is not None:
+            result['source'] = self.source
+        if self.start_time is not None:
+            result['startTime'] = self.start_time
+        if self.status is not None:
+            result['status'] = self.status
+        if self.thumbnail_url is not None:
+            result['thumbnailUrl'] = self.thumbnail_url
+        if self.title is not None:
+            result['title'] = self.title
+        if self.upload_progress is not None:
+            result['uploadProgress'] = self.upload_progress
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('creatorName') is not None:
+            self.creator_name = m.get('creatorName')
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        if m.get('duration') is not None:
+            self.duration = m.get('duration')
+        if m.get('endTime') is not None:
+            self.end_time = m.get('endTime')
+        if m.get('gmtCreate') is not None:
+            self.gmt_create = m.get('gmtCreate')
+        if m.get('mainTaskId') is not None:
+            self.main_task_id = m.get('mainTaskId')
+        if m.get('mainTaskTitle') is not None:
+            self.main_task_title = m.get('mainTaskTitle')
+        if m.get('mediaUrl') is not None:
+            self.media_url = m.get('mediaUrl')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        if m.get('source') is not None:
+            self.source = m.get('source')
+        if m.get('startTime') is not None:
+            self.start_time = m.get('startTime')
+        if m.get('status') is not None:
+            self.status = m.get('status')
+        if m.get('thumbnailUrl') is not None:
+            self.thumbnail_url = m.get('thumbnailUrl')
+        if m.get('title') is not None:
+            self.title = m.get('title')
+        if m.get('uploadProgress') is not None:
+            self.upload_progress = m.get('uploadProgress')
+        return self
+
+
+class ListKanjianRecordsResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        has_more: bool = None,
+        items: List[ListKanjianRecordsResponseBodyResultItems] = None,
+        next_cursor: str = None,
+    ):
+        self.has_more = has_more
+        self.items = items
+        self.next_cursor = next_cursor
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        if self.next_cursor is not None:
+            result['nextCursor'] = self.next_cursor
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = ListKanjianRecordsResponseBodyResultItems()
+                self.items.append(temp_model.from_map(k))
+        if m.get('nextCursor') is not None:
+            self.next_cursor = m.get('nextCursor')
+        return self
+
+
+class ListKanjianRecordsResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: ListKanjianRecordsResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = ListKanjianRecordsResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class ListKanjianRecordsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListKanjianRecordsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListKanjianRecordsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class ListKanjianTasksHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListKanjianTasksRequest(TeaModel):
+    def __init__(
+        self,
+        cursor: str = None,
+        page_size: int = None,
+    ):
+        self.cursor = cursor
+        self.page_size = page_size
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.cursor is not None:
+            result['cursor'] = self.cursor
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('cursor') is not None:
+            self.cursor = m.get('cursor')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        return self
+
+
+class ListKanjianTasksResponseBodyResultItemsSubTasks(TeaModel):
+    def __init__(
+        self,
+        instruction: str = None,
+        name: str = None,
+        options: List[str] = None,
+        task_id: str = None,
+        type: str = None,
+    ):
+        self.instruction = instruction
+        self.name = name
+        self.options = options
+        self.task_id = task_id
+        self.type = type
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.instruction is not None:
+            result['instruction'] = self.instruction
+        if self.name is not None:
+            result['name'] = self.name
+        if self.options is not None:
+            result['options'] = self.options
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        if self.type is not None:
+            result['type'] = self.type
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('instruction') is not None:
+            self.instruction = m.get('instruction')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('options') is not None:
+            self.options = m.get('options')
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        if m.get('type') is not None:
+            self.type = m.get('type')
+        return self
+
+
+class ListKanjianTasksResponseBodyResultItems(TeaModel):
+    def __init__(
+        self,
+        admin_user_ids: List[str] = None,
+        creator_user_id: str = None,
+        description: str = None,
+        executor_user_ids: List[str] = None,
+        gmt_creation: int = None,
+        gmt_modification: int = None,
+        name: str = None,
+        report_content: str = None,
+        status: str = None,
+        sub_tasks: List[ListKanjianTasksResponseBodyResultItemsSubTasks] = None,
+        task_id: str = None,
+    ):
+        self.admin_user_ids = admin_user_ids
+        self.creator_user_id = creator_user_id
+        self.description = description
+        self.executor_user_ids = executor_user_ids
+        self.gmt_creation = gmt_creation
+        self.gmt_modification = gmt_modification
+        self.name = name
+        self.report_content = report_content
+        self.status = status
+        self.sub_tasks = sub_tasks
+        self.task_id = task_id
+
+    def validate(self):
+        if self.sub_tasks:
+            for k in self.sub_tasks:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.admin_user_ids is not None:
+            result['adminUserIds'] = self.admin_user_ids
+        if self.creator_user_id is not None:
+            result['creatorUserId'] = self.creator_user_id
+        if self.description is not None:
+            result['description'] = self.description
+        if self.executor_user_ids is not None:
+            result['executorUserIds'] = self.executor_user_ids
+        if self.gmt_creation is not None:
+            result['gmtCreation'] = self.gmt_creation
+        if self.gmt_modification is not None:
+            result['gmtModification'] = self.gmt_modification
+        if self.name is not None:
+            result['name'] = self.name
+        if self.report_content is not None:
+            result['reportContent'] = self.report_content
+        if self.status is not None:
+            result['status'] = self.status
+        result['subTasks'] = []
+        if self.sub_tasks is not None:
+            for k in self.sub_tasks:
+                result['subTasks'].append(k.to_map() if k else None)
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('adminUserIds') is not None:
+            self.admin_user_ids = m.get('adminUserIds')
+        if m.get('creatorUserId') is not None:
+            self.creator_user_id = m.get('creatorUserId')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('executorUserIds') is not None:
+            self.executor_user_ids = m.get('executorUserIds')
+        if m.get('gmtCreation') is not None:
+            self.gmt_creation = m.get('gmtCreation')
+        if m.get('gmtModification') is not None:
+            self.gmt_modification = m.get('gmtModification')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('reportContent') is not None:
+            self.report_content = m.get('reportContent')
+        if m.get('status') is not None:
+            self.status = m.get('status')
+        self.sub_tasks = []
+        if m.get('subTasks') is not None:
+            for k in m.get('subTasks'):
+                temp_model = ListKanjianTasksResponseBodyResultItemsSubTasks()
+                self.sub_tasks.append(temp_model.from_map(k))
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class ListKanjianTasksResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        has_more: bool = None,
+        items: List[ListKanjianTasksResponseBodyResultItems] = None,
+        next_cursor: str = None,
+    ):
+        self.has_more = has_more
+        self.items = items
+        self.next_cursor = next_cursor
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        if self.next_cursor is not None:
+            result['nextCursor'] = self.next_cursor
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = ListKanjianTasksResponseBodyResultItems()
+                self.items.append(temp_model.from_map(k))
+        if m.get('nextCursor') is not None:
+            self.next_cursor = m.get('nextCursor')
+        return self
+
+
+class ListKanjianTasksResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: ListKanjianTasksResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = ListKanjianTasksResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class ListKanjianTasksResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListKanjianTasksResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListKanjianTasksResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class ListServiceRecordHeaders(TeaModel):
     def __init__(
         self,
@@ -7717,6 +10030,737 @@ class ManageTeamMemberResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = ManageTeamMemberResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class PageKanjianRecordAnalysisHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class PageKanjianRecordAnalysisRequest(TeaModel):
+    def __init__(
+        self,
+        cursor: str = None,
+        page_size: int = None,
+        record_id: str = None,
+    ):
+        self.cursor = cursor
+        self.page_size = page_size
+        # This parameter is required.
+        self.record_id = record_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.cursor is not None:
+            result['cursor'] = self.cursor
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('cursor') is not None:
+            self.cursor = m.get('cursor')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        return self
+
+
+class PageKanjianRecordAnalysisResponseBodyResultDetailsItems(TeaModel):
+    def __init__(
+        self,
+        asr_text: str = None,
+        description: str = None,
+        key_frames: List[str] = None,
+        name: str = None,
+        result: str = None,
+        task_name: str = None,
+    ):
+        self.asr_text = asr_text
+        self.description = description
+        self.key_frames = key_frames
+        self.name = name
+        self.result = result
+        self.task_name = task_name
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.asr_text is not None:
+            result['asrText'] = self.asr_text
+        if self.description is not None:
+            result['description'] = self.description
+        if self.key_frames is not None:
+            result['keyFrames'] = self.key_frames
+        if self.name is not None:
+            result['name'] = self.name
+        if self.result is not None:
+            result['result'] = self.result
+        if self.task_name is not None:
+            result['taskName'] = self.task_name
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('asrText') is not None:
+            self.asr_text = m.get('asrText')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('keyFrames') is not None:
+            self.key_frames = m.get('keyFrames')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        if m.get('taskName') is not None:
+            self.task_name = m.get('taskName')
+        return self
+
+
+class PageKanjianRecordAnalysisResponseBodyResultDetails(TeaModel):
+    def __init__(
+        self,
+        items: List[PageKanjianRecordAnalysisResponseBodyResultDetailsItems] = None,
+        timestamp_ms: int = None,
+    ):
+        self.items = items
+        self.timestamp_ms = timestamp_ms
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        if self.timestamp_ms is not None:
+            result['timestampMs'] = self.timestamp_ms
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = PageKanjianRecordAnalysisResponseBodyResultDetailsItems()
+                self.items.append(temp_model.from_map(k))
+        if m.get('timestampMs') is not None:
+            self.timestamp_ms = m.get('timestampMs')
+        return self
+
+
+class PageKanjianRecordAnalysisResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        details: List[PageKanjianRecordAnalysisResponseBodyResultDetails] = None,
+        execution_id: str = None,
+        has_more: bool = None,
+        next_cursor: str = None,
+        record_id: str = None,
+    ):
+        self.details = details
+        self.execution_id = execution_id
+        self.has_more = has_more
+        self.next_cursor = next_cursor
+        self.record_id = record_id
+
+    def validate(self):
+        if self.details:
+            for k in self.details:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['details'] = []
+        if self.details is not None:
+            for k in self.details:
+                result['details'].append(k.to_map() if k else None)
+        if self.execution_id is not None:
+            result['executionId'] = self.execution_id
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        if self.next_cursor is not None:
+            result['nextCursor'] = self.next_cursor
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.details = []
+        if m.get('details') is not None:
+            for k in m.get('details'):
+                temp_model = PageKanjianRecordAnalysisResponseBodyResultDetails()
+                self.details.append(temp_model.from_map(k))
+        if m.get('executionId') is not None:
+            self.execution_id = m.get('executionId')
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        if m.get('nextCursor') is not None:
+            self.next_cursor = m.get('nextCursor')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        return self
+
+
+class PageKanjianRecordAnalysisResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: PageKanjianRecordAnalysisResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = PageKanjianRecordAnalysisResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class PageKanjianRecordAnalysisResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: PageKanjianRecordAnalysisResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = PageKanjianRecordAnalysisResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class PageKanjianRecordProcessHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class PageKanjianRecordProcessRequest(TeaModel):
+    def __init__(
+        self,
+        cursor: str = None,
+        page_size: int = None,
+        record_id: str = None,
+    ):
+        self.cursor = cursor
+        self.page_size = page_size
+        # This parameter is required.
+        self.record_id = record_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.cursor is not None:
+            result['cursor'] = self.cursor
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('cursor') is not None:
+            self.cursor = m.get('cursor')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        return self
+
+
+class PageKanjianRecordProcessResponseBodyResultEventsImages(TeaModel):
+    def __init__(
+        self,
+        timestamp: int = None,
+        url: str = None,
+    ):
+        self.timestamp = timestamp
+        self.url = url
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.timestamp is not None:
+            result['timestamp'] = self.timestamp
+        if self.url is not None:
+            result['url'] = self.url
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('timestamp') is not None:
+            self.timestamp = m.get('timestamp')
+        if m.get('url') is not None:
+            self.url = m.get('url')
+        return self
+
+
+class PageKanjianRecordProcessResponseBodyResultEvents(TeaModel):
+    def __init__(
+        self,
+        attention_priority: str = None,
+        chapter_title: str = None,
+        description: str = None,
+        event_id: str = None,
+        images: List[PageKanjianRecordProcessResponseBodyResultEventsImages] = None,
+        key_frame_ms: int = None,
+        parent_segment_id: str = None,
+        subject_label: str = None,
+        timestamp_end_ms: int = None,
+        timestamp_start_ms: int = None,
+    ):
+        self.attention_priority = attention_priority
+        self.chapter_title = chapter_title
+        self.description = description
+        self.event_id = event_id
+        self.images = images
+        self.key_frame_ms = key_frame_ms
+        self.parent_segment_id = parent_segment_id
+        self.subject_label = subject_label
+        self.timestamp_end_ms = timestamp_end_ms
+        self.timestamp_start_ms = timestamp_start_ms
+
+    def validate(self):
+        if self.images:
+            for k in self.images:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.attention_priority is not None:
+            result['attentionPriority'] = self.attention_priority
+        if self.chapter_title is not None:
+            result['chapterTitle'] = self.chapter_title
+        if self.description is not None:
+            result['description'] = self.description
+        if self.event_id is not None:
+            result['eventId'] = self.event_id
+        result['images'] = []
+        if self.images is not None:
+            for k in self.images:
+                result['images'].append(k.to_map() if k else None)
+        if self.key_frame_ms is not None:
+            result['keyFrameMs'] = self.key_frame_ms
+        if self.parent_segment_id is not None:
+            result['parentSegmentId'] = self.parent_segment_id
+        if self.subject_label is not None:
+            result['subjectLabel'] = self.subject_label
+        if self.timestamp_end_ms is not None:
+            result['timestampEndMs'] = self.timestamp_end_ms
+        if self.timestamp_start_ms is not None:
+            result['timestampStartMs'] = self.timestamp_start_ms
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('attentionPriority') is not None:
+            self.attention_priority = m.get('attentionPriority')
+        if m.get('chapterTitle') is not None:
+            self.chapter_title = m.get('chapterTitle')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('eventId') is not None:
+            self.event_id = m.get('eventId')
+        self.images = []
+        if m.get('images') is not None:
+            for k in m.get('images'):
+                temp_model = PageKanjianRecordProcessResponseBodyResultEventsImages()
+                self.images.append(temp_model.from_map(k))
+        if m.get('keyFrameMs') is not None:
+            self.key_frame_ms = m.get('keyFrameMs')
+        if m.get('parentSegmentId') is not None:
+            self.parent_segment_id = m.get('parentSegmentId')
+        if m.get('subjectLabel') is not None:
+            self.subject_label = m.get('subjectLabel')
+        if m.get('timestampEndMs') is not None:
+            self.timestamp_end_ms = m.get('timestampEndMs')
+        if m.get('timestampStartMs') is not None:
+            self.timestamp_start_ms = m.get('timestampStartMs')
+        return self
+
+
+class PageKanjianRecordProcessResponseBodyResultSegmentsTimeIntervals(TeaModel):
+    def __init__(
+        self,
+        end_ms: int = None,
+        start_ms: int = None,
+    ):
+        self.end_ms = end_ms
+        self.start_ms = start_ms
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.end_ms is not None:
+            result['endMs'] = self.end_ms
+        if self.start_ms is not None:
+            result['startMs'] = self.start_ms
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('endMs') is not None:
+            self.end_ms = m.get('endMs')
+        if m.get('startMs') is not None:
+            self.start_ms = m.get('startMs')
+        return self
+
+
+class PageKanjianRecordProcessResponseBodyResultSegments(TeaModel):
+    def __init__(
+        self,
+        child_event_ids: List[str] = None,
+        description: str = None,
+        segment_area: str = None,
+        segment_id: str = None,
+        time_intervals: List[PageKanjianRecordProcessResponseBodyResultSegmentsTimeIntervals] = None,
+    ):
+        self.child_event_ids = child_event_ids
+        self.description = description
+        self.segment_area = segment_area
+        self.segment_id = segment_id
+        self.time_intervals = time_intervals
+
+    def validate(self):
+        if self.time_intervals:
+            for k in self.time_intervals:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.child_event_ids is not None:
+            result['childEventIds'] = self.child_event_ids
+        if self.description is not None:
+            result['description'] = self.description
+        if self.segment_area is not None:
+            result['segmentArea'] = self.segment_area
+        if self.segment_id is not None:
+            result['segmentId'] = self.segment_id
+        result['timeIntervals'] = []
+        if self.time_intervals is not None:
+            for k in self.time_intervals:
+                result['timeIntervals'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('childEventIds') is not None:
+            self.child_event_ids = m.get('childEventIds')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('segmentArea') is not None:
+            self.segment_area = m.get('segmentArea')
+        if m.get('segmentId') is not None:
+            self.segment_id = m.get('segmentId')
+        self.time_intervals = []
+        if m.get('timeIntervals') is not None:
+            for k in m.get('timeIntervals'):
+                temp_model = PageKanjianRecordProcessResponseBodyResultSegmentsTimeIntervals()
+                self.time_intervals.append(temp_model.from_map(k))
+        return self
+
+
+class PageKanjianRecordProcessResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        events: List[PageKanjianRecordProcessResponseBodyResultEvents] = None,
+        execution_id: str = None,
+        has_more: bool = None,
+        next_cursor: str = None,
+        record_id: str = None,
+        segments: List[PageKanjianRecordProcessResponseBodyResultSegments] = None,
+    ):
+        self.events = events
+        self.execution_id = execution_id
+        self.has_more = has_more
+        self.next_cursor = next_cursor
+        self.record_id = record_id
+        self.segments = segments
+
+    def validate(self):
+        if self.events:
+            for k in self.events:
+                if k:
+                    k.validate()
+        if self.segments:
+            for k in self.segments:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['events'] = []
+        if self.events is not None:
+            for k in self.events:
+                result['events'].append(k.to_map() if k else None)
+        if self.execution_id is not None:
+            result['executionId'] = self.execution_id
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        if self.next_cursor is not None:
+            result['nextCursor'] = self.next_cursor
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        result['segments'] = []
+        if self.segments is not None:
+            for k in self.segments:
+                result['segments'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.events = []
+        if m.get('events') is not None:
+            for k in m.get('events'):
+                temp_model = PageKanjianRecordProcessResponseBodyResultEvents()
+                self.events.append(temp_model.from_map(k))
+        if m.get('executionId') is not None:
+            self.execution_id = m.get('executionId')
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        if m.get('nextCursor') is not None:
+            self.next_cursor = m.get('nextCursor')
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        self.segments = []
+        if m.get('segments') is not None:
+            for k in m.get('segments'):
+                temp_model = PageKanjianRecordProcessResponseBodyResultSegments()
+                self.segments.append(temp_model.from_map(k))
+        return self
+
+
+class PageKanjianRecordProcessResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: PageKanjianRecordProcessResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = PageKanjianRecordProcessResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class PageKanjianRecordProcessResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: PageKanjianRecordProcessResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = PageKanjianRecordProcessResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -10601,6 +13645,354 @@ class QueryUserDeviceLocationResponse(TeaModel):
         return self
 
 
+class StartKanjianRecordingHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class StartKanjianRecordingRequest(TeaModel):
+    def __init__(
+        self,
+        device_sn: str = None,
+        main_task_id: str = None,
+        operator_user_id: str = None,
+        title: str = None,
+    ):
+        # This parameter is required.
+        self.device_sn = device_sn
+        self.main_task_id = main_task_id
+        # This parameter is required.
+        self.operator_user_id = operator_user_id
+        self.title = title
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.device_sn is not None:
+            result['deviceSn'] = self.device_sn
+        if self.main_task_id is not None:
+            result['mainTaskId'] = self.main_task_id
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.title is not None:
+            result['title'] = self.title
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('deviceSn') is not None:
+            self.device_sn = m.get('deviceSn')
+        if m.get('mainTaskId') is not None:
+            self.main_task_id = m.get('mainTaskId')
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('title') is not None:
+            self.title = m.get('title')
+        return self
+
+
+class StartKanjianRecordingResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        record_id: str = None,
+        session_id: str = None,
+    ):
+        self.record_id = record_id
+        self.session_id = session_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.record_id is not None:
+            result['recordId'] = self.record_id
+        if self.session_id is not None:
+            result['sessionId'] = self.session_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('recordId') is not None:
+            self.record_id = m.get('recordId')
+        if m.get('sessionId') is not None:
+            self.session_id = m.get('sessionId')
+        return self
+
+
+class StartKanjianRecordingResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: StartKanjianRecordingResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = StartKanjianRecordingResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class StartKanjianRecordingResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: StartKanjianRecordingResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = StartKanjianRecordingResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class StopKanjianRecordingHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class StopKanjianRecordingRequest(TeaModel):
+    def __init__(
+        self,
+        operator_user_id: str = None,
+        session_id: str = None,
+    ):
+        # This parameter is required.
+        self.operator_user_id = operator_user_id
+        # This parameter is required.
+        self.session_id = session_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.session_id is not None:
+            result['sessionId'] = self.session_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('sessionId') is not None:
+            self.session_id = m.get('sessionId')
+        return self
+
+
+class StopKanjianRecordingResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        success: bool = None,
+    ):
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class StopKanjianRecordingResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: StopKanjianRecordingResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = StopKanjianRecordingResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class StopKanjianRecordingResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: StopKanjianRecordingResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = StopKanjianRecordingResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class SubmitAgentTaskHeaders(TeaModel):
     def __init__(
         self,
@@ -11464,6 +14856,252 @@ class UpdateDeviceBindingResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = UpdateDeviceBindingResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class UpdateKanjianTaskHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class UpdateKanjianTaskRequestSubTasks(TeaModel):
+    def __init__(
+        self,
+        instruction: str = None,
+        name: str = None,
+        task_id: str = None,
+    ):
+        self.instruction = instruction
+        self.name = name
+        self.task_id = task_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.instruction is not None:
+            result['instruction'] = self.instruction
+        if self.name is not None:
+            result['name'] = self.name
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('instruction') is not None:
+            self.instruction = m.get('instruction')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class UpdateKanjianTaskRequest(TeaModel):
+    def __init__(
+        self,
+        admin_user_ids: List[str] = None,
+        description: str = None,
+        executor_user_ids: List[str] = None,
+        name: str = None,
+        operator_user_id: str = None,
+        report_content: str = None,
+        sub_tasks: List[UpdateKanjianTaskRequestSubTasks] = None,
+        task_id: str = None,
+    ):
+        self.admin_user_ids = admin_user_ids
+        self.description = description
+        self.executor_user_ids = executor_user_ids
+        self.name = name
+        self.operator_user_id = operator_user_id
+        self.report_content = report_content
+        self.sub_tasks = sub_tasks
+        self.task_id = task_id
+
+    def validate(self):
+        if self.sub_tasks:
+            for k in self.sub_tasks:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.admin_user_ids is not None:
+            result['adminUserIds'] = self.admin_user_ids
+        if self.description is not None:
+            result['description'] = self.description
+        if self.executor_user_ids is not None:
+            result['executorUserIds'] = self.executor_user_ids
+        if self.name is not None:
+            result['name'] = self.name
+        if self.operator_user_id is not None:
+            result['operatorUserId'] = self.operator_user_id
+        if self.report_content is not None:
+            result['reportContent'] = self.report_content
+        result['subTasks'] = []
+        if self.sub_tasks is not None:
+            for k in self.sub_tasks:
+                result['subTasks'].append(k.to_map() if k else None)
+        if self.task_id is not None:
+            result['taskId'] = self.task_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('adminUserIds') is not None:
+            self.admin_user_ids = m.get('adminUserIds')
+        if m.get('description') is not None:
+            self.description = m.get('description')
+        if m.get('executorUserIds') is not None:
+            self.executor_user_ids = m.get('executorUserIds')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('operatorUserId') is not None:
+            self.operator_user_id = m.get('operatorUserId')
+        if m.get('reportContent') is not None:
+            self.report_content = m.get('reportContent')
+        self.sub_tasks = []
+        if m.get('subTasks') is not None:
+            for k in m.get('subTasks'):
+                temp_model = UpdateKanjianTaskRequestSubTasks()
+                self.sub_tasks.append(temp_model.from_map(k))
+        if m.get('taskId') is not None:
+            self.task_id = m.get('taskId')
+        return self
+
+
+class UpdateKanjianTaskResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        success: bool = None,
+    ):
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class UpdateKanjianTaskResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: UpdateKanjianTaskResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = UpdateKanjianTaskResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class UpdateKanjianTaskResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: UpdateKanjianTaskResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = UpdateKanjianTaskResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 

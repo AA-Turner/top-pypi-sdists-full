@@ -15,6 +15,9 @@ Run:
   python corr_demo.py
 """
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")  # headless: no display required

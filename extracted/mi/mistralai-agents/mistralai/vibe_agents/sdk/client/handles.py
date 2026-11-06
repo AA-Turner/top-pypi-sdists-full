@@ -1,7 +1,7 @@
-"""Handles: a session or a turn named by its id, on the host that runs it.
+"""Handles: a session or a turn named by its ID, on the host that runs it.
 
-A handle holds ids and the way to reach their host, and nothing the host reported. Getting one
-sends no request, so it is never out of date: store the ids, and bind them again in any process
+A handle holds IDs and the way to reach their host, and nothing the host reported. Getting one
+sends no request, so it is never out of date: store the IDs, and bind them again in any process
 with ``agent.session(session_id)`` and ``session.turn(turn_id)``.
 
 Sends return a value when the host refuses them for the session's state: ``Busy`` when
@@ -105,7 +105,7 @@ _IDEMPOTENCY_KEY_ADAPTER: TypeAdapter[str] = TypeAdapter(IdempotencyKey)
 
 
 class _SessionHost(Protocol):
-    """Where a session runs. It reaches a session by id without asking the host first."""
+    """Where a session runs. It reaches a session by ID without asking the host first."""
 
     def bind(self, session_id: str) -> SessionTransport:
         """Return a transport bound to the session. It sends no request until it is used."""
@@ -249,25 +249,25 @@ class _RemoteHost:
 
 
 class Session:
-    """A session, named by its id. Getting one sends no request.
+    """A session, named by its ID. Binding one with ``agent.session(session_id)`` sends no request.
 
-    Get one with ``await agent.start_session()``, or bind a stored id with
-    ``agent.session(session_id)``. Both keep the Agent's ``output_type`` for ``run``, and for the
+    Get one with ``await agent.start_session()``, or bind a stored ID with
+    ``agent.session(session_id)``. Both keep the agent's ``output_type`` for ``run``, and for the
     ``get`` and ``result`` of the session's turns.
 
-    With ``on_approval``, a plain or async function, ``session.run`` and ``turn.result`` answer the
-    approvals of the session and its subagents while they wait: the handler gets an
-    ``ApprovalCallbackContext`` and an ``ApprovalRequest`` and returns ``AllowApproval``,
-    ``DenyApproval``, or ``agents.KeepCallbackOpen()`` to leave the approval open, so the wait returns
-    ``Blocked`` on it. A handler that raises, or returns anything else (``None`` raises
-    ``SdkError``), leaves the approval open, and the waiting call raises its error; the turn goes
-    on. With ``on_sign_in``, they answer the sign-ins the same way: the handler gets an
-    ``OpenSignIn`` and returns a ``SignInAnswer``; ``None`` raises ``SdkError``.
+    ``on_approval`` answers the approvals of the session and its subagents while ``session.run`` or
+    ``turn.result`` waits, with ``AllowApproval``, ``DenyApproval`` or ``agents.KeepCallbackOpen()``.
+    ``on_sign_in`` answers their sign-ins with a ``SignInAnswer``. ``on_client_tool`` answers their
+    client tool calls, so the wait does not return ``Blocked`` on them. An approval or sign-in handler
+    that raises, or returns anything else, leaves its callback open, and the waiting call raises while
+    the turn keeps running. A client tool answer or ``on_client_tool`` handler that raises follows the
+    agent's ``tool_errors``, as on ``agent.run``: by default the model reads that the call failed
+    and the wait goes on. Two waits at once in one event loop share the answers: the answer runs once
+    per client tool call.
 
-    With ``on_client_tool``, ``session.run`` and ``turn.result`` answer the client tools of the
-    session and its subagents while they wait, as ``agent.run`` does: the wait does not return
-    ``Blocked`` on a call they answer, but its ``timeout`` still applies (``timeout=0`` only reads).
-    Nothing answers between calls, and two waits at once in one event loop call the answer function once per call.
+    Two handles are equal when they name the same session in the same place: the same Mistral API
+    for a deployed agent, however you loaded it, or the same local runtime. Keep them in a set or
+    as dictionary keys.
     """
 
     __slots__ = ("_client_tools", "_host", "_id", "_on_approval", "_on_sign_in", "_output_type", "_tools")
@@ -293,22 +293,30 @@ class Session:
 
     @property
     def id(self) -> str:
-        """The session's id."""
+        """The session's ID."""
         return self._id
 
     def turn(self, turn_id: str) -> Turn:
-        """Return the handle of a turn of this session. Sends no request."""
+        """Return the handle of a turn of this session. Sends no request.
+
+        Args:
+            turn_id: The ID of the turn.
+        """
         return Turn(self, turn_id)
 
     @public_errors
     async def send_message(self, content: UserContentLike, *, idempotency_key: str | None = None) -> Turn:
-        """Send a message: the host starts a turn, or adds the message to the running one.
+        """Send a message: the session starts a turn, or adds the message to the running one.
 
         ``turn.started`` says which: ``True`` for a new turn, ``False`` for the running one.
 
-        Raises ``agents.SessionBusyError`` when the host still cannot take the message after its retries;
-        nothing was applied. The same ``idempotency_key`` returns the same turn; reusing it for
-        another message raises ``agents.SessionIdempotencyConflictError``.
+        Raises ``agents.SessionBusyError`` when the session still cannot take the message after its retries;
+        nothing was applied.
+
+        Args:
+            content: The message: a string or content blocks.
+            idempotency_key: Makes the send safe to retry: the same key returns the same turn, and reusing
+                it for another message raises ``agents.SessionIdempotencyConflictError``.
         """
         message = checked_message(content)
         key = checked_idempotency_key(idempotency_key)
@@ -331,6 +339,10 @@ class Session:
 
         Raises ``SessionBusyError`` when the session cannot take a start for another reason, such
         as a limit on running subagents; nothing was applied.
+
+        Args:
+            content: The message that starts the turn: a string or content blocks.
+            idempotency_key: Names the start, so a retry with it returns the turn it started.
         """
         message = checked_message(content)
         key = checked_idempotency_key(idempotency_key)
@@ -382,17 +394,21 @@ class Session:
         timeout: float | None = None,
         on_event: EventHandler | None = None,
     ) -> TurnState[Any] | Busy:
-        """Start a turn and wait for it: ``start_turn``, then ``turn.result(timeout=, on_event=)``.
+        """Start a turn and wait for it to end, or to wait on a callback; return its record.
 
-        Returns ``Busy`` when another turn is active, and the turn's record otherwise. ``timeout``
-        bounds the wait, not the start. Leaving the wait never stops the turn (see ``Turn.result``).
-        With ``on_event``, one read before the start gives where the turn's events are read from:
-        the last turn's start, since the events that name no turn after its end are this turn's
-        too. With ``idempotency_key`` too, they are read as ``turn.result`` reads them, since a
-        retry can return a turn that started before that read.
-        ``output_type`` validates the output of a ``Completed`` record (see ``Turn.result``);
-        without it, the handle's Agent's ``output_type`` does, if it has one. With the handle's
-        ``on_client_tool``, it raises what ``Turn.result`` raises for a client tool answer.
+        Returns ``Busy`` when another turn is active. It is ``start_turn``, then
+        ``turn.result(timeout=, on_event=)``: leaving the wait does not stop the turn. With the
+        handle's ``on_client_tool``, it raises what ``Turn.result`` raises for a client tool answer.
+
+        Args:
+            content: The message that starts the turn: a string or content blocks.
+            output_type: A Pydantic model that validates the output of a ``Completed`` record (see
+                ``Turn.result``). Without it, the handle's agent's ``output_type`` does, if it has one.
+            idempotency_key: Names the start, so a retry with it returns the turn it started.
+            timeout: The most seconds to wait for the turn, not counting the start. An ``on_approval`` or
+                ``on_sign_in`` handler's time counts; your client-tool code does not. ``None`` waits with no limit.
+            on_event: A plain or async function called with each of the turn's events while the call waits.
+                When the turn has ended, the last event is ``TurnEnded``.
         """
         return await self._run(
             content,
@@ -440,9 +456,11 @@ class Session:
     def iter_events(self, *, after: TurnState[object] | str | None = None) -> AsyncIterator[Event]:
         """Yield the session's events after ``after``, a record or a cursor, or from its start.
 
-        It follows the session until the session ends, and never changes anything. Each
-        ``TurnEnded`` reads its turn (at least 2 requests). After a cursor, the session's end reads
-        the session once more when no event since said which turn runs.
+        It follows the session until the session ends, and never changes anything. It reads each
+        ended turn, so each ``TurnEnded`` carries its record.
+
+        Args:
+            after: A record or a cursor to continue after. ``None`` starts at the session's start.
 
         Raises:
             ObservationLost: The session's events could not be read again; continue after its cursor.
@@ -458,10 +476,7 @@ class Session:
         Running turns are interrupted, and the session takes no new command: a later send raises
         ``SessionTerminatedError``. Its history stays readable. A deployed cancel returns once the
         deployment accepts it; a local one returns once the session has ended and released its
-        sandbox. A subagent cannot be cancelled on its own: cancel its root session. A local session
-        that an ``async with agents.local_runtime(journal_factory=...)`` block's exit saved has not
-        ended, unless it was cancelled or failed in the block: outside a new block with that
-        ``journal_factory``, its cancel raises ``SessionTerminatedError``.
+        sandbox. A subagent cannot be cancelled on its own. Cancel its root session instead.
         """
         try:
             async with self._connect() as raw:
@@ -480,9 +495,11 @@ class Session:
     async def subagents(self) -> list[Session]:
         """Return the handles of this session's direct subagents, newest first.
 
-        A subagent's handle takes ``interrupt`` and reads only: ``send_message``, ``start_turn``
-        and ``steer`` on it raise ``ChildSessionProcedureRefusedError``. It has this handle's
-        ``on_approval``, ``on_sign_in`` and ``on_client_tool``.
+        A subagent's handle reads, and its turns take ``interrupt``: ``send_message``, ``start_turn``,
+        ``run`` and ``cancel`` on the handle, and ``steer`` on its turns, raise
+        :class:`UnsupportedSessionProcedureError`. To redirect a subagent, message or steer its parent;
+        to stop it, cancel its root session. It has this handle's ``on_approval``, ``on_sign_in`` and
+        ``on_client_tool``.
         """
         children: list[Session] = []
         cursor: str | None = None
@@ -530,9 +547,10 @@ class Session:
 
 
 class Turn:
-    """A turn of a session, named by its id. Getting one sends no request.
+    """A turn of a session, named by its ID. Binding one with ``session.turn(turn_id)`` sends no request.
 
-    Get one with ``session.turn(turn_id)``, or from a send.
+    Get one with ``session.turn(turn_id)``, or from a send. Two handles of the same turn of the
+    same session are equal.
     """
 
     __slots__ = ("_host_named", "_id", "_session", "_started")
@@ -546,14 +564,14 @@ class Turn:
 
     @property
     def id(self) -> str:
-        """The turn's id."""
+        """The turn's ID."""
         return self._id
 
     @property
     def started(self) -> bool | None:
         """``True`` for a turn a send started, ``False`` for a running turn a send joined.
 
-        ``None`` for a handle that did not come from a send, such as one bound by id.
+        ``None`` for a handle that did not come from a send, such as one bound by ID.
         """
         return self._started
 
@@ -563,18 +581,19 @@ class Turn:
 
         Returns ``Running``, ``Blocked`` (the turn waits on a callback), or the record of how the
         turn ended: ``Completed``, ``Interrupted``, ``Failed`` or ``UnknownOutcome``. ``Completed.output``
-        is the turn's text, or, when the handle's Agent has an ``output_type``, that text parsed as on
+        is the turn's text, or, when the handle's agent has an ``output_type``, that text parsed as on
         ``result(output_type=...)``. The
-        record's ``cursor`` is the session's last event id, read before the turn. The session's
+        record's ``cursor`` is the session's last event ID when the record was read. The session's
         active turn is ``Blocked`` also while one of its subagents, at any depth, waits on a
-        callback, such as an approval: ``Blocked.callbacks`` lists it with the subagent's ids.
-        A turn of a session that ended
-        is never ``Running``: when the host did not report how it ended, it ended with its session.
-        A turn a send returned is ``Running`` until the host lists it: a deployment answers the
+        callback, such as an approval: ``Blocked.callbacks`` lists it with the subagent's IDs.
+        A turn of a session that ended is never ``Running``. When the session did not report how the
+        turn ended, the turn reads as the session ended: for a cancelled session, ``Interrupted`` with
+        ``cause="cancelled"``.
+        A turn a send returned is ``Running`` until the session lists it: a deployed agent answers the
         send before it does.
 
         Raises:
-            TurnNotFoundError: The session has no turn with this id. Never for a turn a send returned,
+            TurnNotFoundError: The session has no turn with this ID. Never for a turn a send returned,
                 nor for ``busy.turn``.
         """
         return await self._get(None)
@@ -616,60 +635,42 @@ class Turn:
         timeout: float | None = None,
         on_event: EventHandler | None = None,
     ) -> TurnState[Any]:
-        """Wait until the turn ends or waits on a callback opened after ``after``, and return its record.
+        """Wait for the turn to end, or to wait on a callback, and return its record.
 
-        Returns ``Completed``, ``Interrupted``, ``Failed`` or ``UnknownOutcome`` when the turn ends, and ``Blocked``
-        when a callback opened after ``after`` and the host still lists it as open: one that another
-        client already answered does not return. ``after`` is a position in the session's events:
-        a record of this session, or its ``cursor``, the same position. Without ``after``, a turn
-        that waits on any callback returns at once. A subagent's callback blocks the turn as on
-        ``get()``; the session's events do not order it, so the wait returns while one is open,
-        except one that a ``Blocked`` given as ``after`` lists. A record or a cursor of another
-        session raises before any read. A cursor the session never had raises only when the wait
-        reads the session's events: a turn that already ended returns its record without reading
-        them.
+        Returns ``Completed``, ``Interrupted``, ``Failed`` or ``UnknownOutcome`` when the turn ends,
+        and ``Blocked`` when it waits on a callback opened after ``after`` that is still open. At the
+        deadline, it returns the turn's record at that moment, ``Running`` or ``Blocked``, and raises
+        nothing.
 
-        ``timeout`` is the time the SDK waits for the host, in seconds, its first read included; the
-        time an ``on_approval`` or ``on_sign_in`` handler takes counts too. At the deadline, one more read returns
-        the turn's record at that moment, ``Running`` or ``Blocked`` with the callbacks the host
-        lists: a timeout raises nothing, but a read that fails raises.
+        Leaving the wait sends nothing, and the turn keeps running. A cancel, such as
+        ``asyncio.wait_for`` or Ctrl-C, gets a note with the IDs and how to stop the turn.
 
-        ``on_event``, a plain or async function, gets the turn's events in order while the call
-        waits: from the previous turn's end (the events that name no turn since then are this
-        turn's), or after ``after``, up to the record returned, at the deadline too. When the turn
-        ended, the last is ``TurnEnded`` with that record. It sends no request of its own; without
-        ``after``, the events are read from the previous turn's start position the host recorded,
-        or, for the first turn or from a host that records none, from the session's start, within
-        ``timeout``. ``after`` is this turn's record, a record read before this turn started (such
-        as the previous turn's result), or a position inside this turn: another turn's record read
-        while this one ran would lose this turn's events that name no turn. The events are read up
-        to the record's position, with no time limit: if the stream ends short of it, the record's
-        ``cursor`` is the position reached, so a next wait after it neither repeats nor misses an
-        event. An error it raises ends the wait, and the deadline can cancel an async one mid-call.
+        Without ``after``, a turn that waits on any callback returns at once. Pass this turn's last
+        record as ``after`` to wait past the callbacks you already handled.
 
-        Leaving the wait sends nothing to the host: the turn does not stop. A cancel, such as
-        ``asyncio.wait_for`` or Ctrl-C, gets a note with the ids and how to stop the turn.
-
-        With ``output_type``, a Pydantic model, ``Completed.output`` is the turn's text
-        validated as JSON into that model, as ``agent.run`` does, or ``InvalidOutput`` when it does
-        not validate. It is ``None`` when the turn did not end ``"completed"``: it reached its
-        iteration limit, a hook skipped it, a hook rejected its reply (``stop_reason``
-        ``"rejected"``), or the model's last reply stopped at the output token limit
-        (``"output_limit"``). This only parses the text: the model is asked for
-        that format only when the Agent that runs the session sets ``output_type``. Without
-        ``output_type``, the handle's Agent's ``output_type`` applies, if it has one.
+        Args:
+            output_type: A Pydantic model that the turn's text is parsed into, as ``Completed.output``.
+                Defaults to the handle's agent's ``output_type``.
+            after: A record of this session, or its ``cursor``, to read the turn's events after.
+                Defaults to this turn's start: callbacks of earlier turns don't count. Pass this turn's
+                record, or one read before this turn started. Another turn's record, read while this
+                turn ran, can miss some of this turn's events.
+            timeout: The most seconds to wait for the turn. An ``on_approval`` or ``on_sign_in`` handler's time
+                counts; your client-tool code does not. ``None`` waits as long as the turn does.
+            on_event: A plain or async function called with each of the turn's events, in order, while the
+                call waits. When the turn has ended, the last event is ``TurnEnded``.
 
         Raises:
             ObservationLost: The session's events, or its subagents' callbacks, could not be read;
-                the turn goes on.
-            TurnNotFoundError: The session has no turn with this id. Never for a turn a send
-                returned, nor for ``busy.turn``: until the host lists it, the wait follows its events.
-            InvalidCursorError: ``after`` is a record or a cursor of another session, or, while the turn
-                runs, a cursor that is not valid.
+                the turn keeps running.
+            TurnNotFoundError: The session has no turn with this ID. Never for a turn a send
+                returned, nor for ``busy.turn``: until the session lists it, the wait follows its events.
+            InvalidCursorError: ``after`` is a record or a cursor of another session, raised before any
+                read, or a cursor the session never had, raised only when the wait reads the events.
             ClientToolAnswerError: The handle's ``on_client_tool`` answered a call, and the answer
                 could not be sent; the call stays open.
-            Exception: With ``tool_errors="raise"``, the exception a client tool answer raised; its
-                call stays open.
+            Exception: With ``tool_errors="raise"``, the exception a client tool answer or
+                ``on_client_tool`` handler raised; its call stays open.
         """
         state = await self._result(after=after, timeout=timeout, on_event=on_event, start=None)
         return self._typed(state, output_type)
@@ -756,22 +757,20 @@ class Turn:
         return state
 
     def iter_events(self, *, after: TurnState[object] | str | None = None) -> AsyncIterator[Event]:
-        """Yield this turn's events after ``after``, or from its start.
+        """Yield this turn's events after ``after``, or from its start, up to its ``TurnEnded``.
 
-        ``after`` is this turn's record, a record read before this turn started (such as the
-        previous turn's result), or a position inside this turn: an event that names no turn counts
-        as this turn's. When the turn ended, the last is ``TurnEnded``, with its record, and
-        a position at or after its end yields nothing, at once. Until the turn's ``TurnEnded``, it
-        yields the events the session has, then the live ones, with no time limit: a turn that
-        waits on an approval can send no event for hours. Never changes anything. It reads
-        the turn first (at least 2 requests). Without ``after``, it starts after the previous
-        turn's end: the events that name no turn since then are this turn's. It reads from the
-        previous turn's start position the host recorded, or, for the first turn or from a host
-        that records none, from the session's start.
+        It yields the events the session has, then the live ones, with no time limit: a turn that
+        waits on an approval can send no event for hours. When the turn ended, the last is
+        ``TurnEnded``, with its record, and a position at or after its end yields nothing, at once.
+        It changes nothing.
+
+        Args:
+            after: This turn's record, a record read before this turn started (such as the previous
+                turn's result), or a cursor inside this turn. ``None`` starts after the previous turn's end.
 
         Raises:
             ObservationLost: The session's events could not be read again; continue after its cursor.
-            TurnNotFoundError: At the first iteration, the session has no turn with this id. Never
+            TurnNotFoundError: At the first iteration, the session has no turn with this ID. Never
                 for a turn a send returned, nor for ``busy.turn``.
             InvalidCursorError: At the first iteration, ``after`` is a record or a cursor of another session,
                 or a cursor that is not valid.
@@ -793,6 +792,9 @@ class Turn:
         """Add a message to this turn while it runs.
 
         Returns ``TurnConflict`` when this turn is no longer the active one: the message is not added.
+
+        Args:
+            content: The message to add: a string or content blocks.
         """
         message = checked_message(content)
         return await self._command(
@@ -804,15 +806,15 @@ class Turn:
     @public_errors
     async def answer(self, callback_id: str, answer: object) -> Answered | AlreadySettled | NotFound:
         """Answer any open callback of this turn's session or of its subagents, from any turn, by
-        its callback id. The turn's id is not used: a callback's id names it in its session.
+        its callback ID. The turn's ID is not used: a callback's ID names it in its session.
 
         An approval (``OpenApproval``) takes ``AllowApproval`` or ``DenyApproval``. A sign-in
         (``OpenSignIn``) takes a ``SignInAnswer`` that names each source it asks for, and only
         those. A client tool call (``OpenClientToolCall``) takes the tool's result: what an answer
         function would return, such as a model, a dict or a ``ToolResult``. When the stub is in the
-        ``tools=`` of the Agent or of its subagents, the result is checked against the stub's return
+        ``tools=`` of the agent or of its subagents, the result is checked against the stub's return
         type and sent as its answer is. Otherwise it is sent as JSON, unchecked: a tool built with
-        ``output_schema=``, a hook's tool, a tool id that two different stubs share, or a handle
+        ``output_schema=``, a hook's tool, a tool ID that two different stubs share, or a handle
         from ``Agent.load_from()``.
 
         Reads the session once, then answers. Returns ``Answered`` when the callback was open,
@@ -821,28 +823,29 @@ class Turn:
         listed in the root's ``Blocked.callbacks``, is answered on the subagent's session, and the
         record names that session; once it is no longer open, the root says ``NotFound`` and the
         subagent's own session, ``agent.session(callback.session_id)``, says ``AlreadySettled``.
-        A host that cannot list the tree finds only the session's own callbacks.
 
         For an approval, ``Answered.answer`` is the answer that counted: two clients that answer
         at the same time both get ``Answered``, with the answer of the one that came first, so
-        compare it with yours. For a client tool call and a sign-in it is ``None``: the first
-        result sent counts, and no host says which one that was. Both hosts do the same.
+        compare it with yours. It is ``None`` when the answer that counted could not be read in time;
+        read the turn to see the outcome. For a client tool call and a sign-in it is ``None``: the
+        first result sent counts. Local and deployed sessions do the same.
 
         An approval's ``answer`` is ``AllowApproval`` or ``DenyApproval``, never a bool, a dict or
         ``None``. ``KeepCallbackOpen()`` is a handler's return, never an answer: to leave a
         callback open, do not answer it.
 
+        Args:
+            callback_id: The ID of the open callback, as in ``Blocked.callbacks``.
+            answer: The answer of the callback's kind: ``AllowApproval`` or ``DenyApproval``, a
+                ``SignInAnswer``, or a client tool's result.
+
         Raises:
             ValueError: ``callback_id`` is not a UUID (nothing is sent).
-            SdkError: ``answer`` is ``KeepCallbackOpen()`` (nothing is read or sent). Or the
-                callback is open, and ``answer`` is not an answer of its kind: not
-                ``AllowApproval`` or ``DenyApproval`` for an approval, not a ``SignInAnswer`` for a
-                sign-in, an approval answer or a value that does not match the stub's return type
-                for a client tool call. Also when ``answer`` allows a hook's approval for the
-                session, a sign-in answer names a source the sign-in does not ask for or leaves out
-                one it asks for, the callback is of another kind or a call of another tool the host
-                provides, or two subagents have a callback open with that id (answer it on its own
-                session). Nothing is sent.
+            SdkError: ``answer`` is ``KeepCallbackOpen()`` or does not fit the callback, or two subagents
+                have a callback open with that ID. Also when ``answer`` allows a hook's approval for the
+                whole session (``AllowApproval(scope="session")``), or the callback is a client tool call of
+                a tool the platform provides, such as one in the ``connectors`` namespace. Nothing is sent.
+                A sign-in arrives as ``OpenSignIn`` and takes a ``SignInAnswer``.
             ObservationLost: The callback is open nowhere, and the session's events could not be read.
         """
         return await answer_callback(
@@ -851,7 +854,10 @@ class Turn:
 
     @public_errors
     async def interrupt(self) -> Turn | TurnConflict:
-        """Stop this turn. Returns ``TurnConflict`` when this turn is no longer the active one."""
+        """Stop this turn; the session stays open for new turns.
+
+        Returns ``TurnConflict`` when this turn is no longer the active one.
+        """
         return await self._command(
             "app_server/session/turn/interrupt",
             harness_session.TurnInterruptParams(session_id=self._session.id, expected_turn_id=self.id),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-batch
-Version: 0.22.4
+Version: 0.22.5
 Summary: Google Cloud Batch API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-batch
 Author: Google LLC

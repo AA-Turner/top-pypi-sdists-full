@@ -33,6 +33,7 @@ struct BuilderParams {
     read_from_replicas: ReadFromReplicaStrategy,
     tls: Option<TlsMode>,
     certs: Option<TlsCertificates>,
+    tls_params: Option<TlsConnParams>,
     retries_configuration: RetryParams,
     connection_timeout: Option<Duration>,
     #[cfg(feature = "cluster-async")]
@@ -43,6 +44,7 @@ struct BuilderParams {
     slots_refresh_rate_limit: SlotsRefreshRateLimit,
     client_name: Option<String>,
     lib_name: Option<String>,
+    lib_ver: Option<String>,
     response_timeout: Option<Duration>,
     protocol: ProtocolVersion,
     reconnect_retry_strategy: Option<RetryStrategy>,
@@ -51,6 +53,8 @@ struct BuilderParams {
     tcp_nodelay: bool,
     cache: Option<Arc<dyn GlideCache>>,
     server_assisted_cache: bool,
+    #[cfg(feature = "rdma")]
+    rdma_fabric: Option<glide_rdma::RdmaFabric>,
     address_resolver: Option<Arc<dyn AddressResolver>>,
     recovery_requests_queue_size: Option<u32>,
 }
@@ -149,6 +153,7 @@ pub struct ClusterParams {
     pub(crate) tls_params: Option<TlsConnParams>,
     pub(crate) client_name: Option<String>,
     pub(crate) lib_name: Option<String>,
+    pub(crate) lib_ver: Option<String>,
     pub(crate) connection_timeout: Duration,
     pub(crate) response_timeout: Duration,
     pub(crate) protocol: ProtocolVersion,
@@ -158,6 +163,8 @@ pub struct ClusterParams {
     pub(crate) tcp_nodelay: bool,
     pub(crate) cache: Option<Arc<dyn GlideCache>>,
     pub(crate) server_assisted_cache: bool,
+    #[cfg(feature = "rdma")]
+    pub(crate) rdma_fabric: Option<glide_rdma::RdmaFabric>,
     /// Optional callback for resolving addresses before connection.
     pub(crate) address_resolver: Option<Arc<dyn AddressResolver>>,
     pub(crate) recovery_requests_queue_size: Option<u32>,
@@ -165,10 +172,17 @@ pub struct ClusterParams {
 
 impl ClusterParams {
     fn from(value: BuilderParams) -> RedisResult<Self> {
-        let tls_params = {
-            let retrieved_tls_params = value.certs.clone().map(retrieve_tls_certificates);
+        // Prefer pre-validated params (e.g. from the mTLS cert-reload manager, which
+        // already parsed the material and verified the key matches the certificate)
+        // over re-parsing raw `certs` bytes, which skips the key-match check and can
+        // observe a torn certificate rotation on disk.
+        let tls_params = match value.tls_params {
+            Some(params) => Some(params),
+            None => {
+                let retrieved_tls_params = value.certs.clone().map(retrieve_tls_certificates);
 
-            retrieved_tls_params.transpose()?
+                retrieved_tls_params.transpose()?
+            }
         };
 
         Ok(Self {
@@ -187,6 +201,7 @@ impl ClusterParams {
             tls_params,
             client_name: value.client_name,
             lib_name: value.lib_name,
+            lib_ver: value.lib_ver,
             response_timeout: value.response_timeout.unwrap_or(Duration::MAX),
             protocol: value.protocol,
             reconnect_retry_strategy: value.reconnect_retry_strategy,
@@ -195,6 +210,8 @@ impl ClusterParams {
             tcp_nodelay: value.tcp_nodelay,
             cache: value.cache,
             server_assisted_cache: value.server_assisted_cache,
+            #[cfg(feature = "rdma")]
+            rdma_fabric: value.rdma_fabric,
             address_resolver: value.address_resolver,
             recovery_requests_queue_size: value.recovery_requests_queue_size,
         })
@@ -221,6 +238,7 @@ impl ClusterParams {
             tls_params: None,
             client_name: None,
             lib_name: None,
+            lib_ver: None,
             response_timeout: Duration::from_secs(1),
             protocol: ProtocolVersion::RESP2,
             reconnect_retry_strategy: None,
@@ -229,6 +247,8 @@ impl ClusterParams {
             tcp_nodelay: false,
             cache: None,
             server_assisted_cache: false,
+            #[cfg(feature = "rdma")]
+            rdma_fabric: None,
             address_resolver: None,
             recovery_requests_queue_size: None, // will use default of 1000 in buffer_pending_requests
         }
@@ -366,6 +386,12 @@ impl ClusterClientBuilder {
         self
     }
 
+    /// Sets library version for the new ClusterClient.
+    pub fn lib_ver(mut self, lib_ver: String) -> ClusterClientBuilder {
+        self.builder_params.lib_ver = Some(lib_ver);
+        self
+    }
+
     /// Sets password for the new ClusterClient.
     pub fn password(mut self, password: String) -> ClusterClientBuilder {
         self.builder_params.password = Some(password);
@@ -430,6 +456,23 @@ impl ClusterClientBuilder {
     pub fn certs(mut self, certificates: TlsCertificates) -> ClusterClientBuilder {
         self.builder_params.tls = Some(TlsMode::Secure);
         self.builder_params.certs = Some(certificates);
+        self
+    }
+
+    /// Sets pre-parsed and pre-validated TLS connection parameters for the new
+    /// `ClusterClient`.
+    ///
+    /// Unlike [`ClusterClientBuilder::certs`], this accepts already-parsed
+    /// [`TlsConnParams`] and uses them verbatim rather than re-parsing raw
+    /// certificate bytes at `build()` time. Callers that have already validated the
+    /// material (for example the mTLS certificate-reload manager, which verifies the
+    /// private key matches the certificate) should use this to avoid a second read
+    /// from disk that could observe a torn rotation and to preserve the key-match
+    /// guarantee.
+    ///
+    /// Does not enforce a TLS mode on its own; pair with [`ClusterClientBuilder::tls`].
+    pub fn tls_params(mut self, tls_params: TlsConnParams) -> ClusterClientBuilder {
+        self.builder_params.tls_params = Some(tls_params);
         self
     }
 
@@ -603,6 +646,16 @@ impl ClusterClientBuilder {
         self
     }
 
+    /// Sets the fabric a connection advertises when it handshakes for RDMA.
+    #[cfg(feature = "rdma")]
+    pub fn rdma_fabric(
+        mut self,
+        rdma_fabric: Option<glide_rdma::RdmaFabric>,
+    ) -> ClusterClientBuilder {
+        self.builder_params.rdma_fabric = rdma_fabric;
+        self
+    }
+
     /// Sets whether server-assisted client-side caching (CLIENT TRACKING) is enabled.
     pub fn server_assisted_cache(mut self, enabled: bool) -> ClusterClientBuilder {
         self.builder_params.server_assisted_cache = enabled;
@@ -695,13 +748,43 @@ impl ClusterClient {
         push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
         pubsub_synchronizer: Option<Arc<dyn crate::pubsub_synchronizer::PubSubSynchronizer>>,
         iam_token_provider: Option<Arc<dyn crate::client::IAMTokenProvider>>,
+        cert_params_provider: Option<Arc<dyn crate::client::CertParamsProvider>>,
     ) -> RedisResult<cluster_async::ClusterConnection> {
+        self.get_generic_async_connection(
+            push_sender,
+            pubsub_synchronizer,
+            iam_token_provider,
+            cert_params_provider,
+        )
+        .await
+    }
+
+    /// Basically [`Self::get_async_connection`] over a connection type of the caller's
+    /// choosing. Allows for pairing an RDMA session with a cluster connection.
+    #[cfg(feature = "cluster-async")]
+    pub async fn get_generic_async_connection<C>(
+        &self,
+        push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
+        pubsub_synchronizer: Option<Arc<dyn crate::pubsub_synchronizer::PubSubSynchronizer>>,
+        iam_token_provider: Option<Arc<dyn crate::client::IAMTokenProvider>>,
+        cert_params_provider: Option<Arc<dyn crate::client::CertParamsProvider>>,
+    ) -> RedisResult<cluster_async::ClusterConnection<C>>
+    where
+        C: cluster_async::Connect
+            + crate::aio::ConnectionLike
+            + Clone
+            + Send
+            + Sync
+            + Unpin
+            + 'static,
+    {
         cluster_async::ClusterConnection::new(
             &self.initial_nodes,
             self.cluster_params.clone(),
             push_sender,
             pubsub_synchronizer,
             iam_token_provider,
+            cert_params_provider,
         )
         .await
     }
@@ -741,6 +824,7 @@ impl ClusterClient {
             None,
             None,
             None,
+            None,
         )
         .await
     }
@@ -759,7 +843,10 @@ mod tests {
         DEFAULT_SLOTS_REFRESH_MAX_JITTER_MILLI, DEFAULT_SLOTS_REFRESH_WAIT_DURATION,
     };
 
-    use super::{ClusterClient, ClusterClientBuilder, ConnectionInfo, IntoConnectionInfo};
+    use super::{
+        ClusterClient, ClusterClientBuilder, ConnectionInfo, IntoConnectionInfo, TlsConnParams,
+    };
+    use crate::tls::{ClientTlsConfig, TlsCertificates};
 
     fn get_connection_data() -> Vec<ConnectionInfo> {
         vec![
@@ -801,6 +888,62 @@ mod tests {
     fn give_no_password() {
         let client = ClusterClient::new(get_connection_data()).unwrap();
         assert_eq!(client.cluster_params.password, None);
+    }
+
+    #[test]
+    fn tls_params_are_used_verbatim_when_provided() {
+        // Params with no client material stand in for pre-validated params.
+        let params = TlsConnParams {
+            client_tls_params: None,
+            root_cert_store: None,
+        };
+        let client = ClusterClientBuilder::new(get_connection_data())
+            .tls(crate::cluster::TlsMode::Secure)
+            .tls_params(params)
+            .build()
+            .unwrap();
+        assert!(client.cluster_params.tls_params.is_some());
+    }
+
+    #[test]
+    fn tls_params_take_precedence_over_certs() {
+        // `certs` bytes that would fail to parse if `retrieve_tls_certificates` ran.
+        // Because pre-validated `tls_params` are provided, the builder must use those
+        // verbatim and never re-parse the raw bytes, so `build()` succeeds.
+        let bad_certs = TlsCertificates {
+            client_tls: Some(ClientTlsConfig {
+                client_cert: b"not a valid pem certificate".to_vec(),
+                client_key: b"not a valid pem key".to_vec(),
+            }),
+            root_cert: None,
+        };
+        let params = TlsConnParams {
+            client_tls_params: None,
+            root_cert_store: None,
+        };
+        let client = ClusterClientBuilder::new(get_connection_data())
+            .certs(bad_certs)
+            .tls_params(params)
+            .build()
+            .expect("pre-validated tls_params must bypass re-parsing the raw certs bytes");
+        assert!(client.cluster_params.tls_params.is_some());
+    }
+
+    #[test]
+    fn invalid_certs_without_tls_params_fail_to_build() {
+        // Guards the precedence test above: without `tls_params`, the same garbage
+        // `certs` bytes must fail during `build()` via `retrieve_tls_certificates`.
+        let bad_certs = TlsCertificates {
+            client_tls: Some(ClientTlsConfig {
+                client_cert: b"not a valid pem certificate".to_vec(),
+                client_key: b"not a valid pem key".to_vec(),
+            }),
+            root_cert: None,
+        };
+        let result = ClusterClientBuilder::new(get_connection_data())
+            .certs(bad_certs)
+            .build();
+        assert!(result.is_err());
     }
 
     #[test]

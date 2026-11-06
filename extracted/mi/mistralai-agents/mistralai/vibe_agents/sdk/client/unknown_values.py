@@ -1,4 +1,4 @@
-"""Values a newer host added to a closed set, such as a status this SDK does not know."""
+"""Values added after your SDK version to a closed set, such as a new turn status."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ logger = structlog.get_logger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class UnknownValue:
-    """A value a newer host added that this SDK does not know, such as a turn status ``"paused"``.
+    """A value added after your SDK version, such as a turn status ``"paused"``.
 
-    A field that a host can extend, such as ``TurnUpdated.status``, is typed as its known values
-    or ``UnknownValue``. ``text`` is the value as the host sent it, and ``str(value)`` gives it too.
+    A field that can get new values, such as ``TurnUpdated.status``, is typed as its known values
+    or ``UnknownValue``. ``text`` is the value as Mistral sent it, and ``str(value)`` gives it too.
     It is not a ``str``, so a type checker still flags a typo in a known value.
 
     Use it to log or to fall back, never to match on its text: once a later SDK knows the value,
@@ -29,6 +29,7 @@ class UnknownValue:
     """
 
     text: str
+    """The value as Mistral sent it, such as ``"paused"``."""
 
     def __str__(self) -> str:
         return self.text

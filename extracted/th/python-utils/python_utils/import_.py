@@ -87,7 +87,8 @@ def import_global(  # noqa: C901
             for everything. An empty list also imports everything. A single
             name needs a list as well, a bare string is read as a collection
             of one-character names. Names that start with an underscore are
-            never imported.
+            never imported. Declared or explicitly requested names may be
+            provided lazily by the module, even if absent from ``dir()``.
         exceptions (Exception): the exception to catch, e.g. ImportError
         locals_: the `locals()` method (in case you need a different scope)
         globals_: the `globals()` method (in case you need a different scope)
@@ -96,7 +97,7 @@ def import_global(  # noqa: C901
     """
     frame = None
     name_parts: list[str] = name.split('.')
-    modules_set: set[str] = set()
+    modules_set: set[object] = set()
     try:
         # If locals_ or globals_ are not given, autodetect them by inspecting
         # the current stack
@@ -136,12 +137,25 @@ def import_global(  # noqa: C901
             if not modules:
                 modules_set = set(getattr(module, '__all__', dir(module)))
             else:
-                modules_set = set(modules).intersection(dir(module))
+                modules_set = set(modules)
 
-            # Add all items in modules to the global scope
-            for k in set(dir(module)).intersection(modules_set):
-                if k and k[0] != '_':
+            # Add all items in modules to the global scope. A name that dir()
+            # does not list can still be a lazy export of the module's
+            # __getattr__. It is resolved only when __all__ declares it, and
+            # skipped when that fails, as it was before lazy exports.
+            listed = set(dir(module))
+            exported: set[object] = set(getattr(module, '__all__', ()))
+            for k in modules_set:
+                if not isinstance(k, str) or not k or k[0] == '_':
+                    continue
+                if k in listed:
                     globals_[k] = getattr(module, k)
+                elif k in exported:
+                    try:
+                        globals_[k] = getattr(module, k)
+                    except Exception:
+                        # A failing lazy export was never imported before.
+                        continue
         except exceptions as e:
             return e
     finally:

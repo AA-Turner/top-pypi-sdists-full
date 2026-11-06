@@ -60,10 +60,10 @@ def _briefed() -> Path:
     with db.connect() as conn:
         db.add(conn, "claude:abcd1234", "", metadata={"session_id": _SESSION})
         attached.attach(conn, "claude:abcd1234", path)
-    return messages.inbox_for_id(_LEMON)
+    return messages.mailbox_for_id(_LEMON)
 
 
-def _session(sock: str) -> Path:
+def _session(sock: str, parked_job: str = "") -> Path:
     listing = session_socket.claude_dir() / "sessions" / f"{os.getpid()}.json"
     listing.parent.mkdir(parents=True, exist_ok=True)
     listing.write_text(
@@ -73,6 +73,7 @@ def _session(sock: str) -> Path:
                 "sessionId": _SESSION,
                 "cwd": os.getcwd(),
                 "messagingSocketPath": sock,
+                **({"parkedJobId": parked_job} if parked_job else {}),
             }
         )
     )
@@ -80,7 +81,8 @@ def _session(sock: str) -> Path:
 
 
 def _listener() -> tuple[str, list[str]]:
-    """A Unix socket that keeps every message content written to it."""
+    """A Unix socket that keeps every message content written to it, and ignores a
+    connection closed with nothing written."""
     path = os.path.join(tempfile.mkdtemp(dir="/tmp"), "s.sock")  # AF_UNIX paths are short
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(path)
@@ -90,7 +92,8 @@ def _listener() -> tuple[str, list[str]]:
     def serve() -> None:
         while True:
             with server.accept()[0] as conn:
-                received.append(json.loads(conn.makefile("rb").read())["message"]["content"])
+                if written := conn.makefile("rb").read():
+                    received.append(json.loads(written)["message"]["content"])
 
     threading.Thread(target=serve, daemon=True).start()
     return path, received
@@ -116,23 +119,23 @@ def _until(condition, timeout: float = 10) -> None:
 
 
 def test_the_scout_pushes_each_batch_and_stops_with_its_session(capsys):
-    inbox = _briefed()
+    mailbox = _briefed()
     sock, received = _listener()
     listing = _session(sock)
     scout = hosted.start(_LEMON, _CHANNEL)
     _until(lambda: push_scout.running(_LEMON))
     _until(lambda: len(received) == 1)
 
-    messages.send(inbox, "first message", "other.IndexElf")
+    messages.send(mailbox, "first message", "other.IndexElf")
     _until(lambda: len(received) == 2)
-    messages.send(inbox, "second message", "other.IndexElf")
+    messages.send(mailbox, "second message", "other.IndexElf")
     _until(lambda: len(received) == 3)
 
     assert "push scout started" in received[0] and sock in received[0]
     assert "first message" in received[1] and "second message" in received[2]
     assert "lemonaid is watching for you" in received[1]
     assert "don't" not in (received[0] + received[1]).lower()
-    assert messages.pending_count(inbox) == 0
+    _until(lambda: messages.pending_count(mailbox) == 0)  # marked done after the push
     registration = scout_roster.read(_LEMON)
     assert registration and hosted_scout.run(registration, lambda: False) == "retry"
     listing.unlink()
@@ -165,12 +168,12 @@ def test_a_replacement_scout_does_not_announce_again():
 
 
 def test_a_refused_push_leaves_the_message_for_the_next_waiter(capsys):
-    inbox = _briefed()
+    mailbox = _briefed()
     _session(os.path.join(tempfile.mkdtemp(dir="/tmp"), "gone.sock"))
-    messages.send(inbox, "kept", "other.IndexElf")
+    messages.send(mailbox, "kept", "other.IndexElf")
 
     assert hosted.run(_LEMON, _CHANNEL) == "retry"
-    assert messages.pending_count(inbox) == 1
+    assert messages.pending_count(mailbox) == 1
 
 
 def test_no_scout_for_a_session_that_would_hold_the_message(monkeypatch, capsys):
@@ -181,6 +184,23 @@ def test_no_scout_for_a_session_that_would_hold_the_message(monkeypatch, capsys)
     assert wait_cli.run(_args()) == 2
     assert "crossSessionInbound" in capsys.readouterr().out
     assert hosted.run(_LEMON, _CHANNEL) == "ended"
+
+
+def test_no_scout_for_a_parked_session_and_its_messages_stay_pending(caplog, capsys):
+    mailbox = _briefed()
+    sock, received = _listener()
+    _session(sock, parked_job="1eb3e867")
+    messages.send(mailbox, "kept", "other.IndexElf")
+
+    with caplog.at_level(logging.INFO):
+        assert hosted.run(_LEMON, _CHANNEL) == "ended"
+        assert not push_scout.ensure("abcd1234", _LEMON, grace=0)
+
+    assert messages.pending_count(mailbox) == 1
+    assert received == []
+    assert any("background job 1eb3e867" in r.getMessage() for r in caplog.records)
+    assert wait_cli.run(_args()) == 2
+    assert "background job 1eb3e867" in capsys.readouterr().out
 
 
 def test_ensure_starts_a_scout_only_for_a_session_that_accepts(monkeypatch):
@@ -339,15 +359,56 @@ def test_watch_stop_is_a_normal_exit_and_a_stray_sigterm_is_not(caplog):
 
 
 def test_a_refused_push_logs_an_abnormal_exit(caplog):
-    inbox = _briefed()
+    mailbox = _briefed()
     _session(os.path.join(tempfile.mkdtemp(dir="/tmp"), "gone.sock"))
-    messages.send(inbox, "kept", "other.IndexElf")
+    messages.send(mailbox, "kept", "other.IndexElf")
 
     with caplog.at_level(logging.INFO):
         assert hosted.run(_LEMON, _CHANNEL) == "retry"
 
     [(level, message)] = _exits(caplog)
     assert level == "WARNING" and "Failed" in message
+
+
+def test_a_scout_stops_when_claude_code_parks_its_session(caplog):
+    mailbox = _briefed()
+    sock, received = _listener()
+    listing = _session(sock)
+    with caplog.at_level(logging.INFO):
+        scout = hosted.start(_LEMON, _CHANNEL)
+        _until(lambda: len(received) == 1)  # the announcement
+
+        _session(sock, parked_job="1eb3e867")
+        assert scout.join() == "ended"
+    messages.send(mailbox, "kept", "other.IndexElf")
+    time.sleep(0.2)
+
+    assert len(received) == 1
+    assert messages.pending_count(mailbox) == 1
+    assert not wait_state.is_armed(_LEMON)
+    [(level, message)] = _exits(caplog)
+    assert level == "INFO" and "session parked" in message and "1eb3e867" in message
+    listing.unlink()
+
+
+def test_a_batch_for_a_session_parked_while_the_scout_connects_stays_pending(monkeypatch):
+    mailbox = _briefed()
+    sock, received = _listener()
+    _session(sock)
+    scout = hosted.start(_LEMON, _CHANNEL)
+    _until(lambda: len(received) == 1)  # the announcement
+
+    class Parking(socket.socket):
+        def connect(self, address) -> None:
+            super().connect(address)
+            _session(sock, parked_job="1eb3e867")
+
+    monkeypatch.setattr(session_socket.socket, "socket", Parking)
+    messages.send(mailbox, "kept", "other.IndexElf")
+
+    assert scout.join() == "retry"
+    assert messages.pending_count(mailbox) == 1
+    assert not any("kept" in content for content in received)
 
 
 def test_push_registers_the_scout_with_the_host_and_returns(capsys):
@@ -362,7 +423,7 @@ def test_push_registers_the_scout_with_the_host_and_returns(capsys):
 
 
 def test_push_without_foreground_reports_a_running_scout(capsys):
-    inbox = _briefed()
+    mailbox = _briefed()
     sock, _ = _listener()
     listing = _session(sock)
     scout = hosted.start(_LEMON, _CHANNEL)
@@ -372,7 +433,7 @@ def test_push_without_foreground_reports_a_running_scout(capsys):
     assert "push scout running" in capsys.readouterr().out
     listing.unlink()
     scout.join()
-    assert messages.pending_count(inbox) == 0
+    assert messages.pending_count(mailbox) == 0
 
 
 def test_a_lemon_with_no_socket_is_told_it_is_not_on_push():

@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: progressbar2
-Version: 4.6.0
+Version: 4.7.0
 Summary: A Python Progressbar library to provide visual (yet text based) progress to long running operations.
 Author-email: "Rick van Hattem (Wolph)" <wolph@wol.ph>
 License: BSD-3-Clause
 Project-URL: bugs, https://github.com/wolph/python-progressbar/issues
 Project-URL: documentation, https://progressbar-2.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/wolph/python-progressbar/
+Project-URL: Funding, https://github.com/sponsors/wolph
 Keywords: REPL,animated,bar,color,console,duration,efficient,elapsed,eta,feedback,live,meter,monitor,monitoring,multi-threaded,progress,progress-bar,progressbar,progressmeter,python,rate,simple,speed,spinner,stats,terminal,throughput,time,visual
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Development Status :: 6 - Mature
@@ -66,9 +67,9 @@ Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: python-utils>=3.8.1
+Requires-Dist: python-utils>=4.1.4
 Provides-Extra: fast
 Requires-Dist: speedups>=2.1.0; extra == "fast"
 Provides-Extra: docs
@@ -76,197 +77,436 @@ Requires-Dist: sphinx>=1.8.5; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints>=1.6.0; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: dill>=0.3.6; extra == "tests"
+Requires-Dist: markupsafe>=2.0; extra == "tests"
 Requires-Dist: freezegun>=0.3.11; extra == "tests"
 Requires-Dist: pytest-cov>=2.6.1; extra == "tests"
 Requires-Dist: pytest>=4.6.9; extra == "tests"
 Requires-Dist: pywin32; sys_platform == "win32" and extra == "tests"
 Provides-Extra: docs-tests
+Requires-Dist: freezegun>=0.3.11; extra == "docs-tests"
 Requires-Dist: playwright>=1.48.0; extra == "docs-tests"
+Requires-Dist: pytest-cov>=2.6.1; extra == "docs-tests"
 Requires-Dist: pytest>=4.6.9; extra == "docs-tests"
+Requires-Dist: sphinx>=1.8.5; extra == "docs-tests"
 Dynamic: license-file
 
-##############################################################################
-progressbar2
-##############################################################################
+# progressbar2
 
-A typed terminal progress bar library for Python. It handles custom
-widgets, clean output around prints and logs, multiple concurrent bars,
-unknown-length progress, and pipe-friendly CLI usage.
+The fastest progress bar in Python, maintained since 2012.
 
-.. image:: https://github.com/WoLpH/python-progressbar/actions/workflows/main.yml/badge.svg
-    :alt: python-progressbar test status
-    :target: https://github.com/WoLpH/python-progressbar/actions
+<p align="center">
+  <a href="https://github.com/wolph/python-progressbar/actions/workflows/main.yml?query=branch%3Amaster"><img src="https://img.shields.io/github/actions/workflow/status/wolph/python-progressbar/main.yml?branch=master&label=CI&style=flat-square&labelColor=555" alt="test status"></a>
+  <a href="https://coveralls.io/github/wolph/python-progressbar?branch=master"><img src="https://img.shields.io/coverallsCoverage/github/wolph/python-progressbar?branch=master&style=flat-square&labelColor=555" alt="Coverage on master"></a>
+  <a href="https://pypi.org/project/progressbar2/"><img src="https://img.shields.io/pypi/v/progressbar2?style=flat-square&labelColor=555&color=007ec6" alt="PyPI version"></a>
+  <a href="https://pepy.tech/projects/progressbar2"><img src="https://img.shields.io/badge/dynamic/xml?url=https%3A%2F%2Fapi.pepy.tech%2Fbadge%2Fprogressbar2%2Fmonth&query=%28%2F%2F%2A%5Blocal-name%28%29%3D%22text%22%5D%29%5Blast%28%29%5D&label=downloads%2Fmonth&style=flat-square&labelColor=555&color=007ec6" alt="Monthly downloads"></a>
+  <a href="https://pypi.org/project/progressbar2/"><img src="https://img.shields.io/pypi/pyversions/progressbar2?style=flat-square&labelColor=555&color=007ec6" alt="supported Python versions"></a>
+  <a href="https://github.com/wolph/python-progressbar/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/progressbar2?style=flat-square&labelColor=555&color=007ec6" alt="license"></a>
+</p>
 
-.. image:: https://coveralls.io/repos/WoLpH/python-progressbar/badge.svg?branch=master
-    :alt: coverage status
-    :target: https://coveralls.io/r/WoLpH/python-progressbar?branch=master
+Wrapping a fast loop in a progress bar can cost more than the loop
+itself, so the overhead per iteration is the number that matters. This
+race replays the measured wall-clock times of the same
+1,000,000-iteration loop, wrapped with each library's default settings:
 
-Install
-==============================================================================
+![Benchmark race: progress bars filling in proportion to each library's measured time for an identical million-iteration loop, with progressbar2 finishing first](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-race.svg)
 
-.. code:: sh
+| Library | Overhead per iteration | Same loop, wall clock |
+|---|--:|--:|
+| progressbar2[fast] | 3.6 ns | 9.2 ms |
+| rich | 18.2 ns | 23.8 ms |
+| progressbar2 | 26.0 ns | 31.5 ms |
+| tqdm | 52.1 ns | 57.6 ms |
+| alive-progress | 243.3 ns | 248.9 ms |
+| click | 1829.6 ns | 1835.2 ms |
 
-    pip install progressbar2
+The `[fast]` row is `pip install 'progressbar2[fast]'`: an optional C
+iterator from the [speedups](https://pypi.org/project/speedups/) package
+that counts natively and only calls back into Python when the bar
+actually needs a redraw. A plain install runs the pure-Python gate at
+26 ns, still twice as light as tqdm. Import weight follows the same
+pattern: `import progressbar` costs 1.5 ms where tqdm takes 21.6 ms and
+rich 45.6 ms, which your command-line tools will notice.
 
-Quick start
-==============================================================================
+> **Note:** These numbers come from one machine (Apple Silicon, CPython 3.13,
+> output to a real pty) and from this exact test, measured by
+> [benchmarks/bench.py](https://github.com/wolph/python-progressbar/blob/develop/benchmarks/bench.py).
+> Your numbers will differ. `click` is measured but left out of the
+> race animation because its 1.8 s total would flatten every other
+> lane. Reproduce with `python benchmarks/bench.py`, full details in
+> [benchmarks/report.md](https://github.com/wolph/python-progressbar/blob/develop/benchmarks/report.md).
 
-.. code:: python
+## Install
 
-    import time
-    import progressbar
+```sh
+pip install progressbar2           # pure Python
+pip install 'progressbar2[fast]'   # adds the native accelerator
+```
 
-    for item in progressbar.progressbar(range(100), desc='Loading'):
-        time.sleep(0.02)
+## Quick start
 
-Try it in your browser
-==============================================================================
+The common case needs one line around the iterable:
 
-Every example in the `documentation <https://progressbar-2.readthedocs.io/en/latest/>`_
-runs live in the page. Press **Run** on any code block, no install required.
+```python
+import time
+import progressbar
 
-Progress with clean logs
-==============================================================================
+for item in progressbar.progressbar(range(100), desc='Loading'):
+    time.sleep(0.02)
+```
 
-.. image:: https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-hero.svg
-    :alt: progressbar2 showing clean progress output with logs
+Every example in the
+[documentation](https://progressbar-2.readthedocs.io/en/latest/) runs
+live in the page. Press **Run** on any code block, no install required.
 
-.. code:: python
+## Colors, gradients and animated markers
 
-    """A build log printing above a progress bar without corrupting it."""
+A bar can carry a color gradient that shifts with progress, a fixed
+color, or an animated marker, and several styled bars can share the
+terminal through one `MultiBar`:
 
-    from __future__ import annotations
+![three styled progress bars: a red to green gradient, a blue to fuchsia gradient, and a cyan animated spinner](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-colors.svg)
 
-    import time
+```python
+"""Three styled bars at once: two color gradients and a fixed-color spinner.
 
-    import progressbar
+`gradient_colors` shifts a bar's fill color as its percentage grows, so
+the download bar sweeps red through gold to green and the render bar
+sweeps sky blue into fuchsia. The scan spinner normally cycles through
+colours with its frames. Passing a single cyan colour keeps its colour
+unchanged while the marker spins.
+"""
 
-    STEPS = 24
+import sys
+import time
+
+import progressbar
+from progressbar.terminal import ColorGradient, colors
+from progressbar.widgets import TGradientColors
+
+STEPS = 24
+
+HEALTH = ColorGradient(colors.red, colors.gold1, colors.green)
+NEON = ColorGradient(colors.deep_sky_blue1, colors.fuchsia)
 
 
-    def main() -> None:
-        with progressbar.ProgressBar(
+def main() -> None:
+    with progressbar.MultiBar(fd=sys.stdout) as multibar:
+        multibar['download'] = progressbar.ProgressBar(
             max_value=STEPS,
-            prefix='Build ',
-            redirect_stdout=True,
-        ) as bar:
-            for step in range(STEPS):
-                if step in {8, 16}:
-                    print(f'log: completed step {step}')
-                bar.update(step + 1)
-                # Longer than the bar's 0.05s update gate, so every step
-                # lands as a visible redraw.
-                time.sleep(0.1)
-
-
-    if __name__ == '__main__':
-        main()
-
-Multiple bars
-==============================================================================
-
-.. image:: https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-multibar.svg
-    :alt: multiple progress bars updating together
-
-.. code:: python
-
-    """Two named bars progressing at different rates in one terminal."""
-
-    from __future__ import annotations
-
-    import sys
-    import time
-
-    import progressbar
-
-    STEPS = 24
-
-
-    def main() -> None:
-        with progressbar.MultiBar(fd=sys.stdout) as multibar:
-            build = multibar['build']
-            test = multibar['test']
-            build.max_value = STEPS
-            test.max_value = STEPS
-            for step in range(STEPS):
-                build.update(step + 1)
-                test.update(min(STEPS, max(0, round((step - 3) * 1.2))))
-                # Longer than the bars' 0.05s update gate, so every step
-                # lands as a visible redraw.
-                time.sleep(0.1)
-
-            # Reaching max_value doesn't finish a bar -- only finish() does.
-            # A MultiBar waits for every bar to report finished() before its
-            # context manager can exit, so without these calls the block
-            # above would hang forever on exit.
-            build.finish()
-            test.finish()
-
-
-    if __name__ == '__main__':
-        main()
-
-Unknown length and animated bars
-==============================================================================
-
-.. image:: https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-unknown-length.svg
-    :alt: unknown length progress with an animated marker
-
-.. code:: python
-
-    """A bar for work whose total is not known up front."""
-
-    from __future__ import annotations
-
-    import time
-
-    import progressbar
-
-
-    def main() -> None:
-        with progressbar.ProgressBar(
+            widgets=[
+                progressbar.Percentage(),
+                ' ',
+                progressbar.Bar(
+                    gradient_colors=TGradientColors(fg=HEALTH, bg=None),
+                ),
+            ],
+        )
+        multibar['render'] = progressbar.ProgressBar(
+            max_value=STEPS,
+            widgets=[
+                progressbar.Percentage(),
+                ' ',
+                progressbar.Bar(
+                    gradient_colors=TGradientColors(fg=NEON, bg=None),
+                ),
+            ],
+        )
+        multibar['scan'] = progressbar.ProgressBar(
             max_value=progressbar.UnknownLength,
-        ) as bar:
-            for value in range(0, 120, 10):
-                bar.update(value)
-                # Longer than the bar's 0.05s update gate, so every step
-                # lands as a visible redraw.
-                time.sleep(0.1)
+            widgets=[
+                progressbar.AnimatedMarker(
+                    gradient_colors=TGradientColors(fg=colors.cyan1, bg=None),
+                ),
+            ],
+        )
+
+        for step in range(STEPS):
+            multibar['download'].update(step + 1)
+            multibar['render'].update(max(0, step - 4))
+            multibar['scan'].update(step + 1)
+            # Longer than the bars' 0.05s update gate, so every step
+            # lands as a visible redraw.
+            time.sleep(0.1)
+
+        multibar['render'].update(STEPS)
+        for bar in multibar.values():
+            bar.finish()
 
 
-    if __name__ == '__main__':
-        main()
+if __name__ == '__main__':
+    main()
+```
 
-CLI usage
-==============================================================================
+## Logs above a live bar
 
-.. code:: sh
+Anything the program prints while a bar is running would normally tear
+the bar apart. With `redirect_stdout` the output lands cleanly above
+the bar instead:
 
-    progressbar --progress --timer --eta --rate --bytes input.bin -o output.bin
+![progressbar2 showing clean log output appearing above a moving progress bar](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-hero.svg)
 
-Known terminal caveats
-==============================================================================
+```python
+"""A build log printing above a progress bar without corrupting it."""
 
-* JetBrains IDEs need "Enable terminal in output console" for advanced
-  terminal behavior such as ``MultiBar``.
-* IDLE does not support terminal progress bars.
-* Jupyter buffers stdout; call ``sys.stdout.flush()`` when output appears late.
+import time
 
-Project history
-==============================================================================
+import progressbar
 
-progressbar2 is based on the old Python progressbar package that was published
-on the now defunct Google Code. Since that project was completely abandoned by
-its developer and the developer did not respond to email, I decided to fork the
-package.
+STEPS = 24
 
-This package is still backwards compatible with the original progressbar
-package so you can use it as a drop-in replacement for existing projects.
 
-Links
-==============================================================================
+def main() -> None:
+    with progressbar.ProgressBar(
+        max_value=STEPS,
+        prefix='Build ',
+        redirect_stdout=True,
+    ) as bar:
+        for step in range(STEPS):
+            if step in {8, 16}:
+                print(f'log: completed step {step}')
+            bar.update(step + 1)
+            # Longer than the bar's 0.05s update gate, so every step
+            # lands as a visible redraw.
+            time.sleep(0.1)
 
-* Documentation: https://progressbar-2.readthedocs.org/en/latest/
-* Source: https://github.com/WoLpH/python-progressbar
-* Bug reports: https://github.com/WoLpH/python-progressbar/issues
-* Package homepage: https://pypi.python.org/pypi/progressbar2
+
+if __name__ == '__main__':
+    main()
+```
+
+Logging integrates the same way, covered in the
+[logging how-to](https://progressbar-2.readthedocs.io/en/latest/howto/logging-integration.html).
+
+## Many bars at once
+
+`MultiBar` lays out any number of named bars, updates them from any
+thread, and waits for all of them on exit:
+
+![multiple progress bars updating together in one terminal](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-multibar.svg)
+
+```python
+"""Two named bars progressing at different rates in one terminal."""
+
+import sys
+import time
+
+import progressbar
+
+STEPS = 24
+
+
+def main() -> None:
+    with progressbar.MultiBar(fd=sys.stdout) as multibar:
+        build = multibar['build']
+        test = multibar['test']
+        build.max_value = STEPS
+        test.max_value = STEPS
+        for step in range(STEPS):
+            build.update(step + 1)
+            test.update(min(STEPS, max(0, round((step - 3) * 1.2))))
+            # Longer than the bars' 0.05s update gate, so every step
+            # lands as a visible redraw.
+            time.sleep(0.1)
+
+        # Reaching max_value doesn't finish a bar -- only finish() does.
+        # A MultiBar waits for every bar to report finished() before its
+        # context manager can exit, so without these calls the block
+        # above would hang forever on exit.
+        build.finish()
+        test.finish()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+## Parallel execution
+
+Running a function over a batch of items usually means wiring an
+executor, a results collection, and a progress display together by
+hand. One call does all three, on threads, processes, or asyncio:
+
+```python
+import progressbar
+
+results = progressbar.map(fetch, urls, workers=8)  # threads
+results = progressbar.map(crunch, files, pool='process')  # processes
+results = await progressbar.amap(fetch, urls)  # asyncio
+
+# A progress-bar'd xargs -P:
+progressbar.run('gzip -k {}', files, workers=4)
+
+# An overall bar plus one bar per in-flight task:
+progressbar.map(crunch, files, workers=4, bar='multi')
+```
+
+Results come back in input order, `imap`/`imap_unordered` stream them
+instead, and `gather` is a drop-in `asyncio.gather` with a bar. The
+animation below runs eight tasks on a thread pool, each reporting
+sub-progress through its own bar:
+
+![an overall progress bar plus one bar per running task, driven by progressbar.map](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-parallel.svg)
+
+```python
+"""One call fans work out to threads and renders every bar for you.
+
+`progressbar.map` runs `crunch` over the batch on a thread pool and
+drives one overall bar plus a live bar per running task. The everyday
+spelling is `bar='multi'`. Handing it a `MultiBar` instance instead, as
+here, lets the finished overall bar stay on screen when the run ends.
+Inside a task, `progressbar.current_task_bar()` hands back that task's
+own bar so it can report sub-progress too.
+"""
+
+import sys
+import time
+
+import progressbar
+
+FILES = [
+    'alpha.dat',
+    'bravo.dat',
+    'charlie.dat',
+    'delta.dat',
+    'echo.dat',
+    'foxtrot.dat',
+    'golf.dat',
+    'hotel.dat',
+]
+
+
+def crunch(path: str) -> str:
+    # Deterministic, per-file amount of work: later files take longer,
+    # so the bars visibly finish one after another.
+    bar = progressbar.current_task_bar()
+    for block in range(4 + FILES.index(path)):
+        if bar is not None:
+            bar.update(block + 1)
+        time.sleep(0.05)
+    return path
+
+
+def main() -> None:
+    multibar = progressbar.MultiBar(fd=sys.stdout, sort_reverse=False)
+    results = progressbar.map(crunch, FILES, workers=8, bar=multibar)
+    assert results == FILES
+    # One more beat before the interpreter exits, so the finished
+    # overall bar's final redraw reaches the terminal.
+    time.sleep(0.1)
+
+
+if __name__ == '__main__':
+    main()
+```
+
+Errors, timeouts, pools, and the decorator form are covered in the
+[parallel execution guide](https://progressbar-2.readthedocs.io/en/latest/howto/parallel-execution.html).
+
+## Replace pv on the command line
+
+Installing the package also installs a `progressbar` command and its
+`bar` shorthand, a Python implementation of the classic Unix `pv`: it
+copies input to output and draws the transfer on stderr, so it drops
+into pipelines:
+
+```sh
+# File to file, with percentage, timer, ETA, rate and byte count:
+progressbar --progress --timer --eta --rate --bytes data.bin -o copy.bin
+
+# In a pipeline, data on stdout and progress on stderr. `bar` is the
+# same command with three keystrokes:
+tar cf - src/ | bar --bytes --rate > backup.tar
+```
+
+![the progressbar command copying a file with percentage, timer, ETA, rate and byte count displays](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-cli.svg)
+
+The animation is this exact transfer, driven in-process by
+[docs/examples/readme/cli.py](https://github.com/wolph/python-progressbar/blob/develop/docs/examples/readme/cli.py):
+4 MiB copied at a rate-limited 2 MiB/s. Rate limiting (`--rate-limit`),
+line counting (`--line-mode`), and most other `pv` flags are there,
+`progressbar --help` lists the full set.
+
+## Unknown length and animated bars
+
+Work without a known total still gets a useful bar, an animated marker
+with a counter instead of a percentage:
+
+![unknown length progress with an animated marker](https://raw.githubusercontent.com/wolph/python-progressbar/develop/docs/_static/demos/readme-unknown-length.svg)
+
+```python
+"""A bar for work whose total is not known up front."""
+
+import time
+
+import progressbar
+
+
+def main() -> None:
+    with progressbar.ProgressBar(
+        max_value=progressbar.UnknownLength,
+    ) as bar:
+        for value in range(0, 120, 10):
+            bar.update(value)
+            # Longer than the bar's 0.05s update gate, so every step
+            # lands as a visible redraw.
+            time.sleep(0.1)
+
+
+if __name__ == '__main__':
+    main()
+```
+
+## Boring where it counts
+
+The features above are the flashy half. The other half is why the
+package has survived since 2012:
+
+- Supported non-stop since 2012, with 111 releases on PyPI, and since
+  2008 before that as the original `progressbar` library, which
+  progressbar2 still replaces drop-in.
+- 1133 tests at 100% branch coverage, enforced in CI on every commit.
+- Fully typed (PEP 561 `py.typed`), so your type checker sees the real
+  signatures.
+- Python 3.10 through 3.14, plus PyPy, with 3.15 pre-releases already
+  in CI.
+- The animated demos on this page are rendered from real captured
+  terminal output and re-verified byte-for-byte in CI, so what you see
+  is what the library actually draws.
+
+## Known terminal caveats
+
+- JetBrains IDEs need "Enable terminal in output console" for advanced
+  terminal behavior such as `MultiBar`.
+- IDLE does not support terminal progress bars.
+- Jupyter buffers stdout, so call `sys.stdout.flush()` when output
+  appears late.
+
+## Project history
+
+progressbar2 is based on the old Python progressbar package that was
+published on the now defunct Google Code. Since that project was
+completely abandoned by its developer and the developer did not respond
+to email, I decided to fork the package.
+
+This package is still backwards compatible with the original
+progressbar package so you can use it as a drop-in replacement for
+existing projects.
+
+## Links
+
+- Documentation: <https://progressbar-2.readthedocs.io/en/latest/>
+- Source: <https://github.com/wolph/python-progressbar>
+- Bug reports: <https://github.com/wolph/python-progressbar/issues>
+- Package homepage: <https://pypi.org/project/progressbar2/>
+
+## Support
+
+progressbar2 is maintained by [Rick van Hattem](https://github.com/wolph) in his own time. Most of that time goes on terminals nobody tests against and on keeping the bar out of your logging.
+
+If it saved you an afternoon, a tip covers an hour of issue triage:
+[Ko-fi](https://ko-fi.com/wolph_gh) or [GitHub Sponsors](https://github.com/sponsors/wolph).
+
+If your company funds its dependencies, this package is on
+[thanks.dev](https://thanks.dev/u/gh/wolph).
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wolph_gh)

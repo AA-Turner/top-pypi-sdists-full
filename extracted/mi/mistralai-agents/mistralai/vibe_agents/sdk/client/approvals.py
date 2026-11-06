@@ -84,12 +84,12 @@ type _Answer = AllowApproval | DenyApproval | KeepCallbackOpen
 
 
 class ApprovalCallbackContext(CallbackContext):
-    """What an approval handler gets as ``ctx``: the session that asked, and the approval's id.
+    """What an approval handler gets as ``ctx``: the session that asked, and the approval's ID.
 
     ``ctx.session.id`` and ``ctx.session.turn_id`` name the session and turn that asked: a
-    subagent's approval has the subagent's session and its own turn there. ``ctx.callback_id`` is the approval's id, the
-    one ``turn.answer`` takes. The handler runs in your program, so ``ctx.sandbox`` has no sandbox
-    to use.
+    subagent's approval has the subagent's session and its own turn there. ``ctx.callback_id`` is the approval's ID, the
+    one ``turn.answer`` takes. The handler runs in your program, so the methods of ``ctx.sandbox``
+    raise ``RuntimeError``.
     """
 
     def __init__(self, session: CallbackSession, callback_id: str) -> None:
@@ -98,20 +98,34 @@ class ApprovalCallbackContext(CallbackContext):
 
     @property
     def callback_id(self) -> str:
+        """The approval's ID, the one ``turn.answer`` takes."""
         return self._callback_id
 
 
 class ApprovalHandler(Protocol):
     """A plain or async function of ``(ctx, request)`` that answers an approval: ``AllowApproval``,
     ``DenyApproval``, or ``KeepCallbackOpen()`` to keep it open. Any other return, ``None``
-    included, raises ``SdkError``. Its parameters may have any names."""
+    included, raises ``SdkError``. Its parameters may have any names.
+
+    - It runs in your program, and only while ``agent.run()``, ``session.run()`` or
+      ``turn.result()`` waits. Between those calls, an approval stays open. ``iter_events()`` never
+      runs it.
+    - A plain function runs on the event loop: do not block in it. An ``async def`` function can
+      await.
+    - If it raises, or returns something else, the waiting call raises that error and the approval
+      stays open. The turn keeps running.
+    - It also answers the approvals of the session's subagents, with ``ctx.session`` set to the
+      subagent's session.
+    - Decide on ``request.tool.id``, the tool's stable ID, never on the name the model called.
+    - ``AllowApproval(scope="session")`` also allows the same call with the same input for the rest
+      of the session."""
 
     def __call__(self, ctx: ApprovalCallbackContext, request: ApprovalRequest, /) -> _Answer | Awaitable[_Answer]: ...
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class WithTools:
-    """A handler, with the agent's tool objects by tool id: its requests carry the tool."""
+    """A handler, with the agent's tool objects by tool ID: its requests carry the tool."""
 
     handler: ApprovalHandler
     tools: Mapping[str, _Tool]
@@ -121,8 +135,8 @@ class WithTools:
 
 
 def with_tools(handler: ApprovalHandler | None, tools: Iterable[_Tool]) -> ApprovalHandler | None:
-    """``handler`` with ``tools``, by the id the host gives a tool, ``<namespace>.<name>``. A tool
-    id that two different objects share has no tool object."""
+    """``handler`` with ``tools``, by the ID the host gives a tool, ``<namespace>.<name>``. A tool
+    ID that two different objects share has no tool object."""
     if handler is None:
         return None
     if isinstance(handler, WithTools):
@@ -307,7 +321,7 @@ async def answer_callback(
     result, checked against the return type of its stub in ``tools`` when there is one. A sign-in
     takes a ``SignInAnswer`` that names each source it asks for, and only those.
 
-    ``bind`` binds a session of the host by id. A callback the session does not have open is
+    ``bind`` binds a session of the host by ID. A callback the session does not have open is
     looked up, with ``in_tree``, in its tree's open callbacks: one that a subagent has open is
     answered on the subagent's session, and the record names that session. A callback open nowhere
     is ``AlreadySettled`` when the session's log, up to its read, has it, else ``NotFound``. A
@@ -323,7 +337,7 @@ async def answer_callback(
             for the session, or a sign-in answer names a source the sign-in does not ask for or
             leaves out one it asks for; the callback is not an approval, a client tool call or a
             sign-in, or is a call of another tool the host provides; or two subagents have a
-            callback open with that id. Nothing is sent.
+            callback open with that ID. Nothing is sent.
         ObservationLost: The callback is open nowhere, and the session's events could not be read.
     """
     refuse_keep_open(answer)
@@ -354,7 +368,7 @@ async def _subagent_owner(raw: _RawSession, session_id: str, callback_id: str) -
     callbacks route.
 
     Raises:
-        SdkError: Two subagents have a callback open with that id: a callback's id is its
+        SdkError: Two subagents have a callback open with that ID: a callback's ID is its
             session's, so the session must be named.
     """
     try:

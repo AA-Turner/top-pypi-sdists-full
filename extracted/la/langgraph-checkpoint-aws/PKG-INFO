@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langgraph-checkpoint-aws
-Version: 1.2.6
+Version: 1.2.7
 Summary: A LangChain checkpointer implementation that uses Bedrock Session Management Service and ElastiCache Valkey to enable stateful and resumable LangGraph agents.
 Keywords: aws,bedrock,langchain,langgraph,checkpointer,dynamodb,elasticache,valkey
 License: MIT
@@ -460,7 +460,9 @@ DynamoDBSaver(
     boto_config: Optional[Config] = None,  # Botocore config
     ttl_seconds: Optional[int] = None,  # Auto-cleanup after N seconds
     enable_checkpoint_compression: bool = False,  # Enable gzip compression
-    s3_offload_config: Optional[dict] = None  # S3 config for large checkpoints
+    s3_offload_config: Optional[dict] = None,  # S3 config for large checkpoints
+    *,
+    consistent_read: bool = False,  # Strongly consistent reads
 )
 ```
 

@@ -47,6 +47,7 @@ from pathlib import Path
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.telemetry import MemoryCapture, Telemetry
 from doppler.track import BpskReceiver
 from doppler.wfm import Composer, SampleClock, Segment
@@ -160,6 +161,7 @@ assert mean_i > 8 * mean_q, f"carrier unresolved: {mean_i=:.3f} {mean_q=:.3f}"
 
 
 def main(out_path: str = "mpsk_telemetry_capture_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

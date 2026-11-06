@@ -2078,6 +2078,45 @@ class GetNodesRequest(TeaModel):
         return self
 
 
+class GetNodesResponseBodyFailedNodes(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_message: str = None,
+        node_id: str = None,
+    ):
+        self.error_code = error_code
+        self.error_message = error_message
+        self.node_id = node_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_message is not None:
+            result['errorMessage'] = self.error_message
+        if self.node_id is not None:
+            result['nodeId'] = self.node_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMessage') is not None:
+            self.error_message = m.get('errorMessage')
+        if m.get('nodeId') is not None:
+            self.node_id = m.get('nodeId')
+        return self
+
+
 class GetNodesResponseBodyNodesStatisticalInfo(TeaModel):
     def __init__(
         self,
@@ -2233,11 +2272,17 @@ class GetNodesResponseBodyNodes(TeaModel):
 class GetNodesResponseBody(TeaModel):
     def __init__(
         self,
+        failed_nodes: List[GetNodesResponseBodyFailedNodes] = None,
         nodes: List[GetNodesResponseBodyNodes] = None,
     ):
+        self.failed_nodes = failed_nodes
         self.nodes = nodes
 
     def validate(self):
+        if self.failed_nodes:
+            for k in self.failed_nodes:
+                if k:
+                    k.validate()
         if self.nodes:
             for k in self.nodes:
                 if k:
@@ -2249,6 +2294,10 @@ class GetNodesResponseBody(TeaModel):
             return _map
 
         result = dict()
+        result['failedNodes'] = []
+        if self.failed_nodes is not None:
+            for k in self.failed_nodes:
+                result['failedNodes'].append(k.to_map() if k else None)
         result['nodes'] = []
         if self.nodes is not None:
             for k in self.nodes:
@@ -2257,6 +2306,11 @@ class GetNodesResponseBody(TeaModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        self.failed_nodes = []
+        if m.get('failedNodes') is not None:
+            for k in m.get('failedNodes'):
+                temp_model = GetNodesResponseBodyFailedNodes()
+                self.failed_nodes.append(temp_model.from_map(k))
         self.nodes = []
         if m.get('nodes') is not None:
             for k in m.get('nodes'):

@@ -10,9 +10,12 @@ Run:
 """
 
 import numpy as np
-from scipy.signal import firwin
 
+from doppler.examples._extra import require
 from doppler.filter import FIR
+
+require("scipy")
+from scipy.signal import firwin
 
 # ── 1. Design and apply a low-pass filter ────────────────────────────────────
 

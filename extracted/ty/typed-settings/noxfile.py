@@ -7,15 +7,10 @@ import logging
 import os
 import tarfile
 import textwrap
+import tomllib
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
-
-try:
-    import tomllib  # py311
-except ImportError:  # py310
-    import tomli as tomllib  # type: ignore[no-redef]
 
 import nox
 import rich
@@ -47,12 +42,14 @@ MYPY_PATHS = [
 LINT_PATHS = [p for paths in MYPY_PATHS for p in paths]
 
 # Dependencies for which to test against multiple versions
-PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
-COVERAGE_PYTHON_VERSIONS = ["3.10", "3.11", "3.14"]  # See "_compat" module
+PYTHON_VERSIONS = ["3.11", "3.12", "3.13", "3.14", "3.15"]
+COVERAGE_PYTHON_VERSIONS = ["3.11", "3.14"]  # See "_compat" module
 
 DEPS_MATRIX = {
     "attrs",
     "cattrs",
+    # "click",
+    "pydantic",
 }
 
 IN_CI = "CI" in os.environ
@@ -81,7 +78,7 @@ def list_wheel(filename: Path) -> list[tuple[bool, Path, int, datetime]]:
                 item.is_dir(),
                 Path(item.filename),
                 item.file_size,
-                datetime(*item.date_time, tzinfo=timezone.utc),
+                datetime(*item.date_time, tzinfo=UTC),
             )
             for item in zf.infolist()
         ]
@@ -101,7 +98,7 @@ def list_sdist(filename: Path) -> tuple[list[tuple[bool, Path, int, datetime]], 
                 item.isdir(),
                 Path(item.name),
                 item.size,
-                datetime.fromtimestamp(item.mtime, tz=timezone.utc),
+                datetime.fromtimestamp(item.mtime, tz=UTC),
             )
             for item in tf.getmembers()
         ]
@@ -223,7 +220,9 @@ def test(session: nox.Session, deps_min_version: bool) -> None:
     install_deps = []
     if deps_min_version:
         pyproject = tomllib.loads(PROJECT_DIR.joinpath("pyproject.toml").read_text())
-        deps = pyproject["project"]["dependencies"]
+        deps = pyproject["project"].get("dependencies", [])
+        for _group, odeps in pyproject["project"]["optional-dependencies"].items():
+            deps.extend(odeps)
         for dep in deps:
             req = Requirement(dep)
             if req.name not in DEPS_MATRIX:

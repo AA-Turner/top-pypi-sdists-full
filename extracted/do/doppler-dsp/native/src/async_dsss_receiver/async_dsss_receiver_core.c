@@ -401,7 +401,13 @@ adr_tlm_attach (dp_async_dsss_receiver_state_t *s)
       || dp_tlm_name_join (handover, p, "handover_hz") != DP_OK
       || dp_tlm_name_join (refused, p, "refused") != DP_OK)
     return DP_ERR_INVALID;
-  int r = dp_costas_set_telemetry (&s->car, t, car, d);
+  /* The searcher first: it is the one child whose attach allocates (a
+     scratch context of its own, checked before it registers anything), so
+     an out-of-memory refusal comes before any loop has put a name on the
+     caller's table (#2846). The loops after it only register. */
+  int r = s->acq ? dp_acq_set_telemetry (s->acq, t, acq, d) : DP_OK;
+  if (r == DP_OK)
+    r = dp_costas_set_telemetry (&s->car, t, car, d);
   if (r == DP_OK)
     r = dp_costas_set_telemetry (&s->car_held, t, car, d);
   if (r == DP_OK)
@@ -410,8 +416,6 @@ adr_tlm_attach (dp_async_dsss_receiver_state_t *s)
     r = dp_RateConverter_set_telemetry (s->rc, t, rc, d);
   if (r == DP_OK)
     r = dp_mpsk_receiver_set_telemetry (s->rx, t, demod, d);
-  if (r == DP_OK && s->acq)
-    r = dp_acq_set_telemetry (s->acq, t, acq, d);
   /* The receiver's own decision, the one its users act on: the symbol-lock
      metric and the lockdet's flag, once per emitted symbol. */
   if (r == DP_OK)
@@ -1209,8 +1213,16 @@ dp_async_dsss_receiver_create (
      hand-off advances its hit's phase by the drift over half its dwell
      (#1254), and a coherent block aligns its epochs (#1256). The same
      carrier the tracking Dll's aid uses. */
-  if (carrier_freq_hz > 0.0)
-    (void)dp_acq_set_carrier_freq_hz (obj->acq, carrier_freq_hz);
+  /* The carrier rebuilds the searcher's map, so it can fail: a receiver
+     without the carrier it was asked for is not built. */
+  if (carrier_freq_hz > 0.0
+      && dp_acq_set_carrier_freq_hz (obj->acq, carrier_freq_hz) != DP_OK)
+    {
+      /* The search resampler and its history may be built by now; destroy
+         frees whatever the zeroed object holds. */
+      dp_async_dsss_receiver_destroy (obj);
+      return NULL;
+    }
   /* A dwell's whole peak list, for adr_pick() to rank. Its first entry is
      the one-peak detector's pick, so rank 0 with no exclusions takes what
      max_peaks 1 took. */
@@ -1370,21 +1382,32 @@ dp_async_dsss_receiver_set_telemetry (dp_async_dsss_receiver_state_t *state,
      carrier's in the caller's table, unused (#1897). The scratch then
      knows every name the attach needs, so it also answers whether the
      caller's table has room for the ones it lacks. */
+  /* A refusal says why. Out of memory -- the scratch itself, or a child
+     whose own attach could not allocate (acq builds a scratch too) -- is
+     DP_ERR_MEMORY; everything else is the argument's (#2846). */
+  int       rc      = DP_ERR_INVALID;
   dp_tlm_t *scratch = dp_tlm_create (1);
   int       fits    = 0;
   if (scratch)
     {
-      state->tlm = scratch;
-      fits       = adr_tlm_attach (state) == DP_OK
-                   && dp_tlm_has_room_for (tlm, scratch);
+      state->tlm  = scratch;
+      const int a = adr_tlm_attach (state);
+      fits        = a == DP_OK && dp_tlm_has_room_for (tlm, scratch);
+      if (a == DP_ERR_MEMORY)
+        rc = DP_ERR_MEMORY;
       adr_tlm_detach (state);
       dp_tlm_destroy (scratch);
     }
+  else
+    rc = DP_ERR_MEMORY;
   if (fits)
     {
-      state->tlm = tlm;
-      if (adr_tlm_attach (state) == DP_OK)
+      state->tlm  = tlm;
+      const int a = adr_tlm_attach (state);
+      if (a == DP_OK)
         return DP_OK;
+      if (a == DP_ERR_MEMORY)
+        rc = DP_ERR_MEMORY;
       /* Whole or nothing: a half-attached receiver would report some loops
          and not others with no way to tell from the context. */
       adr_tlm_detach (state);
@@ -1396,7 +1419,7 @@ dp_async_dsss_receiver_set_telemetry (dp_async_dsss_receiver_state_t *state,
   state->tlm       = old_tlm;
   if (old_tlm)
     (void)adr_tlm_attach (state);
-  return DP_ERR_INVALID;
+  return rc;
 }
 
 size_t

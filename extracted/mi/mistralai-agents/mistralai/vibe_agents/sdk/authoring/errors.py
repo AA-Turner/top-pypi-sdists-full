@@ -23,9 +23,9 @@ from mistralai.vibe.harness.runtime.errors import ToolNameCollisionError
 class AgentsError(Exception):
     """The base of the errors the SDK raises.
 
-    ``except agents.AgentsError`` catches a failed session or turn call on both hosts, including an
+    ``except agents.AgentsError`` catches a failed session or turn call for local and deployed sessions, including an
     HTTP error (``APIStatusError``), a connection error (``APIConnectionError``) or an error the
-    Harness reported, such as ``SessionBusyError``. Argument errors stay ``ValueError`` or
+    session reported, such as ``SessionBusyError``. Argument errors stay ``ValueError`` or
     ``TypeError``, and a cancelled call raises ``asyncio.CancelledError``.
     """
 
@@ -37,21 +37,32 @@ class AgentsError(Exception):
 
 
 class SdkError(AgentsError, ValueError):
-    """Raised when an SDK operation is invalid."""
+    """A call the SDK refuses, such as one with a wrong argument value or one on a local runtime that has
+    closed."""
 
 
 class InvalidCursorError(SdkError):
-    """``after=`` is not a position of the session it reads, on either host.
+    """``after=`` is not a position of the session it reads.
 
     The cursor is not one the session gave, or it is a cursor or a record of another session. A
-    program that stores cursors can read again from the start (``after=None``) or from a record of
-    this session. ``cursor`` is the cursor passed, a record's ``cursor`` for a record; a cursor
-    without a session id, as the SDK gave before, shows with this session's id in it.
+    record or a cursor of another session raises before any read, on ``iter_events()`` too. A cursor
+    the session never gave raises when the session reads it: at the first iteration of
+    ``iter_events()``, or while the turn runs for ``result()``. ``cursor`` is the cursor passed, a
+    record's ``cursor`` for a record. A cursor saved by SDK 1.0 is accepted; the error shows it with
+    this session's ID.
+
+    A program that stores cursors can catch it and read again without one::
+
+        try:
+            state = await turn.result(after=stored_cursor)
+        except agents.InvalidCursorError:
+            state = await turn.result()
     """
 
     def __init__(self, message: str, *, cursor: str | None) -> None:
         super().__init__(message)
         self.cursor = cursor
+        """The cursor passed, or a record's ``cursor`` for a record."""
 
 
 def invalid_cursor(
@@ -74,25 +85,31 @@ def invalid_cursor(
 
 
 class UnsupportedAgentFeatureError(SdkError, RuntimeError):
-    """An SDK feature has no implementation in the selected backend."""
+    """Where the agent runs does not support this Agents SDK feature."""
 
     def __init__(self, feature: str, reason: str) -> None:
         self.feature = feature
+        """The feature that is not supported."""
         self.reason = reason
+        """Why it is not supported."""
         super().__init__(f"Unsupported Agents SDK feature {feature!r}: {reason}")
 
 
 class LegacySessionError(UnsupportedAgentFeatureError):
-    """A deployed Session uses the legacy task protocol, which this SDK no longer reads.
+    """This session was created by an older version of the platform, and this SDK cannot open it.
 
-    Sessions the ``Agent`` API starts use Session v1. A Session started otherwise in the legacy
-    format cannot be read, followed or sent commands: start a new Session.
+    Every session that ``agents.Agent`` starts can be opened. This SDK cannot read, follow or send
+    to an older one: start a new session.
     """
 
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
+        """The ID of the session."""
         self.feature = "legacy task protocol"
+        """Always ``"legacy task protocol"``, the value that marks a session an older version of the platform
+        created."""
         self.reason = "this SDK reads Session v1 Sessions only"
+        """Why this SDK cannot open the session."""
         # Not `super().__init__`: the base class builds a message for a feature of an Agent, not of a Session.
         AgentsError.__init__(
             self,
@@ -102,15 +119,18 @@ class LegacySessionError(UnsupportedAgentFeatureError):
 
 
 class SessionNotFoundError(AgentsError, LookupError):
-    """A call named a session its host does not know.
+    """A call named a session that does not exist, or that you cannot read.
 
-    On a deployment, either no session has this ID, or the API key in use belongs to a
-    workspace that cannot read it. On the local host, no session with this ID ran in this process.
-    On both hosts, ``scope="tree"`` of ``list_sessions`` also raises it for a subagent as the root.
+    For a deployed agent, either no session has this ID, or the API key in use belongs to a
+    workspace that cannot read it. For a local session, no session with this ID ran in this
+    process, or an ``agents.local_runtime()`` block freed it and the event loop no longer remembers
+    it: each loop remembers the newest 10,000. In both cases, ``scope="tree"`` of ``list_sessions``
+    also raises it for a subagent as the root.
     """
 
     def __init__(self, session_id: str, detail: str | None = None) -> None:
         self.session_id = session_id
+        """The ID the call named."""
         super().__init__(self._message(session_id, detail))
 
     @staticmethod
@@ -146,82 +166,90 @@ def local_session_not_found(session_id: str, detail: str) -> SessionNotFoundErro
 
 
 class SessionBusyError(AgentsError, _harness_session.SessionBusyError):
-    """The session cannot take the message yet, and nothing was applied.
+    """The session cannot take the message now, and nothing was applied.
 
-    Each host retries for a bounded time before it raises this error: retry the same request later.
-    ``retry_after`` is the wait in seconds a deployment named when it refused, or None when it named none.
-    It is also an ``experimental.session_protocol.SessionBusyError``, so an ``except`` on that class catches it.
+    It is raised after the request was retried for a while. Retry the same request later.
     """
 
     retry_after: float | None = None
+    """Seconds to wait before you retry, when the server said; else ``None``."""
 
 
 class SessionIdempotencyConflictError(AgentsError, _harness_session.SessionIdempotencyConflictError):
-    """An idempotency key was reused for a different request, or the host cannot compare the requests.
+    """An idempotency key was reused for a different request, or the requests cannot be compared.
 
-    The host cannot compare them when a deployment-backed receipt is too old, or when a local call was
-    cancelled after it applied the message but before it stored its receipt. In both cases the key's
-    first request was applied: do not send that message again with a new key. This call applied nothing.
-    ``idempotency_key`` is the key. Use a new key for a new request. It is still the Harness's
-    ``SessionIdempotencyConflictError``, a ``RuntimeError``, so an ``except`` on either catches it.
+    They cannot be compared when the first request is too old, or when a local call was cancelled
+    after it applied the message but before it recorded the key. In both cases the key's first
+    request was applied, so do not send that message again with a new key. This call applied nothing.
+    Use a new key for a new request.
     """
+
+    idempotency_key: str
+    """The key that was reused."""
 
 
 class SessionTerminatedError(AgentsError, _harness_session.SessionTerminatedError):
-    """The session is closed or has ended, and takes no more calls.
-
-    It is also an ``experimental.session_protocol.SessionTerminatedError``, so an ``except`` on that class
-    catches it.
-    """
+    """The session is closed or has ended, and takes no more calls."""
 
 
 class UnsupportedSessionProcedureError(AgentsError, _harness_session.UnsupportedSessionProcedureError):
-    """The session's host cannot run this call, and nothing was sent.
+    """Where the session runs does not support this call, and nothing was sent."""
 
-    ``method``, ``backend`` and ``reason`` say which call, which host and why. It is still the Harness's
-    ``UnsupportedSessionProcedureError``, so an ``except`` on that class catches it.
-    """
+    method: str
+    """The call that is not supported."""
+
+    backend: str
+    """An internal name for where the session runs, for logs."""
+
+    reason: str
+    """Why the call is not supported."""
 
 
 class MistralConnectorNotFoundError(AgentsError, _harness_connectors.MistralConnectorNotFoundError):
-    """An Agent's connector name matches no connector the API key's user can see.
+    """A connector name that matches no connector the user who runs the session can see.
 
-    ``connector_name`` is the name, and ``close_matches`` the names of visible connectors close to it.
-    It is still the Harness's ``MistralConnectorNotFoundError``, so an ``except`` on that class catches it.
+    No name in ``connectors=`` raises it: the session starts without that connector and sends an
+    ``agents.Notice``, whose ``details["connector"]`` is the name and ``details["reason"]`` names the
+    close matches. ``connector_name`` is the name, and ``close_matches`` the names of visible
+    connectors close to it.
     """
 
 
 class SessionInUseError(AgentsError, RuntimeError):
-    """Another process has this saved local Session open, so this one cannot continue it.
+    """Another process has this saved local session open, so this one cannot continue it.
 
-    Saved local Sessions (``journal_factory=`` of ``agents.local_runtime()``) take a lock on
+    Saved local sessions (``journal_factory=`` of ``agents.local_runtime()``) take a lock on
     their journal while a process has them open. Retry once the other process has left its
     ``agents.local_runtime()`` block or exited.
     """
 
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
+        """The ID of the saved session."""
         super().__init__(f"Session {session_id} is open in another process")
 
 
 class SessionConfigMismatchError(AgentsError, RuntimeError):
-    """The Agent that continues a saved local Session is not the Agent that started it.
+    """The agent that continues a saved local session is not the agent that started it.
 
-    A saved Session continues only with the same model, instructions, tools and other settings
-    it was saved with. Continue it with that Agent, or start a new Session.
+    A saved session continues only with the same model, instructions, tools and other settings
+    it was saved with. Continue it with that agent, or start a new session.
     """
 
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
+        """The ID of the saved session."""
         super().__init__(f"Session {session_id} was saved with a different Agent configuration")
 
 
 class TurnNotFoundError(AgentsError, LookupError):
-    """A turn handle named a turn its Session does not have."""
+    """A turn handle named a turn its session does not have."""
 
     def __init__(self, session_id: str, turn_id: str) -> None:
         self.session_id = session_id
+        """The ID of the session."""
         self.turn_id = turn_id
+        """The ID the handle named."""
         super().__init__(f"Session {session_id} has no turn {turn_id}")
 
 
@@ -229,56 +257,57 @@ class ClientToolAnswerError(AgentsError, RuntimeError):
     """A client tool answer ran, but sending it to the session failed.
 
     ``callback_id``, ``session_id`` and ``turn_id`` name the call: a subagent's call has the
-    subagent's session and turn. The send error is the ``__cause__``. The turn goes on, and its host
-    fails the call at its callback timeout: the model gets a tool error. To follow the turn, use
+    subagent's session and turn. The send error is the ``__cause__``. The turn keeps running, and the
+    call fails at its callback timeout: the model gets a tool error. To follow the turn, use
     ``agent.session(session_id).turn(turn_id)``.
     """
 
     def __init__(self, *, callback_id: str, session_id: str, turn_id: str) -> None:
         self.callback_id = callback_id
+        """The ID of the client tool call."""
         self.session_id = session_id
+        """The ID of the session the call is in: a subagent's for a subagent's call."""
         self.turn_id = turn_id
+        """The ID of the turn the call is in."""
         super().__init__(
             f"The answer to client tool call {callback_id} (session {session_id}, turn {turn_id}) could not be sent"
         )
 
 
 class RemoteAgentDeploymentNotFoundError(AgentsError, RuntimeError):
-    """Raised when the Agent Deployment behind a handle no longer exists.
-
-    The usual cause is a shutdown: the agent id stays a valid UUID, but the control
-    plane stops resolving it. Without this the caller sees a bare transport 404 from
-    the name lookup and cannot tell a gone agent from a broken request.
-    """
+    """The deployed agent behind this handle no longer exists, for example after a shutdown."""
 
 
 class OutcomeUnknownError(AgentsError, RuntimeError):
-    """The SDK did not observe retained Session readiness or a command outcome in time.
+    """The SDK could not confirm in time whether the session started or the request applied.
 
     ``idempotency_key`` is the key to retry with, including one the SDK generated, or the
-    callback id for a callback answer. It is ``None`` for an operation without a key, and
-    for a start refused without a report while another Turn ran (an agent deployed with an
-    older SDK, or a control plane that does not report the refusal): that key would
-    be refused again, so start again with a new key. Passing ``None`` as
-    ``idempotency_key`` does that.
+    callback ID for a callback answer. It is ``None`` for an operation without a key, and for a
+    ``start_turn`` that found another turn running on an agent deployed with an older SDK: that
+    key would be refused again. Start again with ``idempotency_key=None``, and the SDK makes a new
+    key.
     """
 
     def __init__(self, message: str, *, idempotency_key: str | None = None) -> None:
         super().__init__(message)
         self.idempotency_key = idempotency_key
+        """The key to retry with, or the callback ID for a callback answer. ``None`` when the operation has no
+        key, or when retrying with the key would be refused again."""
 
 
 class SessionStartupTimeoutError(OutcomeUnknownError):
-    """Creation returned a Session ID, but readiness was not observed before the deadline.
+    """The session was created, but it was not ready before the deadline.
 
-    The remote Session is not cancelled. Use ``agent.session(session_id)`` (or
+    The session is not cancelled. Use ``agent.session(session_id)`` (or
     ``Agent.load_from(agent_name=...).session(session_id)`` elsewhere) to attach again
-    without creating a replacement Session.
+    without starting another session.
     """
 
     def __init__(self, session_id: str, timeout_seconds: float) -> None:
         self.session_id = session_id
+        """The ID of the created session, to attach again with ``agent.session(session_id)``."""
         self.timeout_seconds = timeout_seconds
+        """How long the SDK waited for the session to be ready."""
         super().__init__(
             f"Session {session_id} was created, but readiness was not observed within "
             f"{timeout_seconds:g} seconds; attach again with agent.session({session_id!r}) instead of starting another"
@@ -289,26 +318,28 @@ class ObservationLost(AgentsError, RuntimeError):
     """The session's events, or the open callbacks of its subagents, could not be read again after
     the connection was lost, or the events' stream ended.
 
-    Nothing was stopped on the host. ``cursor`` is the position up to which the events were given,
+    Nothing was stopped: the session keeps running. ``cursor`` is the position up to which the events were given,
     or ``None`` when none was; continue reading after it: no event is missed.
     """
 
     def __init__(self, session_id: str, cursor: str | None) -> None:
         super().__init__(session_id, cursor)
         self.session_id = session_id
+        """The ID of the session."""
         self.cursor = cursor
+        """The position up to which the events were given, or ``None`` when none was."""
 
     def __str__(self) -> str:
         return (
             f"Lost the events of session {self.session_id}, or its subagents' callbacks, after cursor "
-            f"{self.cursor!r}; the session goes on"
+            f"{self.cursor!r}; the session keeps running"
         )
 
 
 class RemoteStreamLostError(ObservationLost, SessionEventStreamLostError):
-    """A Session client lost a deployment-backed Session's event stream and could not reconnect.
+    """A session client lost the event stream of a deployed agent's session and could not reconnect.
 
-    Nothing was interrupted: the Session and its active Turn may still be running. Call
+    Nothing was interrupted: the session and its active turn may still be running. Call
     ``events()`` on the same client to resume after ``after_event_id`` (also ``cursor``), or
     reattach from anywhere with ``Agent.load_from(agent_name=...).session(session_id)``.
     """
@@ -330,18 +361,19 @@ class RemoteStreamLostError(ObservationLost, SessionEventStreamLostError):
 
 
 class APIStatusError(AgentsError, httpx.HTTPStatusError):
-    """The control plane answered an HTTP request with an error status.
+    """Mistral answered an HTTP request with an error status."""
 
-    ``status_code`` is the status, and ``response`` the response. It is an ``httpx.HTTPStatusError``.
-    """
+    response: httpx.Response
+    """The HTTP response, with its status, headers and body."""
 
     @property
     def status_code(self) -> int:
+        """The HTTP status of the response."""
         return self.response.status_code
 
 
 class AuthenticationError(APIStatusError):
-    """The control plane refused the API key: HTTP 401."""
+    """Mistral refused the API key: HTTP 401."""
 
 
 class PermissionDeniedError(APIStatusError):
@@ -367,23 +399,24 @@ class RateLimitError(APIStatusError):
 
     @property
     def retry_after(self) -> float | None:
+        """Seconds to wait before you retry, when the server said; else ``None``."""
         return retry_after_seconds(self.response)
 
 
 class InternalServerError(APIStatusError):
-    """The control plane failed: HTTP 500 or above."""
+    """Mistral failed: HTTP 500 or above."""
 
 
 class APIConnectionError(AgentsError, httpx.TransportError):
     """An HTTP request got no answer: the connection failed, or the network dropped it.
 
-    It is an ``httpx.TransportError``, and an instance of the httpx class that failed, such as
-    ``httpx.ConnectError``. It is not a builtin ``ConnectionError``.
+    It is also an instance of the httpx class that failed, such as ``httpx.ConnectError``. It is
+    not a builtin ``ConnectionError``.
     """
 
 
 class APITimeoutError(APIConnectionError, httpx.TimeoutException):
-    """An HTTP request timed out. It is an ``httpx.TimeoutException``, not a builtin ``TimeoutError``."""
+    """An HTTP request timed out. It is not a builtin ``TimeoutError``."""
 
 
 _STATUS_ERRORS: dict[int, type[APIStatusError]] = {

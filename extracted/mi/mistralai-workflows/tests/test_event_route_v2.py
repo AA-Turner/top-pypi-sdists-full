@@ -111,3 +111,28 @@ class TestV2OnlyEventRoute:
             ) as ctx,
         ):
             await ctx.publish_event(create_test_workflow_event())
+
+
+class TestSharedRouteTokenManager:
+    @pytest.mark.asyncio
+    async def test_other_clients_reuse_the_event_route_token(self) -> None:
+        requests: list[str] = []
+
+        async def capture_request(request: httpx.Request) -> httpx.Response:
+            requests.append(request.url.path)
+            if request.url.path == "/v2/workflows/workers/event-route-token":
+                return httpx.Response(200, json={"route_token": "route-token-1", "expires_in_seconds": 60})
+            if request.url.path == "/v2/workflows/events":
+                return httpx.Response(200, json={})
+            raise AssertionError(f"Unexpected request path: {request.url.path}")
+
+        event = create_test_workflow_event()
+        async with _event_context_harness(capture_request) as event_context:
+            await event_context.publish_event(event)
+            manager = event_context.event_route_token_manager
+            assert manager is not None
+            assert event_context.worker_client is not None
+            token = await manager.get_token(event.workflow_exec_id, event.workflow_run_id)
+
+        assert token == "route-token-1"
+        assert requests.count("/v2/workflows/workers/event-route-token") == 1

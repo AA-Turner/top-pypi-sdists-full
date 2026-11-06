@@ -70,7 +70,14 @@ def merge(parts: list[tuple[str, WidgetData]]) -> WidgetData:
         for name, data in shown
         for row in data.rows
     ]
-    rows.sort(key=lambda row: ("overdue" not in row.tags, "backlog" in row.tags))
+    rows.sort(
+        key=lambda row: (
+            "overdue" not in row.tags,
+            "postponed" in row.tags,
+            "backlog" in row.tags,
+            "waiting" in row.tags,
+        )
+    )
     tagged = lambda tag: sum(tag in row.tags for row in rows)  # noqa: E731
     overdue = tagged("overdue")
     value = sum(data.value for _, data in shown if isinstance(data.value, int))

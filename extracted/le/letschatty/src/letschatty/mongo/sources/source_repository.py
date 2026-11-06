@@ -117,6 +117,12 @@ class MongoSourceRepository(MongoCatalogById[SourceBase]):
         ).max_time_ms(MAPPING_MAX_TIME_MS)
         return await cursor.to_list(length=None)
 
+    async def stored_fields(self, company_id: StrObjectId, source_ids: List[str],
+                            fields: List[str]) -> List[Dict[str, Any]]:
+        return await self.collection.get_projection_by_query(
+            query={"_id": {"$in": _object_ids(source_ids)}, "company_id": str(company_id)},
+            projection={"_id": 1, **{field: 1 for field in fields}})
+
     async def set_fields(self, company_id: StrObjectId, source_id: StrObjectId, fields: Dict[str, Any],
                           when: Optional[str] = None) -> bool:
         condition = CONDITIONS[when] if when is not None else {}

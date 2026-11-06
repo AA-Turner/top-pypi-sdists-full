@@ -38,7 +38,7 @@ class NoDefaultType:
     ``NoDefaultType`` is a singleton. There is only ever one of it.
     """
 
-    _singleton = None
+    _singleton: NoDefaultType | None = None
 
     def __new__(cls) -> NoDefaultType:
         if NoDefaultType._singleton is None:

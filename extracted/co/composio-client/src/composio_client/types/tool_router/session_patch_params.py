@@ -227,6 +227,7 @@ class Experimental(TypedDict, total=False):
     permissions: ExperimentalPermissions
     "Per-tool elicitation permission config.\n\nReplaces the stored block when provided."
     fast_mode: NotRequired[bool]
+    disable_plan_search: NotRequired[bool]
     submit_feedback: NotRequired[CurrentExperimentalSubmitFeedback]
     no_elicitation_support_fallback: NotRequired[Literal["deny", "allow"]]
     session_config_id: NotRequired[str]

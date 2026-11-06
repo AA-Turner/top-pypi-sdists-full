@@ -34,8 +34,9 @@ export declare class SpatialIndex {
     private _addAllLeavesOfNode;
     private static _upperBound;
     private _optimize_item_order;
-    private _compute_hilbert_values;
+    /** Computes the Hilbert key of every item and writes the sorted item order into _indices. */
     private _sort_by_hilbert_values;
+    private _apply_item_order;
     private _generate_internal_tree_nodes;
 }
 //# sourceMappingURL=spatial.d.ts.map

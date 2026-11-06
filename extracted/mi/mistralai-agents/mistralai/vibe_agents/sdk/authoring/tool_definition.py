@@ -74,20 +74,9 @@ class ToolDefinition(BaseModel):
     """The description of a tool: what the model sees of it (name, description, input schema) and
     what a policy can read about it (title, annotations, source).
 
-    It describes any tool, whether a Python function on the worker runs it (a ``PythonTool`` holds
-    one) or a connector or an MCP server does. It holds no code. Its fields are those of the Model
-    Context Protocol's (MCP) ``Tool``, in snake case, with MCP's names as aliases, plus ``source``.
-    Pydantic reads and writes a tool as an MCP server lists it in JSON::
-
-        definition = ToolDefinition.model_validate(tool, by_alias=True, extra="allow")
-        definition.model_dump(mode="json", by_alias=True, exclude_unset=True, exclude={"source"})
-
-    ``extra="allow"`` keeps each field it does not model, as listed, in ``model_extra``: one a later
-    MCP version adds, or the annotations' ``title`` in ``annotations.model_extra``. The dump writes
-    them back.
-
-    Its fields cannot be reassigned. Two tool definitions are equal only if they are the same
-    object, and they hash by identity, so a set of tools works for every kind of tool.
+    It describes any tool, whether your Python function runs it (a ``PythonTool`` holds one) or a
+    connector or an MCP server does. Its fields are the Model Context Protocol's (MCP) ``Tool``
+    fields, in snake case, plus ``source``.
     """
 
     # Each field reads and writes by its MCP name, its camelCase alias, with by_alias=True; the

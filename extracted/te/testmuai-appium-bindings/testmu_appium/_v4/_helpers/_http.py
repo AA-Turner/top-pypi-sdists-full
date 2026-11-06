@@ -111,6 +111,12 @@ def headers() -> dict:
     instruction_id = get_instruction_id()
     if instruction_id:
         result["x-instruction-id"] = instruction_id
+    run_id = os.getenv("TESTMUAI_RUN_ID", "") or os.getenv("TEST_RUN_ID", "")
+    if run_id:
+        result["x-run-id"] = run_id
+    commit_id = os.getenv("TESTMUAI_COMMIT_ID", "") or os.getenv("COMMIT_ID", "")
+    if commit_id:
+        result["x-commit-id"] = commit_id
     return result
 
 
@@ -159,6 +165,15 @@ def _request_once(
                 "%s -> %s completed in %.2fs (status: %s)",
                 method, url, time.time() - start, response.status_code,
             )
+        # One run-log line per AI call that names its api_call_id, the key to
+        # look the call up server-side, and the controller request_id(s) that
+        # name its captured data.
+        call_id = response.headers.get("x-api-call-id")
+        if call_id:
+            request_ids = response.headers.get("x-controller-request-id")
+            _log.info("%s %s -> %s api_call_id=%s%s",
+                      method, response.url.path, response.status_code, call_id,
+                      f" request_id={request_ids}" if request_ids else "")
         if _is_transient_http_error(response.status_code):
             raise TransientHTTPError(
                 response.status_code,

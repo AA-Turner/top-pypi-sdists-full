@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstring>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 #ifdef _OPENMP
@@ -177,12 +178,33 @@ static inline void node_block(const somm_proj::GridView &G, double ground_z,
     }
 }
 
+// One finished entry into the sink (`RemainderSink`): stored, or folded into
+// T componentwise, or -- an exempted entry -- stored on the side.
+static inline void put(const somm_core::RemainderSink &K, std::ptrdiff_t m,
+                       std::ptrdiff_t n, const cd &v) {
+    if (K.ex_ptr != nullptr && K.ex_ptr[m + 1] > K.ex_ptr[m]) {
+        const int64_t *c0 = K.ex_col + K.ex_ptr[m], *c1 = K.ex_col + K.ex_ptr[m + 1];
+        const int64_t *hit = std::lower_bound(c0, c1, (int64_t)n);
+        if (hit != c1 && *hit == (int64_t)n) {
+            K.side[hit - K.ex_col] = v;
+            return;
+        }
+    }
+    cd &t = K.T[m * K.rs + n * K.cs];
+    if (K.fold == 0)
+        t = v;
+    else if (K.fold < 0)
+        t = cd(t.real() - v.real(), t.imag() - v.imag());
+    else
+        t = cd(t.real() + v.real(), t.imag() + v.imag());
+}
+
 // Q[m, n] for m under tile T (row role, its local wing indices xl) and n
 // under tile U, from J laid out [(x * ny + y) * dd + p * d1 + P]. Wings of m
 // in `ord` order, each against b ascending; inner sums as the banded kernel.
 static inline void finish_block(const Tile &T, const Tile &U, std::ptrdiff_t ny,
                                 int d1, const int32_t *ord, const double *pl,
-                                const cd *J, cd *Q, std::ptrdiff_t nb) {
+                                const cd *J, const somm_core::RemainderSink &K) {
     const int dd = d1 * d1;
     for (std::ptrdiff_t m = T.m0; m < T.m1; ++m) {
         const int32_t *xm = &T.loc[(size_t)(m - T.m0) * d1];
@@ -208,7 +230,7 @@ static inline void finish_block(const Tile &T, const Tile &U, std::ptrdiff_t ny,
                     qmn += inner;
                 }
             }
-            Q[(size_t)m * nb + n] = qmn;
+            put(K, m, n, qmn);
         }
     }
 }
@@ -219,8 +241,9 @@ static inline void finish_block(const Tile &T, const Tile &U, std::ptrdiff_t ny,
 static void remainder_Q_symmetric(
     const somm_proj::GridView &G, double ground_z, double k,
     somm_sym::Side &S, int d1, const int64_t *loc, const double *pl,
-    std::ptrdiff_t nb, std::ptrdiff_t band, size_t budget, std::complex<double> *Q,
-    const volatile int32_t *pysim_cancel, std::atomic<bool> &pysim_aborted) {
+    std::ptrdiff_t nb, std::ptrdiff_t band, size_t budget, const somm_core::RemainderSink &K,
+    const volatile int32_t *pysim_cancel, std::atomic<bool> &pysim_aborted,
+    somm_core::PairReuse *reuse) {
     using somm_proj::cd;
     using somm_sym::Tile;
     const std::ptrdiff_t q = S.q;
@@ -278,7 +301,90 @@ static void remainder_Q_symmetric(
         for (std::ptrdiff_t B = A; B < n_tiles; ++B) pairs.emplace_back(A, B);
     const std::ptrdiff_t n_pairs = (std::ptrdiff_t)pairs.size();
 
-    #pragma omp parallel
+    // Repeated edge pairs (momwire#1809): each source block is filled once,
+    // up front, by the same per-pair calls the walk makes (node_block, then
+    // contract, either orientation), and the walk copies it for every target
+    // segment pair. `rep_off[s]` is source pair s's offset in the cache, its
+    // entries [(x * nseg[sb] + y) * dd + p * d1 + P] like a tile's.
+    std::ptrdiff_t E = 0;
+    std::vector<int64_t> rep_off;
+    std::vector<cd> cache;
+    if (reuse) {
+        E = reuse->n_edges;
+        const int32_t *src = reuse->src, *nseg = reuse->edge_nseg;
+        rep_off.assign((size_t)(E * E), -1);
+        size_t total = 0;
+        for (std::ptrdiff_t t = 0; t < E * E; ++t) {
+            const int32_t sp = src[t];
+            if (sp < 0) continue;
+            if (sp >= E * E || src[sp] >= 0)
+                throw std::invalid_argument("pair reuse: a source is itself a copy");
+            const std::ptrdiff_t ta = t / E, tb = t % E, sa = sp / E, sb = sp % E;
+            if (nseg[ta] != nseg[sa] || nseg[tb] != nseg[sb])
+                throw std::invalid_argument("pair reuse: segment counts differ");
+            if (src[tb * E + ta] != (int32_t)(sb * E + sa))
+                throw std::invalid_argument("pair reuse: the map is not closed under reversal");
+            if (rep_off[(size_t)sp] < 0) {
+                rep_off[(size_t)sp] = (int64_t)total;
+                total += (size_t)dd * nseg[sa] * nseg[sb];
+            }
+        }
+        if (total == 0 || total * sizeof(cd) > budget) {
+            reuse = nullptr;  // nothing to copy, or no room: fill everything
+        } else {
+            cache.resize(total);
+            // The unordered source pairs; (sb, sa) is a source whenever
+            // (sa, sb) is, by the reversal check, and is filled with it.
+            std::vector<std::pair<std::ptrdiff_t, std::ptrdiff_t>> reps;
+            for (std::ptrdiff_t sp = 0; sp < E * E; ++sp)
+                if (rep_off[(size_t)sp] >= 0 && sp / E <= sp % E)
+                    reps.emplace_back(sp / E, sp % E);
+            const std::ptrdiff_t n_reps = (std::ptrdiff_t)reps.size();
+            const int64_t *seg0 = reuse->edge_seg0;
+            #pragma omp parallel
+            {
+                std::vector<cd> fw((size_t)q * q), bw((size_t)q * q),
+                    rows((size_t)d1 * q);
+                #pragma omp for schedule(dynamic)
+                for (std::ptrdiff_t r = 0; r < n_reps; ++r) {
+                    MW_CANCEL_POLL();
+                    const std::ptrdiff_t a = reps[(size_t)r].first;
+                    const std::ptrdiff_t b = reps[(size_t)r].second;
+                    const std::ptrdiff_t na = nseg[a], nbb = nseg[b];
+                    cd *cab = &cache[(size_t)rep_off[(size_t)(a * E + b)]];
+                    cd *cba = &cache[(size_t)rep_off[(size_t)(b * E + a)]];
+                    for (std::ptrdiff_t x = 0; x < na; ++x) {
+                        const std::ptrdiff_t si = seg0[a] + x;
+                        for (std::ptrdiff_t y = a == b ? x : 0; y < nbb; ++y) {
+                            const std::ptrdiff_t sj = seg0[b] + y;
+                            somm_sym::node_block(G, ground_z, k, S, si, sj,
+                                                 fw.data(), bw.data());
+                            somm_sym::contract(S, d1, si, sj, fw.data(), rows.data(),
+                                               &cab[((size_t)x * nbb + y) * dd]);
+                            if (si == sj) continue;
+                            somm_sym::contract(S, d1, sj, si, bw.data(), rows.data(),
+                                               &cba[((size_t)y * na + x) * dd]);
+                        }
+                    }
+                }
+            }
+            if (pysim_aborted.load()) return;
+        }
+    }
+    // The cached block standing for segment pair (si, sj), or null to fill it.
+    const auto cached = [&](std::ptrdiff_t si, std::ptrdiff_t sj) -> const cd * {
+        const int32_t ei = reuse->seg_edge[si], ej = reuse->seg_edge[sj];
+        if (ei < 0 || ej < 0) return nullptr;
+        const int32_t sp = reuse->src[(size_t)ei * E + ej];
+        if (sp < 0) return nullptr;
+        const std::ptrdiff_t sb = sp % E;
+        const std::ptrdiff_t x = si - reuse->edge_seg0[ei], y = sj - reuse->edge_seg0[ej];
+        return &cache[(size_t)rep_off[(size_t)sp] +
+                      ((size_t)x * reuse->edge_nseg[sb] + y) * dd];
+    };
+    long long copied = 0;
+
+    #pragma omp parallel reduction(+ : copied)
     {
         std::vector<cd> JAB((size_t)dd * smax * smax), JBA(JAB.size());
         std::vector<cd> fw((size_t)q * q), bw((size_t)q * q), rows((size_t)d1 * q);
@@ -298,9 +404,18 @@ static void remainder_Q_symmetric(
                 for (std::ptrdiff_t y = diag ? x : 0; y < ny; ++y) {
                     const std::ptrdiff_t sj = TB.segs[(size_t)y];
                     cd *jxy = &JAB[((size_t)x * ny + y) * dd];
-                    somm_sym::node_block(G, ground_z, k, S, si, sj, fw.data(),
-                                         bw.data());
-                    somm_sym::contract(S, d1, si, sj, fw.data(), rows.data(), jxy);
+                    const cd *cx = reuse ? cached(si, sj) : nullptr;
+                    const cd *cy =
+                        reuse && si != sj ? cached(sj, si) : nullptr;
+                    if (!cx || (si != sj && !cy))
+                        somm_sym::node_block(G, ground_z, k, S, si, sj, fw.data(),
+                                             bw.data());
+                    if (cx) {
+                        std::copy(cx, cx + dd, jxy);
+                        ++copied;
+                    } else {
+                        somm_sym::contract(S, d1, si, sj, fw.data(), rows.data(), jxy);
+                    }
                     if (si == sj) {
                         if (!diag)
                             std::copy(jxy, jxy + dd,
@@ -309,16 +424,21 @@ static void remainder_Q_symmetric(
                     }
                     cd *jyx = diag ? &JAB[((size_t)y * ny + x) * dd]
                                    : &JBA[((size_t)y * nx + x) * dd];
-                    somm_sym::contract(S, d1, sj, si, bw.data(), rows.data(), jyx);
+                    if (cy) {
+                        std::copy(cy, cy + dd, jyx);
+                        ++copied;
+                    } else {
+                        somm_sym::contract(S, d1, sj, si, bw.data(), rows.data(), jyx);
+                    }
                 }
             }
-            somm_sym::finish_block(TA, TB, ny, d1, ord.data(), pl, JAB.data(),
-                                   Q, nb);
+            somm_sym::finish_block(TA, TB, ny, d1, ord.data(), pl, JAB.data(), K);
             if (!diag)
                 somm_sym::finish_block(TB, TA, nx, d1, ord.data(), pl,
-                                       JBA.data(), Q, nb);
+                                       JBA.data(), K);
         }
     }
+    if (reuse) reuse->copied = copied;
 }
 
 
@@ -330,7 +450,8 @@ void remainder_bspline_Q(const somm_proj::GridView &G, double ground_z, double k
                          const double *W_src, std::ptrdiff_t nsJ, std::ptrdiff_t q, int d1,
                          const int64_t *loc_I, const double *pI, std::ptrdiff_t nI,
                          const int64_t *loc_J, const double *pJ, std::ptrdiff_t nJ, bool symmetric,
-                         size_t max_jf_bytes, std::complex<double> *Q, uintptr_t cancel_flag) {
+                         size_t max_jf_bytes, std::complex<double> *Q, uintptr_t cancel_flag,
+                         PairReuse *reuse) {
     using somm_proj::cd;
     // the binding's accessors, over the raw C-ordered arrays
     const auto ndI = [&](std::ptrdiff_t i, std::ptrdiff_t qi, int c) { return obs_nodes[(i * q + qi) * 3 + c]; };
@@ -371,9 +492,12 @@ void remainder_bspline_Q(const somm_proj::GridView &G, double ground_z, double k
         for (std::ptrdiff_t j = 0; j < nsI; ++j)
             somm_proj::tangent_decomp(tgI(j, 0), tgI(j, 1), tgI(j, 2), S.ux[j],
                                       S.uy[j], S.th[j], S.tz[j]);
+        RemainderSink K;
+        K.T = Q;
+        K.rs = nJ;
         MW_CANCEL_SETUP(cancel_flag);
         remainder_Q_symmetric(G, ground_z, k, S, d1, loc_I, pI, nI, band,
-                              budget, Q, pysim_cancel, pysim_aborted);
+                              budget, K, pysim_cancel, pysim_aborted, reuse);
         MW_THROW_IF_ABORTED();
         return;
     }
@@ -481,6 +605,43 @@ void remainder_bspline_Q(const somm_proj::GridView &G, double ground_z, double k
         }
         MW_THROW_IF_ABORTED();
     }
+}
+
+void remainder_bspline_Q_sink(const somm_proj::GridView &G, double ground_z, double k,
+                              const double *nodes, const double *tang, const double *W,
+                              std::ptrdiff_t ns, std::ptrdiff_t q, int d1, const int64_t *loc,
+                              const double *polys, std::ptrdiff_t nb, size_t max_jf_bytes,
+                              const RemainderSink &sink, uintptr_t cancel_flag,
+                              PairReuse *reuse) {
+    using somm_proj::cd;
+    // `remainder_bspline_Q`'s band height (read for the wing order alone)
+    // and budget, for the same obs == src call
+    const size_t budget = max_jf_bytes ? max_jf_bytes : MAX_JF_SLAB_BYTES;
+    const size_t row_bytes = sizeof(cd) * (size_t)d1 * d1 * (size_t)ns;
+    std::ptrdiff_t band = ns;
+    if (row_bytes > 0) {
+        size_t fit = budget / row_bytes;
+        if (fit < 1) fit = 1;
+        if ((std::ptrdiff_t)fit < band) band = (std::ptrdiff_t)fit;
+    }
+    if (band < 1) band = 1;
+    somm_sym::Side S;
+    S.nodes = nodes;
+    S.tang = tang;
+    S.W = W;
+    S.ns = ns;
+    S.q = q;
+    S.ux.resize(ns);
+    S.uy.resize(ns);
+    S.th.resize(ns);
+    S.tz.resize(ns);
+    for (std::ptrdiff_t j = 0; j < ns; ++j)
+        somm_proj::tangent_decomp(tang[j * 3 + 0], tang[j * 3 + 1], tang[j * 3 + 2], S.ux[j],
+                                  S.uy[j], S.th[j], S.tz[j]);
+    MW_CANCEL_SETUP(cancel_flag);
+    remainder_Q_symmetric(G, ground_z, k, S, d1, loc, polys, nb, band, budget, sink,
+                          pysim_cancel, pysim_aborted, reuse);
+    MW_THROW_IF_ABORTED();
 }
 
 }  // namespace somm_core

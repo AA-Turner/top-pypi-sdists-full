@@ -119,98 +119,29 @@ def artifact_key(job_id: str) -> str:
 
 def fetch_job_info(api_key: str, job_id: str, cluster: str,
                    ap_endpoint: str | None = None) -> dict[str, Any]:
-    """调 AP GET /api/jobs/{job_id}?include_params=true 获取 job 信息。
-
-    AP 内部执行 workspace ACL 检查（enforce_workspace_action_req）。
-    403 → ArtifactPermissionError；404 → ArtifactNotFoundError。
-    """
-    endpoint = _ap_endpoint(ap_endpoint)
-    url = f"{endpoint}/api/jobs/{job_id}?include_params=true"
-    headers = {
-        "X-API-Key": api_key,
-        "Accept": "application/json",
-    }
-    if cluster:
-        headers["X-Cluster"] = cluster
-
-    req = urllib.request.Request(url, headers=headers, method="GET")
+    """Explicit legacy detail helper; normal downloads do not precheck Jobs."""
+    from irepo_artifact import ArtifactError
+    from irepo_artifact.api import validate_id
+    failure = None
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        if e.code == 403:
-            raise ArtifactPermissionError(
-                f"workspace ACL denied access to job {job_id!r}"
-            ) from e
-        if e.code == 404:
-            raise ArtifactNotFoundError(
-                f"job {job_id!r} not found"
-            ) from e
-        raise InstanceRepoError(
-            f"AP returned HTTP {e.code} for job {job_id!r}: {e.reason}"
-        ) from e
-    except urllib.error.URLError as e:
-        raise InstanceRepoError(
-            f"failed to reach AP at {endpoint}: {e.reason}"
-        ) from e
+        validate_id(job_id)
+        return _client(api_key, cluster, ap_endpoint)._api._call(
+            f"/jobs/{job_id}?include_params=true")
+    except ArtifactError as exc:
+        failure = _legacy_error(exc.clone())
+    raise failure
 
 
 def fetch_group_job_ids(api_key: str, group_id: str, cluster: str,
                         ap_endpoint: str | None = None) -> list[str]:
-    """调 AP GET /api/groups/{group_id}/jobs 分页收集全部 job_id。
-
-    endpoint 解析与 fetch_job_info 完全一致（复用 _ap_endpoint），
-    且 URL 必须带 /api 前缀：AP 网关的裸 /groups/{id}/jobs 路径返回
-    控制台 HTML 页（HTTP 200），json 解析会报错（真机实测）。
-    """
-    endpoint = _ap_endpoint(ap_endpoint)
-    job_ids: list[str] = []
-    skip = 0
-    limit = 500
-
-    while True:
-        url = (f"{endpoint}/api/groups/{group_id}/jobs"
-               f"?skip={skip}&limit={limit}&include_post_process=false")
-        headers = {
-            "X-API-Key": api_key,
-            "Accept": "application/json",
-        }
-        if cluster:
-            headers["X-Cluster"] = cluster
-
-        req = urllib.request.Request(url, headers=headers, method="GET")
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            if e.code == 403:
-                raise ArtifactPermissionError(
-                    f"workspace ACL denied access to group {group_id!r}"
-                ) from e
-            if e.code == 404:
-                raise ArtifactNotFoundError(
-                    f"group {group_id!r} not found"
-                ) from e
-            raise InstanceRepoError(
-                f"AP returned HTTP {e.code} for group {group_id!r}"
-            ) from e
-        except urllib.error.URLError as e:
-            raise InstanceRepoError(
-                f"failed to reach AP at {endpoint}: {e.reason}"
-            ) from e
-
-        jobs = data.get("jobs", [])
-        if not jobs:
-            break
-        for j in jobs:
-            jid = j.get("job_id")
-            if jid:
-                job_ids.append(jid)
-        if len(jobs) < limit:
-            break
-        skip += limit
-
-    return job_ids
+    """Bounded, deduplicated Group enumeration on credential-isolated AP HTTP."""
+    from irepo_artifact import ArtifactError
+    failure = None
+    try:
+        return _client(api_key, cluster, ap_endpoint)._api.list_group_job_ids(group_id)
+    except ArtifactError as exc:
+        failure = _legacy_error(exc.clone())
+    raise failure
 
 
 def _client(api_key: str, cluster: str, ap_endpoint: str | None):

@@ -60,6 +60,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from doppler.detection import det_pd, det_pfa_cell, det_threshold
+from doppler.examples._extra import require
 from doppler.spectral import Corr2D, CorrDetector2D
 from doppler.wfm import PN, mls_poly
 
@@ -333,6 +334,7 @@ def _run_sweep(
 
 def main() -> None:
     """Run the Monte-Carlo sweep and render the three-panel figure."""
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

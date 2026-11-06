@@ -33,23 +33,33 @@ class ActorNameGroupAggregateResponse(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'results': 'list[ActorNameGroupAggregate]'
+        'results': 'list[ActorNameGroupAggregate]',
+        'next_offset': 'str',
+        'total': 'int'
     }
 
     attribute_map = {
-        'results': 'results'
+        'results': 'results',
+        'next_offset': 'next_offset',
+        'total': 'total'
     }
 
-    def __init__(self, results=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, results=None, next_offset=None, total=None, local_vars_configuration=None):  # noqa: E501
         """ActorNameGroupAggregateResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._results = None
+        self._next_offset = None
+        self._total = None
         self.discriminator = None
 
         self.results = results
+        if next_offset is not None:
+            self.next_offset = next_offset
+        if total is not None:
+            self.total = total
 
     @property
     def results(self):
@@ -73,6 +83,48 @@ class ActorNameGroupAggregateResponse(object):
             raise ValueError("Invalid value for `results`, must not be `None`")  # noqa: E501
 
         self._results = results
+
+    @property
+    def next_offset(self):
+        """Gets the next_offset of this ActorNameGroupAggregateResponse.  # noqa: E501
+
+
+        :return: The next_offset of this ActorNameGroupAggregateResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._next_offset
+
+    @next_offset.setter
+    def next_offset(self, next_offset):
+        """Sets the next_offset of this ActorNameGroupAggregateResponse.
+
+
+        :param next_offset: The next_offset of this ActorNameGroupAggregateResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._next_offset = next_offset
+
+    @property
+    def total(self):
+        """Gets the total of this ActorNameGroupAggregateResponse.  # noqa: E501
+
+
+        :return: The total of this ActorNameGroupAggregateResponse.  # noqa: E501
+        :rtype: int
+        """
+        return self._total
+
+    @total.setter
+    def total(self, total):
+        """Sets the total of this ActorNameGroupAggregateResponse.
+
+
+        :param total: The total of this ActorNameGroupAggregateResponse.  # noqa: E501
+        :type: int
+        """
+
+        self._total = total
 
     def to_dict(self):
         """Returns the model properties as a dict"""

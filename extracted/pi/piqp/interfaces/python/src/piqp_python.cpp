@@ -95,6 +95,7 @@ PYBIND11_MODULE(PYTHON_MODULE_NAME, m) {
             .value("sparse_ldlt_ineq_cond", piqp::KKTSolver::sparse_ldlt_ineq_cond)
             .value("sparse_ldlt_cond", piqp::KKTSolver::sparse_ldlt_cond)
             .value("sparse_multistage", piqp::KKTSolver::sparse_multistage)
+            .value("sparse_multistage_parallel", piqp::KKTSolver::sparse_multistage_parallel)
             .export_values();
 
     py::class_<piqp::Settings<T>>(m, "Settings", py::module_local())
@@ -106,6 +107,8 @@ PYBIND11_MODULE(PYTHON_MODULE_NAME, m) {
         .def_readwrite("eps_duality_gap_abs", &piqp::Settings<T>::eps_duality_gap_abs)
         .def_readwrite("eps_duality_gap_rel", &piqp::Settings<T>::eps_duality_gap_rel)
         .def_readwrite("infeasibility_threshold", &piqp::Settings<T>::infeasibility_threshold)
+        .def_readwrite("eps_primal_inf", &piqp::Settings<T>::eps_primal_inf)
+        .def_readwrite("eps_dual_inf", &piqp::Settings<T>::eps_dual_inf)
         .def_readwrite("reg_lower_limit", &piqp::Settings<T>::reg_lower_limit)
         .def_readwrite("reg_finetune_lower_limit", &piqp::Settings<T>::reg_finetune_lower_limit)
         .def_readwrite("reg_finetune_primal_update_threshold", &piqp::Settings<T>::reg_finetune_primal_update_threshold)
@@ -117,6 +120,7 @@ PYBIND11_MODULE(PYTHON_MODULE_NAME, m) {
         .def_readwrite("preconditioner_iter", &piqp::Settings<T>::preconditioner_iter)
         .def_readwrite("tau", &piqp::Settings<T>::tau)
         .def_readwrite("kkt_solver", &piqp::Settings<T>::kkt_solver)
+        .def_readwrite("num_threads", &piqp::Settings<T>::num_threads)
         .def_readwrite("iterative_refinement_always_enabled", &piqp::Settings<T>::iterative_refinement_always_enabled)
         .def_readwrite("iterative_refinement_eps_abs", &piqp::Settings<T>::iterative_refinement_eps_abs)
         .def_readwrite("iterative_refinement_eps_rel", &piqp::Settings<T>::iterative_refinement_eps_rel)

@@ -17,18 +17,18 @@ from numpy.typing import NDArray
 from typing_extensions import TypedDict
 
 Number = TypeVar("Number", float, int)
+ArrayT = TypeVar("ArrayT", bound=np.ndarray)
 
 IntNumType = np.integer | NDArray[np.integer]
 FloatNumType = np.floating | NDArray[np.floating]
 
-# Core image types - restrict to uint8 and float32 only
+# Supported image dtypes; array rank is independent of dtype.
 ImageUInt8: TypeAlias = NDArray[uint8]
 ImageFloat32: TypeAlias = NDArray[float32]
-ImageType: TypeAlias = ImageUInt8 | ImageFloat32
 
-# Image and Volume types - restrict to uint8 and float32 only
-# VolumeType is same as ImageType (volume data is uint8/float32)
-VolumeType: TypeAlias = ImageType
+
+# Volumes use the same supported storage dtypes as images.
+VolumeType: TypeAlias = NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
 
 # OpenCV exposes these constants as module-level ints. Literal aliases and typed constants use the
 # corresponding values so static checkers can validate transform configuration domains.
@@ -85,14 +85,15 @@ class ReferenceImage(TypedDict):
     and keypoints.
 
     Args:
-        image (ImageType): The reference image array (uint8 or float32).
+        image (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): The reference image array (uint8 or
+            float32).
         mask (np.ndarray | None): Optional mask array.
         bbox (tuple[float, ...] | np.ndarray | None): Optional bounding box coordinates.
         keypoints (tuple[float, ...] | np.ndarray | None): Optional keypoint coordinates.
 
     """
 
-    image: ImageType
+    image: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
     mask: NotRequired[np.ndarray]
     bbox: NotRequired[tuple[float, ...] | np.ndarray]
     keypoints: NotRequired[tuple[float, ...] | np.ndarray]

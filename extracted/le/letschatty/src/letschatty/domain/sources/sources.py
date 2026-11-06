@@ -91,6 +91,14 @@ class SourceRepository(Protocol):
         """The company's live sources of those types, or with a mapping the AI put, with what the mapping reads."""
         ...
 
+    async def stored_fields(self, company_id: StrObjectId, source_ids: List[str],
+                            fields: List[str]) -> List[Dict[str, Any]]:
+        """Those sources of the company, each as Mongo holds it: `_id` and the stored `fields` it has (a field it lacks
+        is not in its document). Deleted ones included, and always read from the store (never the cache): the attention
+        migration copies them byte by byte before it empties them. A source of another company, or one that does not
+        exist, is not in the answer."""
+        ...
+
     async def set_fields(self, company_id: StrObjectId, source_id: StrObjectId, fields: Dict[str, Any],
                           when: Optional[str] = None) -> bool:
         """`$set` of `fields` on the source of the company, and only if it is live and meets `when` (one of the

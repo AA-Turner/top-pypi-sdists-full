@@ -972,7 +972,8 @@ fn heartbeat_and_cursor_updates_reuse_files_and_preserve_delivery_metadata() {
         &second.lists["members"].ids
     ));
     lists.get_mut("members").unwrap().metadata.size = 103;
-    store.publish(&lease, &lists, &proof, 300).unwrap();
+    let cursor_update = store.publish(&lease, &lists, &proof, 300).unwrap();
+    assert_ne!(cursor_update.content_digest, second.content_digest);
     let other_reader = self::store(&root);
     let loaded = other_reader.load().unwrap().unwrap();
     assert_eq!(loaded.status.successful_refresh_ms, 300);

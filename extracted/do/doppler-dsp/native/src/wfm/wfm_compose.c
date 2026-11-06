@@ -19,6 +19,7 @@
  */
 #include "doppler/wfm/wfm_compose.h"
 #include "doppler/wfm/wfm_dsp.h" /* dp_wfm_rrc_taps / wfm_rrc_ntaps for pulse shaping */
+#include "doppler/wfm/wfm_private.h"
 #include "wfm_draw.h" /* the shared ranged-draw hash (one definition) */
 
 #include <math.h>
@@ -683,6 +684,13 @@ const char dp_wfm_why_dsss_cont_rate[]
       "segment's default 1.0 is a normalised rate), lower sps, or lower "
       "symbol_rate";
 
+const char dp_wfm_why_snr_and_level[]
+    = "in a scene with several sources, a signal source sets its snr or its "
+      "level, not both: an explicit noise source (or, with none, the first "
+      "source that sets snr) defines the shared noise floor, so another "
+      "source's snr is its dB above that floor and its level is derived "
+      "from it -- drop the snr or drop the level";
+
 const char dp_wfm_why_count_derived[]
     = "a finite data source -- data, or a carried frame of fixed bits -- "
       "or a lone dsss burst sets its segment's length (its frames, or one "
@@ -791,8 +799,17 @@ dp_wfm_scene_error (const wfm_segment_t *segs, size_t n_segs, int repeat,
         if (++n_stream > 1)
           return "stdin can feed one data source in a scene, not two";
       }
-  /* After every source's own reason, so a source that cannot be built
-     says so first. A count beside sources that set the length would be
+  /* The noise model: dp_wfm_resolve_noise() refuses a segment whose
+     non-anchor source gives both snr and level, and composing used to say
+     only "create_why failed" (doppler#2834). The predicate is the one
+     resolve asks, dp_wfm_segment_snr_and_level(). It is asked AFTER every
+     source's own reason, so a source that cannot be built says so first.
+     A static reason names the rule, as every other reason here does; the
+     index of the offending source is the predicate's return value. */
+  for (size_t i = 0; i < n_segs; i++)
+    if (dp_wfm_segment_snr_and_level (&segs[i]) >= 0)
+      return dp_wfm_why_snr_and_level;
+  /* A count beside sources that set the length would be
      dropped by the resolution below, so it is refused -- here, where
      every face lands (doppler#1729). */
   for (size_t i = 0; i < n_segs; i++)
@@ -998,8 +1015,7 @@ render_gap (dp_wfm_compose_state_t *s, float _Complex *out, size_t k)
     {
       dp_wfm_render_noise_steps (s->rend[sx], s->scratch, k);
       float gs = s->gain[sx];
-      for (size_t j = 0; j < k; j++)
-        out[j] += gs * s->scratch[j];
+      wfm_add_scaled (out, s->scratch, k, gs);
     }
 }
 
@@ -1104,8 +1120,7 @@ execute (dp_wfm_compose_state_t *state, float _Complex *out, size_t max,
                 {
                   dp_wfm_render_steps (state->rend[sx], state->scratch, k);
                   float gs = state->gain[sx];
-                  for (size_t j = 0; j < k; j++)
-                    out[i + j] += gs * state->scratch[j];
+                  wfm_add_scaled (out + i, state->scratch, k, gs);
                 }
             }
           /* A data stream that ended inside this chunk ends the ON phase on

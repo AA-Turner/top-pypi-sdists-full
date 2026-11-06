@@ -371,6 +371,18 @@ AcquisitionObj_set_carrier_freq_hz (AcquisitionObject *self, PyObject *args,
   int _rc = dp_acq_set_carrier_freq_hz (self->handle, carrier_freq_hz);
   if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_MEMORY:
+          PyErr_SetString (
+              PyExc_MemoryError,
+              "set_carrier_freq_hz: rebuilding the delay-Doppler map for the "
+              "new "
+              "carrier could not allocate; the engine is unchanged");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
                     "set_carrier_freq_hz failed", (long long)_rc);
       return NULL;
@@ -834,8 +846,21 @@ AcquisitionObj_set_state (AcquisitionObject *self, PyObject *arg)
       PyErr_SetString (PyExc_ValueError, "state blob size mismatch");
       return NULL;
     }
-  if (dp_acq_set_state (self->handle, PyBytes_AS_STRING (arg)) != 0)
+  int _rc = dp_acq_set_state (self->handle, PyBytes_AS_STRING (arg));
+  if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_MEMORY:
+          PyErr_SetString (
+              PyExc_MemoryError,
+              "set_state: the blob's carrier needs the delay-Doppler map "
+              "rebuilt, "
+              "and the rebuild could not allocate; the engine is unchanged");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_SetString (PyExc_ValueError, "set_state rejected the blob");
       return NULL;
     }
@@ -1615,16 +1640,17 @@ static PyMethodDef AcquisitionObj_methods[] = {
     "Couple the code clock to the carrier: the chip rate dilates by "
     "doppler_hz / carrier_freq_hz, and the engine accounts for it -- every "
     "window tile's epochs are shifted along the code axis by the drift the "
-    "tile's own frequency implies before the slow-time transform (inside a "
+    "tile's own frequency implies, aligned to the block's middle (inside a "
     "coherent block of D epochs), and the hand-off advances the hit's code "
     "phase by the drift over half the dwell "
-    "(docs/design/async-dsss-receiver-measurements.md §12.11, §12.12). "
-    "Config, not running state: not in the state blob, so a resumed engine "
-    "wants it set again. 0.0 (the default) = uncoupled, the engine as it ran "
-    "without it. Raises ValueError for a carrier that is neither 0 nor finite "
-    "and above half the sample rate (fs / 2): every Doppler the engine can "
-    "report is below fs / 2, so above it |doppler / carrier| < 1 and the "
-    "dilation stays finite.\n"
+    "(docs/design/async-dsss-receiver-measurements.md §12.11, §12.12). It "
+    "rides in the state blob, so a resumed engine carries it on, and setting "
+    "it rebuilds the one delay-Doppler map's ramp tables "
+    "(docs/design/acq-surface.md §18.2). 0.0 (the default) = uncoupled, the "
+    "engine as it ran without it. Raises ValueError for a carrier that is "
+    "neither 0 nor finite and above half the sample rate (fs / 2): every "
+    "Doppler the engine can report is below fs / 2, so above it |doppler / "
+    "carrier| < 1 and the dilation stays finite.\n"
     "\n"
     "A physically-coupled Doppler moves the code as well as the carrier --\n"
     "100 chips/s at 20 ppm of 5 Mcps -- and the engine's two long\n"
@@ -1633,20 +1659,27 @@ static PyMethodDef AcquisitionObj_methods[] = {
     "- **Inside a coherent block** of D epochs every tile's epoch\n"
     "  correlations are shifted along the code axis by the drift the tile's\n"
     "  own frequency implies, `f_tile / carrier` chips per chip, aligned to\n"
-    "  the block's middle, before the slow-time transform (a linear phase on\n"
-    "  each epoch's product, exact to a fraction of a sample). Measured at\n"
-    "  the specification's 20 ppm with D = 154 (3.1 chips of drift across\n"
-    "  the block): without it the block's peak is 13 dB down and 3 chips\n"
-    "  wide and the depth detects nothing at 34 dB-Hz; with it the block\n"
-    "  reads as a still one.\n"
+    "  the block's middle (a linear phase on each epoch's product). The one\n"
+    "  delay-Doppler map applies it at the block's end, read on a slow-time\n"
+    "  grid 4 times finer and rounded. The bound is 0.09 dB, the worst over\n"
+    "  33 tones and three dilations (docs/design/acq-surface.md §18.1); the\n"
+    "  engine measures 0.020-0.026 dB on its equivalence test's carrier\n"
+    "  scenes. dp_acq_block_prompt() applies it exactly. A change of carrier\n"
+    "  mid-block applies to the whole block. Measured at the specification's\n"
+    "  20 ppm with D = 154 (3.1 chips of drift across the block): without it\n"
+    "  the block's peak is 13 dB down and 3 chips wide and the depth detects\n"
+    "  nothing at 34 dB-Hz; with it the block reads as a still one.\n"
     "- **The hand-off** (dp_acq_build_handoff()) advances the hit's code\n"
     "  phase by the drift over half the dwell -- the non-coherent sum's peak\n"
     "  is the phase at the dwell's middle, the seed is wanted at its end:\n"
     "  0.9 chip at the 40 dB-Hz floor, past a refine loop's pull-in.\n"
     "\n"
-    "Config, not running state: it is not in the state blob, so a resumed\n"
-    "engine wants it set again by its holder, as at create. Default 0.0\n"
-    "(uncoupled) is the engine exactly as it ran without it.\n"
+    "A mutator's value (#2022): it rides in the state blob (v8), and a\n"
+    "restore takes it through this setter's rebuild, so a resumed engine\n"
+    "carries it on. Setting it rebuilds the map's fine grid and every tile's\n"
+    "ramp tables when they move (the regrid that re-applies the thread\n"
+    "request). Default 0.0 (uncoupled) is the engine exactly as it ran\n"
+    "without it.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1655,10 +1688,14 @@ static PyMethodDef AcquisitionObj_methods[] = {
     "\n"
     "Raises\n"
     "------\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``set_carrier_freq_hz: rebuilding the delay-Doppler map for the new\n"
+    "    carrier could not allocate; the engine is unchanged``.\n"
     "ValueError\n"
-    "    If the C call returns a non-zero status. The exception message is\n"
-    "    ``set_carrier_freq_hz failed``, with the return code appended\n"
-    "    (gh-869).\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is ``set_carrier_freq_hz failed``, with the return code\n"
+    "    appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1688,12 +1725,14 @@ static PyMethodDef AcquisitionObj_methods[] = {
     "count, 1 runs everything on the calling thread, n runs on n workers\n"
     "(the caller included) -- but never more than `window_bins`: every fan\n"
     "hands out one tile a task, so a worker past that only wakes and waits.\n"
-    "The workers are created here, once, and parked between pushes; nothing\n"
-    "is created per push. The surface is bit-identical at every count -- the\n"
-    "tiles are independent after the one forward transform and each writes\n"
-    "its own rows -- so this changes the cost of a push and nothing about\n"
-    "its result. Setup path, never hot; not while another thread is inside\n"
-    "push().\n"
+    "The request is kept, and every regrid re-applies it, so an engine\n"
+    "narrowed to one tile and widened again runs on min(n, tiles), not on\n"
+    "the 1 the narrow grid ran on. The workers are created here, once, and\n"
+    "parked between pushes; nothing is created per push. The surface is\n"
+    "bit-identical at every count -- the tiles are independent after the one\n"
+    "forward transform and each writes its own rows -- so this changes the\n"
+    "cost of a push and nothing about its result. Setup path, never hot; not\n"
+    "while another thread is inside push().\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1716,7 +1755,7 @@ static PyMethodDef AcquisitionObj_methods[] = {
     ">>> a = Acquisition(code, sample_rate=2e6, chip_rate=1e6, "
     "cn0_dbhz=50.0,\n"
     "...                 doppler_uncertainty=4000.0)\n"
-    ">>> a.threads >= 1               # a pool, sized to the machine\n"
+    ">>> a.threads >= 1               # at most one worker a tile\n"
     "True\n"
     ">>> a.set_threads(1)\n"
     ">>> a.threads\n"
@@ -2110,14 +2149,25 @@ static PyMethodDef AcquisitionObj_methods[] = {
     "a blob built differently.\n"
     "\n"
     "Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its\n"
-    "length differs from `state_bytes()` or the core rejects it, and\n"
-    "``RuntimeError`` if the Acquisition has already been destroyed.\n"
+    "length differs from `state_bytes()`, the exception listed under Raises\n"
+    "if the core rejects it, and ``RuntimeError`` if the Acquisition has\n"
+    "already been destroyed.\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "blob : bytes\n"
-    "    A `get_state()` blob from this type, exactly `state_bytes()` "
-    "long.\n" },
+    "    A `get_state()` blob from this type, exactly `state_bytes()` long.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``set_state: the blob's carrier needs the delay-Doppler map\n"
+    "    rebuilt, and the rebuild could not allocate; the engine is\n"
+    "    unchanged``.\n"
+    "ValueError\n"
+    "    If the C core rejects the blob with any other non-zero status. The\n"
+    "    exception message is ``set_state rejected the blob``.\n" },
   { "destroy", (PyCFunction)AcquisitionObj_destroy, METH_NOARGS,
     "Release the underlying C resources immediately.\n"
     "\n"

@@ -423,7 +423,7 @@ def _output_schema(handler: Callable[..., Any], output_schema: type[BaseModel] |
 
 
 class PythonTool[**P, R]:
-    """A tool that runs a Python function on the worker.
+    """A tool that runs a Python function where the agent runs.
 
     It is callable like the function itself: ``tool(...)`` takes the function's parameters and
     returns what the function returns, nothing added. ``tool_definition`` describes the tool: what the
@@ -443,7 +443,7 @@ class PythonTool[**P, R]:
     ``search(ctx, "q")`` and ``search("q")`` both work, the second with ``ToolCallbackContext.local()``.
 
     Each field of ``tool_definition`` can also be read on the tool: ``tool.name`` is
-    ``tool.tool_definition.name``, and ``tool.input_schema`` is the JSON Schema, not the model.
+    ``tool.tool_definition.name``, and ``tool.input_schema`` is the JSON Schema, not the Pydantic class.
     """
 
     tool_definition: ToolDefinition
@@ -452,12 +452,13 @@ class PythonTool[**P, R]:
     handler: Callable[..., Any]
     """The function the tool calls, adapted to receive the validated arguments as ``args``."""
     input_model: type[BaseModel]
-    """The Pydantic model the model's arguments are validated with."""
+    """The Pydantic class the model's arguments are validated with."""
     namespace: str
     """The tool's group: its ID is ``<namespace>.<name>``, as in ``ToolCall.name`` and permission rules."""
     model_access: ToolModelAccess
     model_access_is_default: bool
     session_inputs: dict[str, type[session_input.SessionInput]]
+    """The session inputs the function declares with ``Annotated[T, agents.Depends()]``, by parameter name."""
 
     __wrapped__: Callable[P, R]
     """The function, as written."""
@@ -578,7 +579,7 @@ class PythonTool[**P, R]:
 
     @property
     def input_schema(self) -> dict[str, JsonValue]:
-        """``tool_definition.input_schema``: the JSON Schema of the arguments. The model is ``input_model``."""
+        """``tool_definition.input_schema``: the JSON Schema of the arguments, built from the function's parameters."""
         return self.tool_definition.input_schema
 
     @property
@@ -598,19 +599,20 @@ class PythonTool[**P, R]:
 
     @property
     def required_input_ids(self) -> list[str]:
+        """The IDs of the session inputs the tool needs, in order, once each."""
         return session_input.required_input_ids(self.session_inputs)
 
     async def invoke(self, context: "ToolCallbackContext | None" = None, /, **kwargs: Any) -> Any:
-        """Invoke the handler with model arguments plus rebuilt Session inputs.
+        """Call the tool with the model's arguments, as the agent does.
 
-        ``context`` reaches a function that takes a ``ToolCallbackContext``; without it, that function
+        ``context`` reaches a function that takes a ``ToolCallbackContext``. Without it, that function
         gets ``ToolCallbackContext.local()``. A tool whose function takes no context ignores it.
+        A tool that declares session inputs also takes their values as
+        ``injected_session_inputs={input_id: value}``, and raises ``ValueError`` without it.
 
-        A tool that declares Session inputs takes their JSON values as
-        ``injected_session_inputs={input_id: value}``: each is rebuilt into its annotated class and
-        passed to the handler under its parameter name, never through the schema the model sees.
-        Without that keyword, such a tool raises ``ValueError``. A tool that declares no Session inputs
-        treats an ``injected_session_inputs`` keyword as a model argument, checked by its input schema.
+        Args:
+            context: The context of the call, for a function that takes one.
+            kwargs: The model's arguments, checked by the input schema, and ``injected_session_inputs``.
         """
 
         error: ToolCodeError | None = None
@@ -680,7 +682,7 @@ class PythonToolWithContext[**P, R](PythonTool[Concatenate["ToolCallbackContext"
 
 
 def takes_context(tool: "PythonTool[..., Any]") -> bool:
-    """Whether the tool's function takes a ``ToolCallbackContext``, which the worker fills for each call."""
+    """Whether the tool's function takes a ``ToolCallbackContext``, which the SDK fills for each call."""
 
     return tool._context_parameter is not None
 
@@ -910,11 +912,37 @@ def tool(
 
     ``namespace`` groups the tool: its ID is ``<namespace>.<name>``, ``client.<name>`` by default.
     The ID is what ``ToolCall.name`` and permission rules use, and what ``run_typescript`` calls
-    (``tools.<namespace>.<name>(...)``). Namespaces of the Harness's built-in tools and of the
-    SDK's connector and guardrail tools raise ``SdkError``.
+    (``tools.<namespace>.<name>(...)``). A namespace is letters, digits, ``_`` or ``$``, not
+    starting with a digit. ``self``, ``file_system``, ``skill``, ``process``, ``agents``,
+    ``subagent``, ``connectors``, ``guardrail`` and any name starting with ``connector_`` raise
+    ``SdkError``: the agent's built-in tools and the SDK's connector and guardrail tools use them.
+    ``client`` is the default namespace of every tool your code declares, whether the agent runs it
+    or your application answers it.
 
     The function may take an ``agents.ToolCallbackContext`` as its first, positional-only parameter:
-    ``def search(ctx: agents.ToolCallbackContext, /, query: str)``. The worker fills it for each call.
+    ``def search(ctx: agents.ToolCallbackContext, /, query: str)``. The SDK fills it for each call.
+
+    When the agent runs the tool, an exception the function raises follows ``Agent(tool_errors=...)``:
+    by default the model reads ``The tool failed with an unexpected error.``, and your logs get the
+    traceback. Raise ``agents.ToolError("...")`` for a failure the model should read. A direct call
+    raises the exception as the function does.
+
+    Args:
+        handler: The function the tool runs. Without it, ``tool(...)`` returns a decorator.
+        name: The name the model calls the tool by. Defaults to the function's name.
+        namespace: The tool's group: its ID is ``<namespace>.<name>``.
+        description: What the model reads about the tool. Defaults to the function's docstring.
+        input_schema: A Pydantic model for the arguments, which the function then receives as ``args``.
+            Defaults to a schema built from the function's parameters.
+        output_schema: A Pydantic model the result must match. Defaults to a schema built from the
+            return annotation.
+        model_access: How the model calls the tool, an ``agents.ToolModelAccess``: ``"programmatic"`` from
+            ``run_typescript``, ``"direct"`` from its tool list, or ``"both"``. Defaults to ``"programmatic"``, or
+            ``"direct"`` when the agent turns programmatic tool calling off with :class:`Builtins`
+            and ``programmatic_tool_calling=False``. Such an agent rejects an explicit ``"programmatic"``.
+        annotations: Hints about what the tool does, such as ``read_only_hint``, which every approval
+            of a call to the tool carries.
+        title: A name for people, such as ``"Send email"``; the model does not see it.
     """
 
     def decorate(handler: Callable[..., Any]) -> PythonTool[..., Any]:
@@ -1052,11 +1080,14 @@ class ClientTool[**P, R]:
         ``Blocked`` on the call, which ``turn.answer`` or another client answers. Pass
         what this returns to ``Agent.run`` in ``on_client_tool=agents.ClientToolAnswers(...)``.
         It may take an ``agents.ToolCallbackContext`` first, positional-only, as a tool does:
-        ``def answer(ctx: agents.ToolCallbackContext, /, city: str)``. It gets the Session and the
+        ``def answer(ctx: agents.ToolCallbackContext, /, city: str)``. It gets the session and the
         call's ID there; its sandbox is unbound.
         Its other parameters are not checked here. An answer whose parameter names or kinds do not
         match fails at its first call, as a failed tool call the model sees. An answer that only
         types a parameter differently is still called, with the value the declaration validated.
+
+        Args:
+            handler: The function that answers the tool's calls.
         """
 
         return ClientToolAnswer(tool=self, handler=handler)
@@ -1071,6 +1102,9 @@ class ClientTool[**P, R]:
             for callback in state.callbacks:
                 if get_location.called(callback):
                     await turn.answer(callback.id, await callback.run(read_gps))
+
+        Args:
+            callback: An open callback of a turn, from ``state.callbacks``.
         """
 
         from mistralai.vibe_agents.sdk.client.records import OpenClientToolCall
@@ -1086,6 +1120,7 @@ class ClientToolAnswer[**P, R]:
     """The function that answers one client tool's calls, bound with ``@<tool>.answer``."""
 
     tool: ClientTool[P, R]
+    """The client tool it answers."""
     handler: (
         Callable[P, R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen]]
         | Callable[
@@ -1093,6 +1128,7 @@ class ClientToolAnswer[**P, R]:
             R | ToolResult | KeepCallbackOpen | Awaitable[R | ToolResult | KeepCallbackOpen],
         ]
     )
+    """The function that answers the tool's calls."""
     # True when the handler takes an ``agents.ToolCallbackContext`` first: read from the handler, so it
     # always matches it.
     _takes_context: bool = field(init=False, repr=False, compare=False)
@@ -1296,23 +1332,45 @@ def client_tool(
     comes from the function, the description from its docstring, the input schema from its
     parameters and the output schema from its return annotation. Call it with ``name=`` or
     ``description=`` to override them. The function never runs: it only describes the tool, and
-    its answer takes the same parameters.
+    its answer takes the same parameters. A stub that takes an ``agents.ToolCallbackContext`` or a
+    session input raises ``SdkError``. Take the context in the answer, and read session inputs in
+    your application.
 
     Or declare the tool without a function, for example from a JSON contract: pass ``name=``,
     ``description=``, ``input_schema=`` and ``output_schema=``, Pydantic models. The answer then
-    receives the validated model. Without ``output_schema=`` the model gets no output schema and
-    the answer's return is not typed, so it warns.
+    receives the validated model. Without ``output_schema=``, the model gets no output schema and
+    the answer's return is not typed, so the SDK warns with a ``UserWarning``.
 
     ``namespace`` groups the tool: its ID is ``<namespace>.<name>``, ``client.<name>`` by default,
-    as ``ClientToolCall.name`` and ``ToolCall.name`` give it. Namespaces of the Harness's built-in
-    tools and of the SDK's connector and guardrail tools raise ``SdkError``.
+    as ``ClientToolCall.name`` and ``ToolCall.name`` give it. A namespace is letters, digits, ``_`` or
+    ``$``, not starting with a digit. ``self``, ``file_system``, ``skill``, ``process``, ``agents``,
+    ``subagent``, ``connectors``, ``guardrail`` and any name starting with ``connector_`` raise
+    ``SdkError``: the agent's built-in tools and the SDK's connector and guardrail tools use them.
+    ``client`` is the default namespace of every tool your code declares, whether the agent runs it
+    or your application answers it.
 
     ``annotations`` are the tool's hints, which every approval of a call to the tool carries in
     ``request.tool.annotations``. ``title`` is a name for people, for example in an approval prompt.
 
-    The worker never runs a client tool: the turn waits until the application sends the result.
+    The agent never runs a client tool: the turn waits until the application sends the result.
     Answer it with a function bound by ``@<tool>.answer``, or by hand with
     ``turn.answer(callback.id, result)`` when a run returns ``Blocked``.
+
+    Args:
+        function: The stub that describes the tool; it never runs. Without it, pass ``name=``,
+            ``description=``, ``input_schema=`` and ``output_schema=``, or use ``client_tool(...)`` as a
+            decorator.
+        name: The name the model calls the tool by. Defaults to the function's name.
+        namespace: The tool's group: its ID is ``<namespace>.<name>``.
+        description: What the model reads about the tool. Defaults to the function's docstring.
+        input_schema: A Pydantic model for the arguments, for a tool declared without a function.
+        output_schema: A Pydantic model the result must match, for a tool declared without a function.
+        model_access: How the model calls the tool, an ``agents.ToolModelAccess``: ``"programmatic"`` from
+            ``run_typescript``, ``"direct"`` from its tool list, or ``"both"``. Defaults to ``"programmatic"``, or
+            ``"direct"`` when the agent turns programmatic tool calling off with :class:`Builtins`
+            and ``programmatic_tool_calling=False``. Such an agent rejects an explicit ``"programmatic"``.
+        annotations: Hints about what the tool does, which every approval of a call to the tool carries.
+        title: A name for people, for example in an approval prompt; the model does not see it.
     """
 
     if input_schema is not None:

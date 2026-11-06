@@ -20,17 +20,20 @@ from zope.interface import Interface, implementer
 
 import attr
 
+from twisted.internet.error import ConnectionDone, ConnectionLost
 from twisted.internet.interfaces import (
+    Binding,
     IHalfCloseableProtocol,
     IListeningPort,
     IProtocol,
-    IReactorTCP,
+    IProtocolFactory,
+    IReactorFDSet,
     ISystemHandle,
     ITCPTransport,
+    _Binding,
 )
-from twisted.internet.protocol import ClientFactory, P
+from twisted.internet.protocol import ClientFactory, Factory, P
 from twisted.logger import ILogObserver, LogEvent, Logger
-from twisted.python import deprecate, versions
 from twisted.python.runtime import platformType
 
 try:
@@ -101,7 +104,7 @@ elif not TYPE_CHECKING:  # pragma: no branch
 from errno import errorcode
 
 # Twisted Imports
-from twisted.internet import abstract, address, base, error, fdesc, main
+from twisted.internet import abstract, address, base, defer, error, main
 from twisted.internet.error import CannotListenError
 from twisted.internet.protocol import Protocol
 from twisted.internet.task import deferLater
@@ -209,6 +212,29 @@ class _AbortingMixin:
         )
 
 
+def makeBinding(
+    interface: str = "",
+    port: int = 0,
+    reuseAddress: bool = False,
+    reusePort: bool = False,
+) -> Binding:
+    """
+    Create an object describing how to bind locally.
+
+    This may include an address, a port and other options -- which
+    end up using e.g. C{setsockopt} on Posix.
+
+    C{reuseAddress} maps to C{SO_REUSEADDR} and C{reusePort} maps to
+    C{SO_REUSEPORT} on Posix systems.
+    """
+    return Binding(_Binding(interface, port, reuseAddress, reusePort))
+
+
+# note: it could make sense to have a makeExclusiveBinding() function
+# as well, that returns an object "similar" to above but for
+# see https://github.com/twisted/twisted/issues/12677
+
+
 @implementer(ITLSTransport, ITCPTransport, ISystemHandle)
 class Connection(
     _TLSConnectionMixin, abstract.FileDescriptor, _SocketCloser, _AbortingMixin
@@ -220,21 +246,27 @@ class Connection(
     connection based socket.
 
     @ivar logstr: prefix used when logging events related to this connection.
-    @type logstr: C{str}
     """
 
-    def __init__(self, skt, protocol, reactor=None):
-        abstract.FileDescriptor.__init__(self, reactor=reactor)
-        self.socket = skt
-        self.socket.setblocking(0)
-        self.fileno = skt.fileno
-        self.protocol = protocol
+    logstr: str = "Uninitialized"
 
-    def getHandle(self):
+    def __init__(
+        self,
+        skt: socket.socket,
+        protocol: IProtocol,
+        reactor: IReactorFDSet | None = None,
+    ):
+        abstract.FileDescriptor.__init__(self, reactor=reactor)
+        self.socket: socket.socket = skt
+        self.socket.setblocking(False)
+        self.fileno: Callable[[], int] = skt.fileno
+        self.protocol: IProtocol = protocol
+
+    def getHandle(self) -> socket.socket:
         """Return the socket for this connection."""
         return self.socket
 
-    def doRead(self):
+    def doRead(self) -> ConnectionLost | ConnectionDone | None:
         """Calls self.protocol.dataReceived with all available data.
 
         This reads up to self.bufferSize bytes of data from its socket, then
@@ -246,29 +278,19 @@ class Connection(
             data = self.socket.recv(self.bufferSize)
         except OSError as se:
             if se.args[0] == EWOULDBLOCK:
-                return
+                return None
             else:
                 return main.CONNECTION_LOST
 
         return self._dataReceived(data)
 
-    def _dataReceived(self, data):
+    def _dataReceived(self, data: bytes | None) -> ConnectionDone | None:
         if not data:
             return main.CONNECTION_DONE
-        rval = self.protocol.dataReceived(data)
-        if rval is not None:
-            offender = self.protocol.dataReceived
-            warningFormat = (
-                "Returning a value other than None from %(fqpn)s is "
-                "deprecated since %(version)s."
-            )
-            warningString = deprecate.getDeprecationWarningString(
-                offender, versions.Version("Twisted", 11, 0, 0), format=warningFormat
-            )
-            deprecate.warnAboutFunction(offender, warningString)
-        return rval
+        self.protocol.dataReceived(data)
+        return None
 
-    def writeSomeData(self, data):
+    def writeSomeData(self, data: bytes) -> int | ConnectionLost:
         """
         Write as much as possible of the given data to this TCP connection.
 
@@ -288,7 +310,7 @@ class Connection(
             else:
                 return main.CONNECTION_LOST
 
-    def _closeWriteConnection(self):
+    def _closeWriteConnection(self) -> None:
         try:
             self.socket.shutdown(1)
         except OSError:
@@ -302,7 +324,7 @@ class Connection(
                 log.err()
                 self.connectionLost(f)
 
-    def readConnectionLost(self, reason):
+    def readConnectionLost(self, reason: failure.Failure) -> None:
         p = IHalfCloseableProtocol(self.protocol, None)
         if p:
             try:
@@ -313,7 +335,7 @@ class Connection(
         else:
             self.connectionLost(reason)
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason: failure.Failure) -> None:
         """See abstract.FileDescriptor.connectionLost()."""
         # Make sure we're not called twice, which can happen e.g. if
         # abortConnection() is called from protocol's dataReceived and then
@@ -330,16 +352,14 @@ class Connection(
         del self.fileno
         protocol.connectionLost(reason)
 
-    logstr = "Uninitialized"
-
-    def logPrefix(self):
+    def logPrefix(self) -> str:
         """Return the prefix to log with when I own the logging thread."""
         return self.logstr
 
-    def getTcpNoDelay(self):
+    def getTcpNoDelay(self) -> bool:
         return bool(self.socket.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
 
-    def setTcpNoDelay(self, enabled):
+    def setTcpNoDelay(self, enabled: bool) -> None:
         try:
             # There are bug reports about failures when setting TCP_NODELAY under certain conditions
             # on macOS: https://github.com/thespianpy/Thespian/issues/70,
@@ -353,10 +373,10 @@ class Connection(
         except OSError as e:  # pragma: no cover
             log.err(e, "got error when setting TCP_NODELAY on TCP socket")
 
-    def getTcpKeepAlive(self):
+    def getTcpKeepAlive(self) -> bool:
         return bool(self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE))
 
-    def setTcpKeepAlive(self, enabled):
+    def setTcpKeepAlive(self, enabled: bool) -> None:
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, enabled)
 
 
@@ -457,9 +477,11 @@ class _BaseBaseClient:
         if self._requiresResolution:
             d = self.reactor.resolve(self.addr[0])
             d.addCallback(lambda n: (n,) + self.addr[1:])
-            d.addCallbacks(self._setRealAddress, self.failIfNotConnected)
         else:
-            self._setRealAddress(self.addr)
+            d = defer.succeed(self.addr)
+
+        d.addCallback(self._setRealAddress)
+        d.addErrback(self.failIfNotConnected)
 
     def _setRealAddress(self, address):
         """
@@ -498,6 +520,7 @@ class _BaseBaseClient:
             pass
         else:
             self._collectSocketDetails()
+
         self.connector.connectionFailed(failure.Failure(err))
         del self.connector
 
@@ -571,7 +594,6 @@ class BaseClient(_BaseBaseClient, _TLSClientMixin, Connection):
         """
         s = socket.socket(self.addressFamily, self.socketType)
         s.setblocking(0)
-        fdesc._setCloseOnExec(s.fileno())
         return s
 
     def doConnect(self):
@@ -659,7 +681,7 @@ class BaseClient(_BaseBaseClient, _TLSClientMixin, Connection):
             self.protocol.makeConnection(self)
 
 
-_NUMERIC_ONLY = socket.AI_NUMERICHOST | _AI_NUMERICSERV
+_NUMERIC_ONLY = socket.AI_NUMERICHOST | socket.AI_NUMERICSERV
 
 
 def _resolveIPv6(ip, port):
@@ -683,7 +705,22 @@ def _resolveIPv6(ip, port):
     @raise socket.gaierror: if either the IP or port is not numeric as it
         should be.
     """
-    return socket.getaddrinfo(ip, port, 0, 0, 0, _NUMERIC_ONLY)[0][4]
+    usedPort = port
+    if isinstance(port, int):
+        # On Linux and macOS `getaddrinfo` raises an exception on negative port number,
+        # while Windows accept it as long as it is an int.
+        # We pass a valid port to resolve the which is later overwritten.
+        usedPort = 1
+
+    result = socket.getaddrinfo(ip, usedPort, 0, 0, 0, _NUMERIC_ONLY)[0][4]
+    # On Windows and Linux `getaddrinfo` will also "resolve" invalid port numbers,
+    # and covert them into a valid one.
+    # Example 123456 is resolved as 57920, or -1 to 65535.
+    #
+    # We want to preserve the initial port number,
+    # so that later in possible error report we can report the original port number.
+    result = (result[0], port, result[2], result[3])
+    return result
 
 
 class _BaseTCPClient:
@@ -741,11 +778,18 @@ class _BaseTCPClient:
             whenDone = None
         if whenDone and bindAddress is not None:
             try:
-                assert type(bindAddress) == tuple
-                if abstract.isIPv6Address(bindAddress[0]):
-                    bindinfo = _resolveIPv6(*bindAddress)
+                if isinstance(bindAddress, tuple):
+                    bindAddress = makeBinding(*bindAddress)
+                assert isinstance(bindAddress, _Binding)
+                if bindAddress._reuseAddress:
+                    skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if platformType == "posix" and sys.platform != "cygwin":
+                    if bindAddress._reusePort:
+                        skt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                if abstract.isIPv6Address(bindAddress._address):
+                    bindinfo = _resolveIPv6(bindAddress._address, bindAddress._port)
                 else:
-                    bindinfo = bindAddress
+                    bindinfo = bindAddress._address, bindAddress._port
                 skt.bind(bindinfo)
             except OSError as se:
                 err = error.ConnectBindError(se.args[0], se.args[1])
@@ -798,9 +842,9 @@ class Server(_TLSServerMixin, Connection):
 
     _base = Connection
 
-    _addressType: (
-        type[address.IPv4Address] | type[address.IPv6Address]
-    ) = address.IPv4Address
+    _addressType: type[address.IPv4Address] | type[
+        address.IPv6Address
+    ] = address.IPv4Address
 
     def __init__(
         self,
@@ -809,7 +853,7 @@ class Server(_TLSServerMixin, Connection):
         client: tuple[object, ...],
         server: Port,
         sessionno: int,
-        reactor: IReactorTCP,
+        reactor: IReactorFDSet,
     ) -> None:
         """
         Server(sock, protocol, client, server, sessionno)
@@ -1232,6 +1276,28 @@ def _accept(logger, accepts, listener, reservedFD):
             yield client, address
 
 
+def _constructTCPPort(self, port, factory, backlog, interface):
+    binding = port
+    if port is None or isinstance(port, int):
+        binding = makeBinding(interface, port, reuseAddress=True)
+    else:
+        assert isinstance(binding, _Binding), "Binding is {}".format(binding)
+        if interface != "" and binding._address != interface:
+            raise ValueError("Inconsistent interface vs Binding specifiers")
+    # we need to be backwards-compatible to when Port had settable
+    # .port and .interface attributes .. so we extract everything
+    # from Binding here (thus leaving Binding immutable).
+    self.port = binding._port
+    self.interface = "" if binding._address is None else binding._address
+    self._reuseAddress = binding._reuseAddress
+    self._reusePort = binding._reusePort
+    self.factory = factory
+    self.backlog = backlog
+    if abstract.isIPv6Address(interface):
+        self.addressFamily = socket.AF_INET6
+        self._addressType = address.IPv6Address
+
+
 @implementer(IListeningPort)
 class Port(base.BasePort, _SocketCloser):
     """
@@ -1275,6 +1341,8 @@ class Port(base.BasePort, _SocketCloser):
     sessionno = 0
     interface = ""
     backlog = 50
+    factory: Factory | None = None  # teach mypy "factory" exists
+    port: int | None = None
 
     _type = "TCP"
 
@@ -1284,22 +1352,23 @@ class Port(base.BasePort, _SocketCloser):
 
     # An externally initialized socket that we will use, rather than creating
     # our own.
-    _preexistingSocket = None
+    _preexistingSocket: socket.socket | None = None
 
     addressFamily = socket.AF_INET
-    _addressType = address.IPv4Address
+    _addressType: type[address.IPv4Address | address.IPv6Address] = address.IPv4Address
     _logger = Logger()
 
-    def __init__(self, port, factory, backlog=50, interface="", reactor=None):
+    def __init__(
+        self,
+        port: int,
+        factory: IProtocolFactory,
+        backlog: int = 50,
+        interface: str = "",
+        reactor: Any = None,
+    ):
         """Initialize with a numeric port to listen on."""
         base.BasePort.__init__(self, reactor=reactor)
-        self.port = port
-        self.factory = factory
-        self.backlog = backlog
-        if abstract.isIPv6Address(interface):
-            self.addressFamily = socket.AF_INET6
-            self._addressType = address.IPv6Address
-        self.interface = interface
+        _constructTCPPort(self, port, factory, backlog, interface)
 
     @classmethod
     def _fromListeningDescriptor(cls, reactor, fd, addressFamily, factory):
@@ -1340,16 +1409,20 @@ class Port(base.BasePort, _SocketCloser):
     def createInternetSocket(self):
         s = base.BasePort.createInternetSocket(self)
         if platformType == "posix" and sys.platform != "cygwin":
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if self._reuseAddress:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if self._reusePort:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         return s
 
-    def startListening(self):
+    def startListening(self) -> None:
         """Create and bind my socket, and begin listening on it.
 
         This is called on unserialization, and must be called after creating a
         server to begin listening on the specified port.
         """
         _reservedFD.reserve()
+        skt: socket.socket | None = None
         if self._preexistingSocket is None:
             # Create a new socket and make it listen
             try:
@@ -1360,6 +1433,8 @@ class Port(base.BasePort, _SocketCloser):
                     addr = (self.interface, self.port)
                 skt.bind(addr)
             except OSError as le:
+                if skt is not None:
+                    skt.close()
                 raise CannotListenError(self.interface, self.port, le)
             skt.listen(self.backlog)
         else:
@@ -1380,10 +1455,10 @@ class Port(base.BasePort, _SocketCloser):
 
         # The order of the next 5 lines is kind of bizarre.  If no one
         # can explain it, perhaps we should re-arrange them.
-        self.factory.doStart()
+        self.factory.doStart()  # type: ignore
         self.connected = True
         self.socket = skt
-        self.fileno = self.socket.fileno
+        self.fileno = self.socket.fileno  # type:ignore[method-assign]
         self.numberAccepts = 100
 
         self.startReading()
@@ -1415,8 +1490,6 @@ class Port(base.BasePort, _SocketCloser):
                 )
 
                 for accepted, (skt, addr) in enumerate(clients, 1):
-                    fdesc._setCloseOnExec(skt.fileno())
-
                     if len(addr) == 4:
                         # IPv6, make sure we get the scopeID if it
                         # exists
@@ -1528,7 +1601,7 @@ class Connector(base.BaseConnector):
         port: int | str,
         factory: ClientFactory[P],
         timeout: float,
-        bindAddress: str | tuple[str, int] | None,
+        bindAddress: Binding | str | tuple[str, int] | None,
         reactor: Any = None,
     ) -> None:
         if isinstance(port, str):

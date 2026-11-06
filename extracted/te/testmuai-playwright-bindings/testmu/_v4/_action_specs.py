@@ -280,6 +280,23 @@ async def _type_coord_runner(page, x, y, text, **kw):
 TYPE_SPEC = _VerbSpec(runner=_type_runner, coord_runner=_type_coord_runner)
 
 
+async def _press_sequentially_runner(locator, text, **kw):
+    await locator.press_sequentially(as_text(text), **kw)
+
+
+async def _press_sequentially_coord_runner(page, x, y, text, **kw):
+    """Click + select all + type with real key events (replaces existing text)."""
+    delay = kw.get("delay", 0)
+    await page.mouse.click(x, y)
+    await page.keyboard.press("ControlOrMeta+a")
+    await page.keyboard.type(as_text(text), delay=delay)
+
+
+PRESS_SEQUENTIALLY_SPEC = _VerbSpec(
+    runner=_press_sequentially_runner, coord_runner=_press_sequentially_coord_runner,
+)
+
+
 async def _press_runner(locator, key, **kw):
     await locator.press(key, **kw)
 
@@ -462,6 +479,7 @@ _VERB_SPECS: dict[str, _VerbSpec] = {
     "clear": CLEAR_SPEC,
     "fill": FILL_SPEC,
     "type": TYPE_SPEC,
+    "press_sequentially": PRESS_SEQUENTIALLY_SPEC,
     "press": PRESS_SPEC,
     "set_input_files": SET_INPUT_FILES_SPEC,
     "scroll_into_view_if_needed": SCROLL_INTO_VIEW_SPEC,
@@ -476,7 +494,7 @@ def get_verb_spec(verb_name: str) -> _VerbSpec | None:
 
 __all__ = [
     "CLICK_SPEC", "DBLCLICK_SPEC", "LONG_PRESS_SPEC", "MULTI_CLICK_SPEC", "HOVER_SPEC",
-    "CLEAR_SPEC", "FILL_SPEC", "TYPE_SPEC", "PRESS_SPEC",
+    "CLEAR_SPEC", "FILL_SPEC", "TYPE_SPEC", "PRESS_SEQUENTIALLY_SPEC", "PRESS_SPEC",
     "SET_INPUT_FILES_SPEC", "SCROLL_INTO_VIEW_SPEC",
     "_scroll_coord_runner", "_long_press_coord_runner",
     "_FIND_FIRST_FILE_INPUT_JS", "_resolve_file_input_dom",

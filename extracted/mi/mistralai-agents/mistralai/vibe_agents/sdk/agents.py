@@ -49,7 +49,6 @@ from mistralai.vibe_agents.sdk.authoring.agent import Agent
 from mistralai.vibe_agents.sdk.authoring.connector_selection import AllConnectors, all_connectors
 from mistralai.vibe_agents.sdk.authoring.contracts import (
     BashkitSandbox,
-    CustomSandbox,
     DangerousLocalSandbox,
     Depends,
     EgressPolicy,
@@ -228,9 +227,9 @@ class _ParentSandbox(NoSandbox):
 
 
 class hook:
-    """What a Hook receives at each point, and the result models for a Hook that changes what continues.
+    """What a hook gets at each point and returns: continue, or replace the input or output.
 
-    A Hook that only continues returns ``None``; one that stops returns ``agents.skip``,
+    A hook that continues unchanged returns ``None``; one that stops returns ``agents.skip``,
     ``agents.retry`` or ``agents.reject``.
     """
 
@@ -450,7 +449,6 @@ __all__ = [
     "Connector",
     "ContentAnnotations",
     "ContextMessage",
-    "CustomSandbox",
     "DangerousLocalSandbox",
     "DenyApproval",
     "EgressPolicy",

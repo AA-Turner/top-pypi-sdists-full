@@ -4,8 +4,10 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from sarj_iac_lint.rules.expression_complexity import ExpressionComplexity
+from sarj_iac_lint.rules.no_boolean_enable_variable import NoBooleanEnableVariable
 from sarj_iac_lint.rules.no_comment_cruft import NoCommentCruft
 from sarj_iac_lint.rules.no_dead_environment_input import NoDeadEnvironmentInput
+from sarj_iac_lint.rules.no_duplicate_deployment_literal import NoDuplicateDeploymentLiteral
 from sarj_iac_lint.rules.no_environment_conditional import NoEnvironmentConditional
 from sarj_iac_lint.rules.no_managed_service_account_key import NoManagedServiceAccountKey
 from sarj_iac_lint.rules.no_mocked_terraform_test_oracle import NoMockedTerraformTestOracle
@@ -29,6 +31,8 @@ if TYPE_CHECKING:
 
 REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        NoBooleanEnableVariable.id: NoBooleanEnableVariable,
+        NoDuplicateDeploymentLiteral.id: NoDuplicateDeploymentLiteral,
         ExpressionComplexity.id: ExpressionComplexity,
         NoTerraformComments.id: NoTerraformComments,
         NoPlaintextSecretEnv.id: NoPlaintextSecretEnv,

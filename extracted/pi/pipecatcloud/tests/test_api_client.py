@@ -472,6 +472,7 @@ class TestNoContentResponses:
         class _Resp:
             ok = True
             status = 204
+            headers = {}
             json = staticmethod(_json)
 
         class _Session:
@@ -515,6 +516,7 @@ def _response(status, body):
             self.status = status
             self.ok = status < 400
             self.reason = "Reason"
+            self.headers = {}
 
         async def json(self):
             return body

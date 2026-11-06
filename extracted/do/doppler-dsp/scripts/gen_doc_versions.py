@@ -34,12 +34,13 @@ Regions are delimited exactly like the other generators::
 
 Inside a region every semver-looking token is rewritten to the current
 version, so a region needs no placeholder syntax and stays readable and
-runnable as committed. That includes anything shaped like one -- a dotted-quad
-address such as ``127.0.0.1`` is a semver-looking token -- so keep a region
-tight around the command that carries the version. One two-part token is
-stamped too: the Debian runtime package embeds its ABI series in its name
-(``libdoppler-dsp0.62_0.62.0_amd64.deb``), and ``0.62`` is the version's
-major.minor. Outside a region nothing is touched --
+runnable as committed. That includes anything shaped like one, so keep a
+region tight around the command that carries the version. A token followed by
+a file extension keeps it (``v0.79.0.tar.gz``), and a four-part number such as
+a dotted-quad address (``127.0.0.1``) is not a version and is left alone.
+One two-part token is stamped too: the Debian runtime package embeds its ABI
+series in its name (``libdoppler-dsp0.62_0.62.0_amd64.deb``), and ``0.62`` is
+the version's major.minor. Outside a region nothing is touched --
 ``check_version_strings.py`` still forbids hand-typed versions
 everywhere else, and skips these regions so the two gates cannot
 contradict each other.
@@ -62,16 +63,41 @@ ROOT = Path(__file__).resolve().parent.parent
 START = "<!-- doc-version:start -->"
 END = "<!-- doc-version:end -->"
 
-# A semver-ish token: 1.2.3, optionally with a pre-release suffix. Bounded
-# on both sides so 0.39.0 is not found inside 10.39.05 or 0.39.01.
+# A semver-ish token: 1.2.3, optionally with a pre-release suffix (1.2.3rc1,
+# 1.2.3.dev4). Bounded on both sides so 0.39.0 is not found inside 10.39.05 or
+# 0.39.01, or 0.39.0.1.
+#
+# The suffix is letters and digits with NO dot, plus the PEP 440 dotted forms
+# (.devN, .postN). It used to be a greedy [A-Za-z0-9.]*, which took ``.tar.gz``
+# for part of the version: the natural URL
+# ``.../archive/refs/tags/v0.79.0.tar.gz`` was rewritten to ``.../v0.79.0`` on
+# the first stamp (doppler#2856). Ending the token before any other
+# ``.<letter>`` means no list of file extensions to keep in step: ``.tar.gz``,
+# ``.zip``, ``.deb`` and a sentence-final period are all simply not part of it.
 VERSION_TOKEN = re.compile(
-    r"(?<![0-9.])\d+\.\d+\.\d+(?:[A-Za-z0-9.]*)?(?![0-9.])"
+    r"(?<![0-9.])\d+\.\d+\.\d+"
+    r"(?:[A-Za-z][A-Za-z0-9]*)?"
+    r"(?:\.(?:dev|post)\d+)*"
+    r"(?!\d|\.\d)"
 )
 
 # The ABI series a Debian runtime package carries in its NAME
 # (libdoppler-dsp0.62): the version's major.minor, anchored to that prefix so
 # no other two-part number is ever rewritten.
 SERIES_TOKEN = re.compile(r"(?<=libdoppler-dsp)\d+\.\d+(?![0-9.])")
+
+# A link to a file of THIS repository at a release tag. Unlike a version in a
+# command, it appears in running prose and in tables, where a marked region
+# would be a wrapper around every link, so the pin is stamped WHEREVER it
+# appears: write ``.../blob/v0.1.0/path`` once and each release rewrites it
+# (doppler#2857). The reader of a deployed page is then shown the code they
+# installed, not whatever ``main`` has become. ``scripts/check_repo_links.py``
+# refuses the unpinned ``.../blob/main`` form in the docs, so a link cannot
+# go unstamped by being written the other way.
+LINK_PIN = re.compile(
+    r"(https://github\.com/doppler-dsp/doppler/(?:blob|tree)/)"
+    r"v\d+\.\d+\.\d+(?=/)"
+)
 
 REGION = re.compile(
     rf"({re.escape(START)}\n)(.*?)(\n?{re.escape(END)})",
@@ -136,8 +162,18 @@ def unfloored(text: str) -> list[int]:
     ]
 
 
-def render(text: str, version: str) -> str:
-    """Rewrite every version token inside every marked region."""
+def render(text: str, version: str, pin_links: bool = True) -> str:
+    """Rewrite every version token inside every marked region, and (unless
+    ``pin_links`` is False) every repository link pinned to a release tag
+    (:data:`LINK_PIN`) anywhere.
+
+    ``pin_links`` is False for a frozen page under ``archive/``: it records
+    what a release looked like, so its links must keep naming THAT release. A
+    live page that needs a historical link names a commit instead
+    (``.../blob/<40-hex sha>/path``), which this never matches.
+    """
+    if pin_links:
+        text = LINK_PIN.sub(rf"\g<1>v{version}", text)
 
     def one(m: re.Match[str]) -> str:
         head, body, tail = m.group(1), m.group(2), m.group(3)
@@ -161,9 +197,7 @@ def main() -> int:
 
     for page in pages():
         text = page.read_text(encoding="utf-8")
-        if START not in text:
-            continue
-        new = render(text, version)
+        new = render(text, version, "archive" not in page.parts)
         if new == text:
             continue
         rel = page.relative_to(ROOT)

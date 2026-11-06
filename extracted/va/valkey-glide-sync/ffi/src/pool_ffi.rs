@@ -1,0 +1,1623 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLIENT-INSTANCE POOL FFI
+//
+// These functions expose glide-core's ClientPool to all language bindings.
+// The pool manages GlideClient lifecycle (creation, LIFO reuse, bounded size).
+// Language bindings call these via their FFI mechanism (CFFI, Ruby FFI, JNI, CGO).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+use super::*;
+use glide_core::pool::{self, ClientPool, ClientState, POOL_RUNNING, PoolConfig, PooledClient};
+use glide_core::scope;
+use std::sync::atomic::Ordering as AtomicOrdering;
+
+/// Drop an adapter [`Arc`] whose owning reference `create_pool_client` handed
+/// out as a raw pointer. Must be called before any early return that occurs after
+/// `create_pool_client` succeeds but **before** `adapter_ptr` is stored in
+/// `get_pool_clients()` — at that point `glide_pool_destroy` cannot find it and
+/// it would leak forever.
+///
+/// # Safety
+/// `$ptr` must have been produced by `Arc::into_raw` (as done inside
+/// `create_pool_client`). Reconstructing the `Arc` and immediately dropping it
+/// is the only correct way to release the allocation.
+macro_rules! drop_orphaned_adapter {
+    ($ptr:expr) => {
+        // SAFETY: $ptr was produced by Arc::into_raw in create_pool_client.
+        // Reconstructing and dropping it here is the only safe way to release
+        // the allocation.
+        unsafe {
+            drop(std::sync::Arc::from_raw($ptr as *const ClientAdapter));
+        }
+    };
+}
+
+/// The watchdog's error for a scoped command that outlived its deadline, with
+/// the diagnostic logged through core so the event shape is shared with the
+/// acquire path.
+fn scope_watchdog_timeout(
+    command: &'static str,
+    configured_timeout: std::time::Duration,
+    actual_elapsed: std::time::Duration,
+    p99: Option<std::time::Duration>,
+) -> RedisError {
+    scope::log_scope_watchdog_timeout(command, configured_timeout, actual_elapsed, p99);
+    std::io::Error::from(std::io::ErrorKind::TimedOut).into()
+}
+
+/// Whether the diagnostic timeout watchdog should be armed for a scoped command.
+///
+/// The watchdog arms at the flat client request timeout and aborts the command
+/// when it fires. That is meaningless for a blocking command, which is expected
+/// to wait far longer than the request timeout (the authoritative deadline for
+/// blocking commands is derived per-command in `send_command_on_connection`).
+/// Arming it would wrongly abort a blocking scoped command, so skip it for those
+/// and let the command block for as long as its own semantics allow (see #6780).
+///
+/// Takes the command name and args directly (rather than a `redis::Cmd`) so the
+/// hot path avoids allocating a `Cmd` and copying every argument byte — notably a
+/// large SET payload — just to answer this yes/no question.
+fn should_arm_watchdog(cmd_name: &str, args: &[Vec<u8>]) -> bool {
+    !glide_core::client::is_blocking_command_name(cmd_name.as_bytes(), args)
+}
+
+/// Pool creation/acquire error codes
+const POOL_ERROR_INVALID_CONFIG: i64 = -1;
+#[allow(dead_code)] // used in future pool expansion (documented in FFI contract)
+const POOL_ERROR_CREATION_FAILED: i64 = -2;
+const POOL_ERROR_UNSUPPORTED_CONFIG: i64 = -3;
+
+/// Shared Tokio runtime for pool background operations (client creation, eviction).
+/// All pooled clients share this runtime rather than each getting their own.
+static POOL_RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
+
+/// Maps client_id → (ClientAdapter raw pointer, PooledClient).
+/// When a client is acquired, the entry moves here. On release, it moves back to pool.idle.
+static POOL_CLIENTS: std::sync::OnceLock<dashmap::DashMap<u64, PoolClientEntry>> =
+    std::sync::OnceLock::new();
+
+/// Reverse lookup: adapter_ptr → (pool_id, client_id).
+/// Populated at client creation, used by command dispatch to detect pool-borrowed clients
+/// and mark them as blocking when executing blocking commands.
+///
+/// Note: FFI-managed pool clients are NOT registered in glide-core's CLIENT_TO_POOL
+/// map. Pool membership and activity refresh for FFI clients are tracked via
+/// POOL_ADAPTER_MAP (adapter_ptr → (pool_id, client_id)) in this file.
+/// The is_pool_client() and refresh_activity_by_client() glide-core APIs therefore
+/// do not apply to FFI clients; activity refresh happens directly via
+/// refresh_client_activity(pool_id, client_id) at dispatch time.
+static POOL_ADAPTER_MAP: std::sync::OnceLock<dashmap::DashMap<usize, (u64, u64)>> =
+    std::sync::OnceLock::new();
+
+fn get_pool_runtime() -> &'static tokio::runtime::Runtime {
+    POOL_RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .worker_threads(2)
+            .thread_name("glide-pool")
+            .build()
+            .expect("Failed to create pool runtime")
+    })
+}
+
+#[allow(dead_code)]
+struct PoolClientEntry {
+    adapter_ptr: usize, // *const ClientAdapter as usize (for command dispatch)
+    client: glide_core::client::Client,
+    created_at: std::time::Instant,
+}
+
+fn get_pool_clients() -> &'static dashmap::DashMap<u64, PoolClientEntry> {
+    POOL_CLIENTS.get_or_init(dashmap::DashMap::new)
+}
+
+pub(crate) fn get_pool_adapter_map() -> &'static dashmap::DashMap<usize, (u64, u64)> {
+    POOL_ADAPTER_MAP.get_or_init(dashmap::DashMap::new)
+}
+
+/// [`glide_core::pool::track_scope_command`] for a scope whose parent adapter is
+/// pool-borrowed; `None` otherwise.
+fn track_scope_command(
+    scope_id: u64,
+    cmd_name: &str,
+    args: &[Vec<u8>],
+) -> Option<glide_core::pool::BlockingGuard> {
+    let parent = scope::scope_parent_id(scope_id)? as usize;
+    let (pool_id, client_id) = *get_pool_adapter_map().get(&parent)?.value();
+    glide_core::pool::track_scope_command(pool_id, client_id, cmd_name, args)
+}
+
+/// Maps pool_id → ClientType for background client creation.
+static POOL_CLIENT_TYPES: std::sync::OnceLock<dashmap::DashMap<u64, ClientType>> =
+    std::sync::OnceLock::new();
+
+fn get_pool_client_types() -> &'static dashmap::DashMap<u64, ClientType> {
+    POOL_CLIENT_TYPES.get_or_init(dashmap::DashMap::new)
+}
+
+/// Create a GlideClient + ClientAdapter for the pool.
+/// Runs on a dedicated thread (not inside an existing runtime) to avoid nesting.
+/// Create a pool client using the standard create_client_internal path.
+/// This ensures full feature parity: pipe integration, cluster support, pubsub, etc.
+///
+/// For sync pools: creates a SyncClient adapter.
+/// For async pools: creates an AsyncClient adapter with callbacks.
+fn create_pool_client(
+    connection_request_bytes: &[u8],
+    client_type: ClientType,
+    client_id: usize,
+) -> Result<(usize, glide_core::client::Client), String> {
+    let adapter_ptr = create_client_internal(
+        connection_request_bytes,
+        client_type,
+        None, // no pubsub callback for pooled clients (managed at pool level)
+        None, // no address resolver (uses the one in ConnectionRequest if any)
+        None, // custom credential providers are rejected by glide_pool_create
+        client_id,
+    )
+    .map_err(|err| err.message)?;
+
+    // Extract the Client from the adapter for pool bookkeeping
+    let adapter = unsafe {
+        Arc::increment_strong_count(adapter_ptr);
+        Arc::from_raw(adapter_ptr)
+    };
+    let client = adapter.core.client.clone();
+    // Enable the borrow-time IAM reconcile in send_command for pooled clients.
+    client.mark_pool_managed();
+    let ptr = adapter_ptr as usize;
+    // Deliberately keep a second strong reference. Binding wrappers cache the
+    // raw pointer and are never told when the drain releases the pool's
+    // reference, so freeing the adapter there would leave them dangling
+    // (use-after-free). Until wrappers own their own reference the adapter
+    // must outlive the pool; the cost is one leaked adapter per pooled client.
+    std::mem::forget(adapter);
+
+    Ok((ptr, client))
+}
+
+/// Create a new client-instance pool.
+///
+/// Creates pooled clients of the specified type. All languages use this single
+/// entry point — pass the appropriate ClientType:
+/// - Python sync/Ruby: `ClientType { tag: SyncClient }`
+/// - Go/Java: `ClientType { tag: AsyncClient, success_callback, failure_callback }`
+/// - Python async: `ClientType { tag: AsyncClient }` with pipe (no callbacks needed)
+///
+/// Returns pool_id (positive) on success, -1 on invalid config, -2 on other errors.
+///
+/// # Safety
+/// `connection_request_ptr` must point to `connection_request_len` valid bytes.
+/// `client_type` must be a valid pointer to a `ClientType`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_pool_create(
+    max_size: u32,
+    min_idle: u32,
+    idle_timeout_ms: u64,
+    request_timeout_ms: u64,
+    abandon_timeout_ms: u64,
+    connection_request_ptr: *const u8,
+    connection_request_len: usize,
+    client_type: *const ClientType,
+) -> i64 {
+    let connection_request = if connection_request_ptr.is_null() || connection_request_len == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(connection_request_ptr, connection_request_len) }
+            .to_vec()
+    };
+
+    let ct = if client_type.is_null() {
+        ClientType::SyncClient
+    } else {
+        unsafe { (*client_type).clone() }
+    };
+
+    let is_async = !matches!(ct, ClientType::SyncClient);
+
+    // Parse database_id from connection request for state reset on release
+    let configured_database_id = {
+        use protobuf::Message as _;
+        let req = connection_request::ConnectionRequest::parse_from_bytes(&connection_request);
+        if let Ok(ref r) = req {
+            if r.credential_provider_key.is_some() {
+                glide_logger::log_error(
+                    "pool",
+                    "Cannot create pool with a credential_provider_key. Custom IAM credential \
+                     providers are not supported for pools.",
+                );
+                return POOL_ERROR_UNSUPPORTED_CONFIG;
+            }
+            // Reject pubsub subscriptions in pool config — pool state reset on release
+            // sends DISCARD + SELECT to clean connection state, but cannot UNSUBSCRIBE
+            // from channels/patterns. A subscribed connection enters a special mode where
+            // only (P|S)SUBSCRIBE/(P|S)UNSUBSCRIBE/PING are allowed, making it unusable
+            // for the next borrower. Rather than silently breaking, we reject upfront.
+            if r.pubsub_subscriptions.is_some() {
+                glide_logger::log_error(
+                    "pool",
+                    "Cannot create pool with pubsub subscriptions in client config. \
+                     Use the main client's pubsub API instead.",
+                );
+                return POOL_ERROR_UNSUPPORTED_CONFIG;
+            }
+            // TODO: support RDMA in pools.
+            if r.rdma_config.is_some() {
+                glide_logger::log_error(
+                    "pool",
+                    "Cannot create pool with an RDMA configuration: RDMA is not yet \
+                     supported with pools. Use a client outside a pool instead.",
+                );
+                return POOL_ERROR_UNSUPPORTED_CONFIG;
+            }
+        }
+        req.ok()
+            .and_then(|r| {
+                let db = r.database_id;
+                if db != 0 { Some(db) } else { None }
+            })
+            .unwrap_or(0)
+    };
+
+    let config = PoolConfig {
+        max_size,
+        min_idle,
+        idle_timeout: std::time::Duration::from_millis(idle_timeout_ms),
+        request_timeout: std::time::Duration::from_millis(request_timeout_ms),
+        test_on_borrow: false,
+        connection_request: connection_request.clone(),
+        is_async,
+        configured_database_id,
+        abandon_timeout: std::time::Duration::from_millis(abandon_timeout_ms),
+    };
+
+    let pool = match ClientPool::new(config) {
+        Ok(p) => p,
+        Err(_) => return POOL_ERROR_INVALID_CONFIG,
+    };
+
+    let pool_id = pool::register_pool(pool);
+
+    // Start abandon monitor
+    let rt = get_pool_runtime();
+    pool::start_abandon_monitor(pool_id, rt.handle());
+
+    // Store the ClientType for background creation
+    get_pool_client_types().insert(pool_id, ct.clone());
+
+    // Reserve the warmup slots up front so should_create() reads the pool as full
+    // while these connections are still in flight; see ClientPool::reserve_warmup_slots.
+    if min_idle > 0 {
+        let pool_arc = pool::get_pool(pool_id).unwrap();
+        let reserved = get_pool_runtime()
+            .block_on(async { pool_arc.lock().await.reserve_warmup_slots(min_idle) });
+        for _ in 0..reserved {
+            let pool_clone = pool_arc.clone();
+            let bytes = connection_request.clone();
+            let ct_clone = ct.clone();
+            std::thread::spawn(move || {
+                let pre_cid = glide_core::pool::allocate_client_id() as usize;
+                match create_pool_client(&bytes, ct_clone, pre_cid) {
+                    Ok((adapter_ptr, client)) => {
+                        // Use block_on for warmup — this runs during pool creation
+                        // (initialization), not during acquire/release contention,
+                        // so blocking is safe and guarantees clients are ready.
+                        let rt = get_pool_runtime();
+                        rt.block_on(async {
+                            let mut pool = pool_clone.lock().await;
+                            if pool.state.load(AtomicOrdering::Acquire) != POOL_RUNNING {
+                                // Give the reserved slot back; the pool is gone.
+                                pool.release_reservation();
+                                // Never stored in get_pool_clients(), so glide_pool_destroy cannot reclaim it.
+                                drop_orphaned_adapter!(adapter_ptr);
+                                return;
+                            }
+                            // Use pre_cid (allocated before lock) to match POOL_ADAPTER_MAP entry;
+                            // p.next_id() would generate a different ID, breaking the adapter lookup.
+                            let client_id = pre_cid as u64;
+                            let flag = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+                            let entry = PooledClient {
+                                client_id,
+                                client: client.clone(),
+                                created_at: std::time::Instant::now(),
+                                last_idle_at: std::time::Instant::now(),
+                                borrowed_at: None,
+                                state: ClientState::Idle,
+                                is_blocking: flag.clone(),
+                            };
+                            // Slot already reserved above — do NOT increment total_count.
+                            pool.idle.push_back(entry);
+                            glide_core::pool::register_blocking_flag(client_id, flag);
+                            // Store adapter mapping
+                            get_pool_clients().insert(
+                                client_id,
+                                PoolClientEntry {
+                                    adapter_ptr,
+                                    client,
+                                    created_at: std::time::Instant::now(),
+                                },
+                            );
+                            get_pool_adapter_map().insert(adapter_ptr, (pool_id, client_id));
+                        });
+                    }
+                    Err(e) => {
+                        glide_logger::log_error_lazy!(
+                            "pool",
+                            format!("Background client creation failed: {}", e)
+                        );
+                        // Return the slot this warmup task reserved but never filled.
+                        let rt = get_pool_runtime();
+                        rt.block_on(async {
+                            pool_clone.lock().await.release_reservation();
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    pool_id as i64
+}
+
+/// Non-blocking acquire. Returns client_id >= 0, -1 if exhausted, -2 if invalid pool.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_try_acquire(pool_id: u64) -> i64 {
+    let pool_arc = match pool::get_pool(pool_id) {
+        Some(arc) => arc,
+        None => return -2,
+    };
+
+    match pool_arc.try_lock() {
+        Ok(mut pool) => {
+            // Reclaim the adapters of clients core has discarded
+            let discarded = pool.drain_discarded_ids();
+            for cid in discarded {
+                if let Some((_, entry)) = get_pool_clients().remove(&cid) {
+                    get_pool_adapter_map().remove(&entry.adapter_ptr);
+                    glide_core::scope::unregister_client(entry.adapter_ptr as u64);
+                    // Release the pool's reference. The adapter itself stays
+                    // alive (see create_pool_client) because a binding wrapper
+                    // may still hold its raw pointer.
+                    unsafe {
+                        drop(Arc::from_raw(entry.adapter_ptr as *const ClientAdapter));
+                    }
+                }
+            }
+
+            let result = pool.try_acquire();
+
+            // Record OTel metrics for pool hit/miss
+            if result >= 0 {
+                let _ = GlideOpenTelemetry::record_pool_hit();
+            } else {
+                let _ = GlideOpenTelemetry::record_pool_miss();
+            }
+
+            if result < 0 && pool.should_create() {
+                // Trigger background creation
+                pool.total_count.fetch_add(1, AtomicOrdering::AcqRel);
+                let pool_clone = pool_arc.clone();
+                let bytes = pool.config.connection_request.clone();
+                drop(pool);
+                std::thread::spawn(move || {
+                    let pre_cid = glide_core::pool::allocate_client_id() as usize;
+                    let bg_ct = get_pool_client_types()
+                        .get(&pool_id)
+                        .map(|e| e.value().clone())
+                        .unwrap_or(ClientType::SyncClient);
+                    match create_pool_client(&bytes, bg_ct, pre_cid) {
+                        Ok((adapter_ptr, client)) => {
+                            let rt = get_pool_runtime();
+                            rt.spawn(async move {
+                                let mut pool = pool_clone.lock().await;
+                                if pool.state.load(AtomicOrdering::Acquire) != POOL_RUNNING {
+                                    pool.release_reservation();
+                                    // Never stored in get_pool_clients(), so glide_pool_destroy cannot reclaim it.
+                                    drop_orphaned_adapter!(adapter_ptr);
+                                    return;
+                                }
+                                // Use pre_cid (allocated before lock) to match POOL_ADAPTER_MAP entry;
+                                // p.next_id() would generate a different ID, breaking the adapter lookup.
+                                let client_id = pre_cid as u64;
+                                let flag =
+                                    std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+                                let entry = PooledClient {
+                                    client_id,
+                                    client: client.clone(),
+                                    created_at: std::time::Instant::now(),
+                                    last_idle_at: std::time::Instant::now(),
+                                    borrowed_at: None,
+                                    state: ClientState::Idle,
+                                    is_blocking: flag.clone(),
+                                };
+                                pool.idle.push_back(entry);
+                                glide_core::pool::register_blocking_flag(client_id, flag);
+                                get_pool_clients().insert(
+                                    client_id,
+                                    PoolClientEntry {
+                                        adapter_ptr,
+                                        client,
+                                        created_at: std::time::Instant::now(),
+                                    },
+                                );
+                                get_pool_adapter_map().insert(adapter_ptr, (pool_id, client_id));
+                            });
+                        }
+                        Err(e) => {
+                            glide_logger::log_error_lazy!(
+                                "pool",
+                                format!("Background creation failed: {}", e)
+                            );
+                            let rt = get_pool_runtime();
+                            rt.spawn(async move {
+                                let mut pool = pool_clone.lock().await;
+                                pool.release_reservation();
+                            });
+                        }
+                    }
+                });
+            }
+            result
+        }
+        Err(_) => -1,
+    }
+}
+
+/// Blocking acquire with timeout. Waits on a condvar until a client becomes
+/// available or the timeout expires.
+///
+/// Returns client_id >= 0 on success, -1 on timeout, -2 on invalid pool.
+/// This eliminates the polling loop in language bindings — single FFI call
+/// instead of N retries.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_acquire_blocking(pool_id: u64, timeout_ms: u64) -> i64 {
+    let pool_arc = match pool::get_pool(pool_id) {
+        Some(arc) => arc,
+        None => return -2,
+    };
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+
+    // Get the condvar handle (try_lock is synchronous — no runtime needed)
+    let notify = loop {
+        match pool_arc.try_lock() {
+            Ok(pool) => break pool.release_notify.clone(),
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(1)),
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = GlideOpenTelemetry::record_pool_miss();
+            return -1;
+        }
+    };
+
+    loop {
+        // Try to acquire (try_lock is synchronous on TokioMutex — no runtime needed)
+        let result = match pool_arc.try_lock() {
+            Ok(mut pool) => {
+                // Reclaim the adapters of clients core has discarded
+                let discarded = pool.drain_discarded_ids();
+                for cid in discarded {
+                    if let Some((_, entry)) = get_pool_clients().remove(&cid) {
+                        get_pool_adapter_map().remove(&entry.adapter_ptr);
+                        glide_core::scope::unregister_client(entry.adapter_ptr as u64);
+                        unsafe {
+                            drop(Arc::from_raw(entry.adapter_ptr as *const ClientAdapter));
+                        }
+                    }
+                }
+
+                let r = pool.try_acquire();
+                if r >= 0 {
+                    let _ = GlideOpenTelemetry::record_pool_hit();
+                }
+                // Trigger background creation if needed
+                if r < 0 && pool.should_create() {
+                    pool.total_count.fetch_add(1, AtomicOrdering::AcqRel);
+                    let pool_clone = pool_arc.clone();
+                    let bytes = pool.config.connection_request.clone();
+                    drop(pool);
+                    std::thread::spawn(move || {
+                        let pre_cid = glide_core::pool::allocate_client_id() as usize;
+                        let bg_ct = get_pool_client_types()
+                            .get(&pool_id)
+                            .map(|e| e.value().clone())
+                            .unwrap_or(ClientType::SyncClient);
+                        match create_pool_client(&bytes, bg_ct, pre_cid) {
+                            Ok((adapter_ptr, client)) => {
+                                // Spawn pool insertion as an async task instead of
+                                // block_on to avoid starving the pool runtime and
+                                // deadlocking with release_client_async.
+                                let rt = get_pool_runtime();
+                                rt.spawn(async move {
+                                    let mut p = pool_clone.lock().await;
+                                    if p.state.load(AtomicOrdering::Acquire) != POOL_RUNNING {
+                                        p.release_reservation();
+                                        // Never stored in get_pool_clients(), so glide_pool_destroy cannot reclaim it.
+                                        drop_orphaned_adapter!(adapter_ptr);
+                                        return;
+                                    }
+                                    // Use pre_cid (allocated before lock) to match POOL_ADAPTER_MAP entry;
+                                    // p.next_id() would generate a different ID, breaking the adapter lookup.
+                                    let cid = pre_cid as u64;
+                                    let flag =
+                                        std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+                                    let entry = PooledClient {
+                                        client_id: cid,
+                                        client: client.clone(),
+                                        created_at: std::time::Instant::now(),
+                                        last_idle_at: std::time::Instant::now(),
+                                        borrowed_at: None,
+                                        state: ClientState::Idle,
+                                        is_blocking: flag.clone(),
+                                    };
+                                    p.idle.push_back(entry);
+                                    glide_core::pool::register_blocking_flag(cid, flag);
+                                    get_pool_clients().insert(
+                                        cid,
+                                        PoolClientEntry {
+                                            adapter_ptr,
+                                            client,
+                                            created_at: std::time::Instant::now(),
+                                        },
+                                    );
+                                    get_pool_adapter_map().insert(adapter_ptr, (pool_id, cid));
+                                    // Notify waiters that a new client is available
+                                    let (_, cv) = &*p.release_notify;
+                                    cv.notify_one();
+                                });
+                            }
+                            Err(_) => {
+                                let rt = get_pool_runtime();
+                                rt.spawn(async move {
+                                    let mut p = pool_clone.lock().await;
+                                    p.release_reservation();
+                                });
+                            }
+                        }
+                    });
+                }
+                r
+            }
+            Err(_) => -1,
+        };
+
+        if result >= 0 {
+            return result;
+        }
+
+        // Check timeout
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            let _ = GlideOpenTelemetry::record_pool_miss();
+            return -1; // Timeout
+        }
+
+        // Wait on condvar until notified or timeout
+        let (lock, condvar) = &*notify;
+        let guard = lock.lock().unwrap();
+        let _ = condvar.wait_timeout(guard, remaining.min(std::time::Duration::from_millis(50)));
+        // Loop back to try_acquire
+    }
+}
+
+/// Release a borrowed client back to the pool. Fire-and-forget.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_release(pool_id: u64, client_id: u64) -> i32 {
+    let pool_arc = match pool::get_pool(pool_id) {
+        Some(arc) => arc,
+        None => return -1,
+    };
+
+    // Do NOT call unregister_blocking_flag here: the registry entry must live for
+    // the entire lifetime the client_id exists in the pool (from creation until
+    // permanent discard). Removing it on a normal release (return-to-idle) would
+    // delete the entry so the next acquire of the recycled client has no registry
+    // entry and cannot set the flag. Cleanup happens only on permanent discard:
+    // in glide_pool_destroy, in the discard loop inside glide_pool_try_acquire, and
+    // in release_client_async's discard (failed reset) path.
+    let rt = get_pool_runtime();
+    rt.spawn(pool::release_client_async(pool_arc, client_id));
+    0
+}
+
+/// Destroy a pool.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_destroy(pool_id: u64) -> i32 {
+    let pool_arc = match pool::unregister_pool(pool_id) {
+        Some(arc) => arc,
+        None => return -1,
+    };
+
+    // Invalidate this pool's scopes before returning. The cleanup below may be
+    // deferred to a spawned task when the pool lock is contended, and until it ran
+    // a caller could still dispatch on a scope whose pool is already destroyed.
+    // The adapter map is keyed independently of the pool lock, so this needs no lock.
+    let owned: Vec<usize> = get_pool_adapter_map()
+        .iter()
+        .filter(|e| e.value().0 == pool_id)
+        .map(|e| *e.key())
+        .collect();
+    for adapter_ptr in owned {
+        glide_core::scope::unregister_client(adapter_ptr as u64);
+    }
+
+    {
+        // Cleanup runs inline when the lock is free and is handed to a task when
+        // it is not, so destroy never waits on the caller's thread.
+        if let Ok(mut pool) = pool_arc.try_lock() {
+            // Clean up POOL_CLIENTS entries for all clients owned by this pool
+            // (includes discarded clients that the abandon monitor removed from in_use)
+            let discarded = pool.drain_discarded_ids();
+            let client_ids: Vec<u64> = pool
+                .idle
+                .iter()
+                .map(|e| e.client_id)
+                .chain(pool.in_use.iter().map(|e| *e.key()))
+                .chain(discarded)
+                .collect();
+            for cid in client_ids {
+                glide_core::pool::unregister_blocking_flag(cid);
+                if let Some((_, entry)) = get_pool_clients().remove(&cid) {
+                    get_pool_adapter_map().remove(&entry.adapter_ptr);
+                    glide_core::scope::unregister_client(entry.adapter_ptr as u64);
+                    unsafe {
+                        drop(Arc::from_raw(entry.adapter_ptr as *const ClientAdapter));
+                    }
+                }
+            }
+            ClientPool::destroy(pool);
+        } else {
+            // Lock contended — schedule async cleanup so resources are eventually freed.
+            let pool_arc_async = pool_arc.clone();
+            get_pool_runtime().spawn(async move {
+                let mut pool = pool_arc_async.lock().await;
+                let discarded = pool.drain_discarded_ids();
+                let client_ids: Vec<u64> = pool
+                    .idle
+                    .iter()
+                    .map(|e| e.client_id)
+                    .chain(pool.in_use.iter().map(|e| *e.key()))
+                    .chain(discarded)
+                    .collect();
+                for cid in client_ids {
+                    glide_core::pool::unregister_blocking_flag(cid);
+                    if let Some((_, entry)) = get_pool_clients().remove(&cid) {
+                        get_pool_adapter_map().remove(&entry.adapter_ptr);
+                        glide_core::scope::unregister_client(entry.adapter_ptr as u64);
+                        unsafe {
+                            drop(Arc::from_raw(entry.adapter_ptr as *const ClientAdapter));
+                        }
+                    }
+                }
+                ClientPool::destroy(pool);
+            });
+        }
+    }
+    // Clean up stored ClientType for this pool
+    get_pool_client_types().remove(&pool_id);
+    0
+}
+
+/// Get the ClientAdapter pointer for a borrowed client_id.
+/// Language bindings pass this to `command()` for dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_get_client_ptr(client_id: u64) -> *const c_void {
+    get_pool_clients()
+        .get(&client_id)
+        .map(|e| e.adapter_ptr as *const c_void)
+        .unwrap_or(std::ptr::null())
+}
+
+/// Set the pipe_client_id on a pooled client adapter.
+/// Required for async clients (Python async, Node) that use the shared pipe
+/// for response delivery. Call this after acquire, before sending commands.
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_set_pipe_client_id(client_id: u64, pipe_client_id: u64) -> i32 {
+    let adapter_ptr = match get_pool_clients().get(&client_id) {
+        Some(e) => e.adapter_ptr,
+        None => return -1,
+    };
+
+    // Safety: adapter_ptr was created via Arc::into_raw in create_pool_client.
+    unsafe {
+        Arc::increment_strong_count(adapter_ptr as *const ClientAdapter);
+        let adapter = Arc::from_raw(adapter_ptr as *const ClientAdapter);
+        adapter
+            .pipe_client_id
+            .store(pipe_client_id, std::sync::atomic::Ordering::Release);
+        std::mem::forget(adapter);
+    }
+    0
+}
+
+/// Whether the counts in a [`PoolMetrics`] were read.
+///
+/// Mirrored in the CFFI declarations in
+/// python/glide-shared/glide_shared/_glide_ffi.py; a change here must be
+/// reflected there.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoolMetricsStatus {
+    /// The counts were read under the pool lock.
+    Read = 0,
+    /// No pool has this id.
+    UnknownPool = 1,
+    /// The pool lock was held and the caller is on a Tokio runtime thread,
+    /// where waiting for it would panic.
+    LockHeld = 2,
+}
+
+/// The result of [`glide_pool_metrics`]: the counts and whether they were
+/// read, in one value, so a caller cannot take the counts without the status
+/// in hand. When `status` is not `Read`, the counts are zero and mean nothing.
+///
+/// Mirrored in the CFFI declarations beside [`PoolMetricsStatus`].
+#[repr(C)]
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PoolMetrics {
+    pub status: PoolMetricsStatus,
+    pub idle: u32,
+    pub active: u32,
+    pub total: u32,
+}
+
+impl PoolMetrics {
+    fn not_read(status: PoolMetricsStatus) -> Self {
+        Self {
+            status,
+            idle: 0,
+            active: 0,
+            total: 0,
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_pool_metrics(pool_id: u64) -> PoolMetrics {
+    let Some(pool_arc) = pool::get_pool(pool_id) else {
+        return PoolMetrics::not_read(PoolMetricsStatus::UnknownPool);
+    };
+    // Holders release the lock without awaiting, so waiting is short.
+    // blocking_lock panics on a Tokio runtime thread, and a panic through
+    // extern "C" aborts the process, so a runtime thread keeps the non-waiting read.
+    let pool = if tokio::runtime::Handle::try_current().is_ok() {
+        let Ok(pool) = pool_arc.try_lock() else {
+            return PoolMetrics::not_read(PoolMetricsStatus::LockHeld);
+        };
+        pool
+    } else {
+        pool_arc.blocking_lock()
+    };
+    PoolMetrics {
+        status: PoolMetricsStatus::Read,
+        idle: pool.idle_count(),
+        active: pool.active_count(),
+        total: pool.total_count.load(AtomicOrdering::Acquire),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ISOLATED EXECUTION SCOPES — C-ABI FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Execute a command on a scoped connection (async — non-blocking, fires callback).
+///
+/// Same wire format as `glide_scope_execute`, but returns immediately and calls
+/// `success_callback(request_id, response)` or `failure_callback(request_id, error, type)`
+/// when the command completes.
+///
+/// Suitable for Go/Java where blocking an OS thread is expensive.
+///
+/// # Safety
+/// `command_ptr` must point to `command_len` valid bytes.
+/// `success_callback` and `failure_callback` must be valid function pointers.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_execute_async(
+    scope_id: u64,
+    command_ptr: *const u8,
+    command_len: usize,
+    request_id: usize,
+    success_callback: SuccessCallback,
+    failure_callback: FailureCallback,
+) -> i32 {
+    if command_ptr.is_null() || command_len == 0 {
+        return -2;
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(command_ptr, command_len) }.to_vec();
+
+    let (cmd_name, mut args) = match scope::deserialize_command(&bytes) {
+        Some(p) => p,
+        None => return -2,
+    };
+
+    let client = match scope::resolve_scope_parent(scope_id) {
+        Some(c) => c,
+        None => return -1,
+    };
+
+    let runtime = get_pool_runtime();
+    // Marked before spawning so the abandon monitor never sees the gap.
+    let blocking_guard = track_scope_command(scope_id, &cmd_name, &args);
+
+    runtime.spawn(async move {
+        let _blocking_guard = blocking_guard;
+        // OTel: create span for scope command
+        let span_ptr = if GlideOpenTelemetry::is_initialized() {
+            create_otel_span(RequestType::CustomCommand)
+        } else {
+            0
+        };
+
+        // Watchdog: register for timeout diagnostics
+        let cmd_start = std::time::Instant::now();
+        let timeout_duration = client.get_request_timeout();
+
+        // Skip the watchdog for blocking commands: it would abort them at the flat
+        // request timeout. Blocking commands manage their own deadline in the core.
+        let arm_watchdog = should_arm_watchdog(&cmd_name, &args);
+
+        // Execute with watchdog race — send_scope_command handles CB, inflight,
+        // compression, latency recording internally
+        let result = if !arm_watchdog {
+            scope::send_scope_command(scope_id, &cmd_name, &mut args, &client).await
+        } else {
+            let timeout_rx = glide_core::timeout_watchdog::TimeoutWatchdog::global()
+                .register(timeout_duration, cmd_start);
+            let execute = scope::send_scope_command(scope_id, &cmd_name, &mut args, &client);
+            tokio::pin!(execute);
+            tokio::select! {
+                result = &mut execute => result,
+                recv_result = timeout_rx => {
+                    match recv_result {
+                        Err(_) => execute.await,
+                        Ok(()) => Err(scope_watchdog_timeout(
+                            glide_core::timeout_watchdog::cmd_name_from_bytes(cmd_name.as_bytes()),
+                            timeout_duration,
+                            cmd_start.elapsed(),
+                            client.latency_tracker().p99(),
+                        ))
+                    }
+                }
+            }
+        };
+
+        // OTel: end span
+        if span_ptr != 0 {
+            unsafe { drop_otel_span(span_ptr) };
+        }
+
+        match result {
+            Ok(value) => {
+                // Fast path for OK/Nil
+                let response_ptr: *const CommandResponse = match &value {
+                    Value::Okay => Box::into_raw(Box::new(CommandResponse {
+                        response_type: ResponseType::Ok,
+                        int_value: 0,
+                        float_value: 0.0,
+                        bool_value: false,
+                        string_value: std::ptr::null_mut(),
+                        string_value_len: 0,
+                        array_value: std::ptr::null_mut(),
+                        array_value_len: 0,
+                        map_key: std::ptr::null_mut(),
+                        map_value: std::ptr::null_mut(),
+                        sets_value: std::ptr::null_mut(),
+                        sets_value_len: 0,
+                        arena_ptr: std::ptr::null_mut(),
+                    })),
+                    Value::Nil => std::ptr::null(),
+                    _ => match valkey_value_to_arena_response(value, &[]) {
+                        Ok((ptr, _arena)) => ptr as *const CommandResponse,
+                        Err(err) => {
+                            let msg = errors::error_message(&err);
+                            let c_msg = CString::new(msg).unwrap_or_default();
+                            unsafe {
+                                failure_callback(
+                                    request_id,
+                                    c_msg.as_ptr(),
+                                    errors::RequestErrorType::Unspecified,
+                                );
+                            }
+                            return;
+                        }
+                    },
+                };
+                unsafe {
+                    success_callback(request_id, response_ptr);
+                }
+            }
+            Err(err) => {
+                let error_type = errors::error_type(&err);
+                let msg = errors::error_message(&err);
+                let c_msg = CString::new(msg).unwrap_or_default();
+                unsafe {
+                    failure_callback(request_id, c_msg.as_ptr(), error_type);
+                }
+            }
+        }
+    });
+
+    0 // success — callback will fire later
+}
+
+/// Pre-warm scope connections for a client.
+///
+/// Creates the scope pool (if not exists) and spawns min_idle background
+/// connection creation tasks. Call this after client creation to ensure
+/// the first scoped_connection() has a ready connection.
+///
+/// # Safety
+/// `connection_request_ptr` must point to `connection_request_len` valid bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_prewarm(
+    client_id: u64,
+    connection_request_ptr: *const u8,
+    connection_request_len: usize,
+    min_idle: u32,
+) {
+    let conn_bytes = if connection_request_ptr.is_null() || connection_request_len == 0 {
+        Vec::new()
+    } else {
+        unsafe { std::slice::from_raw_parts(connection_request_ptr, connection_request_len) }
+            .to_vec()
+    };
+
+    let runtime = get_pool_runtime();
+
+    // Create the scope pool (registers it if not exists)
+    let pool = glide_core::pool::get_or_create_scope_pool(client_id, conn_bytes.clone()).pool;
+
+    // Spawn min_idle background creation tasks. Each resolves slot 0 through the
+    // parent client's current topology before reserving a slot against max_total,
+    // so an unresolvable target never holds a slot; that case is expected for a
+    // lazily connected cluster client (no slot map until its first command) and
+    // is logged at debug rather than warn. The reservation guard gives the slot
+    // back if the prewarm fails or is cancelled.
+    for _ in 0..min_idle {
+        let pool_clone = pool.clone();
+        let bytes = conn_bytes.clone();
+        let cid = client_id;
+        runtime.spawn(async move {
+            let client = scope::get_parent_client(cid);
+            let target = match scope::resolve_scope_target(client.as_ref(), 0).await {
+                Ok(target) => target,
+                Err(cause) => {
+                    glide_logger::log_debug(
+                        "glide_scope_prewarm",
+                        format!("client {cid}: prewarm skipped, target unresolved: {cause}"),
+                    );
+                    return;
+                }
+            };
+            let reservation = match pool_clone.lock().await.reserve_slot() {
+                Some(reservation) => reservation,
+                None => return,
+            };
+            let _ = scope::create_scope_connection(
+                pool_clone,
+                client.as_ref(),
+                &bytes,
+                target,
+                reservation,
+            )
+            .await;
+        });
+    }
+}
+
+/// `CommandResponse` carrying a scope id, the success value of both acquire entry
+/// points. Heap-allocated like the Ok/Nil fast paths; freed by the binding through
+/// `free_command_response`.
+fn scope_id_response(scope_id: u64) -> *mut CommandResponse {
+    Box::into_raw(Box::new(CommandResponse {
+        response_type: ResponseType::Int,
+        int_value: scope_id as i64,
+        float_value: 0.0,
+        bool_value: false,
+        string_value: std::ptr::null_mut(),
+        string_value_len: 0,
+        array_value: std::ptr::null_mut(),
+        array_value_len: 0,
+        map_key: std::ptr::null_mut(),
+        map_value: std::ptr::null_mut(),
+        sets_value: std::ptr::null_mut(),
+        sets_value_len: 0,
+        arena_ptr: std::ptr::null_mut(),
+    }))
+}
+
+/// Acquire a scope from the client's scope pool (async — non-blocking, fires callback).
+///
+/// Waits inside the core for up to `timeout_ms` for a retryable cause to clear.
+/// The success response is an `Int` holding the scope id. The error type is
+/// `Timeout` when the deadline passes, `Disconnect` when the parent client is
+/// closed, `Unspecified` for a configuration problem the message describes.
+///
+/// The timeout watchdog is armed one second past `timeout_ms` as a backstop, so
+/// a deadline still fires when the runtime is too starved to run the core's
+/// timer; the callback then carries a `Timeout` without the core's cause text.
+/// Delivering that callback needs one poll of this task, so the backstop helps
+/// while any worker is alive and cannot help a fully stalled runtime.
+///
+/// Returns 0 once the acquire is queued; -2 if the arguments are invalid, in which
+/// case no callback fires.
+///
+/// `routing_slot` is read only when `has_routing_slot` is true; it is then the
+/// cluster hash slot the scope's commands must target. When `has_routing_slot` is
+/// false the caller supplied no routing key and the slot is ignored (any primary is
+/// acceptable), mirroring the `has_timeout`/`has_sample_percentage` optional-field
+/// convention elsewhere in this ABI.
+///
+/// # Safety
+/// `connection_request_ptr` must point to `connection_request_len` valid bytes.
+/// `success_callback` and `failure_callback` must be valid function pointers.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_acquire_async(
+    client_id: u64,
+    connection_request_ptr: *const u8,
+    connection_request_len: usize,
+    has_routing_slot: bool,
+    routing_slot: u16,
+    timeout_ms: u64,
+    request_id: usize,
+    success_callback: SuccessCallback,
+    failure_callback: FailureCallback,
+) -> i32 {
+    if connection_request_ptr.is_null() || connection_request_len == 0 {
+        return -2;
+    }
+    let conn_bytes =
+        unsafe { std::slice::from_raw_parts(connection_request_ptr, connection_request_len) }
+            .to_vec();
+
+    let runtime = get_pool_runtime();
+    let handle = runtime.handle().clone();
+    runtime.spawn(async move {
+        let result = scope::acquire_scope_with_watchdog(
+            client_id,
+            conn_bytes,
+            &handle,
+            has_routing_slot.then_some(routing_slot),
+            std::time::Duration::from_millis(timeout_ms),
+        )
+        .await
+        .map_err(RedisError::from);
+        match result {
+            Ok(scope_id) => unsafe {
+                success_callback(request_id, scope_id_response(scope_id));
+            },
+            Err(err) => {
+                let (c_msg, error_type) = to_c_error(err);
+                unsafe {
+                    failure_callback(request_id, c_msg, error_type);
+                    drop(CString::from_raw(c_msg as *mut c_char));
+                }
+            }
+        }
+    });
+
+    0
+}
+
+/// Acquire a scope and deliver the outcome as a frame on the shared async pipe.
+///
+/// Same acquire as [`glide_scope_acquire_async`]; only the delivery differs.
+/// The Python async client reads every command result from the pipe on its
+/// event loop, so an acquire delivered the same way costs no thread while it
+/// waits, and the deadline is core's alone. Blocking on an executor thread
+/// instead puts a second queue in front of core's: once every worker in the
+/// executor is parked in an acquire, the next caller waits for a thread before
+/// its deadline even starts. The success frame carries an `Int` response whose
+/// value is the scope id, built in an arena so the reader frees it with
+/// `free_response_arena`; the error frame carries core's error type and
+/// message.
+///
+/// Returns 0 once the acquire is queued; -2 if the arguments are invalid; -3 if
+/// no pipe is registered (`init_async_pipe` has not run), in which case no
+/// frame is written.
+///
+/// # Safety
+/// `connection_request_ptr` must point to `connection_request_len` valid bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_acquire_pipe(
+    client_id: u64,
+    connection_request_ptr: *const u8,
+    connection_request_len: usize,
+    has_routing_slot: bool,
+    routing_slot: u16,
+    timeout_ms: u64,
+    request_id: usize,
+    pipe_client_id: u64,
+) -> i32 {
+    if connection_request_ptr.is_null() || connection_request_len == 0 {
+        return -2;
+    }
+    if get_async_pipe().is_none() {
+        return -3;
+    }
+    let conn_bytes =
+        unsafe { std::slice::from_raw_parts(connection_request_ptr, connection_request_len) }
+            .to_vec();
+
+    let runtime = get_pool_runtime();
+    let handle = runtime.handle().clone();
+    runtime.spawn(async move {
+        let result = scope::acquire_scope_with_watchdog(
+            client_id,
+            conn_bytes,
+            &handle,
+            has_routing_slot.then_some(routing_slot),
+            std::time::Duration::from_millis(timeout_ms),
+        )
+        .await
+        .map_err(RedisError::from);
+        let Some(pipe) = get_async_pipe() else {
+            // No reader remains for a frame; give the slot back.
+            if let Ok(scope_id) = result {
+                scope::release_scope(scope_id, client_id, &handle);
+            }
+            return;
+        };
+        let push_error = |err: RedisError| {
+            pipe.push_error(
+                pipe_client_id,
+                request_id,
+                errors::error_type(&err),
+                errors::error_message(&err),
+            )
+        };
+        match result {
+            Ok(scope_id) => {
+                match valkey_value_to_arena_response(Value::Int(scope_id as i64), &[]) {
+                    Ok((root, arena)) => {
+                        pipe.push_success(pipe_client_id, request_id, root as usize, arena as usize)
+                    }
+                    Err(err) => {
+                        scope::release_scope(scope_id, client_id, &handle);
+                        push_error(err)
+                    }
+                }
+            }
+            Err(err) => push_error(err),
+        }
+    });
+
+    0
+}
+
+/// Acquire a scope from the client's scope pool (synchronous — blocks until result).
+///
+/// Same semantics as [`glide_scope_acquire_async`], returned as a `CommandResult`
+/// whose `response` is an `Int` holding the scope id, or whose `command_error`
+/// carries the failure. Used by the Python sync client. Because the calling
+/// thread polls the future itself, the watchdog backstop returns here even when
+/// every runtime worker is stalled.
+///
+/// # Safety
+/// `connection_request_ptr` must point to `connection_request_len` valid bytes.
+/// The returned pointer must be freed by the caller via `free_command_result`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_acquire_blocking(
+    client_id: u64,
+    connection_request_ptr: *const u8,
+    connection_request_len: usize,
+    has_routing_slot: bool,
+    routing_slot: u16,
+    timeout_ms: u64,
+) -> *mut CommandResult {
+    if connection_request_ptr.is_null() || connection_request_len == 0 {
+        return create_error_result_with_custom_error(
+            "connection request bytes are required".to_owned(),
+            RequestErrorType::Unspecified,
+        );
+    }
+    let conn_bytes =
+        unsafe { std::slice::from_raw_parts(connection_request_ptr, connection_request_len) }
+            .to_vec();
+
+    let runtime = get_pool_runtime();
+    let result = runtime.block_on(scope::acquire_scope_with_watchdog(
+        client_id,
+        conn_bytes,
+        runtime.handle(),
+        has_routing_slot.then_some(routing_slot),
+        std::time::Duration::from_millis(timeout_ms),
+    ));
+    match result {
+        Ok(scope_id) => Box::into_raw(Box::new(CommandResult {
+            response: scope_id_response(scope_id),
+            command_error: std::ptr::null_mut(),
+            arena: std::ptr::null_mut(),
+        })),
+        Err(err) => create_error_result_with_redis_error(RedisError::from(err)),
+    }
+}
+
+/// Release a scope back to the pool. Fire-and-forget.
+///
+/// Returns 0 on success, -1 on error (invalid scope/client).
+#[unsafe(no_mangle)]
+pub extern "C" fn glide_scope_release(scope_id: u64, client_id: u64) -> i32 {
+    let runtime = get_pool_runtime();
+    scope::release_scope(scope_id, client_id, runtime.handle())
+}
+
+/// Execute a command on a scoped connection (synchronous — blocks until result).
+///
+/// Used by Python async scopes via `run_in_executor` (blocking FFI call in a thread pool).
+/// Go uses `glide_scope_execute_async` instead.
+///
+/// # Safety
+/// `command_ptr` must point to `command_len` valid bytes.
+/// The returned pointer must be freed by the caller via `free_command_result`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn glide_scope_execute(
+    scope_id: u64,
+    command_ptr: *const u8,
+    command_len: usize,
+) -> *mut CommandResult {
+    if command_ptr.is_null() || command_len == 0 {
+        return std::ptr::null_mut();
+    }
+
+    let bytes = unsafe { std::slice::from_raw_parts(command_ptr, command_len) };
+
+    let (cmd_name, mut args) = match scope::deserialize_command(bytes) {
+        Some(p) => p,
+        None => return std::ptr::null_mut(),
+    };
+
+    let parent_client = match scope::resolve_scope_parent(scope_id) {
+        Some(c) => c,
+        None => return std::ptr::null_mut(),
+    };
+
+    let runtime = get_pool_runtime();
+    let _blocking_guard = track_scope_command(scope_id, &cmd_name, &args);
+
+    // OTel: create span for scope command
+    let span_ptr = if GlideOpenTelemetry::is_initialized() {
+        create_otel_span(RequestType::CustomCommand)
+    } else {
+        0
+    };
+
+    // Watchdog: register for timeout diagnostics
+    let cmd_start = std::time::Instant::now();
+    let timeout_duration = parent_client.get_request_timeout();
+
+    // Skip the watchdog for blocking commands: it would abort them at the flat
+    // request timeout. Blocking commands manage their own deadline in the core.
+    let arm_watchdog = should_arm_watchdog(&cmd_name, &args);
+
+    let result = runtime.block_on(async {
+        if !arm_watchdog {
+            return scope::send_scope_command(scope_id, &cmd_name, &mut args, &parent_client).await;
+        }
+        let timeout_rx = glide_core::timeout_watchdog::TimeoutWatchdog::global()
+            .register(timeout_duration, cmd_start);
+        let execute = scope::send_scope_command(scope_id, &cmd_name, &mut args, &parent_client);
+        tokio::pin!(execute);
+        tokio::select! {
+            result = &mut execute => result,
+            recv_result = timeout_rx => {
+                match recv_result {
+                    Err(_) => execute.await,
+                    Ok(()) => Err(scope_watchdog_timeout(
+                        glide_core::timeout_watchdog::cmd_name_from_bytes(cmd_name.as_bytes()),
+                        timeout_duration,
+                        cmd_start.elapsed(),
+                        parent_client.latency_tracker().p99(),
+                    ))
+                }
+            }
+        }
+    });
+
+    // OTel: end span
+    if span_ptr != 0 {
+        unsafe { drop_otel_span(span_ptr) };
+    }
+
+    match result {
+        Ok(Value::Okay) => {
+            let resp = Box::into_raw(Box::new(CommandResponse {
+                response_type: ResponseType::Ok,
+                int_value: 0,
+                float_value: 0.0,
+                bool_value: false,
+                string_value: std::ptr::null_mut(),
+                string_value_len: 0,
+                array_value: std::ptr::null_mut(),
+                array_value_len: 0,
+                map_key: std::ptr::null_mut(),
+                map_value: std::ptr::null_mut(),
+                sets_value: std::ptr::null_mut(),
+                sets_value_len: 0,
+                arena_ptr: std::ptr::null_mut(),
+            }));
+            Box::into_raw(Box::new(CommandResult {
+                response: resp,
+                command_error: std::ptr::null_mut(),
+                arena: std::ptr::null_mut(),
+            }))
+        }
+        Ok(Value::Nil) => {
+            let resp = Box::into_raw(Box::new(CommandResponse {
+                response_type: ResponseType::Null,
+                int_value: 0,
+                float_value: 0.0,
+                bool_value: false,
+                string_value: std::ptr::null_mut(),
+                string_value_len: 0,
+                array_value: std::ptr::null_mut(),
+                array_value_len: 0,
+                map_key: std::ptr::null_mut(),
+                map_value: std::ptr::null_mut(),
+                sets_value: std::ptr::null_mut(),
+                sets_value_len: 0,
+                arena_ptr: std::ptr::null_mut(),
+            }));
+            Box::into_raw(Box::new(CommandResult {
+                response: resp,
+                command_error: std::ptr::null_mut(),
+                arena: std::ptr::null_mut(),
+            }))
+        }
+        Ok(value) => match valkey_value_to_arena_response(value, &[]) {
+            Ok((response_ptr, arena_ptr)) => Box::into_raw(Box::new(CommandResult {
+                response: response_ptr,
+                command_error: std::ptr::null_mut(),
+                arena: arena_ptr,
+            })),
+            Err(err) => {
+                let msg = format!("{}", err);
+                let c_msg = CString::new(msg).unwrap_or_default();
+                let error = Box::into_raw(Box::new(CommandError {
+                    command_error_type: errors::RequestErrorType::Unspecified,
+                    command_error_message: c_msg.into_raw(),
+                }));
+                Box::into_raw(Box::new(CommandResult {
+                    response: std::ptr::null_mut(),
+                    command_error: error,
+                    arena: std::ptr::null_mut(),
+                }))
+            }
+        },
+        Err(err) => {
+            let error_type = errors::error_type(&err);
+            let msg = errors::error_message(&err);
+            let c_msg = CString::new(msg).unwrap_or_default();
+            let error = Box::into_raw(Box::new(CommandError {
+                command_error_type: error_type,
+                command_error_message: c_msg.into_raw(),
+            }));
+            Box::into_raw(Box::new(CommandResult {
+                response: std::ptr::null_mut(),
+                command_error: error,
+                arena: std::ptr::null_mut(),
+            }))
+        }
+    }
+}
+
+#[cfg(test)]
+mod adapter_ownership_tests {
+    use super::*;
+
+    /// The last adapter reference may be released from a task on the pool
+    /// runtime (a discard of a client whose pool stopped mid-creation), so the
+    /// adapter's own runtimes must be releasable from inside another runtime.
+    #[test]
+    fn adapter_can_be_dropped_inside_a_runtime() {
+        let mut request = connection_request::ConnectionRequest::new();
+        let mut addr = connection_request::NodeAddress::new();
+        addr.host = "127.0.0.1".into();
+        addr.port = 1;
+        request.addresses.push(addr);
+        request.lazy_connect = true;
+        let bytes = request.write_to_bytes().unwrap();
+
+        let (ptr, client) =
+            create_pool_client(&bytes, ClientType::SyncClient, 1).expect("lazy client");
+        drop(client);
+        let raw = ptr as *const ClientAdapter;
+        // Give back the hold create_pool_client keeps for binding wrappers so
+        // the drop below is the one that runs ClientAdapter::drop.
+        unsafe { Arc::decrement_strong_count(raw) };
+        let adapter = unsafe { Arc::from_raw(raw) };
+        assert_eq!(Arc::strong_count(&adapter), 1);
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        rt.block_on(async move { drop(adapter) });
+    }
+}
+
+#[cfg(test)]
+mod pool_metrics_tests {
+    use super::*;
+    use std::time::Duration;
+
+    /// Unregisters the pool when dropped, so a failing assertion does not leave
+    /// it in the global registry.
+    struct RegisteredPool(u64);
+
+    impl Drop for RegisteredPool {
+        fn drop(&mut self) {
+            pool::unregister_pool(self.0);
+        }
+    }
+
+    fn registered_pool_with_two_reserved_slots() -> RegisteredPool {
+        let pool = ClientPool::new(PoolConfig {
+            max_size: 4,
+            min_idle: 0,
+            idle_timeout: Duration::from_secs(300),
+            request_timeout: Duration::from_millis(250),
+            test_on_borrow: false,
+            connection_request: vec![],
+            is_async: false,
+            configured_database_id: 0,
+            abandon_timeout: Duration::ZERO,
+        })
+        .unwrap();
+        assert_eq!(pool.reserve_warmup_slots(2), 2);
+        RegisteredPool(pool::register_pool(pool))
+    }
+
+    /// The pool lock, held on another thread until `release` is called.
+    struct HeldLock {
+        release: std::sync::mpsc::Sender<()>,
+        holder: std::thread::JoinHandle<()>,
+    }
+
+    impl HeldLock {
+        fn release(self) {
+            self.release.send(()).unwrap();
+            self.holder.join().unwrap();
+        }
+    }
+
+    /// Returns once the lock is held.
+    fn hold_lock(pool_arc: Arc<tokio::sync::Mutex<ClientPool>>) -> HeldLock {
+        let (held_tx, held_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            let guard = pool_arc.blocking_lock();
+            held_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            drop(guard);
+        });
+        held_rx.recv().unwrap();
+        HeldLock {
+            release: release_tx,
+            holder,
+        }
+    }
+
+    #[test]
+    fn uncontended_read_reports_read_with_the_reserved_total() {
+        let pool = registered_pool_with_two_reserved_slots();
+
+        let metrics = glide_pool_metrics(pool.0);
+
+        assert_eq!(
+            metrics,
+            PoolMetrics {
+                status: PoolMetricsStatus::Read,
+                idle: 0,
+                active: 0,
+                total: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn contended_read_waits_for_the_lock_and_reports_read() {
+        let pool = registered_pool_with_two_reserved_slots();
+        let held = hold_lock(pool::get_pool(pool.0).unwrap());
+        let (reading_tx, reading_rx) = std::sync::mpsc::channel();
+        let reader = {
+            let pool_id = pool.0;
+            std::thread::spawn(move || {
+                reading_tx.send(()).unwrap();
+                glide_pool_metrics(pool_id)
+            })
+        };
+        reading_rx.recv().unwrap();
+        std::thread::sleep(Duration::from_millis(50));
+        assert!(
+            !reader.is_finished(),
+            "the read returned while the lock was held"
+        );
+
+        held.release();
+        let metrics = reader.join().unwrap();
+
+        assert_eq!(
+            metrics,
+            PoolMetrics {
+                status: PoolMetricsStatus::Read,
+                idle: 0,
+                active: 0,
+                total: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn contended_read_on_a_runtime_thread_reports_lock_held_with_no_counts() {
+        let pool = registered_pool_with_two_reserved_slots();
+        let held = hold_lock(pool::get_pool(pool.0).unwrap());
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+
+        let metrics = rt.block_on(async { glide_pool_metrics(pool.0) });
+        held.release();
+
+        assert_eq!(metrics, PoolMetrics::not_read(PoolMetricsStatus::LockHeld));
+    }
+
+    #[test]
+    fn unknown_pool_reports_unknown_pool_with_no_counts() {
+        let metrics = glide_pool_metrics(u64::MAX);
+
+        assert_eq!(
+            metrics,
+            PoolMetrics::not_read(PoolMetricsStatus::UnknownPool)
+        );
+    }
+}
+
+#[cfg(test)]
+mod watchdog_gating_tests {
+    use super::should_arm_watchdog;
+
+    fn arms(cmd_name: &str, args: &[&str]) -> bool {
+        let args: Vec<Vec<u8>> = args.iter().map(|a| a.as_bytes().to_vec()).collect();
+        should_arm_watchdog(cmd_name, &args)
+    }
+
+    #[test]
+    fn non_blocking_commands_arm_the_watchdog() {
+        assert!(arms("GET", &["key"]));
+        assert!(arms("SET", &["key", "value"]));
+        assert!(arms("LPUSH", &["key", "value"]));
+    }
+
+    #[test]
+    fn blocking_commands_skip_the_watchdog() {
+        // Arming the diagnostic watchdog for these would abort them at the flat
+        // request timeout, defeating their blocking semantics — regardless of
+        // whether the command's own timeout is bounded or unbounded (#6780).
+        assert!(!arms("BLPOP", &["key", "0"]));
+        assert!(!arms("BLPOP", &["key", "5"]));
+        assert!(!arms("BRPOP", &["key", "0"]));
+        assert!(!arms("BLMOVE", &["src", "dst", "LEFT", "RIGHT", "0"]));
+        assert!(!arms("BRPOPLPUSH", &["src", "dst", "0"]));
+        assert!(!arms("BZPOPMIN", &["key", "0"]));
+        assert!(!arms("BZPOPMAX", &["key", "0"]));
+        assert!(!arms("BLMPOP", &["0", "1", "k", "LEFT"]));
+        assert!(!arms("BZMPOP", &["0", "1", "k", "MIN"]));
+        assert!(!arms("WAIT", &["0", "100"]));
+        assert!(!arms("WAITAOF", &["1", "0", "0"]));
+    }
+
+    #[test]
+    fn xread_is_blocking_only_with_the_block_option() {
+        // XREAD/XREADGROUP block only when BLOCK is present; a plain XREAD is a
+        // normal command and should keep watchdog coverage.
+        assert!(!arms("XREAD", &["BLOCK", "0", "STREAMS", "s", "$"]));
+        assert!(!arms("XREAD", &["BLOCK", "5000", "STREAMS", "s", "$"]));
+        assert!(arms("XREAD", &["COUNT", "10", "STREAMS", "s", "0"]));
+        assert!(!arms(
+            "XREADGROUP",
+            &["GROUP", "g", "c", "BLOCK", "0", "STREAMS", "s", ">"]
+        ));
+    }
+}

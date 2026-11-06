@@ -307,6 +307,7 @@ def start_manager():
         "must point to an existing file or directory (may be empty), otherwise the manager can not "
         "be started.",
     )
+
     parser.add_argument(
         "--zmq-control-addr",
         dest="zmq_control_addr",
@@ -317,13 +318,7 @@ def start_manager():
         "the parameter or the environment variable is not defined. Address format: 'tcp://*:60615' "
         f"(default: {default_zmq_control_address_for_server!r}).",
     )
-    parser.add_argument(
-        "--zmq-addr",
-        dest="zmq_addr",
-        type=str,
-        default=None,
-        help="The parameter is deprecated and will be removed in future releases. Use --zmq-control-addr instead.",
-    )
+
     parser.add_argument(
         "--zmq-encoding",
         dest="zmq_encoding",
@@ -466,15 +461,6 @@ def start_manager():
         help="The prefix for the names of Redis keys used by RE Manager (default: %(default)s). ",
     )
 
-    parser.add_argument(
-        "--keep-re",
-        dest="keep_re",
-        action="store_true",
-        help="The parameter is deprecated. The value is ignored by the Queue Server. Run Engine instance\n"
-        "must always be defined and configured in the startup code. The parameter will be removed\n"
-        "in future releases.",
-    )
-
     group_ip_kernel = parser.add_argument_group(
         "Configure IPython Kernel",
         "The parameters for configuring IPython kernel used by RE Worker. The IPython kernel is\n"
@@ -600,7 +586,7 @@ def start_manager():
         dest="permitted_re_metadata_keys",
         type=str,
         nargs="+",
-        default=["/"],
+        default=["/scan_id", "/versions"],
         help="A list of permitted RE metadata keys. Keys are configured in the form of unix paths, and "
         "recursively apply to all subkeys. For example, the default of '/' will permit reading of all "
         "metadata keys. A value of '/key1' will permit reading of 'key1' and all its subkeys, but not 'key2'. "
@@ -621,20 +607,11 @@ def start_manager():
         dest="zmq_info_addr",
         type=str,
         default=None,
-        help="The address of ZMQ server socket used for publishing information on the state of RE Manager "
-        "and currently running processes. Currently only the captured STDOUT and STDERR published "
-        "in 'QS_Console' topic. The parameter overrides the address defined by the environment variable "
+        help="The address of ZMQ PUB socket used for publishing console output, status info, and "
+        "progress updates. The parameter overrides the address defined by the environment variable "
         "'QSERVER_ZMQ_INFO_ADDRESS_FOR_SERVER'. The default address is used if the parameter or the environment "
         " variable is not defined. Address format: 'tcp://*:60625' "
         f"(default: {default_zmq_info_address_for_server}).",
-    )
-
-    group_console_output.add_argument(
-        "--zmq-publish-console-addr",
-        dest="zmq_publish_console_addr",
-        type=str,
-        default=None,
-        help="The parameter is deprecated and will be removed in future releases. Use --zmq-info-addr instead.",
     )
 
     group_console_output.add_argument(
@@ -644,6 +621,26 @@ def start_manager():
         choices=["ON", "OFF"],
         default="OFF",
         help="Enable (ON) or disable (OFF) publishing of console output to 0MQ (default: %(default)s).",
+    )
+
+    group_console_output.add_argument(
+        "--zmq-publish-info",
+        dest="zmq_publish_info",
+        type=str,
+        choices=["ON", "OFF"],
+        default="OFF",
+        help="Enable (ON) or disable (OFF) publishing of info/status updates to 0MQ (default: %(default)s).",
+    )
+
+    group_console_output.add_argument(
+        "--zmq-stream-device-progress",
+        dest="zmq_stream_device_progress",
+        type=str,
+        choices=["ON", "OFF"],
+        default="OFF",
+        help="Enable (ON) or disable (OFF) publishing of optional RunEngine device progress updates "
+        "(waiting/watcher updates, e.g. motor position during motion) to 0MQ. This parameter is "
+        "only effective when --zmq-publish-info=ON; it is ignored otherwise (default: %(default)s).",
     )
 
     group_console_output.add_argument(
@@ -687,12 +684,6 @@ def start_manager():
 
     settings = Settings(parser=parser, args=args)
 
-    if args.zmq_publish_console_addr is not None:
-        logger.warning(
-            "Parameter --zmq-publish-console-addr is deprecated and will be removed in future releases. "
-            "Use --zmq-info-addr instead."
-        )
-
     msg_queue = Queue()
     setup_console_output_redirection(msg_queue)
 
@@ -706,12 +697,14 @@ def start_manager():
     stream_publisher = PublishZMQStreamOutput(
         msg_queue=msg_queue,
         console_output_on=settings.print_console_output,
-        zmq_publish_on=settings.zmq_publish_console,
+        zmq_publish_console=settings.zmq_publish_console,
+        zmq_publish_info=settings.zmq_publish_info,
         zmq_publish_addr=settings.zmq_info_addr,
         encoding=settings.zmq_encoding,
     )
 
-    if settings.zmq_publish_console:
+    zmq_publish_on = settings.zmq_publish_console or settings.zmq_publish_info
+    if zmq_publish_on:
         # Wait for a short period to allow monitoring applications to connect.
         ttime.sleep(1)
 
@@ -807,6 +800,7 @@ def start_manager():
     config_worker["ipython_control_port"] = settings.ipython_control_port
     config_worker["ignore_invalid_plans"] = settings.ignore_invalid_plans
     config_worker["permitted_re_metadata_keys"] = settings.permitted_re_metadata_keys
+    config_worker["zmq_stream_device_progress"] = settings.zmq_stream_device_progress and settings.zmq_publish_info
 
     existing_pd_path = settings.existing_plans_and_devices_path
     if not existing_pd_path:

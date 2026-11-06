@@ -62,6 +62,7 @@ from ._svg import (
     _solid_paint,
     _step_arrays,
     _tick_label_anchor,
+    _tick_label_slot_px,
     _title_entries,
     _title_metrics,
     affine_fast_path,
@@ -105,6 +106,7 @@ from ._svg import (
     _STYLED_TEXT,
     _POLAR_CLIP,
 ) = range(19)
+_PHASED_STROKE = 19
 # Anchor-byte rotation flags — must match TEXT_ROTATED/TEXT_ROTATED_CW in
 # src/raster.rs. CCW reads bottom-to-top (y-axis titles), CW top-to-bottom
 # (right-margin titles, matplotlib rotation=270).
@@ -236,14 +238,21 @@ class _Cmd:
         self._raw_f(polar.sector_a0)
         self._raw_f(polar.sector_a1 - polar.sector_a0)
 
-    def fill(self, pts: Sequence[tuple[float, float]], color: tuple[int, ...]) -> None:
+    def fill(
+        self,
+        pts: Sequence[tuple[float, float]],
+        color: tuple[int, ...],
+        *,
+        offset: tuple[float, float] = (0.0, 0.0),
+    ) -> None:
         if len(pts) < 3:
             return
         self.buf.append(_FILL)
         self._u32(len(pts))
+        dx, dy = offset
         for x, y in pts:
-            self._f(x)
-            self._f(y)
+            self._f(x + dx)
+            self._f(y + dy)
         self._rgba(color)
 
     def grad(
@@ -276,19 +285,26 @@ class _Cmd:
         color: tuple[int, ...],
         closed: bool = False,
         dash: Sequence[float] | None = None,
+        dash_offset: float = 0.0,
         cap: str = "round",
+        offset: tuple[float, float] = (0.0, 0.0),
     ) -> None:
         if len(pts) < 2 or width <= 0:
             return
-        self.buf.append(_STROKE)
+        phased = bool(dash) and math.isfinite(dash_offset) and dash_offset != 0
+        self.buf.append(_PHASED_STROKE if phased else _STROKE)
         self._u32(len(pts))
+        dx, dy = offset
         if isinstance(pts, np.ndarray):
-            scaled = np.asarray(pts, dtype=np.float64) * self.s
+            points = np.asarray(pts, dtype=np.float64)
+            if dx or dy:
+                points = points + np.asarray([dx, dy])
+            scaled = points * self.s
             self.buf += scaled.astype("<f4").tobytes()
         else:
             for x, y in pts:
-                self._f(x)
-                self._f(y)
+                self._f(x + dx)
+                self._f(y + dy)
         self._f(width)
         self._rgba(color)
         self.buf.append(1 if closed else 0)
@@ -296,6 +312,8 @@ class _Cmd:
         self._u32(len(dash))
         for d in dash:
             self._f(d)
+        if phased:
+            self._f(dash_offset)
         self.buf.append(_CAP_CODES[cap])
 
     def point(
@@ -987,13 +1005,15 @@ def render_raster(
         )
 
     xt, xlab, xstep = axis_ticks(xa, plot["w"], True)
-    yt, ylab, ystep = axis_ticks(ya, plot["h"], False)
+    tick_slot_px = _tick_label_slot_px(spec)
+    yt, ylab, ystep = axis_ticks(ya, plot["h"], False, slot_font_px=tick_slot_px)
     xmt, ymt = minor_axis_ticks(xa), minor_axis_ticks(ya)
     extra_x_ticks = {
         axis_id: axis_ticks(axis, plot["w"], True) for axis_id, axis, _axis_scale in extra_x_axes
     }
     extra_y_ticks = {
-        axis_id: axis_ticks(axis, plot["h"], False) for axis_id, axis, _axis_scale in extra_y_axes
+        axis_id: axis_ticks(axis, plot["h"], False, slot_font_px=tick_slot_px)
+        for axis_id, axis, _axis_scale in extra_y_axes
     }
     xstyle, ystyle = xa.get("style") or {}, ya.get("style") or {}
     xmstyle, ymstyle = xa.get("minor_style") or {}, ya.get("minor_style") or {}
@@ -1358,7 +1378,9 @@ def render_raster(
         explicit_anchor = _tick_label_anchor(axis, axis_style, "")
         for side in _axis_tick_label_sides(axis, is_x=is_x):
             side_axis = {**axis, "side": side}
-            side_items = _axis_tick_label_layout(side_axis, values, step, axis_scale, is_x)
+            side_items = _axis_tick_label_layout(
+                side_axis, values, step, axis_scale, is_x, font_size
+            )
             # Unstyled defaults reproduce the pre-`tick_label_pad` placement exactly.
             # The bottom gap is 15 here against the SVG exporter's 16: that 1 px has
             # always separated the two and is not this seam's to change.
@@ -1506,7 +1528,7 @@ def render_raster(
         if not axis.get("label") or _axis_tick_label_strategy(axis) == "none":
             return
         axis_style = axis.get("style") or {}
-        geometry = _axis_label_geometry(axis, plot, is_x=is_x)
+        geometry = _axis_label_geometry(axis, plot, is_x=is_x, slot_font_px=tick_slot_px)
         anchor = {"start": 0, "middle": 1, "end": 2}[geometry["anchor"]]
         axis_title_slot = slots.get("axis_title") or {}
         italic, bold = _native_font_emphasis(

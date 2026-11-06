@@ -32,6 +32,12 @@ def is_person_asking() -> bool:
     return os.environ.get(ASKED_BY_ENV) == SwitchedBy.PERSON.value
 
 
+def is_agent_asking() -> bool:
+    """Did a program with no terminal (an agent's shell, a script) ask for the Probe service action
+    this process runs? Nobody is there to approve anything in a browser."""
+    return os.environ.get(ASKED_BY_ENV) == SwitchedBy.AGENT.value
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 

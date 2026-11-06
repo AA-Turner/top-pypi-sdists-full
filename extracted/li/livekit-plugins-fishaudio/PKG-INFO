@@ -1,13 +1,13 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-fishaudio
-Version: 1.8.10
-Summary: Agent Framework plugin for voice synthesis with Fish Audio's API.
+Version: 1.8.11
+Summary: Agent Framework plugin for voice synthesis and speech recognition with Fish Audio's API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
 Project-URL: Source, https://github.com/livekit/agents
 Author-email: LiveKit <hello@livekit.io>
 License-Expression: Apache-2.0
-Keywords: ai,audio,fishaudio,livekit,realtime,video,voice
+Keywords: ai,audio,fishaudio,livekit,realtime,stt,tts,video,voice
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
@@ -17,13 +17,13 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents[codecs]>=1.8.10
-Requires-Dist: msgpack>=1.0
+Requires-Dist: livekit-agents[codecs]>=1.8.11
+Requires-Dist: msgpack>=1.2.3
 Description-Content-Type: text/markdown
 
 # Fish Audio plugin for LiveKit Agents
 
-Support for voice synthesis with [Fish Audio](https://fish.audio/).
+Support for voice synthesis and realtime speech-to-text with [Fish Audio](https://fish.audio/).
 
 - Docs: `https://docs.fish.audio/`
 
@@ -55,5 +55,32 @@ tts = fishaudio.TTS()
 session = AgentSession(
     tts=tts,
     # ... stt, llm, etc.
+)
+```
+
+### Speech-to-text
+
+`fishaudio.STT` streams audio to Fish Audio's realtime ASR. It works with LiveKit's turn detection:
+
+```python
+from livekit.agents import AgentSession
+from livekit.plugins import fishaudio
+
+session = AgentSession(
+    stt=fishaudio.STT(),
+    # ... llm, tts, vad, etc.
+)
+```
+
+Fish Audio can also detect the end of each user turn itself:
+
+```python
+from livekit.agents import AgentSession, TurnHandlingOptions
+from livekit.plugins import fishaudio
+
+session = AgentSession(
+    stt=fishaudio.STT(),
+    turn_handling=TurnHandlingOptions(turn_detection="stt"),
+    # ... llm, tts, etc.
 )
 ```

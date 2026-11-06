@@ -93,8 +93,32 @@ static bool ReadVarColumn(Cursor* cur, Py_ssize_t iCol, SQLSMALLINT ctype, bool&
     const Py_ssize_t cbElement = (Py_ssize_t)(IsWideType(ctype) ? sizeof(uint16_t) : 1);
     const Py_ssize_t cbNullTerminator = IsBinaryType(ctype) ? 0 : cbElement;
 
-    // TODO: Make the initial allocation size configurable?
-    Py_ssize_t cbAllocated = 4096;
+    Py_ssize_t cbAllocated;
+    Py_ssize_t initsize = cur->cnxn->readvar_initsize;
+    if (initsize == 0)
+    {
+        // Use the column size from the descriptor so that a single SQLGetData
+        // call can return all data at once — required to work around Oracle BI
+        // ODBC drivers that loop forever when the buffer is smaller than the
+        // column's total data size.
+        Py_ssize_t columnSize = (Py_ssize_t)cur->colinfos[iCol].column_size;
+
+        // columnSize is in characters for wide types, bytes for narrow.
+        // Multiply by cbElement to get bytes, add room for the null terminator.
+        cbAllocated = columnSize * cbElement + cbNullTerminator;
+
+        // Clamp to something sane: if the driver reported 0 or an absurd value,
+        // fall back to a reasonable ceiling rather than allocating nothing or
+        // gigabytes blindly.
+        Py_ssize_t ceiling = 32 * 1024 * 1024;
+        if (cbAllocated <= 0 || cbAllocated > ceiling)
+            cbAllocated = ceiling;
+    }
+    else
+    {
+        cbAllocated = initsize;
+    }
+
     Py_ssize_t cbUsed = 0;
     byte* pb = (byte*)PyMem_Malloc((size_t)cbAllocated);
     if (!pb)
@@ -143,7 +167,7 @@ static bool ReadVarColumn(Cursor* cur, Py_ssize_t iCol, SQLSMALLINT ctype, bool&
         if (ret == SQL_SUCCESS_WITH_INFO)
         {
             // This means we read some data, but there is more.  SQLGetData is very weird - it
-            // sets cbRead to the number of bytes we read *plus* the amount remaining.
+            // sets cbData to the number of bytes we read *plus* the amount remaining.
 
             Py_ssize_t cbRemaining = 0; // How many more bytes do we need to allocate, not including null?
             Py_ssize_t cbRead = 0; // How much did we just read, not including null?
@@ -326,8 +350,86 @@ static PyObject* GetDataUser(Cursor* cur, Py_ssize_t iCol, PyObject* func)
     return result;
 }
 
+static bool IsDecimalText(const char* pch, Py_ssize_t cch)
+{
+    // Returns true if the characters are digits, signs, decimal separators, and spaces, with at
+    // least one digit: the text of a DECIMAL or NUMERIC value, and not the bytes of something
+    // else that happen to fall in ASCII.
 
-static PyObject* GetDataDecimal(Cursor* cur, Py_ssize_t iCol)
+    bool digit = false;
+    for (Py_ssize_t i = 0; i < cch; i++)
+    {
+        char ch = pch[i];
+        if (ch >= '0' && ch <= '9')
+            digit = true;
+        else if (ch != '+' && ch != '-' && ch != '.' && ch != ',' && ch != ' ')
+            return false;
+    }
+    return digit;
+}
+
+static PyObject* RaiseNotNumericStruct(Py_ssize_t iCol, SQLLEN cbFetched)
+{
+    return RaiseErrorV(0, Error,
+        "The driver did not return a SQL_NUMERIC_STRUCT for the DECIMAL/NUMERIC column at "
+        "index %zd (length %ld).  Set Connection.fetch_decimal_as_string = True to read "
+        "these columns as text.", iCol, (long)cbFetched);
+}
+
+static PyObject* GetDataDecimalBinary(Cursor* cur, Py_ssize_t iCol)
+{
+    // Reads a DECIMAL or NUMERIC value into a SQL_NUMERIC_STRUCT, using the precision and scale
+    // set in the ARD by InitColumnInfo.
+    //
+    // Some drivers (the IBM i Access ODBC driver, for one) ignore the ARD and convert to the
+    // default C type for DECIMAL and NUMERIC, SQL_C_CHAR, writing the value's text into the
+    // buffer and reporting its length.  Decoding those characters as precision, scale, sign, and
+    // digits gives a wrong value, so text is parsed as the string path parses it, and the column
+    // moves to the string path for the rest of the result set.
+    //
+    // Text is recognised by its content rather than by the reported length, which differs
+    // between drivers that do return a struct (19, but 0 from psqlODBC).  A struct cannot pass
+    // for text: its third byte is the sign, 0 or 1, where a text of three or more characters has
+    // a character.  A sign other than 0 or 1 is neither, and raises rather than giving a wrong
+    // value.
+    //
+    // The buffer is zeroed so that a short text leaves no uninitialized bytes behind it, and has
+    // room for the text of any DECIMAL, because drivers do not return a converted DECIMAL in
+    // pieces.  A conforming driver ignores the buffer length for SQL_C_NUMERIC.
+
+    union
+    {
+        SQL_NUMERIC_STRUCT num;
+        char text[128];
+    } buffer;
+    memset(&buffer, 0, sizeof(buffer));
+    SQLLEN cbFetched = 0;
+    SQLRETURN ret;
+    SQLUSMALLINT i = (SQLUSMALLINT)(iCol + 1);
+
+    Py_BEGIN_ALLOW_THREADS
+    ret = SQLGetData(cur->hstmt, i, SQL_ARD_TYPE, &buffer, sizeof(buffer), &cbFetched);
+    Py_END_ALLOW_THREADS
+
+    if (!SQL_SUCCEEDED(ret))
+        return NULL;  // no Python exception — caller falls back to string path
+
+    if (cbFetched == SQL_NULL_DATA)
+        Py_RETURN_NONE;
+
+    if (cbFetched > 0 && cbFetched < (SQLLEN)sizeof(buffer) && IsDecimalText(buffer.text, (Py_ssize_t)cbFetched))
+    {
+        cur->colinfos[iCol].use_decimal_binary = false;
+        return DecimalFromAsciiText(buffer.text, (Py_ssize_t)cbFetched);
+    }
+
+    if (buffer.num.sign > 1)
+        return RaiseNotNumericStruct(iCol, cbFetched);
+
+    return DecimalFromNumericStruct(buffer.num);
+}
+
+static PyObject* GetDataDecimalString(Cursor* cur, Py_ssize_t iCol)
 {
     // The SQL_NUMERIC_STRUCT support is hopeless (SQL Server ignores scale on input parameters
     // and output columns, Oracle does something else weird, and many drivers don't support it
@@ -725,12 +827,22 @@ PyObject* GetData(Cursor* cur, Py_ssize_t iCol)
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
+    case SQL_DB2_BLOB:
         return GetBinary(cur, iCol);
 
     case SQL_DECIMAL:
     case SQL_NUMERIC:
     case SQL_DB2_DECFLOAT:
-        return GetDataDecimal(cur, iCol);
+        if (cur->colinfos[iCol].use_decimal_binary)
+        {
+            PyObject* obj = GetDataDecimalBinary(cur, iCol);
+            if (obj != NULL)
+                return obj;
+            if (PyErr_Occurred())
+                return NULL;
+            // SQLGetData failed without a Python exception — fall through.
+        }
+        return GetDataDecimalString(cur, iCol);
 
     case SQL_BIT:
         return GetDataBit(cur, iCol);

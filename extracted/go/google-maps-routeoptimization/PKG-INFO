@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-maps-routeoptimization
-Version: 0.5.1
+Version: 0.5.2
 Summary: Google Maps Routeoptimization API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-maps-routeoptimization
 Author: Google LLC

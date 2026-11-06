@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "clipboard"
 dynamic = ["version"]
-description = "A cross-platform clipboard read/write library for Python."
+description = "A cross-platform clipboard library for text, images, HTML dual offers, and file-list reads."
 readme = "README.rst"
 requires-python = ">=3.10"
 license = "MIT"
@@ -27,6 +27,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+[project.optional-dependencies]
+images = ["pillow>=10,<12"]
+
 [project.urls]
 Homepage = "https://github.com/terryyin/clipboard"
 Issues = "https://github.com/terryyin/clipboard/issues"
@@ -37,12 +40,12 @@ dev = [
   "pytest>=8.4,<10",
   "ruff>=0.14,<1",
   "setuptools>=77",
-  "twine>=6.2,<7",
+  "twine>=7.0.0,<8",
   "wheel>=0.45",
 ]
 
 [tool.setuptools]
-py-modules = ["clipboard"]
+packages = ["clipboard"]
 
 [tool.setuptools.dynamic]
 version = { attr = "clipboard.VERSION" }

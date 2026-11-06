@@ -155,7 +155,7 @@ ListLogAnomalyDetectorsPaginatorName = Literal["list_log_anomaly_detectors"]
 ListLogGroupsForQueryPaginatorName = Literal["list_log_groups_for_query"]
 ListScheduledQueriesPaginatorName = Literal["list_scheduled_queries"]
 ListSourcesForS3TableIntegrationPaginatorName = Literal["list_sources_for_s3_table_integration"]
-LogGroupClassType = Literal["DELIVERY", "INFREQUENT_ACCESS", "STANDARD"]
+LogGroupClassType = Literal["DELIVERY", "ESSENTIALS", "INFREQUENT_ACCESS", "STANDARD"]
 OCSFVersionType = Literal["V1.1", "V1.5"]
 OpenSearchResourceStatusTypeType = Literal["ACTIVE", "ERROR", "NOT_FOUND"]
 OrderByType = Literal["LastEventTime", "LogStreamName"]
@@ -221,6 +221,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

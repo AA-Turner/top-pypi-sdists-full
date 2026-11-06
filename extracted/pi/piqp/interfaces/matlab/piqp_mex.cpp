@@ -34,6 +34,8 @@ const char* PIQP_SETTINGS_FIELDS[] = {"rho_init",
                                       "eps_duality_gap_abs",
                                       "eps_duality_gap_rel",
                                       "infeasibility_threshold",
+                                      "eps_primal_inf",
+                                      "eps_dual_inf",
                                       "reg_lower_limit",
                                       "reg_finetune_lower_limit",
                                       "reg_finetune_primal_update_threshold",
@@ -45,6 +47,7 @@ const char* PIQP_SETTINGS_FIELDS[] = {"rho_init",
                                       "preconditioner_iter",
                                       "tau",
                                       "kkt_solver",
+                                      "num_threads",
                                       "iterative_refinement_always_enabled",
                                       "iterative_refinement_eps_abs",
                                       "iterative_refinement_eps_rel",
@@ -167,6 +170,7 @@ piqp::KKTSolver kkt_solver_from_string(const char* kkt_solver, bool is_dense)
     if (kkt_solver_str == "sparse_ldlt_ineq_cond") return piqp::KKTSolver::sparse_ldlt_ineq_cond;
     if (kkt_solver_str == "sparse_ldlt_cond") return piqp::KKTSolver::sparse_ldlt_cond;
     if (kkt_solver_str == "sparse_multistage") return piqp::KKTSolver::sparse_multistage;
+    if (kkt_solver_str == "sparse_multistage_parallel") return piqp::KKTSolver::sparse_multistage_parallel;
     if (is_dense) {
         mexWarnMsgTxt("Unknown kkt_solver, using dense_cholesky as a fallback.");
         return piqp::KKTSolver::dense_cholesky;
@@ -188,6 +192,8 @@ mxArray* settings_to_mx_struct(const piqp::Settings<double>& settings)
     mxSetField(mx_ptr, 0, "eps_duality_gap_abs", mxCreateDoubleScalar(settings.eps_duality_gap_abs));
     mxSetField(mx_ptr, 0, "eps_duality_gap_rel", mxCreateDoubleScalar(settings.eps_duality_gap_rel));
     mxSetField(mx_ptr, 0, "infeasibility_threshold", mxCreateDoubleScalar(settings.infeasibility_threshold));
+    mxSetField(mx_ptr, 0, "eps_primal_inf", mxCreateDoubleScalar(settings.eps_primal_inf));
+    mxSetField(mx_ptr, 0, "eps_dual_inf", mxCreateDoubleScalar(settings.eps_dual_inf));
     mxSetField(mx_ptr, 0, "reg_lower_limit", mxCreateDoubleScalar(settings.reg_lower_limit));
     mxSetField(mx_ptr, 0, "reg_finetune_lower_limit", mxCreateDoubleScalar(settings.reg_finetune_lower_limit));
     mxSetField(mx_ptr, 0, "reg_finetune_primal_update_threshold", mxCreateDoubleScalar((double) settings.reg_finetune_primal_update_threshold));
@@ -199,6 +205,7 @@ mxArray* settings_to_mx_struct(const piqp::Settings<double>& settings)
     mxSetField(mx_ptr, 0, "preconditioner_iter", mxCreateDoubleScalar((double) settings.preconditioner_iter));
     mxSetField(mx_ptr, 0, "tau", mxCreateDoubleScalar(settings.tau));
     mxSetField(mx_ptr, 0, "kkt_solver", mxCreateString(piqp::kkt_solver_to_string(settings.kkt_solver)));
+    mxSetField(mx_ptr, 0, "num_threads", mxCreateDoubleScalar((double) settings.num_threads));
     mxSetField(mx_ptr, 0, "iterative_refinement_always_enabled", mxCreateDoubleScalar(settings.iterative_refinement_always_enabled));
     mxSetField(mx_ptr, 0, "iterative_refinement_eps_abs", mxCreateDoubleScalar(settings.iterative_refinement_eps_abs));
     mxSetField(mx_ptr, 0, "iterative_refinement_eps_rel", mxCreateDoubleScalar(settings.iterative_refinement_eps_rel));
@@ -222,6 +229,8 @@ void copy_mx_struct_to_settings(const mxArray* mx_ptr, piqp::Settings<double>& s
     settings.eps_duality_gap_abs = (double) mxGetScalar(mxGetField(mx_ptr, 0, "eps_duality_gap_abs"));
     settings.eps_duality_gap_rel = (double) mxGetScalar(mxGetField(mx_ptr, 0, "eps_duality_gap_rel"));
     settings.infeasibility_threshold = (double) mxGetScalar(mxGetField(mx_ptr, 0, "infeasibility_threshold"));
+    settings.eps_primal_inf = (double) mxGetScalar(mxGetField(mx_ptr, 0, "eps_primal_inf"));
+    settings.eps_dual_inf = (double) mxGetScalar(mxGetField(mx_ptr, 0, "eps_dual_inf"));
     settings.reg_lower_limit = (double) mxGetScalar(mxGetField(mx_ptr, 0, "reg_lower_limit"));
     settings.reg_finetune_lower_limit = (double) mxGetScalar(mxGetField(mx_ptr, 0, "reg_finetune_lower_limit"));
     settings.reg_finetune_primal_update_threshold = (piqp::isize) mxGetScalar(mxGetField(mx_ptr, 0, "reg_finetune_primal_update_threshold"));
@@ -235,6 +244,7 @@ void copy_mx_struct_to_settings(const mxArray* mx_ptr, piqp::Settings<double>& s
     char kkt_solver[30];
     mxGetString(mxGetField(mx_ptr, 0, "kkt_solver"), kkt_solver, 30);
     settings.kkt_solver = kkt_solver_from_string(kkt_solver, is_dense);
+    settings.num_threads = (piqp::isize) mxGetScalar(mxGetField(mx_ptr, 0, "num_threads"));
     settings.iterative_refinement_always_enabled = (bool) mxGetScalar(mxGetField(mx_ptr, 0, "iterative_refinement_always_enabled"));
     settings.iterative_refinement_eps_abs = (double) mxGetScalar(mxGetField(mx_ptr, 0, "iterative_refinement_eps_abs"));
     settings.iterative_refinement_eps_rel = (double) mxGetScalar(mxGetField(mx_ptr, 0, "iterative_refinement_eps_rel"));

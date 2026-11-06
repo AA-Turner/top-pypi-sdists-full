@@ -32,6 +32,7 @@ from tinker_cookbook.supervised.nll_evaluator import SamplerNLLEvaluator
 from tinker_cookbook.supervised.types import SupervisedDatasetBuilder
 from tinker_cookbook.tokenizer_utils import get_tokenizer
 from tinker_cookbook.utils import ml_log, trace
+from tinker_cookbook.utils.cost_estimation import CostTracker, TokenUsage, fetch_model_pricing
 from tinker_cookbook.utils.git_rev import recipe_user_metadata
 from tinker_cookbook.utils.lr_scheduling import LRSchedule, compute_schedule_lr_multiplier
 from tinker_cookbook.utils.misc_utils import iteration_dir
@@ -244,7 +245,7 @@ async def run_evals(
     measures the weights produced after step ``step-1`` (or the initial weights for
     step 0).  Training-client evaluators run against the mutable training client,
     while sampling evaluators request a fresh ``SamplingClient`` snapshot via
-    ``save_weights_and_get_sampling_client_async`` to ensure their work uses a fixed
+    ``save_weights_and_get_sampling_client`` to ensure their work uses a fixed
     checkpoint.
 
     Args:
@@ -277,7 +278,7 @@ async def run_evals(
             nonlocal sampling_client
             if sampling_client is None:
                 # Snapshot the current pre-step weights and create a new sampling client.
-                sampling_client = await training_client.save_weights_and_get_sampling_client_async()
+                sampling_client = await training_client.save_weights_and_get_sampling_client()
             return await evaluator(sampling_client)
         else:
             raise ConfigurationError(f"Unknown evaluator type: {type(evaluator)}")
@@ -364,10 +365,8 @@ async def main(config: Config):
             await checkpoint_utils.check_renderer_name_for_checkpoint_async(
                 service_client, resume_info.state_path, config.renderer_name
             )
-            training_client = (
-                await service_client.create_training_client_from_state_with_optimizer_async(
-                    resume_info.state_path, user_metadata=user_metadata
-                )
+            training_client = await service_client.create_training_client_from_state_with_optimizer(
+                resume_info.state_path, user_metadata=user_metadata
             )
             logger.info(f"Resumed training from {resume_info.state_path}")
         elif config.load_checkpoint_path:
@@ -375,12 +374,12 @@ async def main(config: Config):
             await checkpoint_utils.check_renderer_name_for_checkpoint_async(
                 service_client, config.load_checkpoint_path, config.renderer_name
             )
-            training_client = await service_client.create_training_client_from_state_async(
+            training_client = await service_client.create_training_client_from_state(
                 config.load_checkpoint_path, user_metadata=user_metadata
             )
             logger.info(f"Loaded weights from {config.load_checkpoint_path}")
         else:
-            training_client = await service_client.create_lora_training_client_async(
+            training_client = await service_client.create_lora_training_client(
                 base_model=config.model_name,
                 rank=config.lora_rank,
                 user_metadata=user_metadata,
@@ -401,9 +400,21 @@ async def main(config: Config):
         )
         checkpoint_mgr.restore_last_saved_tokens(resumed_elapsed_tokens)
         elapsed_tokens: int = resumed_elapsed_tokens
+        cost_tracker = CostTracker(
+            fetch_model_pricing(config.model_name),
+            cumulative=TokenUsage(trained=resumed_elapsed_tokens),
+        )
 
         dataset, maybe_test_dataset = config.dataset_builder()
         n_batches = len(dataset)
+        if resume_info and store is not None:
+            resume_step = start_epoch * n_batches + start_batch
+            dropped = store.truncate_metrics(resume_step)
+            if dropped:
+                logger.info(
+                    f"Resuming at step {resume_step}: dropped {dropped} metrics rows "
+                    f"with step >= {resume_step}"
+                )
         total_steps = _resolve_total_steps(config.max_steps, n_batches, config.num_epochs)
         progress_denominator = total_steps if total_steps > 0 else 1
         tokenizer = get_tokenizer(config.model_name)
@@ -465,10 +476,8 @@ async def main(config: Config):
                         infrequent_evaluators, training_client, step
                     )
 
-            fwd_bwd_future = await training_client.forward_backward_async(
-                data, loss_fn="cross_entropy"
-            )
-            optim_step_future = await training_client.optim_step_async(adam_params)
+            fwd_bwd_future = training_client.forward_backward(data, loss_fn="cross_entropy")
+            optim_step_future = training_client.optim_step(adam_params)
 
             return SubmittedBatch(
                 fwd_bwd_future=fwd_bwd_future,
@@ -503,8 +512,8 @@ async def main(config: Config):
             )
 
             async with trace.scope_span("step"):
-                fwd_bwd_result = await submitted.fwd_bwd_future.result_async()
-                optim_step_result = await submitted.optim_step_future.result_async()
+                fwd_bwd_result = await submitted.fwd_bwd_future
+                optim_step_result = await submitted.optim_step_future
 
             if optim_step_result.metrics:
                 metrics.update(optim_step_result.metrics)
@@ -521,6 +530,9 @@ async def main(config: Config):
                 ),
                 train_mean_nll=train_nll,
             )
+            # Every token in the batch goes through forward_backward, so the
+            # trained-token count is num_tokens; cumulative matches elapsed_tokens.
+            metrics.update(cost_tracker.record_step(TokenUsage(trained=submitted.num_tokens)))
             # Bits per byte: a tokenizer-independent counterpart to train_mean_nll,
             # letting NLL be compared across models with different tokenizers.
             if submitted.data and "target_tokens" in submitted.data[0].loss_fn_inputs:

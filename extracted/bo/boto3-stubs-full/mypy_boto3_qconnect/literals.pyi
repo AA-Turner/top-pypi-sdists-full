@@ -28,6 +28,7 @@ __all__ = (
     "AIPromptTemplateTypeType",
     "AIPromptTypeType",
     "AssistantCapabilityTypeType",
+    "AssistantGlobalResiliencyStatusType",
     "AssistantStatusType",
     "AssistantTypeType",
     "AssociationTypeType",
@@ -42,6 +43,7 @@ __all__ = (
     "ExternalSourceType",
     "FilterFieldType",
     "FilterOperatorType",
+    "GlobalResiliencyStatusType",
     "GuardrailActionType",
     "GuardrailContentFilterTypeType",
     "GuardrailContextualGroundingFilterTypeType",
@@ -157,6 +159,7 @@ AIPromptTypeType = Literal[
     "SELF_SERVICE_PRE_PROCESSING",
 ]
 AssistantCapabilityTypeType = Literal["V1", "V2"]
+AssistantGlobalResiliencyStatusType = Literal["DISABLED", "ENABLED"]
 AssistantStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",
@@ -186,6 +189,7 @@ CrossRegionStatusType = Literal["GLOBAL", "NONE", "REGIONAL"]
 ExternalSourceType = Literal["AMAZON_CONNECT"]
 FilterFieldType = Literal["NAME"]
 FilterOperatorType = Literal["EQUALS"]
+GlobalResiliencyStatusType = Literal["SUPPORTED", "UNSUPPORTED"]
 GuardrailActionType = Literal["BLOCKED", "MASKED", "NONE"]
 GuardrailContentFilterTypeType = Literal[
     "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
@@ -388,6 +392,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 import pathlib
 
-import omni.asset_validator
+import usd_validation_nvidia
 import usdex.test
-from pxr import Gf, Usd, UsdGeom, UsdShade
+from pxr import Gf, Tf, Usd, UsdGeom, UsdShade
 
 
 class ConverterTestCase(usdex.test.TestCase):
@@ -14,8 +14,8 @@ class ConverterTestCase(usdex.test.TestCase):
     def setUp(self):
         super().setUp()
         # All conversion results should be valid atomic assets
-        self.validationEngine.enable_rule(omni.asset_validator.AnchoredAssetPathsChecker)
-        self.validationEngine.enable_rule(omni.asset_validator.SupportedFileTypesChecker)
+        self.validationEngine.enable_rule(usd_validation_nvidia.AnchoredAssetPathsChecker)
+        self.validationEngine.enable_rule(usd_validation_nvidia.SupportedFileTypesChecker)
 
     def check_material_binding(self, prim: Usd.Prim, material: UsdShade.Material):
         material_binding = UsdShade.MaterialBindingAPI(prim)
@@ -38,6 +38,29 @@ class ConverterTestCase(usdex.test.TestCase):
         shader: UsdShade.Shader = usdex.core.computeEffectivePreviewSurfaceShader(material)
         return self._get_input_value(shader, input_name)
 
+    def expect_no_mass_source(self, links: list[tuple[str, str]]):
+        """
+        Expect a warning for each rigid body whose subtree has no mass source.
+
+        `links` is `(link name, parent joint type)` in the order the URDF lists the links.
+        """
+        diagnostics = [
+            (
+                Tf.TF_DIAGNOSTIC_WARNING_TYPE,
+                (
+                    f".*Link '{name}' has no collision or positive-mass inertial, including its descendants, "
+                    f"and is connected by a {joint_type} joint.*"
+                ),
+            )
+            for name, joint_type in links
+        ]
+        return usdex.test.ScopedDiagnosticChecker(self, diagnostics, level=usdex.core.DiagnosticsLevel.eWarning)
+
+    def get_openpbr_input_value(self, material: UsdShade.Material, input_name: str):
+        shader: UsdShade.Shader = usdex.core.computeEffectiveMtlxSurfaceShader(material)
+        self.assertEqual(shader.GetShaderId(), "ND_open_pbr_surface_surfaceshader")
+        return self._get_input_value(shader, input_name)
+
     def get_material_diffuse_color(self, material: UsdShade.Material) -> Gf.Vec3f | None:
         return self._get_material_input_value(material, "diffuseColor")
 
@@ -56,15 +79,15 @@ class ConverterTestCase(usdex.test.TestCase):
     def get_material_ior(self, material: UsdShade.Material) -> float:
         return self._get_material_input_value(material, "ior")
 
-    def get_material_wrap_mode(self, material: UsdShade.Material) -> str:
-        wrap_mode_input = material.GetInput("wrapMode")
-        wrap_mode = wrap_mode_input.Get() if wrap_mode_input else None
-
-        for child in material.GetPrim().GetAllChildren():
+    def get_material_wrap_mode(self, material: UsdShade.Material) -> str | None:
+        wrap_mode = None
+        for child in material.GetPrim().GetFilteredChildren(Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)):
             shader = UsdShade.Shader(child)
             if shader.GetShaderId() == "UsdUVTexture":
                 wrap_s = shader.GetInput("wrapS").Get()
                 wrap_t = shader.GetInput("wrapT").Get()
+                if wrap_mode is None:
+                    wrap_mode = wrap_s
                 self.assertEqual(wrap_mode, wrap_s)
                 self.assertEqual(wrap_mode, wrap_t)
         return wrap_mode

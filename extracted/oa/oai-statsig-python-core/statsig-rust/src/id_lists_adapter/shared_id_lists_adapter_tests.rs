@@ -4,7 +4,7 @@ use mockito::{Mock, Server, ServerGuard};
 use parking_lot::Mutex;
 use serial_test::serial;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar};
 use std::time::Duration;
 
@@ -14,6 +14,7 @@ struct Listener {
     propagation: Mutex<HashMap<String, IdListPropagationUpdate>>,
     after_snapshot: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
     reject_next_snapshot: AtomicBool,
+    installs: AtomicUsize,
 }
 
 impl IdListsUpdateListener for Listener {
@@ -47,6 +48,7 @@ impl IdListsUpdateListener for Listener {
                 "test snapshot lock busy".into(),
             ));
         }
+        self.installs.fetch_add(1, Ordering::Relaxed);
         *self.lists.lock() = lists;
         *self.propagation.lock() = propagation;
         let callback = self.after_snapshot.lock().clone();
@@ -77,6 +79,29 @@ impl Fixture {
             ..StatsigOptions::default()
         }
     }
+    fn manifest(&mut self, size: u64, creation: i64, timestamp: u64, requests: usize) -> Mock {
+        self.server.reset();
+        self.server
+            .mock("POST", "/lists")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                serde_json::json!({
+                    "members": {
+                        "name": "members", "fileID": "file-1", "creationTime": creation, "size": size,
+                        "url": format!("{}/members", self.server.url()), "ts": timestamp
+                    }
+                })
+                .to_string(),
+            )
+            .expect(requests)
+            .create()
+    }
+    fn heartbeat(&mut self, size: u64, timestamp: u64) -> (Mock, Mock) {
+        let manifest = self.manifest(size, 1, timestamp, 1);
+        let no_download = self.server.mock("GET", "/members").expect(0).create();
+        (manifest, no_download)
+    }
     fn response(
         &mut self,
         size: u64,
@@ -85,22 +110,8 @@ impl Fixture {
         requests: usize,
         valid_range: bool,
     ) -> (Mock, Option<Mock>) {
-        self.server.reset();
-        let manifest = self
-            .server
-            .mock("POST", "/lists")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(
-                serde_json::json!({"members": {
-                    "name":"members", "url":format!("{}/members", self.server.url()),
-                    "fileID":"file-1", "size":size, "creationTime":creation,
-                    "ts": chrono::Utc::now().timestamp_millis().max(1) as u64,
-                }})
-                .to_string(),
-            )
-            .expect(requests)
-            .create();
+        let timestamp = chrono::Utc::now().timestamp_millis().max(1) as u64;
+        let manifest = self.manifest(size, creation, timestamp, requests);
         let file = body.map(|(body, start)| {
             let mut mock = self
                 .server
@@ -142,6 +153,53 @@ fn verify(mock: &(Mock, Option<Mock>)) {
     mock.0.assert();
     if let Some(file) = &mock.1 {
         file.assert();
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn shared_adapter_preserves_local_metrics_with_remote_telemetry_disabled() {
+    use crate::observability::ops_stats::{OPS_STATS, OpsStatsEvent};
+
+    for disabled in [Some(true), Some(false), None] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut fixture = Fixture::new().await;
+        let response = fixture.response(10, 1, Some(("+AAAAAAAA\n", 0)), 1, true);
+        let mut options = fixture.options(directory.path(), "remote-telemetry");
+        options.disable_remote_telemetry = disabled;
+        let key = "secret-shared-remote-telemetry";
+        let local = OPS_STATS.get_for_instance_with_options(key, Some(&options));
+        let mut events = local.subscribe_for_test();
+        let legacy = OPS_STATS.get_for_instance(key);
+        let mut legacy_events = legacy.subscribe_for_test();
+        let adapter = Arc::new(StatsigSharedIdListsAdapter::new(key, &options));
+        let listener = Arc::new(Listener::default());
+        adapter
+            .clone()
+            .start(&StatsigRuntime::get_runtime(), listener.clone())
+            .await
+            .unwrap();
+        verify(&response);
+        assert!(listener.lists.lock()["members"].ids.contains("AAAAAAAA"));
+
+        let mut metrics = Vec::new();
+        let mut diagnostics = 0;
+        while let Ok(event) = events.try_recv() {
+            match event {
+                OpsStatsEvent::Observability(event) => metrics.push(event.metric_name),
+                OpsStatsEvent::Diagnostics(_) => diagnostics += 1,
+                _ => {}
+            }
+        }
+        for name in ["shared_id_lists.role", "shared_id_lists.publish"] {
+            assert!(
+                metrics.iter().any(|metric| metric == name),
+                "missing {name}"
+            );
+        }
+        assert_eq!(diagnostics > 0, disabled != Some(true));
+        assert_eq!(legacy_events.try_recv().is_ok(), disabled != Some(true));
+        adapter.force_shutdown();
     }
 }
 
@@ -214,6 +272,62 @@ async fn elected_catalog_updates_followers_and_keeps_old_snapshots() {
     drop(current);
     leader.force_shutdown();
     follower.force_shutdown();
+}
+
+#[tokio::test]
+async fn heartbeat_skips_installs_but_new_propagation_and_members_reach_both_readers() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut fixture = Fixture::new().await;
+    let initial = fixture.response(10, 1, Some(("+aaaaaaaa\n", 0)), 1, true);
+    let (leader, owner) = start(&fixture, directory.path(), "leader").await;
+    let (follower, reader) = start(&fixture, directory.path(), "follower").await;
+    verify(&initial);
+    let ts = owner.propagation.lock()["members"].ts.unwrap();
+    for (timestamp, expected_installs) in [(ts, 1), (ts + 1, 2)] {
+        let (manifest, no_download) = fixture.heartbeat(10, timestamp);
+        leader.poll_for_test().await.unwrap();
+        follower.poll_for_test().await.unwrap();
+        manifest.assert();
+        no_download.assert();
+        for view in [&owner, &reader] {
+            assert_eq!(view.installs.load(Ordering::Relaxed), expected_installs);
+            assert_eq!(view.propagation.lock()["members"].ts, Some(timestamp));
+        }
+    }
+
+    let tail = fixture.response(20, 1, Some(("+bbbbbbbb\n", 10)), 1, true);
+    leader.poll_for_test().await.unwrap();
+    follower.poll_for_test().await.unwrap();
+    verify(&tail);
+    for view in [&owner, &reader] {
+        assert_eq!(view.installs.load(Ordering::Relaxed), 3);
+        assert!(view.lists.lock()["members"].ids.contains("bbbbbbbb"));
+        assert_eq!(view.lists.lock()["members"].metadata.size, 20);
+    }
+    leader.force_shutdown();
+    follower.force_shutdown();
+
+    // A newly elected reader skips expired recovery. When HTTP confirms the
+    // identical content, it must still install the catalog for the first time.
+    let store = leader.store_for_test();
+    let catalog = store.load().unwrap().unwrap();
+    let lease = store.try_acquire_lease().unwrap().unwrap();
+    store
+        .publish(&lease, &catalog.lists, &catalog.propagation, 1)
+        .unwrap();
+    drop(lease);
+    let (manifest, no_download) = fixture.heartbeat(20, catalog.propagation["members"].ts.unwrap());
+    let (successor, view) = start(&fixture, directory.path(), "successor").await;
+    assert_eq!(successor.role_for_test().await, "leader");
+    assert_eq!(view.installs.load(Ordering::Relaxed), 1);
+    assert!(view.lists.lock()["members"].ids.contains("bbbbbbbb"));
+    assert_eq!(
+        store.load().unwrap().unwrap().content_digest,
+        catalog.content_digest
+    );
+    manifest.assert();
+    no_download.assert();
+    successor.force_shutdown();
 }
 
 #[tokio::test]
@@ -314,6 +428,128 @@ async fn follower_retries_the_same_manifest_without_blocking_the_runtime() {
     assert_eq!(view.lists.lock()["members"].metadata.size, 20);
     verify(&tail);
     leader.force_shutdown();
+    follower.force_shutdown();
+}
+
+#[test]
+fn restored_catalog_reuses_its_mapping_after_a_rejected_or_cancelled_removal() {
+    tokio::runtime::Builder::new_current_thread()
+        .max_blocking_threads(1)
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let directory = tempfile::tempdir().unwrap();
+            let mut fixture = Fixture::new().await;
+            let initial = fixture.response(10, 1, Some(("+aaaaaaaa\n", 0)), 1, true);
+            let (leader, _) = start(&fixture, directory.path(), "leader").await;
+            let (follower, view) = start(&fixture, directory.path(), "follower").await;
+            verify(&initial);
+            leader.force_shutdown();
+
+            let writer = leader.store_for_test();
+            let lease = writer.try_acquire_lease().unwrap().unwrap();
+            let first = writer.load().unwrap().unwrap();
+            let now = chrono::Utc::now().timestamp_millis() as u64;
+            for cancel in [false, true] {
+                let installs_before_removal = view.installs.load(Ordering::Relaxed);
+                writer
+                    .publish(&lease, &HashMap::new(), &HashMap::new(), now)
+                    .unwrap();
+                if cancel {
+                    // Queue the read behind the only worker. Let it finish without
+                    // polling its caller again, so the listener never sees the removal.
+                    let (release, wait) = std::sync::mpsc::channel();
+                    let blocker = tokio::task::spawn_blocking(move || {
+                        wait.recv_timeout(Duration::from_secs(5)).unwrap()
+                    });
+                    let mut poll = Box::pin(follower.poll_for_test());
+                    assert!(futures::poll!(&mut poll).is_pending());
+                    release.send(()).unwrap();
+                    blocker.await.unwrap();
+                    tokio::task::spawn_blocking(|| ()).await.unwrap();
+                    drop(poll);
+                } else {
+                    view.reject_next_snapshot.store(true, Ordering::Relaxed);
+                    assert!(matches!(
+                        follower.poll_for_test().await,
+                        Err(crate::StatsigErr::LockFailure(_))
+                    ));
+                }
+
+                writer
+                    .publish(&lease, &first.lists, &first.propagation, now)
+                    .unwrap();
+                follower.poll_for_test().await.unwrap();
+                assert_eq!(
+                    view.installs.load(Ordering::Relaxed),
+                    installs_before_removal + 1
+                );
+                writer
+                    .publish(&lease, &first.lists, &first.propagation, now + 1)
+                    .unwrap();
+                follower.poll_for_test().await.unwrap();
+                assert_eq!(
+                    view.installs.load(Ordering::Relaxed),
+                    installs_before_removal + 1
+                );
+                let loaded = follower.store_for_test().load().unwrap().unwrap();
+                assert!(Arc::ptr_eq(
+                    &loaded.lists["members"].ids,
+                    &view.lists.lock()["members"].ids
+                ));
+            }
+            follower.force_shutdown();
+        });
+}
+
+#[tokio::test]
+async fn cancelled_follower_install_tracks_the_snapshot_accepted_by_the_listener() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut fixture = Fixture::new().await;
+    let initial = fixture.response(10, 1, Some(("+aaaaaaaa\n", 0)), 1, true);
+    let (leader, _) = start(&fixture, directory.path(), "leader").await;
+    let (follower, view) = start(&fixture, directory.path(), "follower").await;
+    verify(&initial);
+    leader.force_shutdown();
+    let store = leader.store_for_test();
+    let lease = store.try_acquire_lease().unwrap().unwrap();
+    let first = store.load().unwrap().unwrap();
+    let now_ms = || chrono::Utc::now().timestamp_millis() as u64;
+    store
+        .publish(&lease, &HashMap::new(), &HashMap::new(), now_ms())
+        .unwrap();
+
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let (release, resume) = std::sync::mpsc::channel();
+    *view.after_snapshot.lock() = Some(Arc::new({
+        let entered = entered.clone();
+        let resume = Mutex::new(resume);
+        move || {
+            entered.notify_one();
+            resume.lock().recv_timeout(Duration::from_secs(5)).unwrap();
+        }
+    }));
+    let polling = follower.clone();
+    let task = tokio::spawn(async move { polling.poll_for_test().await });
+    tokio::time::timeout(Duration::from_secs(5), entered.notified())
+        .await
+        .unwrap();
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert!(view.lists.lock().is_empty());
+    let restored = store
+        .publish(&lease, &first.lists, &first.propagation, now_ms())
+        .unwrap();
+    *view.after_snapshot.lock() = None;
+    release.send(()).unwrap();
+
+    follower.poll_for_test().await.unwrap();
+    assert!(view.lists.lock()["members"].ids.contains("aaaaaaaa"));
+    assert_eq!(view.installs.load(Ordering::Relaxed), 3);
+    // An older follower may still have the first wire generation recorded after
+    // cancellation. It must see restored A as a new publication.
+    assert_ne!(first.generation, restored.generation);
     follower.force_shutdown();
 }
 

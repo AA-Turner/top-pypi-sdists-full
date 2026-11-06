@@ -51,7 +51,7 @@ class WarehouseArgs:
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.int] query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size.
         :param pulumi.Input[_builtins.str] resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the `generation` field. Please check [Snowflake documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): `MEMORY_1X` | `MEMORY_1X_x86` | `MEMORY_16X` | `MEMORY_16X_x86` | `MEMORY_64X` | `MEMORY_64X_x86`. Gen2 warehouses are not available in all regions. Please consult the [Snowflake Gen2 Region Availability documentation](https://docs.snowflake.com/en/user-guide/warehouses-gen2#region-availability) prior to configuration.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see docs.
@@ -59,7 +59,7 @@ class WarehouseArgs:
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
         :param pulumi.Input[_builtins.str] warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): `XSMALL` | `X-SMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `X-LARGE` | `XXLARGE` | `X2LARGE` | `2X-LARGE` | `XXXLARGE` | `X3LARGE` | `3X-LARGE` | `X4LARGE` | `4X-LARGE` | `X5LARGE` | `5X-LARGE` | `X6LARGE` | `6X-LARGE`. Consult [warehouse documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for the details. Note: removing the size from config will result in the resource recreation.
-        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         if auto_resume is not None:
             pulumi.set(__self__, "auto_resume", auto_resume)
@@ -210,7 +210,7 @@ class WarehouseArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -306,7 +306,7 @@ class WarehouseArgs:
     @pulumi.getter(name="warehouseType")
     def warehouse_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         return pulumi.get(self, "warehouse_type")
 
@@ -352,7 +352,7 @@ class _WarehouseState:
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input['WarehouseParameterArgs']]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given warehouse.
         :param pulumi.Input[_builtins.int] query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size.
         :param pulumi.Input[_builtins.str] resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the `generation` field. Please check [Snowflake documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): `MEMORY_1X` | `MEMORY_1X_x86` | `MEMORY_16X` | `MEMORY_16X_x86` | `MEMORY_64X` | `MEMORY_64X_x86`. Gen2 warehouses are not available in all regions. Please consult the [Snowflake Gen2 Region Availability documentation](https://docs.snowflake.com/en/user-guide/warehouses-gen2#region-availability) prior to configuration.
@@ -362,7 +362,7 @@ class _WarehouseState:
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
         :param pulumi.Input[_builtins.str] warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): `XSMALL` | `X-SMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `X-LARGE` | `XXLARGE` | `X2LARGE` | `2X-LARGE` | `XXXLARGE` | `X3LARGE` | `3X-LARGE` | `X4LARGE` | `4X-LARGE` | `X5LARGE` | `5X-LARGE` | `X6LARGE` | `6X-LARGE`. Consult [warehouse documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for the details. Note: removing the size from config will result in the resource recreation.
-        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         if auto_resume is not None:
             pulumi.set(__self__, "auto_resume", auto_resume)
@@ -531,7 +531,7 @@ class _WarehouseState:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -651,7 +651,7 @@ class _WarehouseState:
     @pulumi.getter(name="warehouseType")
     def warehouse_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         return pulumi.get(self, "warehouse_type")
 
@@ -711,7 +711,7 @@ class Warehouse(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.int] query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size.
         :param pulumi.Input[_builtins.str] resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the `generation` field. Please check [Snowflake documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): `MEMORY_1X` | `MEMORY_1X_x86` | `MEMORY_16X` | `MEMORY_16X_x86` | `MEMORY_64X` | `MEMORY_64X_x86`. Gen2 warehouses are not available in all regions. Please consult the [Snowflake Gen2 Region Availability documentation](https://docs.snowflake.com/en/user-guide/warehouses-gen2#region-availability) prior to configuration.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the warehouse. For more information about this resource, see docs.
@@ -719,7 +719,7 @@ class Warehouse(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
         :param pulumi.Input[_builtins.str] warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): `XSMALL` | `X-SMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `X-LARGE` | `XXLARGE` | `X2LARGE` | `2X-LARGE` | `XXXLARGE` | `X3LARGE` | `3X-LARGE` | `X4LARGE` | `4X-LARGE` | `X5LARGE` | `5X-LARGE` | `X6LARGE` | `6X-LARGE`. Consult [warehouse documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for the details. Note: removing the size from config will result in the resource recreation.
-        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         ...
     @overload
@@ -853,7 +853,7 @@ class Warehouse(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WarehouseParameterArgs', 'WarehouseParameterArgsDict', 'outputs.WarehouseParameter']]]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given warehouse.
         :param pulumi.Input[_builtins.int] query_acceleration_max_scale_factor: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the maximum scale factor for leasing compute resources for query acceleration. The scale factor is used as a multiplier based on warehouse size.
         :param pulumi.Input[_builtins.str] resource_constraint: Specifies the resource constraint for the warehouse. Only available for snowpark-optimized warehouses. For setting generation please use the `generation` field. Please check [Snowflake documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for required warehouse sizes for each resource constraint. Valid values are (case-insensitive): `MEMORY_1X` | `MEMORY_1X_x86` | `MEMORY_16X` | `MEMORY_16X_x86` | `MEMORY_64X` | `MEMORY_64X_x86`. Gen2 warehouses are not available in all regions. Please consult the [Snowflake Gen2 Region Availability documentation](https://docs.snowflake.com/en/user-guide/warehouses-gen2#region-availability) prior to configuration.
@@ -863,7 +863,7 @@ class Warehouse(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
         :param pulumi.Input[_builtins.str] warehouse_size: Specifies the size of the virtual warehouse. Valid values are (case-insensitive): `XSMALL` | `X-SMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `X-LARGE` | `XXLARGE` | `X2LARGE` | `2X-LARGE` | `XXXLARGE` | `X3LARGE` | `3X-LARGE` | `X4LARGE` | `4X-LARGE` | `X5LARGE` | `5X-LARGE` | `X6LARGE` | `6X-LARGE`. Consult [warehouse documentation](https://docs.snowflake.com/en/sql-reference/sql/create-warehouse#optional-properties-objectproperties) for the details. Note: removing the size from config will result in the resource recreation.
-        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        :param pulumi.Input[_builtins.str] warehouse_type: Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -891,6 +891,54 @@ class Warehouse(pulumi.CustomResource):
         __props__.__dict__["warehouse_size"] = warehouse_size
         __props__.__dict__["warehouse_type"] = warehouse_type
         return Warehouse(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            auto_resume: pulumi.Input[Optional[_builtins.str]] = None,
+            auto_suspend: pulumi.Input[Optional[_builtins.int]] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_query_acceleration: pulumi.Input[Optional[_builtins.str]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            generation: pulumi.Input[Optional[_builtins.str]] = None,
+            initially_suspended: pulumi.Input[Optional[_builtins.bool]] = None,
+            max_cluster_count: pulumi.Input[Optional[_builtins.int]] = None,
+            max_concurrency_level: pulumi.Input[Optional[_builtins.int]] = None,
+            min_cluster_count: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parameters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseParameterArgs', 'WarehouseParameterArgsDict', 'outputs.WarehouseParameter']]]]] = None,
+            query_acceleration_max_scale_factor: pulumi.Input[Optional[_builtins.int]] = None,
+            resource_constraint: pulumi.Input[Optional[_builtins.str]] = None,
+            resource_monitor: pulumi.Input[Optional[_builtins.str]] = None,
+            scaling_policy: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseShowOutputArgs', 'WarehouseShowOutputArgsDict', 'outputs.WarehouseShowOutput']]]]] = None,
+            statement_queued_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            statement_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            warehouse_size: pulumi.Input[Optional[_builtins.str]] = None,
+            warehouse_type: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["autoResume"] = auto_resume
+        __props__["autoSuspend"] = auto_suspend
+        __props__["comment"] = comment
+        __props__["enableQueryAcceleration"] = enable_query_acceleration
+        __props__["fullyQualifiedName"] = fully_qualified_name
+        __props__["generation"] = generation
+        __props__["initiallySuspended"] = initially_suspended
+        __props__["maxClusterCount"] = max_cluster_count
+        __props__["maxConcurrencyLevel"] = max_concurrency_level
+        __props__["minClusterCount"] = min_cluster_count
+        __props__["name"] = name
+        __props__["parameters"] = parameters
+        __props__["queryAccelerationMaxScaleFactor"] = query_acceleration_max_scale_factor
+        __props__["resourceConstraint"] = resource_constraint
+        __props__["resourceMonitor"] = resource_monitor
+        __props__["scalingPolicy"] = scaling_policy
+        __props__["showOutputs"] = show_outputs
+        __props__["statementQueuedTimeoutInSeconds"] = statement_queued_timeout_in_seconds
+        __props__["statementTimeoutInSeconds"] = statement_timeout_in_seconds
+        __props__["warehouseSize"] = warehouse_size
+        __props__["warehouseType"] = warehouse_type
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/warehouse:Warehouse', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="autoResume")
@@ -976,7 +1024,7 @@ class Warehouse(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier for the virtual warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -1056,7 +1104,7 @@ class Warehouse(pulumi.CustomResource):
     @pulumi.getter(name="warehouseType")
     def warehouse_type(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed.
+        Specifies warehouse type. Valid values are (case-insensitive): `STANDARD` | `SNOWPARK-OPTIMIZED`. Warehouse needs to be suspended to change its type. Provider will handle automatic suspension and resumption if needed. When not set, the provider creates the warehouse as `STANDARD` (instead of relying on the Snowflake default type, which is changing to `ADAPTIVE`), and removing the field from the configuration sets the type to `STANDARD` instead of unsetting it. A warehouse whose type was changed outside of Terraform to `ADAPTIVE` is updated back in place, and one changed to `INTERACTIVE` is recreated.
         """
         return pulumi.get(self, "warehouse_type")
 

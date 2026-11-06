@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
+import asyncio
 import json
 import time
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from loguru import logger
 
 from pipecatcloud.__version__ import version
 from pipecatcloud._utils.deploy_utils import DeployConfigParams
+from pipecatcloud._utils.log_utils import describe_body, describe_exception, describe_url
 from pipecatcloud.config import config
 from pipecatcloud.exception import AgentStartError
 
@@ -33,6 +35,41 @@ def api_method(func):
     return wrapper
 
 
+# A secrets write can be refused with a 503 and `Retry-After` while the region
+# is not ready to store secrets yet (a self-hosted region's first write), while
+# the server is busy with other writes, or when the region's answer was lost and
+# the write may have landed. Repeating the same write is right for all of them.
+# The CLI waits and repeats the request, bounded so a region that stays unready
+# fails rather than hanging. Three retries cover a short warm-up (the server
+# asks for about 5 seconds) with room to spare. The waits total at most
+# 3 x 30 seconds; each of the 4 attempts can also take up to the client's own
+# request timeout, so the worst case is those waits plus 4 timeouts. A larger
+# `Retry-After` than the cap means the server wants longer than we are willing
+# to wait. The request is not retried, and not clamped either: repeating it
+# before the time the server named goes against the header. The error says so.
+SECRETS_WRITE_MAX_RETRIES = 3
+SECRETS_WRITE_MAX_RETRY_AFTER = 30
+
+# How the API says what it takes. A server that writes several fields of a secret
+# set in one request names this capability on its secrets responses, so the CLI
+# knows without trying. One that does not is written one field at a time.
+CAPABILITIES_HEADER = "Pipecat-Cloud-Capabilities"
+SECRETS_BULK_WRITE_CAPABILITY = "secrets-bulk-write"
+
+
+def _parse_retry_after(value: str | None) -> int | None:
+    """Seconds from a `Retry-After` header, or None when absent, negative, or not
+    a whole number of seconds (the HTTP-date form is not honoured). A value above
+    the cap is returned as sent; the caller decides not to wait it out."""
+    if value is None:
+        return None
+    try:
+        seconds = int(value.strip())
+    except ValueError:
+        return None
+    return seconds if seconds >= 0 else None
+
+
 class _API:
     def __init__(self, token: str | None = None, is_cli: bool = False):
         self.token = token
@@ -43,6 +80,15 @@ class _API:
         # carries a code of its own), so a caller that decides on the status
         # reads it here. None when the request got no response at all.
         self.error_status: int | None = None
+        # The `Retry-After` header of the last failed response, as sent, or
+        # None when it had none.
+        self.error_retry_after: str | None = None
+        # The capabilities header of the last response, as sent, or None when it
+        # had none.
+        self.capabilities_header: str | None = None
+        # Whether the server said, on the last `secrets_get`, that it takes
+        # several fields of a set in one write. False until it does.
+        self.secrets_bulk_write: bool = False
         self.bubble_next = False
         self.is_cli = is_cli
 
@@ -140,7 +186,12 @@ class _API:
                 logger.debug("Token refresh failed, proceeding with expired token")
 
         async with aiohttp.ClientSession() as session:
-            logger.debug(f"Request: {method} {url} {params} {json}")
+            # Every route comes through here, and a body or a query can hold secret
+            # values, so neither is logged, whichever route this is.
+            logger.debug(
+                f"Request: {method} {describe_url(url)} "
+                f"params: {describe_body(params)} body: {describe_body(json)}"
+            )
 
             response = await session.request(
                 method=method,
@@ -149,6 +200,7 @@ class _API:
                 params=params,
                 json=json,
             )
+            self.capabilities_header = response.headers.get(CAPABILITIES_HEADER)
 
             if not response.ok:
                 logger.debug(f"Response not ok: {response.status} {response.reason}")
@@ -156,6 +208,7 @@ class _API:
                     return None
 
                 self.error_status = response.status
+                self.error_retry_after = response.headers.get("Retry-After")
                 # Extract PCC error code, where applicable
                 try:
                     # Try to parse the error as JSON
@@ -188,6 +241,7 @@ class _API:
         async def wrapper(*args, live=None, **kwargs):
             self.error = None
             self.error_status = None
+            self.error_retry_after = None
             try:
                 result = await method_func(*args, **kwargs)
                 self.bubble_next = False
@@ -203,7 +257,7 @@ class _API:
                         raise e
 
                 if self.error and not self.bubble_next:
-                    logger.debug(e)
+                    logger.debug(describe_exception(e))
                     self.print_error()
 
                 self.bubble_next = False
@@ -383,10 +437,23 @@ class _API:
         Returns the full response object: {secrets, region, status, errorMessage?}.
         Use this when you need readiness; use _secrets_list when you only need
         the existence check or the flat keys array.
+
+        Also records whether the server takes several fields in one write, which
+        it says whether or not the set exists.
         """
         url = f"{self.construct_api_url('secrets_path').format(org=org)}/{secret_set}"
+        self.capabilities_header = None
+        self.secrets_bulk_write = False
         result = await self._base_request("GET", url, not_found_is_empty=True)
+        self.secrets_bulk_write = self.last_response_offers_bulk_write()
         return result or None
+
+    def last_response_offers_bulk_write(self) -> bool:
+        """Whether the last response came from a server that takes several fields in
+        one write. In a rolling update of the API, responses can differ on this."""
+        return SECRETS_BULK_WRITE_CAPABILITY in [
+            c.strip() for c in (self.capabilities_header or "").split(",")
+        ]
 
     @property
     def secrets_get(self):
@@ -408,7 +475,70 @@ class _API:
         if region:
             data = {**data, "region": region}
 
-        return await self._base_request("PUT", url, json=data) or {}
+        # A PUT replaces the value of each key it names, so repeating it is safe.
+        result, _ = await self._secrets_write_with_retry("PUT", url, json=data)
+        return result or {}
+
+    async def _secrets_write_with_retry(
+        self, method: str, url: str, **kwargs
+    ) -> tuple[dict | None, int]:
+        """A secrets write, and how many times it was repeated. A 503 with
+        `Retry-After` is the server saying the write could not be done yet; wait and
+        repeat, a bounded number of times. Only for a write that is safe to repeat."""
+        attempt = 0
+        while True:
+            try:
+                return await self._base_request(method, url, **kwargs), attempt
+            except aiohttp.ClientResponseError as e:
+                wait = _parse_retry_after(self.error_retry_after)
+                too_long = wait is not None and wait > SECRETS_WRITE_MAX_RETRY_AFTER
+                if (
+                    e.status != 503
+                    or wait is None
+                    or too_long
+                    or attempt >= SECRETS_WRITE_MAX_RETRIES
+                ):
+                    if e.status == 503 and isinstance(self.error, dict):
+                        notes = []
+                        if attempt:
+                            # Say the retries happened, so the user does not
+                            # think the first refusal was final.
+                            noun = "retry" if attempt == 1 else "retries"
+                            notes.append(f"Still unavailable after {attempt} {noun}.")
+                        if too_long:
+                            # Waiting less than the server named would go
+                            # against the header, so say why nothing more was retried.
+                            notes.append(
+                                f"The region asked to wait {wait} seconds, longer than the "
+                                f"CLI will wait ({SECRETS_WRITE_MAX_RETRY_AFTER}). "
+                                "Run the command again after that."
+                            )
+                        if notes:
+                            # Same fallback the console uses to show an error.
+                            text = (
+                                self.error.get("error")
+                                or self.error.get("message")
+                                or "Service unavailable."
+                            )
+                            self.error = {**self.error, "error": f"{text} {' '.join(notes)}"}
+                    raise
+                attempt += 1
+                self._notify_retry(wait, attempt)
+                await asyncio.sleep(wait)
+                self.error = None
+                self.error_status = None
+                self.error_retry_after = None
+
+    def _notify_retry(self, wait: int, attempt: int) -> None:
+        """Tell the CLI user the request is waiting to be repeated, so a pause is not silent."""
+        if not self.is_cli:
+            return
+        from pipecatcloud._utils.console_utils import console
+
+        console.print(
+            f"[yellow]The write could not be completed yet. Retrying in {wait}s "
+            f"(attempt {attempt} of {SECRETS_WRITE_MAX_RETRIES})...[/yellow]"
+        )
 
     @property
     def secrets_upsert(self):
@@ -420,6 +550,47 @@ class _API:
             region: region for secret set
         """
         return self.create_api_method(self._secrets_upsert)
+
+    async def _secrets_upsert_fields(
+        self, fields: dict[str, str], set_name: str, org: str, region: str | None = None
+    ) -> dict:
+        return await self._secrets_upsert(
+            data={
+                "secrets": [{"secretKey": key, "secretValue": val} for key, val in fields.items()]
+            },
+            set_name=set_name,
+            org=org,
+            region=region,
+        )
+
+    @property
+    def secrets_upsert_fields(self):
+        """Create / modify several fields of a secret set in one write, which the
+        server applies whole or not at all. Only for a server that says it takes
+        this (`secrets_bulk_write`, after `secrets_get`).
+
+        Args:
+            fields: the keys and values to write
+            set_name: name of set to create or update
+            org: Organization ID
+            region: region for secret set
+        """
+        return self.create_api_method(self._secrets_upsert_fields)
+
+    async def _secrets_keys(self, org: str, region: str) -> dict | None:
+        url = f"{self.construct_api_url('regions_path').format(org=org)}/{region}/secret-keys"
+        return await self._base_request("GET", url, not_found_is_empty=True)
+
+    @property
+    def secrets_keys(self):
+        """The organization's secret keys in a region: each key's fingerprint, state
+        and times. None when the server does not offer this.
+
+        Args:
+            org: Organization ID
+            region: region to read
+        """
+        return self.create_api_method(self._secrets_keys)
 
     async def _secrets_reference(self, name: str, region: str, org: str) -> dict:
         url = f"{self.construct_api_url('secrets_path').format(org=org)}/references"
@@ -442,7 +613,15 @@ class _API:
 
     async def _secrets_delete(self, set_name: str, secret_name: str, org: str) -> dict | None:
         url = f"{self.construct_api_url('secrets_path').format(org=org)}/{set_name}/{secret_name}"
-        return await self._base_request("DELETE", url, not_found_is_empty=True)
+        # Deleting a key twice leaves the same set, so it is repeated like a write.
+        result, retried = await self._secrets_write_with_retry(
+            "DELETE", url, not_found_is_empty=True
+        )
+        if result is None and retried:
+            # Not found once repeated: the attempt the server could not confirm
+            # removed it, or it was never there. Either way the key is gone.
+            return {"secretKey": secret_name}
+        return result
 
     @property
     def secrets_delete(self):

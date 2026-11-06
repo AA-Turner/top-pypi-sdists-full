@@ -11,6 +11,10 @@ authors.workspace = true
 license.workspace = true
 readme = "README.md"
 
+[package.metadata.cargo-shear]
+# `declare_lint!` expands to a call to `ruff_macros::kebab_case!`.
+ignored = ["ruff_macros"]
+
 [lib]
 doctest = false
 
@@ -18,6 +22,7 @@ doctest = false
 mdtest = { workspace = true }
 ruff_db = { workspace = true, features = ["os", "testing"] }
 ruff_diagnostics = { workspace = true }
+ruff_macros = { workspace = true }
 ruff_notebook = { workspace = true }
 ruff_python_ast = { workspace = true }
 ruff_source_file = { workspace = true }

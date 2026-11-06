@@ -50,6 +50,7 @@ from ..errors import (
     NOT_THE_PLATFORM,
     AuthError,
     Conflict,
+    NewVersion,
     InternalError,
     InvalidRequest,
     SequencesError,
@@ -199,9 +200,6 @@ _LEAVING_ASK_S = 30.0
 
 _RENEW_AHEAD_BEATS = 2.5
 
-
-_RENEW_AHEAD_ACTED_S = 30.0
-
 _RENEW_AHEAD_TIMEOUT_S = 10.0
 
 
@@ -285,6 +283,7 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
         self.on_trace: Optional[Callable[[dict], None]] = None
         self._worker: Optional[_WorkerTransport] = None
         self._epoch: Optional[int] = None
+        self._ended: Optional[dict] = None
 
 
 
@@ -865,6 +864,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         except Exception as exc:
             if isinstance(exc, Unavailable):
                 self._in_line = exc.queued
+            if isinstance(exc, NewVersion):
+                self._ended = exc.details
             if trace is not None:
                 if isinstance(exc, Unavailable) and (exc.warming or exc.queued):
                     trace.wait(queued=exc.queued)
@@ -946,6 +947,9 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
                    **({"stuck": True} if self._stuck else {}),
                    **({"again": True} if again else {}),
+
+
+                   **({"on_version": self._epoch} if self._epoch is not None else {}),
 
                    **({"teleop": True} if self.teleop else {})}
 
@@ -1337,18 +1341,12 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                 stale.gone = True
                 raise
 
-    def _driven_by_a_person(self) -> bool:
-        """A person drives this robot (connect(teleop=True)): act() answers from the person's chunks and sends nothing to
-        its worker, yet the robot is in a run - its lease renewed ahead as an acting robot's is, so the act its model
-        answers once the person hands it back waits on no renewal.
-"""
-        teleop = self.teleop
-        return teleop is not None and getattr(teleop, "driver", None) == "human"
-
     def _renew_ahead(self) -> None:
-        """From the seat keepalive's thread, once the lease's renewal is _RENEW_AHEAD_BEATS beats away and the robot is in
-        a run (it acted within _RENEW_AHEAD_ACTED_S): renewed now, its connect sent with no lock held, so the act that
-        reaches the deadline finds it done instead of waiting on it, held up as long as that connect took - and, while
+        """From the seat keepalive's thread, once the lease's renewal is _RENEW_AHEAD_BEATS beats away: renewed now, its
+        connect sent with no lock held, so the act that reaches the deadline finds it done instead of waiting on it,
+        held up as long as that connect took - a robot that has not acted for hours too, whose worker its seat holds:
+        its next act, a person handing it back to its model or a robot routing back to this policy, is answered at
+        once - and, while
         the platform could not hold this robot a standby, once its ask is due (_plan_standby_ask), the next one planned
         whatever this one's answer: at the platform's pace while the gap is young (_STANDBY_FAST_S), else twice as far
         on as the last. Only an answer on the same worker is taken here - the lease moved
@@ -1356,6 +1354,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         answer) is left for that act's renewal, as before. Not between episodes while the robot is to move: that act's
         renewal is its move. Never raises.
         
+
 """
         with self._lock:
             now = time.monotonic()
@@ -1367,8 +1366,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                     and now >= self._standby_ask_at - (self._keepalive_every_s or 20.0) / 2)
             if (self._closed or self._renewing or worker is None or self._lease_deadline is None
                     or (now < self._lease_deadline - ahead and not asks) or now < self._renew_again_at
-                    or (self._rotate is not None and not self._episode_open)
-                    or not (worker.acted_within(_RENEW_AHEAD_ACTED_S) or self._driven_by_a_person())):
+                    or (self._rotate is not None and not self._episode_open)):
                 return
             if asks:
                 if self._standby_ask_from is not None and now - self._standby_ask_from < _STANDBY_FAST_S:
@@ -1479,6 +1477,10 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
     def _assert_open(self) -> None:
         if self._closed:
             raise SequencesError("this connection is closed; open a new one with connect()")
+        over = self._ended
+        if over is not None:
+            raise NewVersion(f"version {over['version']} of {self._model} went live, which ended this robot's connection "
+                             f"to version {over['on_version']}: connect() again to use it", status=409, details=over)
 
 
 def _refused_in(exc: BaseException) -> str:

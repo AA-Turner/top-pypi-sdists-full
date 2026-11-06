@@ -12,30 +12,34 @@ from mistralai.vibe.harness.runtime.hosts.workflows.sandbox_files import (
 
 @dataclass(frozen=True, slots=True)
 class AllRegistrySkills:
-    """Discover every accessible AI Registry skill when the root Session starts."""
+    """Every skill of your workspace's AI Registry, as of the root session's start.
+
+    ``agents.all_registry_skills()`` returns it.
+    """
 
 
 def all_registry_skills() -> AllRegistrySkills:
-    """List every AI Registry skill accessible in the Session's workspace.
+    """Give the agent every skill of your workspace's AI Registry.
 
-    A served Agent discovers skills on behalf of the user who starts the Session. A local
-    Session uses the process's Mistral API key. Registry versions are pinned at startup;
-    contents are downloaded on first skill-tool use. Authored RegistrySkill references
-    alongside this selection keep their explicit pins and startup provisioning.
+    A deployed agent gets the skills that the user who starts the session can use. A local
+    session uses your Mistral API key. The versions are fixed when the session starts, and each
+    skill downloads the first time the agent uses it. A ``RegistrySkill`` in the same list keeps
+    its own version.
     """
 
     return AllRegistrySkills()
 
 
 class RegistrySkill(BaseModel):
-    """Reference an AI Registry skill for a managed agent session."""
+    """One skill from your workspace's AI Registry, by ID and optional version."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: UUID
+    """The skill's ID in the AI Registry."""
     version: int | None = Field(default=None, ge=1)
-    """The exact version to serve. Skills served as sandbox files require it, so every Session and
-    every worker serves the same files. Without it, a runtime that pins skills itself picks one."""
+    """The exact version to use. A skill available to the agent as sandbox files needs it, so
+    every session gets the same files, wherever the agent runs."""
 
 
 class SandboxWorkspaceSkills(BaseModel):

@@ -601,6 +601,17 @@ state: STARTING
         if status_updated_at is not None and not isinstance(status_updated_at, datetime):
             raise TypeError("'status_updated_at' must be a datetime or None.")
 
+    ended_at: Optional[datetime] = field(
+        default=None,
+        metadata={
+            "docstring": "Timestamp when the job reached its final state: SUCCEEDED, TERMINATED, or FAILED once its retries are used up. `None` while the job is starting or running, and for a FAILED job that is stuck or in an unknown state, which `archive` and `delete` also reject."
+        },
+    )
+
+    def _validate_ended_at(self, ended_at: Optional[datetime]):
+        if ended_at is not None and not isinstance(ended_at, datetime):
+            raise TypeError("'ended_at' must be a datetime or None.")
+
 
 class JobLogMode(ModelEnum):
     """Mode to use for getting job logs."""

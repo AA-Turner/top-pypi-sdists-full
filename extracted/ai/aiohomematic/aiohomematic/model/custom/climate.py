@@ -964,11 +964,14 @@ DeviceProfileRegistry.register(
     models=(
         "HmIP-BWTH",
         "HmIP-STH",
+        "HmIP-WT",
         "HmIP-WTH",
         "HmIP-eTRV",
         "HmIPW-SCTHD",
         "HmIPW-STH",
         "HmIPW-WTH",
+        "KW-STATH",
+        "KW-UKETRV",
     ),
     data_point_class=CustomDpIpThermostat,
     profile_type=DeviceProfile.IP_THERMOSTAT,
@@ -980,7 +983,15 @@ DeviceProfileRegistry.register(
     data_point_class=CustomDpIpThermostat,
     profile_type=DeviceProfile.IP_THERMOSTAT,
     channels=(8,),
-    schedule_channel_no=1,
+    schedule_channel_no=8,
+)
+DeviceProfileRegistry.register(
+    category=DataPointCategory.CLIMATE,
+    models="HmIPW-WGT",
+    data_point_class=CustomDpIpThermostat,
+    profile_type=DeviceProfile.IP_THERMOSTAT,
+    channels=(4,),
+    schedule_channel_no=4,
 )
 
 # IP Thermostat Group

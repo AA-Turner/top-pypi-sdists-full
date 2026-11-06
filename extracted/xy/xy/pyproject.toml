@@ -15,6 +15,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Matplotlib supplies its mature Figure/Axes/Artist semantics in pyplot's
+# opt-in compatibility mode.  The XY backend remains the renderer.
+matplotlib = [
+    "matplotlib>=3.11,<3.12",
+]
 # The adapter source ships in every xy wheel so the framework integration and
 # render client can never drift. The extra only selects the supported Reflex
 # floor; importing plain `xy` remains framework-free.
@@ -39,7 +44,7 @@ dev = [
     "pyarrow>=15",
     # Decode oracle for the native JPEG/WebP encoders, never a runtime
     # dependency: the image-export tests importorskip it.
-    "pillow>=10",
+    "pillow>=13.0.0",
     # The FastAPI drilldown example's live_drilldown module imports Starlette at
     # load (its callback endpoint), never a runtime dependency of xy: the
     # drilldown pan-alignment browser test importorskips it, so it lives in dev
@@ -47,8 +52,12 @@ dev = [
     "starlette>=0.36",
     # tests/reflex_adapter exercises the real socket data plane when the
     # `reflex` extra is installed in the main CI job.
-    "aiohttp>=3.14.3",
+    "aiohttp>=3.14.4",
     "uvicorn>=0.23",
+    # pandas datetime plotting is an optional *input* path through xy.pyplot,
+    # never a runtime dependency: the pandas regression tests and corpus case
+    # tests/pyplot/corpus/59_pandas_datetime_plot.py run where CI installs dev.
+    "pandas>=3",
     # Parses .binder/environment.yml in tests/test_binder_config.py so the
     # Binder contract is asserted on structure, not string transcription.
     "pyyaml>=6",
@@ -140,6 +149,7 @@ exclude = [
     "/benchmarks/**",
     "/docs/**",
     "/examples/**",
+    "/gallery/**",
     "/Makefile",
     "/scripts/**",
     "/spec/**",
@@ -163,6 +173,10 @@ exclude = [
 line-length = 100
 target-version = "py311"
 src = ["python", "tests", "scripts", "benchmarks"]
+# Exact vendored upstream sources are hash-locked gallery inputs. Formatting
+# or lint autofixes would invalidate both their provenance and notebook AST
+# equivalence.
+extend-exclude = ["gallery/matplotlib-3.11.1/examples"]
 
 [tool.ruff.lint]
 select = [

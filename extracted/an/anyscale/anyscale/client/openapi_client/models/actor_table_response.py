@@ -34,15 +34,17 @@ class ActorTableResponse(object):
     """
     openapi_types = {
         'results': 'list[ActorTableRow]',
-        'total': 'int'
+        'total': 'int',
+        'next_offset': 'str'
     }
 
     attribute_map = {
         'results': 'results',
-        'total': 'total'
+        'total': 'total',
+        'next_offset': 'next_offset'
     }
 
-    def __init__(self, results=None, total=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, results=None, total=None, next_offset=None, local_vars_configuration=None):  # noqa: E501
         """ActorTableResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,10 +52,13 @@ class ActorTableResponse(object):
 
         self._results = None
         self._total = None
+        self._next_offset = None
         self.discriminator = None
 
         self.results = results
         self.total = total
+        if next_offset is not None:
+            self.next_offset = next_offset
 
     @property
     def results(self):
@@ -100,6 +105,27 @@ class ActorTableResponse(object):
             raise ValueError("Invalid value for `total`, must not be `None`")  # noqa: E501
 
         self._total = total
+
+    @property
+    def next_offset(self):
+        """Gets the next_offset of this ActorTableResponse.  # noqa: E501
+
+
+        :return: The next_offset of this ActorTableResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._next_offset
+
+    @next_offset.setter
+    def next_offset(self, next_offset):
+        """Sets the next_offset of this ActorTableResponse.
+
+
+        :param next_offset: The next_offset of this ActorTableResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._next_offset = next_offset
 
     def to_dict(self):
         """Returns the model properties as a dict"""

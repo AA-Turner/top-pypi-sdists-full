@@ -28,11 +28,11 @@ silently:
   xterm entirely).
 * ``test_multibar_demos_have_no_run_button`` -- ``MultiBar``'s ``with``
   form starts a real OS thread, which Pyodide cannot provide
-  (``Thread.start()`` raises there). ``howto/multibar`` is the one page
-  in the built site that uses it (``readme/multibar`` is registered for
-  SVG rendering only -- ``README.rst`` embeds it as a static image for
+  (``Thread.start()`` raises there). Both ``howto/multibar`` and
+  ``howto/parallel-execution`` need threads. ``readme/multibar`` is only
+  registered for SVG rendering -- ``README.md`` embeds a static image for
   PyPI/GitHub, never through the ``.. demo::`` directive, so it never
-  produces a ``.demo-run`` element to test). The Run button must never
+  produces a ``.demo-run`` element to test. The Run button must never
   be offered there, and the contrast case
   (``howto/multibar-line-offset``, which does not use the threaded
   form) must still get one -- otherwise this test would pass whether or
@@ -106,6 +106,8 @@ CONSOLE_TEST_INIT_SCRIPT = """
 window.__consoleTestEvents = [];
 window.__consoleTestWorkerCount = 0;
 window.__consoleTestTerminal = null;
+window.__consoleTestHasColour = false;
+window.__consoleTestSpinnerColours = [];
 (() => {
   const OriginalWorker = window.Worker;
   window.Worker = new Proxy(OriginalWorker, {
@@ -131,6 +133,26 @@ window.__consoleTestTerminal = null;
         construct(target, args) {
           const instance = new target(...args);
           window.__consoleTestTerminal = instance;
+          instance.onWriteParsed(() => {
+            const buffer = instance.buffer.active;
+            for (let y = 0; y < buffer.length; y++) {
+              const line = buffer.getLine(y);
+              for (let x = 0; x < instance.cols; x++) {
+                const cell = line.getCell(x);
+                if (cell.getChars().trim() && !cell.isFgDefault()) {
+                  window.__consoleTestHasColour = true;
+                  const character = cell.getChars().codePointAt(0);
+                  if ([124, 47, 45, 92].includes(character)) {
+                    const colour = cell.getFgColorMode() + ':'
+                      + cell.getFgColor();
+                    if (!window.__consoleTestSpinnerColours.includes(colour)) {
+                      window.__consoleTestSpinnerColours.push(colour);
+                    }
+                  }
+                }
+              }
+            }
+          });
           return instance;
         },
       });
@@ -268,13 +290,17 @@ def test_run_button_streams_progress_to_completion(
     assert not errors, f'console errors during a normal run: {errors}'
 
 
+@pytest.mark.parametrize(
+    'demo_name', ['howto/multibar', 'howto/parallel-execution']
+)
 def test_multibar_demos_have_no_run_button(
     server: str,
     page: tuple[Page, list[str]],
+    demo_name: str,
 ) -> None:
     browser_page, _errors = page
-    browser_page.goto(f'{server}/howto/multibar.html')
-    container = browser_page.locator('.demo-run[data-demo="howto/multibar"]')
+    browser_page.goto(f'{server}/{demo_name}.html')
+    container = browser_page.locator(f'.demo-run[data-demo="{demo_name}"]')
     expect_ = playwright_api.expect
     expect_(container).to_have_class('demo-run demo-run-unavailable')
     assert container.locator('.demo-button').count() == 0
@@ -331,3 +357,34 @@ def test_boot_failure_retries_with_a_fresh_worker(
     # and not a hang. `resetWorker()` nulling out the cached `booting`
     # promise is what makes this 2 instead of 1.
     assert _worker_count(browser_page) == 2
+
+
+def test_sleep_in_the_console_keeps_to_its_duration(
+    server: str,
+    page: tuple[Page, list[str]],
+) -> None:
+    """Pyodide's own ``time.sleep`` costs about 80ms per 10ms call in
+    Chromium on macOS, which pushed a 1000-item tutorial run past the
+    console's 30s stop. The worker installs its own sleep, so a call
+    must cost close to what it asks for on every platform.
+    """
+    browser_page, errors = page
+    browser_page.goto(f'{server}/tutorial/step2.html')
+    browser_page.get_by_role('button', name='Edit code').click()
+    browser_page.locator('.demo-editor').fill(
+        'import time\n'
+        'started = time.perf_counter()\n'
+        'for _ in range(20):\n'
+        '    time.sleep(0.01)\n'
+        'per_call_ms = (time.perf_counter() - started) / 20 * 1000\n'
+        "print(f'per call: {per_call_ms:.1f} ms')\n"
+    )
+    browser_page.click('.demo-button')
+    _wait_for_terminal_text(browser_page, 'per call:', BOOT_TIMEOUT_MS)
+    text: str = browser_page.evaluate(
+        'window.__consoleTestTerminal.buffer.active.getLine(0)'
+        '.translateToString(true)'
+    )
+    per_call_ms: float = float(text.split('per call:')[1].split('ms')[0])
+    assert 8 <= per_call_ms <= 25, text
+    assert not errors

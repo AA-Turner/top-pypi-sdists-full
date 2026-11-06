@@ -45,8 +45,12 @@ _RUN_TYPESCRIPT = "run_typescript"
 def call(name: str, /, **arguments: JsonValue) -> ToolCallStep:
     """Script a model call that asks for the tool ``name``, the name the model sees, with ``arguments``.
 
-    The model must be able to call ``name`` directly. A tool with the default ``model_access`` is
-    called from ``run_typescript``: script it with :func:`run_typescript`.
+    The model must be able to call ``name`` directly. A tool with the default ``model_access`` (an
+    ``agents.ToolModelAccess``) is called from ``run_typescript``: script it with :func:`run_typescript`.
+
+    Args:
+        name: The tool's name, as the model sees it.
+        arguments: The call's arguments.
     """
     return ToolCallStep(name=name, arguments=arguments)
 
@@ -55,17 +59,47 @@ def run_typescript(code: str) -> ToolCallStep:
     """Script a model call that runs ``code`` in ``run_typescript``.
 
     The program calls a tool as ``tools.<namespace>.<name>(...)``, as a real model would.
+
+    Args:
+        code: The TypeScript program.
     """
     return ToolCallStep(name=_RUN_TYPESCRIPT, arguments={"code": code})
 
 
 def reply(text: str) -> ReplyStep:
-    """Script a model call that answers with ``text``."""
+    """Script a model call that answers with ``text``.
+
+    Args:
+        text: The model's answer.
+    """
     return ReplyStep(text=text)
 
 
 class ScriptedModel:
-    """Answer each model call with the next step of the script, in order."""
+    """Answer each model call with the next step of the script, in order.
+
+    Pass it to :meth:`Agent.override`, as ``agent.override(model=model)``, in a test. A model call
+    past the last step fails with an error that gives the script's length, and a tool call step
+    fails its model call when that call does not offer the tool. It answers only in the test
+    process: ``agents serve`` and ``agents deploy`` refuse an overridden agent with
+    ``UnsupportedAgentFeatureError``.
+
+    For example, in an async test of an agent with a ``get_weather`` tool, the model calls the tool
+    from ``run_typescript``, then answers::
+
+        model = agents.testing.ScriptedModel([
+            agents.testing.run_typescript("return await tools.client.get_weather({city: 'Paris'})"),
+            agents.testing.reply("Sunny."),
+        ])
+        state = await agent.override(model=model).run("Weather in Paris?")
+        assert state.tool_calls[0].arguments == {"city": "Paris"}
+        assert state.text == "Sunny."
+        model.assert_consumed()
+
+    Args:
+        steps: The script, one step per model call: each the step that ``testing.call``,
+            ``testing.run_typescript`` or ``testing.reply`` returns.
+    """
 
     def __init__(self, steps: Sequence[_Step]) -> None:
         self._steps = tuple(steps)
@@ -80,6 +114,9 @@ class ScriptedModel:
         """Stream the next step of the script.
 
         A tool call step fails the model call when the request does not offer its tool.
+
+        Args:
+            request: The model call to answer.
         """
         index = self._used
         if index >= len(self._steps):

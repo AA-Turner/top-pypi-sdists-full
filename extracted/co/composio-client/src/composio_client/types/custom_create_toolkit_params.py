@@ -61,7 +61,7 @@ class AuthSchemeVariant2(TypedDict, total=False):
 
 class CustomCreateToolkitParams(TypedDict, total=False):
     name: Required[str]
-    app_url: Required[str]
+    mcp_url: Required[str]
     logo_file: NotRequired[LogoFile]
     auth_schemes: Required[Iterable[AuthSchemeVariant0 | AuthSchemeVariant1 | AuthSchemeVariant2]]
     user_id: Required[Literal["all"] | str]

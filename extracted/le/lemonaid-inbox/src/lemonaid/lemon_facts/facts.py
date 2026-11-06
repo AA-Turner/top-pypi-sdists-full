@@ -10,6 +10,7 @@ import time
 from collections import abc
 from pathlib import Path
 
+from .. import front_end
 from ..brief import attached, status
 from ..inbox import db
 from ..launch import window
@@ -36,7 +37,7 @@ class Facts:
     state: str  # as `tell` would report it: listening, mid-turn, asking, deaf, dead, ...
     state_detail: str
     harness_running: bool | None  # None: the terminal couldn't be checked
-    inbox_waiter: bool
+    mailbox_waiter: bool
     pane: str | None  # "empty prompt", "dialog: <what>", "other"; None outside tmux or when gone
     waiters_listed: list[str]
     waiters_running: list[str]
@@ -64,8 +65,7 @@ def _listed_waiters(text: str) -> list[str]:
 
 
 def _pane(row: db.Notification, alive: bool | None) -> str | None:
-    terminal = row.switch_source or ("tmux" if row.metadata.get("tmux_session") else "")
-    if not alive or terminal != "tmux":
+    if not alive or front_end.location.of(row.metadata, row.switch_source).front_end != "tmux":
         return None
 
     screen = autoresume_tmux.screen(row)
@@ -101,17 +101,21 @@ def gather(
     running: owners.Owners | None,
     waiters: abc.Iterable[registry.Waiter],
     commands: abc.Callable[[str], list[str] | None],
+    parked: abc.Mapping[str, str],
 ) -> Facts:
     """The facts about *found*'s lemon; *window* is the start limit's, in seconds,
     *running* the ttys each lemon runs on (`owners.running()`), None if unknown,
-    *waiters* the ones it runs (`registry.mine`), and *commands* what runs on a tty
-    (`recipient.tty_commands()`)."""
-    row, inbox, text = found.notification, store.inbox_for_id(lemon_id), _text(found.path)
+    *waiters* the ones it runs (`registry.mine`), *commands* what runs on a tty
+    (`recipient.tty_commands()`), and *parked* each parked lemon's background job
+    (`recipient.parked_jobs()`)."""
+    row, mailbox, text = found.notification, store.mailbox_for_id(lemon_id), _text(found.path)
     alive = recipient.harness_alive(row, commands) if row is not None else False
     if alive and row is not None and owners.on_recorded_tty(row, running) is False:
         alive = False  # the harness on its tty is another lemon
-    armed = waiter.is_armed(inbox)
-    state = recipient.classify(found.channel, row, alive, armed, time.time())
+    armed = waiter.is_armed(mailbox)
+    state = recipient.classify(
+        found.channel, row, alive, armed, time.time(), parked.get(found.channel, "")
+    )
     metadata = row.metadata if row is not None else {}
     return Facts(
         lemon_id=lemon_id,
@@ -124,15 +128,15 @@ def gather(
         state=state.state,
         state_detail=state.detail,
         harness_running=alive,
-        inbox_waiter=armed,
+        mailbox_waiter=armed,
         pane=_pane(row, alive) if row is not None else None,
         waiters_listed=_listed_waiters(text),
         waiters_running=[w.command for w in waiters],
-        messages_queued=store.pending_count(inbox),
+        messages_queued=store.pending_count(mailbox),
         exited_at=metadata.get("exited_at"),
         exit_reason=str(metadata.get("exit_reason") or ""),
         last_activity=_mtime(
             str(metadata.get("transcript_path") or metadata.get("session_path") or "")
         ),  # Claude records transcript_path, Codex session_path
-        recent_starts=resume_log.within(resume_log.entries(inbox), time.time(), window),
+        recent_starts=resume_log.within(resume_log.entries(mailbox), time.time(), window),
     )

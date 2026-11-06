@@ -408,8 +408,9 @@ class FeatureWrapper:
         Parameters
         ----------
         name
-            The column name the query returns this feature under. It may not
-            contain a `.`, so it can never be mistaken for a feature name.
+            The column name the query returns this feature under. It may contain
+            a `.`, e.g. `"profile.age"`; the column is returned under exactly
+            that name and is not itself a feature.
 
         Examples
         --------
@@ -540,8 +541,6 @@ def validate_output_column_name(name: str) -> None:
     """Validate a column name that a query output expression is returned under."""
     if not isinstance(name, str) or name == "":  # pyright: ignore[reportUnnecessaryIsInstance]
         raise ValueError(f"Output column name must be a non-empty string, got {name!r}")
-    if "." in name:
-        raise ValueError(f"Output column name {name!r} may not contain '.', which is reserved for feature names")
 
 
 @overload

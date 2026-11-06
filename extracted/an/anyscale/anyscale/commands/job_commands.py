@@ -706,6 +706,7 @@ def _format_job_json_v2(job: JobStatus) -> Dict[str, Any]:
         "created_at": job.created_at.isoformat() if job.created_at else "",
         "updated_at": job.updated_at.isoformat() if job.updated_at else "",
         "status_updated_at": job.status_updated_at.isoformat() if job.status_updated_at else "",
+        "ended_at": job.ended_at.isoformat() if job.ended_at else "",
     }
 
 
@@ -762,6 +763,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
                     "created_at": "2026-06-29T07:45:51.512795+00:00",
                     "updated_at": "2026-06-29T07:52:04.084344+00:00",
                     "status_updated_at": "2026-06-29T07:52:04.084344+00:00",
+                    "ended_at": "2026-06-29T07:52:04.084344+00:00",
                 },
                 {
                     "id": "prodjob_def456",
@@ -772,6 +774,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
                     "created_at": "2026-06-29T05:50:42.536733+00:00",
                     "updated_at": "2026-06-29T05:51:15.607632+00:00",
                     "status_updated_at": "2026-06-29T05:51:15.607632+00:00",
+                    "ended_at": "2026-06-29T05:51:15.607632+00:00",
                 },
                 {
                     "id": "prodjob_ghi789",
@@ -782,6 +785,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
                     "created_at": "2026-06-29T05:49:34.841048+00:00",
                     "updated_at": "2026-06-29T05:50:56.532679+00:00",
                     "status_updated_at": "2026-06-29T05:50:56.532679+00:00",
+                    "ended_at": "2026-06-29T05:50:56.532679+00:00",
                 },
             ],
         ),

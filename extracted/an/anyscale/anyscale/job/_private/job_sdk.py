@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, cast, ClassVar, Dict, List, Optional, Tuple, Union
 import uuid
 import warnings
@@ -420,6 +421,13 @@ class PrivateJobSDK(WorkloadSDK):
         ha_state = model.state.current_state if model.state else None
         return cast(JobState, HA_JOB_STATE_TO_JOB_STATE.get(ha_state, JobState.UNKNOWN))
 
+    @staticmethod
+    def _job_ended_at(model: Union[ProductionJob, DecoratedProductionJob]) -> Optional[datetime]:
+        # The archive/delete set, so BROKEN (reported as FAILED) has no end time.
+        if model.state is None or model.state.current_state not in TERMINAL_HA_JOB_STATES:
+            return None
+        return model.state.state_transitioned_at
+
     def _job_run_model_to_job_run_status(self, run: APIJobRun) -> JobRunStatus:
         state = self._BACKEND_JOB_STATUS_TO_JOB_RUN_STATE.get(run.status, JobRunState.UNKNOWN)
         return JobRunStatus(name=run.name, state=state)
@@ -506,6 +514,7 @@ class PrivateJobSDK(WorkloadSDK):
             created_at=model.created_at,
             updated_at=model.updated_at,
             status_updated_at=model.status_updated_at,
+            ended_at=self._job_ended_at(model),
         )
 
     def _decorated_job_to_status(
@@ -546,6 +555,7 @@ class PrivateJobSDK(WorkloadSDK):
             created_at=decorated_job.created_at,
             updated_at=decorated_job.updated_at,
             status_updated_at=decorated_job.status_updated_at,
+            ended_at=self._job_ended_at(decorated_job),
         )
 
     def _resolve_to_job_model(

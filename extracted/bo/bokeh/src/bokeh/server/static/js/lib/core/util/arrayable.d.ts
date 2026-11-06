@@ -27,7 +27,6 @@ export declare function map(array: FloatArray, fn: (item: number, i: number, arr
 export declare function map(array: TypedArray, fn: (item: number, i: number, array: Float32Array) => number): TypedArray;
 export declare function map<T, U>(array: T[], fn: (item: T, i: number, array: Arrayable<T>) => U): U[];
 export declare function map<T, U>(array: Arrayable<T>, fn: (item: T, i: number, array: Arrayable<T>) => U): Arrayable<U>;
-export declare function inplace_map<T>(array: Arrayable<T>, fn: (item: T, i: number) => T, output?: Arrayable<T>): void;
 export declare function filter<T>(array: T[], pred: (item: T, i: number, array: Arrayable<T>) => boolean): T[];
 export declare function filter<T>(array: Arrayable<T>, pred: (item: T, i: number, array: Arrayable<T>) => boolean): Arrayable<T>;
 export declare function reduce<T>(array: Arrayable<T>, fn: (previous: T, current: T, index: number, array: Arrayable<T>) => T, initial?: T): T;

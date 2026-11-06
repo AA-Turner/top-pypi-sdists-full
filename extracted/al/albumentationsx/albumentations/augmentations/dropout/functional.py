@@ -14,17 +14,19 @@ import numpy as np
 from albucore import (
     MAX_VALUES_BY_DTYPE,
     get_num_channels,
-    is_grayscale_image,
-    preserve_channel_dim,
     reduce_sum,
-    uint8_io,
     warp_affine,
 )
+from numpy.typing import NDArray
 
 from albumentations.augmentations.geometric.functional import split_uniform_grid
+from albumentations.augmentations.pixel._functional_shared import (
+    restore_uint8_working_image,
+    to_uint8_working_image,
+)
 from albumentations.augmentations.pixel.functional import grayscale_to_multichannel, to_gray_average
 from albumentations.augmentations.utils import handle_empty_array
-from albumentations.core.type_definitions import ImageType
+from albumentations.core.type_definitions import ImageUInt8
 
 FillValueLiteral = Literal["random", "random_uniform", "inpaint_telea", "inpaint_ns", "grayscale"]
 
@@ -46,32 +48,51 @@ __all__ = [
 ]
 
 
-@preserve_channel_dim
 def channel_dropout(
-    img: ImageType,
-    channels_to_drop: int | tuple[int, ...] | np.ndarray,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    selected_channels: tuple[int, ...],
     fill: tuple[float, ...] | float = 0,
-) -> ImageType:
-    """Replace selected channels with fill; others unchanged. channels_to_drop: index/indices;
-    fill: scalar or per-channel. Multi-channel only.
-
-    This function drops channels from an image.
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    """Replace selected channels in a channel-last array without modifying the input.
 
     Args:
-        img (ImageType): Input image.
-        channels_to_drop (int | tuple[int, ...] | np.ndarray): Channels to drop.
-        fill (tuple[float, ...] | float): Value to fill the dropped channels with.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Image, image batch, or volume with an
+            explicit final channel axis.
+        selected_channels (tuple[int, ...]): Channel indices selected by the caller.
+        fill (tuple[float, ...] | float): Shared value or one value per selected channel.
+            Scalar positive and negative zero are equivalent; the sign of filled zeros
+            is not guaranteed. Default: 0.
 
     Returns:
-        ImageType: Image with channels dropped.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: A copy with selected channels filled, or the
+            input when no channels are selected.
 
     """
-    if is_grayscale_image(img):
-        msg = "Only one channel. ChannelDropout is not defined."
-        raise NotImplementedError(msg)
-
+    if not selected_channels:
+        return img
     img = img.copy()
-    img[..., channels_to_drop] = fill
+    if (
+        isinstance(fill, (int, float))
+        and (fill == 0 or len(selected_channels) > 2)
+        and img.size
+        and img.shape[-1] <= 128
+    ):
+        # OpenCV fills channels in cache-sized blocks; OpenCV 5 supports at most 128 channels.
+        view = img.reshape(-1, img.shape[-2], img.shape[-1])
+        source_channel = -1
+        if fill != 0:
+            source_channel = selected_channels[0]
+            source_channel = source_channel if source_channel >= 0 else img.shape[-1] + source_channel
+            img[..., source_channel] = fill
+            selected_channels = selected_channels[1:]
+        from_to = [
+            index
+            for channel in selected_channels
+            for index in (source_channel, channel if channel >= 0 else img.shape[-1] + channel)
+        ]
+        cv2.mixChannels([view], [view], from_to)
+    else:
+        img[..., selected_channels] = fill
     return img
 
 
@@ -116,23 +137,27 @@ def generate_random_fill(
     raise ValueError(f"Unsupported dtype: {dtype}")
 
 
-@uint8_io
-def apply_inpainting(img: ImageType, holes: np.ndarray, method: Literal["inpaint_telea", "inpaint_ns"]) -> ImageType:
+def apply_inpainting(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    holes: np.ndarray,
+    method: Literal["inpaint_telea", "inpaint_ns"],
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Apply OpenCV inpainting to fill holes. holes: [x1,y1,x2,y2]; method inpaint_telea or inpaint_ns.
     uint8; grayscale or 3-channel.
 
     Args:
-        img (ImageType): Input image (grayscale or BGR)
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image (grayscale or BGR)
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         method (Literal['inpaint_telea', 'inpaint_ns']): Inpainting method to use
 
     Returns:
-        ImageType: Inpainted image
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Inpainted image
 
     Raises:
         NotImplementedError: If image has more than 3 channels
 
     """
+    img, input_dtype = to_uint8_working_image(img)
     num_channels = get_num_channels(img)
     mask = np.zeros(img.shape[:2], dtype=np.uint8)
     for x_min, y_min, x_max, y_max in holes:
@@ -146,31 +171,35 @@ def apply_inpainting(img: ImageType, holes: np.ndarray, method: Literal["inpaint
         img_3ch = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         result = cv2.inpaint(img_3ch, mask, 3, inpaint_method)
         # Always add channel dimension back since all images now have channel dimension
-        return cast("ImageType", cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)[..., None])
+        result = cast("ImageUInt8", cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)[..., None])
+        return restore_uint8_working_image(result, input_dtype)
 
-    return cast("ImageType", cv2.inpaint(img, mask, 3, inpaint_method))
+    result = cast("ImageUInt8", cv2.inpaint(img, mask, 3, inpaint_method))
+    return restore_uint8_working_image(result, input_dtype)
 
 
-@uint8_io
 def apply_inpainting_to_mask(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dropout_mask: np.ndarray,
     method: Literal["inpaint_telea", "inpaint_ns"],
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Inpaint an arbitrary two-dimensional dropout mask."""
+    img, input_dtype = to_uint8_working_image(img)
     mask = dropout_mask.astype(np.uint8) * 255
     inpaint_method = cv2.INPAINT_TELEA if method == "inpaint_telea" else cv2.INPAINT_NS
     if get_num_channels(img) == 1:
         result = cv2.inpaint(cv2.cvtColor(img.squeeze(), cv2.COLOR_GRAY2BGR), mask, 3, inpaint_method)
-        return cast("ImageType", cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)[..., None])
-    return cast("ImageType", cv2.inpaint(img, mask, 3, inpaint_method))
+        result = cast("ImageUInt8", cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)[..., None])
+        return restore_uint8_working_image(result, input_dtype)
+    result = cast("ImageUInt8", cv2.inpaint(img, mask, 3, inpaint_method))
+    return restore_uint8_working_image(result, input_dtype)
 
 
 def fill_masked_pixels(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     dropout_mask: np.ndarray,
     fill: tuple[float, ...] | float,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill an arbitrary two-dimensional dropout mask across an image or image batch."""
     result = img.copy()
     fill_array = np.asarray(fill, dtype=img.dtype)
@@ -185,12 +214,12 @@ def fill_masked_pixels(
 
 
 def fill_masked_holes(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     holes: np.ndarray,
     dropout_mask: np.ndarray,
     fill: float | tuple[float, ...] | FillValueLiteral,
     random_generator: np.random.Generator,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill the eligible portions of sampled holes without changing pixels outside the mask."""
     if not isinstance(fill, str):
         return fill_masked_pixels(img, dropout_mask, fill)
@@ -213,12 +242,14 @@ def fill_masked_holes(
     return result
 
 
-def fill_holes_with_value(img: ImageType, holes: np.ndarray, fill: np.ndarray) -> ImageType:
+def fill_holes_with_value(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], holes: np.ndarray, fill: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill rectangular holes with constant value. holes: [x1,y1,x2,y2]; fill broadcast. Mutates img.
     Used by cutout for numeric fill.
 
     Args:
-        img (ImageType): Input image
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         fill (np.ndarray): Value to fill the holes with
 
@@ -228,16 +259,18 @@ def fill_holes_with_value(img: ImageType, holes: np.ndarray, fill: np.ndarray) -
     return img
 
 
-def fill_holes_with_grayscale(img: ImageType, holes: np.ndarray) -> ImageType:
+def fill_holes_with_grayscale(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], holes: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Convert selected rectangular holes to grayscale while preserving the input array shape,
     dtype, and channel layout expected by dropout transforms.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates.
 
     Returns:
-        ImageType: Image with grayscale-converted holes.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Image with grayscale-converted holes.
 
     """
     num_channels = get_num_channels(img)
@@ -255,16 +288,18 @@ def fill_holes_with_grayscale(img: ImageType, holes: np.ndarray) -> ImageType:
     return img
 
 
-def fill_mask_with_grayscale(img: ImageType, dropout_mask: np.ndarray) -> ImageType:
+def fill_mask_with_grayscale(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], dropout_mask: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Convert masked image regions to grayscale while preserving shape, dtype, channel count,
     and unmasked pixels for object-shaped dropout regions.
 
     Args:
-        img (ImageType): Input image.
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image.
         dropout_mask (np.ndarray): Boolean mask where True pixels are converted to grayscale.
 
     Returns:
-        ImageType: Image with grayscale-converted masked pixels.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Image with grayscale-converted masked pixels.
 
     """
     img = img.copy()
@@ -279,16 +314,19 @@ def fill_mask_with_grayscale(img: ImageType, dropout_mask: np.ndarray) -> ImageT
     return img
 
 
-def fill_volume_holes_with_grayscale(volume: ImageType, holes: np.ndarray) -> ImageType:
+def fill_volume_holes_with_grayscale(
+    volume: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], holes: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Convert shared rectangular holes to grayscale across a single volume while preserving
     volume shape, dtype, and channel layout.
 
     Args:
-        volume (ImageType): Volume with shape (D, H, W, C) or (D, H, W).
+        volume (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Volume with shape (D, H, W, C) or (D, H,
+            W).
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates.
 
     Returns:
-        ImageType: Volume with grayscale-converted holes.
+        NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]: Volume with grayscale-converted holes.
 
     """
     if volume.ndim == 3 or holes.size == 0:
@@ -307,12 +345,14 @@ def fill_volume_holes_with_grayscale(volume: ImageType, holes: np.ndarray) -> Im
     return volume
 
 
-def fill_volume_holes_with_value(volume: ImageType, holes: np.ndarray, fill: np.ndarray) -> ImageType:
+def fill_volume_holes_with_value(
+    volume: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], holes: np.ndarray, fill: np.ndarray
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill rectangular holes in a volume (D,H,W,C) with constant value. holes: [x1,y1,x2,y2]; fill
     broadcast. Used by cutout_on_volume for numeric fill.
 
     Args:
-        volume (ImageType): Input volume
+        volume (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input volume
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         fill (np.ndarray): Value to fill the holes with
 
@@ -323,16 +363,16 @@ def fill_volume_holes_with_value(volume: ImageType, holes: np.ndarray, fill: np.
 
 
 def fill_holes_with_random(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     holes: np.ndarray,
     random_generator: np.random.Generator,
     uniform: bool,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill rectangular holes with random values. holes: [x1,y1,x2,y2]; uniform: one per hole or per pixel.
     Used by cutout fill='random'.
 
     Args:
-        img (ImageType): Input image
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input image
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         random_generator (np.random.Generator): Random number generator
         uniform (bool): If True, use same random value for entire hole
@@ -349,16 +389,17 @@ def fill_holes_with_random(
 
 
 def fill_volume_holes_with_random(
-    volume: ImageType,
+    volume: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     holes: np.ndarray,
     random_generator: np.random.Generator,
     uniform: bool,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Fill rectangular holes in volume (D,H,W,C) with random values. holes: [x1,y1,x2,y2]; uniform:
     one per hole or per pixel. Used by cutout_on_volume fill='random'.
 
     Args:
-        volume (ImageType): Input volume of shape (D, H, W, C) or (D, H, W)
+        volume (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): Input volume of shape (D, H, W, C) or
+            (D, H, W)
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         random_generator (np.random.Generator): Random number generator
         uniform (bool): If True, use same random value for entire hole in each image.
@@ -375,16 +416,16 @@ def fill_volume_holes_with_random(
 
 
 def cutout(
-    img: ImageType,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     holes: np.ndarray,
     fill: float | tuple[float, ...] | FillValueLiteral,
     random_generator: np.random.Generator,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Apply cutout: cut rectangular holes and fill. holes: [x1,y1,x2,y2]; fill: constant, 'random',
     'random_uniform', inpaint_telea/inpaint_ns, or grayscale.
 
     Args:
-        img (ImageType): The image to augment
+        img (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): The image to augment
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         fill (float | tuple[float, ...] | FillValueLiteral):
             Value to fill holes with. Can be:
@@ -432,16 +473,16 @@ def cutout(
 
 
 def cutout_on_volume(
-    volume: ImageType,
+    volume: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
     holes: np.ndarray,
     fill: float | tuple[float, ...] | FillValueLiteral,
     random_generator: np.random.Generator,
-) -> ImageType:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
     """Apply cutout to volume (D,H,W,C): cut holes and fill. fill: constant, 'random', 'random_uniform',
     inpaint, or grayscale. holes: [x1,y1,x2,y2].
 
     Args:
-        volume (ImageType): The volume to augment
+        volume (NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]): The volume to augment
         holes (np.ndarray): Array of [x1, y1, x2, y2] coordinates
         fill (float | tuple[float, ...] | FillValueLiteral):
             Value to fill holes with. Can be:
@@ -464,7 +505,7 @@ def cutout_on_volume(
         if fill in {"inpaint_telea", "inpaint_ns"}:
             processed_images = [apply_inpainting(img, holes, fill) for img in volume]
             result = np.array(processed_images)
-            return cast("ImageType", result.reshape(volume.shape))
+            return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result.reshape(volume.shape))
         if fill == "random":
             return fill_volume_holes_with_random(volume, holes, random_generator, uniform=False)
         if fill == "random_uniform":

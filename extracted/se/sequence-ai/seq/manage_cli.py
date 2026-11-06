@@ -157,8 +157,8 @@ def policy_versions(name: str, *, base_url: str | None = None, echo: Echo = None
 def policy_rollback(name: str, *, version: int | None = None, base_url: str | None = None,
                     echo: Echo = None) -> dict:
     """Serve a kept earlier version again, with no rebuild (`seq policy rollback`): `version`, or the version before the
-    one serving. It serves from now on; robots move to it at their next episode, after a cold start when none of its
-    workers is running. {"name", "version", "kept_versions", "dropped", ...}"""
+    one serving. It serves from now on; robots on another version are disconnected, and each connects again to reach it,
+    after a cold start when none of its workers is running. {"name", "version", "kept_versions", "dropped", ...}"""
     from seq import deployments_cli
 
     return deployments_cli.rollback(name, version, base_url, _say(echo))

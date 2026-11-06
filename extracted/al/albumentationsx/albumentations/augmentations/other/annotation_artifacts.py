@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal, Self
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 from pydantic import Field, model_validator
 from pydantic.functional_validators import AfterValidator
 
@@ -13,7 +14,6 @@ from albumentations.core.invocation import SamplingContext
 from albumentations.core.pydantic import check_range_bounds, nondecreasing
 from albumentations.core.transform_params import SampledParams, TargetParams, TargetSet, requirements_for_views
 from albumentations.core.transforms_interface import BaseTransformInitSchema, ImageOnlyTransform
-from albumentations.core.type_definitions import ImageType
 
 __all__ = ["AnnotationArtifacts"]
 
@@ -115,7 +115,7 @@ class AnnotationArtifacts(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -124,8 +124,8 @@ class AnnotationArtifacts(ImageOnlyTransform):
         - This is an image-only transform: masks, bounding boxes, and keypoints are not modified.
         - Colors are adapted to the number of channels; black and white affect all channels,
           while red maps to the first channel and pads remaining channels with zero.
-        - Palette and uniformly sampled colors use uint8-scale values. Float32 images are rendered through the
-          transform's dtype adapter, which maps those values to `[0, 1]`.
+        - Palette and uniformly sampled colors use uint8-scale values. Float16 and float32 images are rendered
+          through the transform's dtype adapter, which maps those values to `[0, 1]`.
         - Random values are sampled before drawing, so replay and deterministic pipelines preserve
           the exact generated artifacts.
 
@@ -283,10 +283,10 @@ class AnnotationArtifacts(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         artifacts: list[dict[str, Any]],
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fannotation.draw_annotation_artifacts(img, artifacts)
 
     def sample_parameters(

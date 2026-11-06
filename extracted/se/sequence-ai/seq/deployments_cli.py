@@ -338,14 +338,16 @@ def image_said(why: dict | None) -> str | None:
 
 def rollback(name: str, to: int | None = None, base_url: str | None = None, echo=print) -> dict:
     """`seq policy rollback NAME[@vN]`: serve a kept version again (`to`; the newest earlier one by default) — no
-    rebuild: it serves from now on, robots move to it at their next episode, and when none of its workers is running one
-    starts first.
+    rebuild: it serves from now on, the robots on the version it replaces are disconnected, as a new version's are, and
+    each connects again to reach it, after a cold start when none of its workers runs.
+
 """
     out = _call("POST", f"/v1/deployments/{segment(name)}/rollback", base_url, {"version": to})
     kept = ", ".join(f"v{v}" for v in out["kept_versions"])
     v = out["version"]
     echo(f"{out['name']} now serves v{v}" + (f" (kept: {kept})" if kept else ""))
-    echo(f"robots move to v{v} at their next episode; when no worker of v{v} is running, one starts first (a cold start)")
+    echo(f"robots on another version are disconnected: each connects again to reach v{v}, after a cold start when no "
+         f"worker of v{v} is running")
     if (out.get("dropped") or {}).get("message"):
 
         echo(out["dropped"]["message"])

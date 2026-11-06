@@ -1,18 +1,19 @@
 Metadata-Version: 2.5
 Name: threadpoolctl
-Version: 3.7.0
+Version: 3.8.0
 Summary: threadpoolctl
 Author-email: Thomas Moreau <thomas.moreau.2010@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-Expression: BSD-3-Clause
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Project-URL: homepage, https://github.com/joblib/threadpoolctl
@@ -196,10 +197,11 @@ in specific sections of your Python program:
 ...     a_squared = a @ a
 ```
 
-The threadpools can also be controlled via the object oriented API, which is especially
-useful to avoid searching through all the loaded shared libraries each time. It will
-however not act on libraries loaded after the instantiation of the
-`ThreadpoolController`:
+The threadpools can also be controlled via the object oriented API, which is
+especially useful to avoid searching through all the loaded shared libraries
+each time. That is, you can reuse a `ThreadpoolController` to reduce performance
+overhead. **However, note that it will not act on libraries loaded after the
+instantiation of the `ThreadpoolController`!**
 
 ```python
 >>> from threadpoolctl import ThreadpoolController
@@ -210,6 +212,43 @@ however not act on libraries loaded after the instantiation of the
 ...     a = np.random.randn(1000, 1000)
 ...     a_squared = a @ a
 ```
+
+As a compromise between speed and catching newly loaded controllable libraries
+you can use `get_cached_controller()`. This will notice any newly loaded
+libraries triggered by importing new libraries, but might miss new libraries
+loaded by compiled extensions directly using mechanisms like `dlopen()` on Linux
+(as opposed to linked), or via `ctypes.CDLL`.
+
+```python
+import numpy
+
+with get_cached_controller().limit(limits=1, user_api="blas"):
+    a = np.random.randn(1000, 1000)
+    a_squared = a @ a
+```
+
+To get a sense of how `get_cached_controller()` cache invalidation happens,
+consider the following example:
+
+```python
+from threadpoolctl import get_cached_controller
+
+# This ThreadpoolController will not know about the BLAS library loaded by
+# NumPy, since it hasn't yet been imported:
+controller = get_cached_controller()
+
+# Calling the API again doesn't create a new instance, so it's fast:
+assert get_cached_controller() is controller
+
+import numpy as np
+
+# Now that NumPy has been imported, a new ThreadpoolController is returned that
+# will know about NumPy's linked BLAS:
+assert get_cached_controller() is not controller
+```
+
+You can clear the cached controller manually by running
+``reset_cached_controller()``.
 
 ### Restricting the Limits to the Scope of a Function
 
@@ -245,44 +284,53 @@ controlled libraries in that thread.** With Python's
 `concurrent.futures.ThreadPoolExecutor`, you can do so by passing in an
 initializer function that will get called on thread startup.
 
-```python
-from threadpoolctl import threadpool_limits
-from concurrent.futures import ThreadPoolExecutor
+Whenever `threadpool_limits` is called, it creates a new `ThreadpoolController`,
+which needs to do some work (inspecting and getting access to third-party shared
+libraries) that can take some time. To prevent the performance cost of doing
+this work in all the threads, you can reuse a `ThreadpoolController` object
+across the threads.
 
-# This top-level limiter doesn't actually change the limits initially; it is
-# there to ensure the limits are reset _after_ the Python thread pool is done.
-# This is necessary because some underlying limiting APIs operate on a
-# process-wide basis.
-with threadpool_limits():
-    # Make sure each Python worker thread also calls threadpool_limits(). If
-    # you're using another thread pool class, you will need to do so some other
-    # way.
-    with ThreadPoolExecutor(4, initializer=lambda: threadpool_limits(limits=1)) as pool:
-        # ... run some BLAS-using code in the thread pool ...
-        pool.map(somefunc, someargs)
-```
+When setting limits, you want to set limits both in the main thread (in case you're using
+OpenBLAS+pthreads) and in each worker thread.
 
-Whenever `threadpool_limits` is called, it needs to do some work (inspecting and getting access to third-party shared libraries) that can take some time.
-To prevent the performance cost of doing this work every time, you can reuse a
-`ThreadpoolController` object:
+> **Why you need both:** When setting a limit on OpenBLAS with pthreads or the
+> Windows threading layer, setting the limit affects the whole process, because
+> it uses a process-wide shared thread pool. (This in contrast to some other
+> BLAS/OpenMP libraries, or OpenBLAS backed by OpenMP, that allow setting the
+> limit per-thread.)
+>
+> For many other libraries, for example OpenMP, the limit is set per thread. As
+> a result, you want to set limits both ways in generic code that doesn't know
+> the underlying BLAS library: in main thread for the process-wide limits, and
+> per-thread for thread-specific limits like OpenMP.
 
 ```python
 from threadpoolctl import ThreadpoolController
 
-# This won't have any side-effects:
-CONTROLLER = ThreadpoolController()
+# This won't have any side-effects. Because it caches its list of loaded
+# libraries, you need to create a new one if you've imported or loaded any
+# relevant libraries in the interim. So storing this on module level may not be
+# a good idea if you e.g. only do `import numpy` later on.
+controller = ThreadpoolController()
 
 with (
-    CONTROLLER.limit(),
-    ThreadPoolExecutor(4, initializer=lambda: CONTROLLER.limit(limits=1)) as pool,
+    # Limit on main thread. This is necessary because some underlying limiting
+    # APIs operate on a process-wide basis. Because it's a context manager, it
+    # will restore the limits after the ``with`` is done.
+    controller.limit(limits=1),
+    # Make sure each Python worker thread also calls threadpool_limits(). If
+    # you're using another thread pool class, you will need to do so some other
+    # way.
+    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
 
 # Later...
+controller = ThreadpoolController()
 with (
-    CONTROLLER.limit(),
-    ThreadPoolExecutor(4, initializer=lambda: CONTROLLER.limit(limits=2)) as pool,
+    controller.limit(limits=2),
+    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=2)) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
@@ -293,16 +341,14 @@ You can also operate without a context manager:
 ```python
 from threadpoolctl import ThreadpoolController
 
-CONTROLLER = ThreadpoolController()
+controller = ThreadpoolController()
 try:
-    limiter = CONTROLLER.limit()
-    with ThreadPoolExecutor(
-            4, initializer=lambda: CONTROLLER.limit(limits=1)) as pool:
+    limiter = controller.limit(limits=1)
+    with ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)
 finally:
     limiter.restore_original_limits()
-
 ```
 
 ### Switching Back And Forth Between Main Thread and Python Threads
@@ -348,6 +394,51 @@ with CONTROLLER.limit(limits=2):
 ```
 
 ## Usage: Additional APIs and details
+
+### OpenBLAS with pthreads/Windows, and the controlling thread
+
+As mentioned above, OpenBLAS with pthreads or Windows threading layer uses a
+process-wide shared thread pool. Having multiple Python threads set limits in this case
+makes no sense, since they would effectively be arguing over a globally shared
+resource.
+
+``threadpoolctl`` therefore constrains the limiting API in the OpenBLAS
+pthreads/Windows case to only work from the first thread that uses it, the
+so-called controlling thread. The controlling thread can change the limits as
+normal. For other thread, calls will be silently ignored.
+
+When using `with threadpool_limits()` as a context manager or
+`@threadpool_limits.wrap()` as a decorator, the controlling thread should be
+automatically cleared when the code leaves the relevant block. This allows
+another thread to take control. You can also manually release the controlling
+thread by calling `OpenBLASController.clear_controlling_thread()` from the
+controlling thread; passing `force=True` allows clearing it from any thread.
+
+Note that if you call a standalone `threadpool_limits()` or similar API, and
+then later use the `with threadpool_limits()` or similar context
+manager/decorator API, clearing the controlling thread will still happen, as
+standalone limiting calls are not tracked.
+
+NumPy and SciPy, when installed from PyPI for example, can each have their own
+separate OpenBLAS with its own thread pool. The controlling thread will apply to
+both.
+
+#### Choosing limits for a process-wide shared thread pool
+
+Given a shared OpenBLAS process pool, logically there are only two limits that
+make sense in most circumstances:
+
+* A limit of `1`, which effectively means no OpenBLAS thread pool: all
+  operations run inline in the calling thread. This is a good setting when you
+  have a Python thread pool calling BLAS, and the number of Python threads is
+  close to the number of available cores.
+* A limit equal to the number of available cores. This is a good setting when
+  you are calling BLAS from the main thread and there are no Python threads.
+
+While `threadpoolctl` does not limit you to these two values, you may wish to do
+so yourself in your code, after benchmarking to ensure that this actually
+maximizes performance. Benchmarking is important because empirically, these
+limits do not always maximize performance.
 
 ### Switching the FlexiBLAS backend
 
@@ -453,10 +544,22 @@ An complete example can be found [here](
 ### Sequential BLAS within OpenMP parallel region
 
 When one wants to have sequential BLAS calls within an OpenMP parallel region, it's
-safer to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and
-`user_api="blas"` might not lead to the expected behavior in some configurations
-(e.g. OpenBLAS with the OpenMP threading layer
-https://github.com/xianyi/OpenBLAS/issues/2985).
+necessary to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and
+`user_api="blas"` leads to unexpected behavior for OpenBLAS with the OpenMP threading
+layer: OpenBLAS and the calling code share the same OpenMP runtime, so it also sets
+the number of OpenMP threads of the current thread to 1. Inside the limit, any OpenMP
+parallel region started from this thread without an explicit number of threads runs
+on a single thread, and `omp_get_max_threads()` returns 1.
+
+```python
+from threadpoolctl import ThreadpoolController
+
+controller = ThreadpoolController()
+
+with controller.limit(limits="sequential_blas_under_openmp"):
+    # Compiled code with an OpenMP parallel loop that calls BLAS.
+    my_openmp_kernel(X)
+```
 
 ### Known Limitations
 
@@ -536,17 +639,22 @@ When there is a choice between different APIs, `threadpoolctl` will prefer APIs
 that:
 
 1. Have a per-thread worker pool (so each Python thread gets its own pool from
-   the underlying third-party library)
+   the underlying third-party library).
 2. Only affect the current thread.
 
 Current libraries where `threadpoolctl` explicitly makes this choice are:
 
 * MKL, for all threading backends.
 * OpenBLAS (v0.3.34 or later) when using the OpenMP backend, on Linux and macOS.
+  threadpoolctl then limits OpenBLAS with `omp_set_num_threads`, so the limit
+  also applies to the OpenMP parallel regions of the calling code. To get
+  sequential BLAS calls within an OpenMP parallel region, see
+  [Sequential BLAS within OpenMP parallel region](#sequential-blas-within-openmp-parallel-region).
 
-When using OpenMP, this is also the default on Linux and macOS. On Windows
-OpenMP has a per-thread worker pool but the limiting API affects all threads in
-the process, not just the current one.
+When using OpenMP, a limit specific to the current is also the default on Linux
+and macOS. On Windows OpenMP has a per-thread worker pool but the limiting API
+When using OpenMP, a limit specific to the current thread is also the default on
+Linux and macOS. On Windows OpenMP has a per-thread worker pool but the limiting API
 
 ### Checking the behavior of your installed libraries
 

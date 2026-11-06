@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import Future
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
+from tinker.lib.public_interfaces.api_future import AwaitableConcurrentFuture
 
 from tinker_cookbook.rl import train
 from tinker_cookbook.rl.types import RLDataset, RLDatasetBuilder
+from tinker_cookbook.utils.cost_estimation import TokenUsage
 
 
 class _Dataset(RLDataset):
@@ -33,7 +36,7 @@ def _run(tmp_path, monkeypatch: pytest.MonkeyPatch, num_batches: int, groups_per
         return MagicMock(name="trajectory_group")
 
     async def fake_prepare_minibatch(*args: Any, **kwargs: Any):
-        return [], {}
+        return [], {}, TokenUsage()
 
     async def fake_full_batch_metrics(training_client, checkpoint_mgr, step, *args, **kwargs):
         trained_steps.append(step - 1)
@@ -67,11 +70,11 @@ def _run(tmp_path, monkeypatch: pytest.MonkeyPatch, num_batches: int, groups_per
             groups_per_batch=groups_per_batch, num_minibatches=1
         ),
     )
-    future = MagicMock()
-    future.result_async = AsyncMock(return_value=MagicMock(metrics={}))
+    future: Future[MagicMock] = Future()
+    future.set_result(MagicMock(metrics={}))
     training_client = MagicMock()
-    training_client.forward_backward_async = AsyncMock(return_value=future)
-    training_client.optim_step_async = AsyncMock(return_value=future)
+    training_client.forward_backward = MagicMock(return_value=AwaitableConcurrentFuture(future))
+    training_client.optim_step = MagicMock(return_value=AwaitableConcurrentFuture(future))
 
     asyncio.run(
         train.do_async_training(

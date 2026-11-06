@@ -29,18 +29,18 @@ def _marks(monkeypatch, rows, ttys, now=1000.0):
     return _MARKS(presence.Probe(), rows, lemon_ids, now)
 
 
-def test_an_idle_claude_lemon_without_an_inbox_waiter_is_deaf(monkeypatch):
+def test_an_idle_claude_lemon_without_an_mailbox_waiter_is_deaf(monkeypatch):
     row = _row("claude:a", "ttys001", created_at=10.0)
 
     assert _marks(monkeypatch, [row], frozenset({"ttys001"})) == {"claude:a": "deaf"}
 
 
-def test_an_idle_claude_lemon_with_its_inbox_waiter_armed_is_unmarked(monkeypatch):
+def test_an_idle_claude_lemon_with_its_mailbox_waiter_armed_is_unmarked(monkeypatch):
     row = _row("claude:a", "ttys001", created_at=10.0)
     armed, release = threading.Event(), threading.Event()
 
     def hold():
-        with waiter.armed(store.inbox_for_id("lemon-0.QuickOdd")):
+        with waiter.armed(store.mailbox_for_id("lemon-0.QuickOdd")):
             armed.set()
             release.wait()
 
@@ -52,6 +52,18 @@ def test_an_idle_claude_lemon_with_its_inbox_waiter_armed_is_unmarked(monkeypatc
     finally:
         release.set()
         holder.join()
+
+
+def test_a_parked_claude_lemon_is_deaf_at_once_although_its_scout_holds_the_lock(monkeypatch):
+    rows = [_row("claude:a", "ttys001", created_at=10.0), _row("claude:b", "ttys002", 10.0)]
+    monkeypatch.setattr(presence, "_harness_ttys", lambda: frozenset({"ttys001", "ttys002"}))
+    monkeypatch.setattr(presence, "_armed", lambda lemon_id: True)
+    monkeypatch.setattr(recipient, "parked_jobs", lambda: {"claude:a": "1eb3e867"})
+    probe = presence.Probe(presence.DEAF_AFTER_SECONDS)
+
+    assert _MARKS(probe, rows, {"claude:a": "a.QuickOdd", "claude:b": "b.QuickOdd"}, 1000.0) == {
+        "claude:a": "deaf"
+    }
 
 
 def test_a_lemon_whose_terminal_runs_no_harness_is_dead(monkeypatch):

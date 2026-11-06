@@ -31,8 +31,9 @@ use crate::kind::Kind;
 /// Resolve the leaf relations the structural subtyping decision cannot.
 ///
 /// Those are the ones that depend on the Python class hierarchy (an `Instance`)
-/// or on a concrete value (a `Literal`). The bindings implement it with
-/// `issubclass` and membership; the core defaults to [`NoLeafRelations`].
+/// or on a concrete value (a `Literal`, and `None`'s kind, which is the
+/// literal of its one value). The bindings implement it with `issubclass` and
+/// membership; the core defaults to [`NoLeafRelations`].
 ///
 /// It carries [`Constants`] because both are the same question asked twice: the
 /// object table lives in the bindings, and an implementor that can answer what a
@@ -44,6 +45,18 @@ pub trait LeafRelations: Constants {
     /// Whether leaf schema `sub` is a subtype of `sup`, or `None` to leave the
     /// relation conservatively undecided.
     fn leaf_subtype(&self, sub: &Schema, sup: &Schema) -> Option<bool>;
+
+    /// Which of `texts`, each read as a `str`, are values of `schema` by the
+    /// walk a validator of it runs, or `None` where the oracle cannot say.
+    ///
+    /// The question [`leaf_subtype`](Self::leaf_subtype) asks of a literal's
+    /// constant, asked of a text the core holds rather than one the pool does:
+    /// the words of a pattern whose table is past the build's limit are read
+    /// this way, the walk's own matcher answering for each. Asked once for
+    /// every text of one question, so the schema's patterns compile once.
+    fn strings_admitted(&self, _schema: &Schema, _texts: &[&str]) -> Option<Vec<bool>> {
+        None
+    }
 
     /// Order the two pool values behind refinement bounds at indices `left` and
     /// `right`, or `None` when the core cannot or the values are not comparable.
@@ -62,6 +75,40 @@ pub trait LeafRelations: Constants {
     /// An implementor that can hash its constants answers in one pass; the
     /// default declines, and the walk stands.
     fn literal_sets_disjoint(&self, _left: &[ConstIx], _right: &[ConstIx]) -> Option<bool> {
+        None
+    }
+
+    /// The pairs of positions, one in `left` and one in `right`, whose
+    /// constants share a value, or `None` to leave it to the pairwise
+    /// question: every pair not named is one
+    /// [`literals_disjoint`](Self::literals_disjoint) answers disjoint.
+    ///
+    /// What two discriminated unions ask of their tags. Each record pins one
+    /// required key to a constant, and two records pinned to constants apart
+    /// share no value, so only the pairs named here are read whole: asked a
+    /// pair at a time, two unions of sixteen hundred records put two and a
+    /// half million questions to the bindings. An implementor that can hash
+    /// its constants answers in one pass; the default declines, and the pairs
+    /// stand.
+    fn literals_paired(
+        &self,
+        _left: &[ConstIx],
+        _right: &[ConstIx],
+    ) -> Option<Vec<(usize, usize)>> {
+        None
+    }
+
+    /// How many values `constants` hold apart under `==`, each a constant of
+    /// one kind that is a value, or `None` to leave it to the pairwise
+    /// question.
+    ///
+    /// The count a set drawn from their literals can reach, which
+    /// [`literals_disjoint`](Self::literals_disjoint) answers one pair at a
+    /// time: asked so, n constants cost n squared questions, a set over four
+    /// thousand literals a third of a second before a length bound is read. An
+    /// implementor that can hash its constants under an equality it trusts
+    /// counts them in one pass; the default declines, and the pairs stand.
+    fn literals_counted_apart(&self, _constants: &[ConstIx]) -> Option<usize> {
         None
     }
 
@@ -244,6 +291,23 @@ pub trait LeafRelations: Constants {
     fn constant_is_alone(&self, _constant: ConstIx) -> bool {
         false
     }
+
+    /// Whether the values the literal of the pooled constant holds -- equal
+    /// to it under its type's `==` -- answer a pattern, a length, a bound and
+    /// a step alike; `false` where the bindings cannot say.
+    ///
+    /// They do where the atoms read the value through the equality the
+    /// literal is made of: an exact builtin's, a builtin subclass's that keeps
+    /// the builtin's `__eq__`, a standard-library type's, or identity, under
+    /// which the equal values are one. A builtin subclass whose `__eq__` is
+    /// its own joins values those atoms read apart, since they read the
+    /// builtin's storage: a case-insensitive `str` subclass holds `"A"` in the
+    /// literal of `"a"`, which `Regex("a")` refuses. The default answers
+    /// `false`, the reading that keeps a proof by the constant only where the
+    /// constant is alone.
+    fn equal_values_read_alike(&self, _constant: ConstIx) -> bool {
+        false
+    }
 }
 
 /// The trivial [`LeafRelations`] that decides nothing — the core default, under
@@ -260,7 +324,8 @@ impl LeafRelations for NoLeafRelations {
 /// constant refuses to lower here and is decided by the rules alone.
 impl Constants for NoLeafRelations {}
 
-/// Whether the intersection contains a schema and its complement (`A ∩ ¬A = ∅`).
+/// Whether the intersection contains a schema and its complement, `A ∩ ¬A` being
+/// empty [FCB08, Def. 4.1].
 ///
 /// The law is a law **about sets**, and it is applied only where both sides are
 /// one. An atom that runs a callback is not: a predicate is arbitrary code
@@ -268,16 +333,23 @@ impl Constants for NoLeafRelations {}
 /// A predicate that alternates puts a value in `A` and in `¬A` at once, and the
 /// law would report the meet empty with that value as a witness against it.
 ///
-/// The emptiness decision's reading of the complement law, with no definitions,
-/// decided structurally on the (small) member list. The constructors read
-/// [`has_complementary_pair_within`] with the definitions they hold, so the two
-/// apply one statement of the law, and construction does not fold to `nothing`
-/// what the decision declines to call empty.
+/// The emptiness decision's reading of the complement law, decided
+/// structurally on the (small) member list, with `definitions` for a reference
+/// to be read through. The constructors read [`has_complementary_pair_within`]
+/// with the definitions they hold, and the decision asks it twice: with none,
+/// which the meets holding no reference need and which walks no definition,
+/// and with the query's where the meet is left open, so the two apply one
+/// statement of the law and `json & ~json` meets in nothing to the decision as
+/// it does to construction.
 ///
 /// A member list here may be in any order -- a rule or a law builds a meet
 /// directly -- so a member is found by a scan rather than a search.
-pub(crate) fn has_complementary_pair(members: &[Schema], oracle: &dyn LeafRelations) -> bool {
-    has_complementary_pair_within(members, Connective::Meet, oracle, &[], |wanted| {
+pub(crate) fn has_complementary_pair(
+    members: &[Schema],
+    oracle: &dyn LeafRelations,
+    definitions: &[Schema],
+) -> bool {
+    has_complementary_pair_within(members, Connective::Meet, oracle, definitions, |wanted| {
         members.contains(wanted)
     })
 }
@@ -324,9 +396,21 @@ pub(crate) fn has_complementary_pair_within(
     definitions: &[Schema],
     holds: impl Fn(&Schema) -> bool,
 ) -> bool {
-    members.iter().any(|member| {
+    complemented_members(members, connective, holds)
+        .any(|inner| denotes_a_set_within(inner, oracle, definitions))
+}
+
+/// The sets among `members` that stand beside their complement, whose join is
+/// every value and whose meet is none [FCB08, Def. 4.1], as
+/// [`has_complementary_pair_within`] reads the list and asked of no oracle.
+pub(crate) fn complemented_members(
+    members: &[Schema],
+    connective: Connective,
+    holds: impl Fn(&Schema) -> bool,
+) -> impl Iterator<Item = &Schema> {
+    members.iter().filter_map(move |member| {
         let Schema::Complement(inner) = member else {
-            return false;
+            return None;
         };
         let paired = holds(inner)
             || match (connective, &**inner) {
@@ -334,7 +418,7 @@ pub(crate) fn has_complementary_pair_within(
                 | (Connective::Meet, Schema::Intersection(parts)) => parts.iter().all(&holds),
                 _ => false,
             };
-        paired && denotes_a_set_within(inner, oracle, definitions)
+        paired.then_some(&**inner)
     })
 }
 

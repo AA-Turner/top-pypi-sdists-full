@@ -117,6 +117,31 @@ def has_error(payload: dict[str, Any]) -> bool:
     return span_data is not None and span_data.get("error") is not None
 
 
+USAGE_FIELDS = (
+    "inputTokens",
+    "outputTokens",
+    "cachedInputTokens",
+    "cacheReadTokens",
+    "costUsd",
+)
+
+
+def _is_usage_entry(entry: Any) -> bool:
+    return isinstance(entry, dict) and any(
+        isinstance(entry.get(field), (int, float))
+        and not isinstance(entry.get(field), bool)
+        for field in USAGE_FIELDS
+    )
+
+
+def has_usage(payload: dict[str, Any]) -> bool:
+    span_data = _span_data_of(payload)
+    contexts = span_data.get("contexts") if span_data is not None else None
+    return isinstance(contexts, list) and any(
+        _is_usage_entry(entry) for entry in contexts
+    )
+
+
 def strip_content(payload: dict[str, Any]) -> dict[str, Any]:
     raw_span = payload.get("rawSpan")
     span_data = _span_data_of(payload)
@@ -382,6 +407,7 @@ class SimulationPlan:
             and not self.disabled()
             and has_parent(payload)
             and not has_error(payload)
+            and not has_usage(payload)
             and not recorded_by_framework(payload)
             and not declared_in_code(payload)
             and self.content_off(trace_function_key, name)

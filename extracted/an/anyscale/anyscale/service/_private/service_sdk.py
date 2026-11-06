@@ -1332,6 +1332,7 @@ class PrivateServiceSDK(WorkloadSDK):
             project=project_name,
             versions=all_versions,
             service_status_checklist=self._api_checklist_to_model(model.service_status_checklist),
+            ended_at=model.ended_at,
         )
 
     def status(

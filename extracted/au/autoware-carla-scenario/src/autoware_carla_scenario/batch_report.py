@@ -17,6 +17,7 @@ from pathlib import Path
 # check compiles this module, docs/typecheck.md).
 from typing import Any, Collection, Mapping, Protocol, Sequence  # noqa: UP035
 
+from .atomic_file import write_text_atomically
 from .failure import Failure
 
 __all__ = ["print_summary", "write_batch_result_json"]
@@ -126,6 +127,12 @@ def write_batch_result_json(
     The file is what ``json.dumps(entries, indent=2, ensure_ascii=False)``
     gives, laid out as text a member at a time, since an entry's values (a
     condition's details) are of any type.
+
+    It is replaced in one rename
+    (:func:`~autoware_carla_scenario.atomic_file.write_text_atomically`): a
+    batch rewrites it as each case ends (``examples/run.py``), and the viewer,
+    reading it meanwhile, finds the cases run so far, whole, never half a
+    file (#1566).
     """
     failed_recordings: dict[int, str] = {}
     if rerun_errors is not None:
@@ -180,7 +187,7 @@ def write_batch_result_json(
                 members.append(own[key])
         entries.append("  {\n" + ",\n".join(members) + "\n  }")
     text = "[\n" + ",\n".join(entries) + "\n]" if entries else "[]"
-    json_path.write_text(text, encoding="utf-8")
+    write_text_atomically(json_path, text)
     return json_path
 
 
@@ -201,6 +208,10 @@ def print_summary(
     any case has one, how many were written and each that failed
     (*rerun_errors*, index -> why).  They do not change whether the batch
     passed.
+
+    Raises:
+        OSError: The JSON file cannot be written; raised once the rest of
+            the summary is printed.
     """
     failed_recordings: dict[int, str] = {}
     if rerun_errors is not None:
@@ -228,30 +239,37 @@ def print_summary(
         if _recording(result) is not None:
             print(f"    Rerun: {_recording(result)}")  # noqa: T201
 
-    json_path = write_batch_result_json(
-        names,
-        results,
-        output_dir,
-        overrides,
-        errored=errored,
-        rerun_errors=failed_recordings,
-    )
-    print(thin)  # noqa: T201
-    print(f"Result JSON: {json_path}")  # noqa: T201
-    recorded = [i for i, result in enumerate(results) if _recording(result) is not None]
-    if recorded:
-        written = sum(1 for i in recorded if i not in failed_recordings)
-        print(  # noqa: T201
-            f"Rerun recordings: {written}/{len(recorded)} written "
-            "(open one with: rerun <file.rrd>)"
-        )
-        for i in sorted(failed_recordings):
-            print(f"  [FAILED] {names[i]}: {failed_recordings[i]}")  # noqa: T201
-
     passed = sum(1 for r in results if r.passed)
     total = len(results)
-    print(thin)  # noqa: T201
-    errors = f", {len(errored)} errored" if errored else ""
-    print(f"{passed}/{total} scenarios passed{errors}")  # noqa: T201
-    print(sep)  # noqa: T201
+    # A JSON file that cannot be written (an unwritable or read-only output
+    # directory) raises once the rest of the summary is printed, so the
+    # verdict is not lost (#1740).
+    try:
+        json_path = write_batch_result_json(
+            names,
+            results,
+            output_dir,
+            overrides,
+            errored=errored,
+            rerun_errors=failed_recordings,
+        )
+        print(thin)  # noqa: T201
+        print(f"Result JSON: {json_path}")  # noqa: T201
+    finally:
+        recorded = [
+            i for i, result in enumerate(results) if _recording(result) is not None
+        ]
+        if recorded:
+            written = sum(1 for i in recorded if i not in failed_recordings)
+            print(  # noqa: T201
+                f"Rerun recordings: {written}/{len(recorded)} written "
+                "(open one with: rerun <file.rrd>)"
+            )
+            for i in sorted(failed_recordings):
+                print(f"  [FAILED] {names[i]}: {failed_recordings[i]}")  # noqa: T201
+
+        print(thin)  # noqa: T201
+        errors = f", {len(errored)} errored" if errored else ""
+        print(f"{passed}/{total} scenarios passed{errors}")  # noqa: T201
+        print(sep)  # noqa: T201
     return passed == total

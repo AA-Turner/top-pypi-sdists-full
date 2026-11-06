@@ -1329,6 +1329,19 @@ def test_minify_css_cap_stays_a_fixpoint_after_shorthand_fold() -> None:
 
 
 @pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "@media screen{, )}@media screen{b{h:-}}", "@media screen{, )}@media screen{b{h:-}}", id="stray-then-rule"
+        ),
+        pytest.param("@media screen{x;}@media screen{b{h:-}}", "@media screen{x;b{h:-}}", id="statement-still-joins"),
+    ],
+)
+def test_minify_css_media_keeps_stray_text_apart(source: str, expected: str) -> None:
+    assert (minify_css(source), minify_css(expected)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
     ("count", "first_rule", "last_rule"),
     [
         pytest.param(255, "a{--z:0;--w:0}", "", id="within-reach"),
@@ -1725,6 +1738,8 @@ def test_minify_css_live_rule_search_is_bounded(count: int, first_rule: str, las
         ),
         pytest.param("a{--d:[)", "a{--d:[)]}", id="custom-property-close-bracket-over-stray-paren"),
         pytest.param("a{--d:)}", "a{--d:)}", id="custom-property-keep-stray-close-paren"),
+        pytest.param("a{b:c([x)y])}", "a{b:c([x)y])}", id="paren-inside-bracket-in-function"),
+        pytest.param("a{b:[]\x00;c:d}", "a{b:[]\x00;c:d}", id="null-after-closed-bracket"),
         pytest.param("a{--d:]", "a{--d:]}", id="custom-property-keep-stray-close-bracket"),
         # a "!important" inside a block still open at the end of the input is block content (CSS Syntax 3 §5.4.4 reads
         # the last two component values, and the open block is one), so the closer goes after it
@@ -1746,10 +1761,15 @@ def test_minify_css_spec_fixes(source: str, expected: str) -> None:
         pytest.param("a{h:c([", "a{h:c([])}", id="bracket-in-function"),
         pytest.param("a{-ms-filter:(", "a{-ms-filter:()}", id="filter-open-block"),
         pytest.param("a{-ms-filter:(}", "a{-ms-filter:(})}", id="filter-brace-in-block"),
-        pytest.param("r{r:l(}(}}", "r{r:l(}(}))}", id="function-args-block-closed-by-brace"),
+        pytest.param("r{r:l(}(}}", "r{r:l(}(}}))}", id="function-args-keep-brace-inside-paren"),
+        pytest.param("a{b:c([)", "a{b:c([)])}", id="function-args-keep-paren-inside-bracket"),
+        pytest.param("r{r:l([[)}", "r{r:l([[)}]])}", id="function-args-keep-paren-inside-brackets"),
+        pytest.param("r{r:l([[}}{", "r{r:l([[}}{}]])}", id="function-args-brace-block-inside-brackets"),
+        pytest.param("a{b:c({)}", "a{b:c({)})}", id="function-args-keep-paren-inside-brace"),
+        pytest.param("e{unicode-range:[", "e{unicode-range:[]}", id="invalid-unicode-range-open-bracket"),
         pytest.param("a{b:c;l((:}", "a{b:c}", id="drop-declaration-with-colon-in-open-block"),
         pytest.param("@media{(", "@media{()}", id="stray-paren-in-media"),
-        pytest.param("@media{{(}}[", "@media{[]}", id="stray-bracket-in-media"),
+        pytest.param("@media{{(}}[", "", id="brace-inside-paren-in-media"),
         pytest.param('@media{url(}"\n', '@media{url(}"\n)}', id="bad-url-in-media"),
         pytest.param("@media{url('x\n", "@media{url('x\n)}", id="bad-url-single-quote-in-media"),
         pytest.param('@media{url(}"\n")', '@media{url(}"\n")")}', id="bad-url-open-quote-after-newline"),
@@ -1956,13 +1976,13 @@ _FINAL_AT_STATEMENT: Final[list[ParameterSet]] = [
     pytest.param("@x (a", "@x(a);", id="open-paren-in-prelude"),
     pytest.param("@x [a", "@x [a];", id="open-bracket-in-prelude"),
     pytest.param("@x ({", "@x({});", id="open-brace-in-prelude"),
-    pytest.param("@x ({))", "@x({));", id="open-brace-closed-by-paren-in-prelude"),
+    pytest.param("@x ({))", "@x({))});", id="paren-inside-open-brace-in-prelude"),
     pytest.param("@x (]", "@x(]);", id="open-paren-over-stray-bracket-in-prelude"),
     pytest.param("@x [a](b", "@x [a](b);", id="closed-bracket-before-open-paren-in-prelude"),
     pytest.param("@x ](b", "@x ](b);", id="stray-bracket-before-open-paren-in-prelude"),
     pytest.param("@media x{@x (a", "@media x{@x(a)}", id="nested-open-paren-in-prelude"),
     pytest.param("@x (}", "@x(});", id="close-brace-in-open-paren-in-prelude"),
-    pytest.param("@x (};a{b:c}", "@x(};a{b:c}", id="prelude-ending-in-close-brace"),
+    pytest.param("@x (};a{b:c}", "@x(};a{b:c});", id="open-paren-holding-rule-in-prelude"),
     pytest.param('x;@import "a"', 'x@import"a"', id="after-stray-text"),
     pytest.param('x;/*! c */@import "a"', 'x/*! c */@import"a"', id="after-stray-text-and-bang-comment"),
 ]
@@ -2104,6 +2124,8 @@ _STRAY_TOP_TOKEN: Final[list[ParameterSet]] = [
     pytest.param("x;a(b){y:1}", "", id="paren-in-invalid-prelude"),
     pytest.param("x;a[b]{y:1}", "", id="bracket-in-invalid-prelude"),
     pytest.param("x;a({}){y:1}", "", id="braces-in-invalid-prelude"),
+    pytest.param("x;)a{y:1}", "", id="stray-close-paren-in-invalid-prelude"),
+    pytest.param("x;[a{y:1}", "x[a{y:1}", id="open-bracket-holds-block-after-stray"),
     pytest.param("x;p{color:red", "", id="invalid-prelude-unterminated-block"),
     pytest.param("}", "", id="lone-brace"),
     pytest.param("a{x:1}}", "a{x:1}", id="trailing-brace"),

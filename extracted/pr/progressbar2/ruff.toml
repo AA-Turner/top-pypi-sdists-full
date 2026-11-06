@@ -35,11 +35,11 @@ ignore = [
     'RET506', # Unnecessary `else` after `raise` statement
     'Q001', # Remove bad quotes
     'Q002', # Remove bad quotes
-    'FA100', # Missing `from __future__ import annotations`, but uses `typing.Optional`
     'COM812', # Missing trailing comma in a list
     'ISC001', # String concatenation with implicit str conversion
     'SIM108', # Ternary operators are not always more readable
     'RUF100', # Unused noqa directives. Due to multiple Python versions, we need to keep them
+    'ICN001', # ruff 0.17.1 wants `import datetime as dt`; the codebase uses `datetime.`
 ]
 
 select = [
@@ -58,7 +58,6 @@ select = [
 
     'E', # pycodestyle error ('W' for warning)
     'F', # pyflakes
-    'FA', # flake8-future-annotations
     'I', # isort
     'ICN', # flake8-import-conventions
     'INP', # flake8-no-pep420
@@ -123,3 +122,7 @@ max-line-length = 79
 
 [lint.flake8-pytest-style]
 mark-parentheses = true
+
+[lint.flake8-import-conventions.aliases]
+# Preserve the established module spelling, including public annotations.
+datetime = 'datetime'

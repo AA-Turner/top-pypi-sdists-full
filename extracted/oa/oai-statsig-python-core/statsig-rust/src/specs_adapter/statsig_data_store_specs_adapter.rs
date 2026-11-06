@@ -68,7 +68,7 @@ impl StatsigDataStoreSpecsAdapter {
         let options_ref = options.unwrap_or(&default_options);
 
         let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
-        let ops_stats = OPS_STATS.get_for_instance(sdk_instance_id);
+        let ops_stats = OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options_ref));
         let hydration_specs_url = options_ref
             .remote_config_value_source_url
             .as_deref()

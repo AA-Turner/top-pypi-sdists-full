@@ -25,13 +25,17 @@ class Demo:
     term_width: int = 112
     #: How many preceding log lines to keep visible above the bar.
     log_lines: int = 0
+    #: Completed output lines retained for line-by-line log recordings.
+    history_lines: int = 0
+    #: Preserve real thread scheduling when concurrency is the demonstration.
+    capture_real_time: bool = False
     #: Upper bound on animation frames; excess frames are sampled evenly.
-    max_frames: int = 24
+    max_frames: int = 120
     #: Seconds each animation frame stays visible in the rendered SVG.
-    frame_seconds: float = 0.08
+    frame_seconds: float = 0.04
     #: Extra seconds the final frame stays visible before the loop
     #: restarts, so the finished state registers before the reset.
-    end_hold_seconds: float = 0.0
+    end_hold_seconds: float = 2.0
     #: Whether ``scripts/render_demos.py --check`` compares this demo's
     #: committed SVG against a fresh render. ``False`` is reserved for
     #: demos whose capture is not byte-stable across runs for reasons the
@@ -53,9 +57,18 @@ class Demo:
 
 
 DEMOS: tuple[Demo, ...] = (
+    Demo(
+        'homepage/quickstart',
+        'A working progress bar in one line',
+        term_width=80,
+    ),
     Demo('howto/colors', 'Fixed and gradient bar colors'),
-    Demo('howto/custom-widget', 'A hand-written widget'),
-    Demo('howto/dynamic-messages', 'Variable and DynamicMessage'),
+    Demo('howto/custom-widget', 'The current job phase', term_width=60),
+    Demo(
+        'howto/dynamic-messages',
+        'Errors found while scanning logs',
+        term_width=60,
+    ),
     Demo(
         'howto/file-transfer',
         'DataSize, FileTransferSpeed, AdaptiveTransferSpeed',
@@ -63,32 +76,73 @@ DEMOS: tuple[Demo, ...] = (
     Demo('howto/iterable-wrapper', 'Wrapping an iterable directly'),
     Demo('howto/logging-integration', 'Logging above the bar', log_lines=2),
     Demo('howto/multibar', 'MultiBar jobs finishing at different times'),
-    Demo('howto/multibar-line-offset', 'Manual line-offset bars'),
-    Demo('howto/non-tty', 'Forcing one line per update'),
-    Demo('howto/prefix-suffix', 'Templated prefix and suffix'),
+    Demo('howto/multibar-line-offset', 'Four independent rows', term_width=60),
+    Demo(
+        'howto/non-tty',
+        'Keeping each update in a log',
+        term_width=60,
+        history_lines=4,
+    ),
+    Demo(
+        'howto/parallel-execution',
+        'Three workers reporting task progress',
+        term_width=60,
+        capture_real_time=True,
+        # Real worker threads must overlap in this demonstration. Their
+        # redraw order depends on scheduling, so compare the behaviour
+        # in tests rather than requiring byte-identical recordings.
+        drift_check=False,
+    ),
+    Demo('howto/prefix-suffix', 'Live file and block labels', term_width=60),
     Demo('howto/redirect-stdout', 'print() above the bar', log_lines=2),
     Demo('howto/tqdm-style', 'tqdm-style keyword arguments'),
     Demo('howto/unknown-length', 'UnknownLength with an animated marker'),
-    # The README demos pace slower than the in-docs ones: they are the
-    # first thing a visitor sees and have to read as a demonstration, not
-    # a flicker. Each frame gets a quarter second and the finished state
-    # holds for two before the loop restarts.
+    # Keep the README pacing explicit: a quarter second per frame, then
+    # two seconds to read the finished state before the loop restarts.
+    Demo(
+        'readme/cli',
+        'progressbar data.bin -o copy.bin',
+        max_frames=24,
+        frame_seconds=0.25,
+        end_hold_seconds=2.0,
+    ),
+    Demo(
+        'readme/colors',
+        'Gradients, colors and animated markers',
+        max_frames=24,
+        frame_seconds=0.25,
+        end_hold_seconds=2.0,
+    ),
     Demo(
         'readme/hero',
         'Progress with clean logs',
         log_lines=2,
+        max_frames=24,
         frame_seconds=0.25,
         end_hold_seconds=2.0,
     ),
     Demo(
         'readme/multibar',
         'Multiple active jobs',
+        max_frames=24,
         frame_seconds=0.25,
         end_hold_seconds=2.0,
     ),
     Demo(
+        'readme/parallel',
+        'progressbar.map with per-task bars',
+        max_frames=24,
+        frame_seconds=0.25,
+        end_hold_seconds=2.0,
+        # Worker threads update their own bars, so which redraws land in
+        # a capture depends on real OS thread scheduling -- same cause as
+        # howto/multibar-line-offset.
+        drift_check=False,
+    ),
+    Demo(
         'readme/unknown-length',
         'Unknown length',
+        max_frames=24,
         frame_seconds=0.25,
         end_hold_seconds=2.0,
     ),

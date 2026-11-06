@@ -14,7 +14,11 @@ class GitIdentity(SandboxHook):
 
     agents.pattern.sandbox_hook.GitIdentity(name="Acme Bot", email="bot@acme.com")
 
-    ``DangerousLocalSandbox`` refuses it: on the host, it would overwrite the user's ``~/.gitconfig``.
+    ``DangerousLocalSandbox`` refuses it: on your machine, it would overwrite your ``~/.gitconfig``.
+
+    Args:
+        name: The git ``user.name``.
+        email: The git ``user.email``.
     """
 
     _changes_host_state = True

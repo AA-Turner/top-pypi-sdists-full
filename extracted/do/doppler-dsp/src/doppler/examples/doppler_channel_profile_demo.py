@@ -42,6 +42,7 @@ import sys
 # --8<-- [start:profile]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.impairment import DopplerChannel
 
 CHIP_RATE = 3.069e6  # Mcps
@@ -104,6 +105,7 @@ def _offset_hz(y: np.ndarray, win: int = 1 << 14):
 
 
 def main(out_path: str = "doppler_channel_profile_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

@@ -236,6 +236,138 @@ def test_an_entry_added_since_the_base_fails_on_either_ratchet(
     assert mod.ratchet_added(path, "HEAD") == []
 
 
+#: The merge base's list for the rename cases: two entries that a rename
+#: merges into one.
+RENAME_BASE = "dp_a | no test yet\ndp_b | no test yet\n"
+
+
+def _renamed(seed: Seed, head: str) -> list[str]:
+    """`ratchet_added` with RENAME_BASE committed and `head` on disk."""
+    mod = seed(ratchet=RENAME_BASE)
+    mod.CHUNK_RATCHET.write_text(head)
+    return mod.ratchet_added(mod.CHUNK_RATCHET, "HEAD")
+
+
+def test_a_rename_carries_its_lines(seed: Seed) -> None:
+    """Two entries merged into one, each named and each gone: a rename.
+    The fixture header declares only `dp_foo`, so neither replaced key is a
+    live object (condition 4 holds)."""
+    assert _renamed(seed, "dp_ab | merged | replaces: dp_a dp_b\n") == []
+
+
+def test_a_rename_of_one_entry_carries_it(seed: Seed) -> None:
+    head = "dp_a | no test yet\ndp_c | renamed | replaces: dp_b\n"
+    assert _renamed(seed, head) == []
+
+
+# ── the carry rule, once (carry_refusals) ───────────────────────────────────
+#
+# Both lists call this; each condition is tested here and only here, so a
+# sabotage of one condition turns exactly its test red. The lists' own
+# tests below cover their readers and their liveness sources.
+
+
+def _never(key: str) -> bool:
+    return False
+
+
+def test_carry_a_rename_holds(monkeypatch: pytest.MonkeyPatch) -> None:
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals({"a", "b"}, {"ab"}, {"ab": ("a", "b")}, _never)
+    assert got == {"ab": []}
+
+
+def test_carry_condition_1_a_key_the_base_never_held(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A carry needs something to carry."""
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals({"a"}, {"c"}, {"c": ("ghost",)}, _never)
+    assert len(got["c"]) == 1
+    assert "not on the base's list" in got["c"][0]
+
+
+def test_carry_condition_2_a_key_still_listed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The old line must go, or the list grew by one."""
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals({"a"}, {"a", "c"}, {"c": ("a",)}, _never)
+    assert len(got["c"]) == 1
+    assert "still listed at head" in got["c"][0]
+
+
+def test_carry_condition_3_one_key_backing_two_lines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One old entry split into two would grow the list."""
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals(
+        {"a"}, {"c", "d"}, {"c": ("a",), "d": ("a",)}, _never
+    )
+    assert all(len(w) == 1 for w in got.values())
+    assert all("more than one new line" in w[0] for w in got.values())
+
+
+def test_carry_condition_4_a_key_still_live(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fixed entry is deleted, not traded for a new one."""
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals({"a"}, {"c"}, {"c": ("a",)}, {"a"}.__contains__)
+    assert len(got["c"]) == 1
+    assert "still live at head" in got["c"][0]
+
+
+def test_carry_a_key_that_replaces_nothing_is_growth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mod = _load(monkeypatch)
+    got = mod.carry_refusals({"a"}, {"a", "n"}, {"n": ()}, _never)
+    assert got == {"n": ["the list may only shrink"]}
+
+
+def test_trading_a_fixed_entry_for_a_new_object_is_added(
+    seed: Seed,
+) -> None:
+    """The ratchets' liveness source: `dp_a` got its test, so its line
+    must go -- not be handed to a new object. Its `_set_state` is still
+    declared at head, so serializable() calls it live and the carry is
+    refused (condition 4)."""
+    mod = seed(
+        header=HEADER + "int dp_a_set_state (void *s, const void *b);\n",
+        ratchet=RENAME_BASE,
+    )
+    assert "dp_a" in mod.serializable()  # the premise, not an `if`
+    mod.CHUNK_RATCHET.write_text(
+        "dp_b | no test yet\ndp_new | x | replaces: dp_a\n"
+    )
+    bad = mod.ratchet_added(mod.CHUNK_RATCHET, "HEAD")
+    assert len(bad) == 1
+    assert "'dp_new' ADDED" in bad[0]
+    assert "still live at head" in bad[0]
+
+
+def test_a_new_line_with_no_replaces_is_still_added(seed: Seed) -> None:
+    bad = _renamed(seed, "dp_ab | merged\n")
+    assert len(bad) == 1
+    assert "may only shrink" in bad[0]
+
+
+def test_the_replaces_field_is_parsed_once_in_the_one_reader(
+    seed: Seed,
+) -> None:
+    """A `|` inside a reason stays in the reason; only a last field that opens
+    with `replaces:` is the carry."""
+    mod = seed()
+    held = mod.parse_ratchet(
+        "dp_x | a | b\ndp_y | r | replaces: dp_p dp_q\ndp_z | r | replaces:\n"
+    )
+    assert held["dp_x"] == ("a | b", ())
+    assert held["dp_y"] == ("r", ("dp_p", "dp_q"))
+    assert held["dp_z"] == ("r", ())
+
+
 def _mutator_list(
     mod: ModuleType, monkeypatch: pytest.MonkeyPatch, text: str
 ) -> Path:
@@ -307,6 +439,51 @@ def test_a_mutator_list_missing_at_head_is_an_error(
     lst.unlink()
     with pytest.raises(LookupError, match="missing at HEAD"):
         mod.mutator_list_added("HEAD")
+
+
+#: A header declaring the C function behind the mutator row `A.dp_old`.
+OLD_FN = "int dp_old (void *s, const void *b);\n"
+
+
+def test_a_mutator_rename_carries_its_row(
+    seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`A.dp_old` becomes `A.dp_new`, same verdict, and `dp_old` is no
+    longer declared: a rename (#2752 step 3.2's Corr2D.set_ref)."""
+    mod = seed()
+    lst = _mutator_list(mod, monkeypatch, "A.dp_old  C_ONLY  why\n")
+    lst.write_text("A.dp_new  C_ONLY  why; replaces: A.dp_old\n")
+    assert mod.mutator_list_added("HEAD") == []
+
+
+def test_a_mutator_row_whose_function_is_declared_is_live(
+    seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mutator list's liveness source: `dp_old` is still declared in a
+    header, so declared_functions() calls the row live and the carry is
+    refused (condition 4)."""
+    mod = seed(header=HEADER + OLD_FN)
+    assert "dp_old" in mod.declared_functions()  # the premise
+    lst = _mutator_list(mod, monkeypatch, "A.dp_old  C_ONLY  why\n")
+    lst.write_text("A.dp_new  C_ONLY  why; replaces: A.dp_old\n")
+    bad = mod.mutator_list_added("HEAD")
+    assert len(bad) == 1
+    assert "'A.dp_new' ADDED" in bad[0]
+    assert "still live at head" in bad[0]
+
+
+def test_a_mutator_rename_keeps_its_verdict(
+    seed: Seed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The list's own fifth condition: a carry cannot move a row into
+    another verdict, or a regression would be laundered by a rename."""
+    mod = seed()
+    lst = _mutator_list(mod, monkeypatch, "A.dp_old  UNPROBED  why\n")
+    lst.write_text("A.dp_new  LOST  why; replaces: A.dp_old\n")
+    bad = mod.mutator_list_added("HEAD")
+    assert len(bad) == 1
+    assert "UNPROBED -> LOST" in bad[0]
+    assert "a rename keeps the verdict" in bad[0]
 
 
 def test_the_change_that_brings_the_mutator_gate_brings_its_list(

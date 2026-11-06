@@ -1,5 +1,7 @@
 """The `?` panel: every key in the grove view, or in a zoomed block, with what it does."""
 
+from collections import abc
+
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult
@@ -30,6 +32,7 @@ _BLOCK = [
         "another lemon on that tree, as .c1; past nine, 0 and a letter, .c0a",
     ),
     ("/", "search Brief-IDs, sessions and names; ↑↓ choose, enter jumps"),
+    ("backspace", "clear what you've typed after the digit, then zoom back out"),
     ("click a tree", "the same as its letter"),
     ("drag a tree", "move it within its block"),
     ("drag a bare tree", "move it; drag it off its block's ground to clear it away"),
@@ -82,7 +85,9 @@ def rows(
     flips: flip.Flip = flip.DEFAULT,
     select_key: str = selecting.DEFAULT_KEY,
     selected: bool = False,
+    more: abc.Iterable[tuple[str, str]] = (),
 ) -> list[tuple[str, str]]:
+    """*more* is keys the grove was opened with, and what each does."""
     key = select_view.key_name(select_key)
     select = (
         (f"{key}, esc", "leave select mode")
@@ -97,15 +102,22 @@ def rows(
         *(_SELECT if selected else _BLOCK if zoomed else _GROVE),
         select,
         _flip_row(flips, zoomed),
+        *more,
         *(row for row in _LAST if not (selected and row[0] == "esc")),
     ]
 
 
-def _table(zoomed: bool, flips: flip.Flip, select_key: str, selected: bool) -> Table:
+def _table(
+    zoomed: bool,
+    flips: flip.Flip,
+    select_key: str,
+    selected: bool,
+    more: abc.Iterable[tuple[str, str]],
+) -> Table:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="bold #f2d94e", no_wrap=True)
     table.add_column(style="#d8dee9")
-    for key, what in rows(zoomed, flips, select_key, selected):
+    for key, what in rows(zoomed, flips, select_key, selected, more):
         table.add_row(key, what)
     return table
 
@@ -132,9 +144,10 @@ class HelpPanel(VerticalScroll):
         flips: flip.Flip = flip.DEFAULT,
         select_key: str = selecting.DEFAULT_KEY,
         selected: bool = False,
+        more: abc.Iterable[tuple[str, str]] = (),
     ) -> None:
         super().__init__()
-        self._table = _table(zoomed, flips, select_key, selected)
+        self._table = _table(zoomed, flips, select_key, selected, more)
         self._title = (
             "Keys in select mode"
             if selected

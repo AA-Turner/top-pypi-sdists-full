@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.10.10
+Version: 0.10.13
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -9,8 +9,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx2>=2.13.1
 Requires-Dist: pathspec>=0.12
+Requires-Dist: pooch>=1.8
 Requires-Dist: pydantic>=2.0
+Requires-Dist: tomli-w>=1.0
 Requires-Dist: tqdm>=4.67
+Provides-Extra: tui
+Requires-Dist: textual<7,>=6.0; extra == "tui"
 Dynamic: license-file
 
 # Trajectory SDK
@@ -24,16 +28,14 @@ trajectories, telemetry, and runtime-backed specs (benchmarks).
 pip install trajectory-sdk
 ```
 
-The SDK installs Trajectory and agent-feedback skills for coding agents under
-`share/doc/trajectory-sdk/skills/` in its Python environment. Print their paths:
+Install both coding-agent skills:
 
 ```bash
-python -c "import importlib.metadata as m; print('\n'.join(str(f.locate().resolve()) for f in m.files('trajectory-sdk') if f.name == 'SKILL.md'))"
+npx skills add https://docs.trajectory.ai --skill trajectory --skill agent-feedback
 ```
 
-Copy each skill's folder into your spec repo under `.agents/skills/` for Codex or
-`.claude/skills/` for Claude Code. The `trajectory` skill guides integrations; the
-`agent-feedback` skill submits authorized reports about API, SDK, or documentation friction.
+`trajectory` guides SDK work; `agent-feedback` handles authorized product feedback.
+See [coding-agent setup](https://docs.trajectory.ai/coding-agents) for updates and SDK-bundled copies.
 
 ## Start here
 

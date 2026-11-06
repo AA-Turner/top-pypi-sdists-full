@@ -37,7 +37,8 @@ class ManagedResource(object):
         'resource_id': 'str',
         'name': 'str',
         'parent_resource_type': 'RoleBindingResourceType',
-        'parent_resource_id': 'str'
+        'parent_resource_id': 'str',
+        'parent_name': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class ManagedResource(object):
         'resource_id': 'resource_id',
         'name': 'name',
         'parent_resource_type': 'parent_resource_type',
-        'parent_resource_id': 'parent_resource_id'
+        'parent_resource_id': 'parent_resource_id',
+        'parent_name': 'parent_name'
     }
 
-    def __init__(self, resource_type=None, resource_id=None, name=None, parent_resource_type=None, parent_resource_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, resource_type=None, resource_id=None, name=None, parent_resource_type=None, parent_resource_id=None, parent_name=None, local_vars_configuration=None):  # noqa: E501
         """ManagedResource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +61,7 @@ class ManagedResource(object):
         self._name = None
         self._parent_resource_type = None
         self._parent_resource_id = None
+        self._parent_name = None
         self.discriminator = None
 
         self.resource_type = resource_type
@@ -69,6 +72,8 @@ class ManagedResource(object):
             self.parent_resource_type = parent_resource_type
         if parent_resource_id is not None:
             self.parent_resource_id = parent_resource_id
+        if parent_name is not None:
+            self.parent_name = parent_name
 
     @property
     def resource_type(self):
@@ -184,6 +189,29 @@ class ManagedResource(object):
         """
 
         self._parent_resource_id = parent_resource_id
+
+    @property
+    def parent_name(self):
+        """Gets the parent_name of this ManagedResource.  # noqa: E501
+
+        That scope's display name, so a caller who manages a project can place it under a cloud they cannot read. Absent for the organization itself.  # noqa: E501
+
+        :return: The parent_name of this ManagedResource.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_name
+
+    @parent_name.setter
+    def parent_name(self, parent_name):
+        """Sets the parent_name of this ManagedResource.
+
+        That scope's display name, so a caller who manages a project can place it under a cloud they cannot read. Absent for the organization itself.  # noqa: E501
+
+        :param parent_name: The parent_name of this ManagedResource.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_name = parent_name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

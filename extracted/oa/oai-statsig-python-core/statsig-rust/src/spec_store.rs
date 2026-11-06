@@ -5,7 +5,7 @@ use dashmap::DashMap;
 use parking_lot::{Mutex, MutexGuard};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, Weak};
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
@@ -18,14 +18,16 @@ use crate::gcir::evaluation_plan::GcirEvaluationPlan;
 use crate::global_configs::GlobalConfigs;
 use crate::hashing::{self, HashUtil};
 use crate::id_lists_adapter::{
-    IdList, IdListPropagationState, IdListPropagationUpdate, IdListPublicationMode, IdListUpdate,
-    IdListsUpdateListener,
+    IdList, IdListEncoding, IdListPropagationState, IdListPropagationUpdate, IdListPublicationMode,
+    IdListUpdate, IdListsUpdateListener,
 };
 use crate::interned_string::InternedString;
 use crate::interned_values::interned_store::{InternedStore, MmapProjectId};
 use crate::macros::LOCK_TIMEOUT;
 use crate::networking::ResponseData;
-use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
+use crate::observability::observability_client_adapter::{
+    MetricType, ObservabilityClient, ObservabilityEvent,
+};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
@@ -374,7 +376,11 @@ pub struct SpecStore {
     data: ArcSwap<SpecStoreData>,
     update_lock: Mutex<()>,
     id_list_propagation: Mutex<HashMap<String, IdListPropagationState>>,
-    private_id_list_mutation: Option<Mutex<()>>,
+    id_list_mutation: Mutex<()>,
+    #[cfg(test)]
+    pub(crate) before_id_list_build: Option<Arc<dyn Fn() + Send + Sync>>,
+    id_list_encoding: IdListEncoding,
+    id_list_init_build_concurrency: u64,
     config_updates: Arc<crate::ConfigUpdates>,
 
     data_store_keys: DataStoreCacheKeys,
@@ -382,6 +388,7 @@ pub struct SpecStore {
     data_store_write_claimed: Arc<AtomicBool>,
     statsig_runtime: Arc<StatsigRuntime>,
     ops_stats: Arc<OpsStatsForInstance>,
+    observability_client: Option<Weak<dyn ObservabilityClient>>,
     global_configs: Option<Arc<GlobalConfigs>>,
     event_emitter: Arc<SdkEventEmitter>,
     loggable_sdk_key: String,
@@ -455,16 +462,38 @@ impl SpecStore {
             }),
             update_lock: Mutex::new(()),
             id_list_propagation: Mutex::new(HashMap::new()),
-            private_id_list_mutation: options
-                .and_then(|options| options.enable_id_list_elias_fano)
-                .unwrap_or(false)
-                .then(Mutex::default),
+            id_list_mutation: Mutex::new(()),
+            #[cfg(test)]
+            before_id_list_build: None,
+            id_list_init_build_concurrency: match options
+                .and_then(|o| o.id_list_init_build_concurrency)
+            {
+                Some(limit @ 1..=32) => limit as u64,
+                None => 1,
+                Some(value) => {
+                    log_w!(
+                        TAG,
+                        "Invalid id_list_init_build_concurrency {value}; using 1 (expected 1 through 32)"
+                    );
+                    1
+                }
+            },
+            id_list_encoding: if options.and_then(|options| options.enable_id_list_elias_fano)
+                == Some(true)
+            {
+                IdListEncoding::EliasFano
+            } else {
+                IdListEncoding::Hash
+            },
             config_updates: Arc::new(crate::ConfigUpdates::default()),
             event_emitter,
             data_store,
             data_store_write_claimed: Arc::new(AtomicBool::new(false)),
             statsig_runtime,
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, options),
+            observability_client: options
+                .filter(|opts| opts.enable_id_list_access_metrics == Some(true))
+                .and_then(|opts| opts.observability_client.clone()),
             global_configs: (!session_options.config_only_mode)
                 .then(|| GlobalConfigs::get_instance(sdk_instance_id)),
             loggable_sdk_key: get_loggable_sdk_key(sdk_key),
@@ -1574,8 +1603,10 @@ impl SpecStore {
             return;
         };
 
-        if let Some(diagnostics) = &dcs.diagnostics {
-            global_configs.set_diagnostics_sampling_rates(diagnostics.clone());
+        if !self.ops_stats.remote_telemetry_disabled() {
+            if let Some(diagnostics) = &dcs.diagnostics {
+                global_configs.set_diagnostics_sampling_rates(diagnostics.clone());
+            }
         }
 
         if let Some(sdk_configs) = &dcs.sdk_configs {
@@ -1926,6 +1957,30 @@ impl SpecStore {
         }
     }
 
+    fn ops_stats_log_id_list_sizes(
+        &self,
+        previous: &HashMap<String, IdList>,
+        installed: &HashMap<String, IdList>,
+    ) {
+        for (name, list) in installed {
+            // Signed download URLs can rotate without changing the installed list.
+            if previous.get(name).is_some_and(|old| {
+                Arc::ptr_eq(&old.ids, &list.ids)
+                    && old.metadata.size == list.metadata.size
+                    && old.metadata.creation_time == list.metadata.creation_time
+                    && old.metadata.file_id == list.metadata.file_id
+            }) {
+                continue;
+            }
+            self.ops_stats.try_log(ObservabilityEvent::new_event(
+                MetricType::Gauge,
+                "id_list_size".into(),
+                list.ids.len() as f64,
+                Some(HashMap::from([("id_list_name".into(), name.clone())])),
+            ));
+        }
+    }
+
     fn ops_stats_log_interned_mmap_spec_decode(&self, stats: SpecDecodeStats) {
         if !self.internal_observability_enabled || stats.total == 0 {
             return;
@@ -2165,7 +2220,7 @@ impl IdListsUpdateListener for SpecStore {
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) {
         if let Err(err) =
-            self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Merge)
+            self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Merge, 1)
         {
             let _scope = self.output_policy.enter();
             log_w!(TAG, "Partial ID-list update was not published: {}", err);
@@ -2177,7 +2232,7 @@ impl IdListsUpdateListener for SpecStore {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
-        self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Replace)
+        self.apply_id_list_updates(updates, propagation, IdListPublicationMode::Replace, 1)
     }
 
     fn try_receive_incomplete_id_list_refresh(
@@ -2189,11 +2244,34 @@ impl IdListsUpdateListener for SpecStore {
             updates,
             propagation,
             IdListPublicationMode::IncompleteRefresh,
+            1,
         )
     }
 
+    fn uses_parallel_id_list_init(&self) -> bool {
+        self.id_list_init_build_concurrency > 1
+    }
+
+    fn try_receive_eager_id_list_updates(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        incomplete: bool,
+        successful_downloads: u64,
+    ) -> Result<(), StatsigErr> {
+        let workers = self
+            .id_list_init_build_concurrency
+            .min(successful_downloads) as usize;
+        let mode = if incomplete {
+            IdListPublicationMode::IncompleteRefresh
+        } else {
+            IdListPublicationMode::Replace
+        };
+        self.apply_id_list_updates(updates, propagation, mode, workers)
+    }
+
     fn requires_blocking_id_list_publication(&self) -> bool {
-        self.private_id_list_mutation.is_some()
+        self.id_list_encoding == IdListEncoding::EliasFano
     }
 
     fn supports_id_list_snapshots(&self) -> bool {
@@ -2206,22 +2284,14 @@ impl IdListsUpdateListener for SpecStore {
         propagation: HashMap<String, IdListPropagationUpdate>,
     ) -> Result<(), StatsigErr> {
         let _output_scope = self.output_policy.enter();
-        let _update_guard = self
-            .try_lock_for_update("did_receive_id_list_snapshot")
-            .ok_or_else(|| {
-                StatsigErr::LockFailure(
-                    "Unable to acquire ID-list snapshot update lock".to_string(),
-                )
-            })?;
-        let data = self.load_data();
-        self.publish_id_lists(
-            &data,
+        self.commit_id_lists(
+            None,
             Arc::new(lists),
             propagation,
             "shared_mmap",
             IdListPublicationMode::Replace,
-        );
-        Ok(())
+            LOCK_TIMEOUT,
+        )
     }
 }
 
@@ -2231,30 +2301,43 @@ impl SpecStore {
         updates: HashMap<String, IdListUpdate>,
         propagation: HashMap<String, IdListPropagationUpdate>,
         mode: IdListPublicationMode,
+        concurrency: usize,
     ) -> Result<(), StatsigErr> {
         let _output_scope = self.output_policy.enter();
-        if let Some(mutation) = &self.private_id_list_mutation {
-            let _mutation = mutation.lock();
-            // Serialize private deltas from base selection through commit. Config and
-            // shared snapshot writers can still publish while we encode the heap image.
-            let base = Arc::clone(&self.data.load().id_lists);
-            let lists = self.updated_id_lists(&base, updates, mode);
-            return self.publish_staged_id_lists(&base, lists, propagation, mode);
-        }
-
-        let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
+        let result = self.stage_id_list_updates(updates, propagation, mode, concurrency);
+        if self.id_list_encoding == IdListEncoding::Hash
+            && matches!(result, Err(StatsigErr::LockFailure(_)))
+        {
+            // The legacy hash listener treats a timed-out changeset as a skipped poll.
+            log_e!(TAG, "Failed to acquire ID-list update lock");
             return Ok(());
+        }
+        result
+    }
+
+    fn stage_id_list_updates(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+        mode: IdListPublicationMode,
+        concurrency: usize,
+    ) -> Result<(), StatsigErr> {
+        // Serialize deltas without holding up config writers during parsing or copying.
+        // Only time queued behind other writers counts against the hash listener's timeout.
+        let (_mutation, remaining) = match self.id_list_encoding {
+            IdListEncoding::EliasFano => (self.id_list_mutation.lock(), LOCK_TIMEOUT),
+            IdListEncoding::Hash => {
+                let start = Instant::now();
+                let guard = self
+                    .id_list_mutation
+                    .try_lock_for(LOCK_TIMEOUT)
+                    .ok_or_else(Self::id_list_lock_timeout)?;
+                (guard, LOCK_TIMEOUT.saturating_sub(start.elapsed()))
+            }
         };
-        let data = self.load_data();
-        let lists = self.updated_id_lists(&data.id_lists, updates, mode);
-        self.publish_id_lists(
-            &data,
-            lists,
-            propagation,
-            &SpecsSource::Network.to_string(),
-            mode,
-        );
-        Ok(())
+        let base = Arc::clone(&self.data.load().id_lists);
+        let lists = self.updated_id_lists(&base, updates, mode, concurrency);
+        self.commit_id_lists(Some(&base), lists, propagation, "Network", mode, remaining)
     }
 
     fn updated_id_lists(
@@ -2262,6 +2345,7 @@ impl SpecStore {
         base: &Arc<HashMap<String, IdList>>,
         updates: HashMap<String, IdListUpdate>,
         mode: IdListPublicationMode,
+        concurrency: usize,
     ) -> Arc<HashMap<String, IdList>> {
         // A complete manifest removes omitted names; lazy loads merge only the
         // requested materialized lists into the currently published snapshot.
@@ -2272,24 +2356,56 @@ impl SpecStore {
         } else {
             base.as_ref().clone()
         };
-        for (name, update) in updates {
+        let build = |(name, update): (String, IdListUpdate)| {
+            #[cfg(test)]
+            if let Some(hook) = &self.before_id_list_build {
+                hook();
+            }
             let previous = base.get(&name);
             let mut list = previous
                 .cloned()
                 .unwrap_or_else(|| IdList::new(update.new_metadata.clone()));
-            if self.private_id_list_mutation.is_some() {
-                list.apply_update_with_elias_fano(update);
-                // A generation change replaces ids even for an empty file. An append
-                // advances size even if none of its lines change membership.
-                changed |= previous.is_none_or(|old| {
-                    old.metadata.size != list.metadata.size || !Arc::ptr_eq(&old.ids, &list.ids)
-                });
-            } else {
-                list.apply_update(update);
-            }
+            list.apply_update_with_encoding(self.id_list_encoding, update);
+            let changed = previous.is_none_or(|old| {
+                old.metadata.size != list.metadata.size || !Arc::ptr_eq(&old.ids, &list.ids)
+            });
+            (name, list, changed)
+        };
+        let install = |(name, list, list_changed)| {
+            changed |= list_changed;
             lists.insert(name, list);
+        };
+
+        if concurrency > 1 {
+            // The calling thread participates. Helpers only build from the immutable base;
+            // they never acquire store locks or wait for another Tokio blocking worker.
+            let pending = parking_lot::Mutex::new(updates.into_iter());
+            let install = parking_lot::Mutex::new(install);
+            let drain = || {
+                let _scope = self.output_policy.enter();
+                loop {
+                    let Some(update) = pending.lock().next() else {
+                        break;
+                    };
+                    let built = build(update);
+                    install.lock()(built);
+                }
+            };
+            std::thread::scope(|scope| {
+                for _ in 1..concurrency {
+                    if std::thread::Builder::new()
+                        .spawn_scoped(scope, drain)
+                        .is_err()
+                    {
+                        break; // The remaining workers can finish the batch.
+                    }
+                }
+                drain();
+            });
+        } else {
+            updates.into_iter().map(build).for_each(install);
         }
-        if self.private_id_list_mutation.is_some() && !changed {
+        if !changed {
             // A metadata-only poll can carry propagation without invalidating a staged append.
             Arc::clone(base)
         } else {
@@ -2297,73 +2413,70 @@ impl SpecStore {
         }
     }
 
-    fn publish_staged_id_lists(
+    fn id_list_lock_timeout() -> StatsigErr {
+        StatsigErr::LockFailure("ID-list update lock timed out".into())
+    }
+
+    fn commit_id_lists(
         &self,
-        base: &Arc<HashMap<String, IdList>>,
+        expected: Option<&Arc<HashMap<String, IdList>>>,
         lists: Arc<HashMap<String, IdList>>,
         propagation: HashMap<String, IdListPropagationUpdate>,
+        source: &str,
         mode: IdListPublicationMode,
+        remaining: Duration,
     ) -> Result<(), StatsigErr> {
-        let _update_guard = self
+        let report_sizes = !self.output_policy.is_silent()
+            && !expected.is_some_and(|base| Arc::ptr_eq(base, &lists))
+            && self
+                .observability_client
+                .as_ref()
+                .is_some_and(|client| client.strong_count() > 0)
+            && self
+                .global_configs
+                .as_ref()
+                .is_some_and(|configs| configs.is_id_list_access_metrics_enabled());
+        // Keep observations ordered with list commits without making config
+        // writers wait for propagation bookkeeping or old membership teardown.
+        let deadline = Instant::now() + remaining;
+        let mut states = self
+            .id_list_propagation
+            .try_lock_until(deadline)
+            .ok_or_else(Self::id_list_lock_timeout)?;
+        let guard = self
             .update_lock
-            .try_lock_for(LOCK_TIMEOUT)
-            .ok_or_else(|| StatsigErr::LockFailure("ID-list update lock timed out".into()))?;
+            .try_lock_until(deadline)
+            .ok_or_else(Self::id_list_lock_timeout)?;
         let current = self.load_data();
-        if !Arc::ptr_eq(base, &current.id_lists) {
-            // Another list snapshot committed first. Replaying these bytes on it could
-            // double-advance its cursor. The next HTTP poll reads the committed offset.
+        if expected.is_some_and(|base| !Arc::ptr_eq(base, &current.id_lists)) {
+            // A shared snapshot won the race. Replaying these bytes on it could
+            // double-advance its cursor. The next poll reads the committed offset.
             return Err(StatsigErr::InvalidOperation(
                 "ID-list snapshot changed during publication; refresh from the current cursor"
                     .into(),
             ));
         }
-        self.publish_id_lists(
-            &current,
-            lists,
-            propagation,
-            &SpecsSource::Network.to_string(),
-            mode,
-        );
-        Ok(())
-    }
-
-    fn publish_id_lists(
-        &self,
-        data: &SpecStoreData,
-        lists: Arc<HashMap<String, IdList>>,
-        propagation: HashMap<String, IdListPropagationUpdate>,
-        source: &str,
-        mode: IdListPublicationMode,
-    ) {
         self.publish_data(SpecStoreData {
             id_lists: Arc::clone(&lists),
-            ..data.clone()
+            ..current.as_ref().clone()
         });
-        self.record_id_list_propagation(data, &lists, propagation, source, mode);
-    }
-
-    fn record_id_list_propagation(
-        &self,
-        data: &SpecStoreData,
-        published_lists: &HashMap<String, IdList>,
-        propagation: HashMap<String, IdListPropagationUpdate>,
-        source: &str,
-        mode: IdListPublicationMode,
-    ) {
+        drop(guard);
         let now = Utc::now().timestamp_millis() as u64;
-        let mut states = self.id_list_propagation.lock();
+        if report_sizes && !Arc::ptr_eq(&current.id_lists, &lists) {
+            self.ops_stats_log_id_list_sizes(&current.id_lists, &lists);
+        }
         match mode {
             IdListPublicationMode::Replace => {
                 states.retain(|name, _| propagation.contains_key(name))
             }
             IdListPublicationMode::IncompleteRefresh => {
-                states.retain(|name, _| published_lists.contains_key(name))
+                states.retain(|name, _| lists.contains_key(name))
             }
             IdListPublicationMode::Merge => {}
         }
         for (name, observation) in propagation {
             // apply_update may reject an older generation. Never attribute it to the installed file.
-            let Some(list) = published_lists.get(&name) else {
+            let Some(list) = lists.get(&name) else {
                 continue;
             };
             if list.metadata.file_id != observation.file_id
@@ -2371,7 +2484,7 @@ impl SpecStore {
             {
                 continue;
             }
-            let initialized = states.contains_key(&name) && data.id_lists.contains_key(&name);
+            let initialized = states.contains_key(&name) && current.id_lists.contains_key(&name);
             if let Some((lcut, prev_lcut, applied_at)) = states
                 .entry(name.clone())
                 .or_default()
@@ -2391,6 +2504,7 @@ impl SpecStore {
                 ));
             }
         }
+        Ok(())
     }
 }
 

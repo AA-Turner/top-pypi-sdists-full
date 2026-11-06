@@ -67,6 +67,7 @@ def read_start_input(
     static_subagent_policy: SubagentPolicy | None,
     bound: bool,
     skill_files: sandbox_skills.SandboxSkillFiles | None = None,
+    files_root: child_definition.FilesRoot | None = None,
 ) -> StartInput:
     """Accept the start input against this worker's own `definition`, or raise `StartInputRejectedError`.
 
@@ -76,7 +77,12 @@ def read_start_input(
 
     try:
         return _read(
-            params, definition, static_subagent_policy=static_subagent_policy, bound=bound, skill_files=skill_files
+            params,
+            definition,
+            static_subagent_policy=static_subagent_policy,
+            bound=bound,
+            skill_files=skill_files,
+            files_root=files_root,
         )
     except (ValueError, SessionControlPlaneError) as error:
         # Pydantic's ValidationError is a ValueError, and so is the UnsupportedAgentFeatureError of a
@@ -91,6 +97,7 @@ def _read(
     static_subagent_policy: SubagentPolicy | None,
     bound: bool,
     skill_files: sandbox_skills.SandboxSkillFiles | None = None,
+    files_root: child_definition.FilesRoot | None = None,
 ) -> StartInput:
     child_session = (
         StartSessionRequest.model_validate(params.child_session) if params.child_session is not None else None
@@ -99,7 +106,9 @@ def _read(
     if child_session is not None:
         if subagent_policy is None or not bound:
             raise StartInputRefusal("Child Session requires the configured Session-control-plane binding")
-        definition = child_definition.verified_child_definition(definition, child_session, skill_files)
+        definition = child_definition.verified_child_definition(
+            definition, child_session, skill_files, files_root=files_root
+        )
     lineage = (
         # Set: the check above refuses a child request without a lineage.
         cast(ChildLineage, child_session.lineage)

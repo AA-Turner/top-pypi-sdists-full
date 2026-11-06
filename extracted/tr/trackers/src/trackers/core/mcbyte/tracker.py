@@ -16,17 +16,17 @@ from scipy.optimize import linear_sum_assignment
 
 from trackers.core.base import BaseTracker
 from trackers.core.botsort.utils import _fuse_score
+from trackers.core.masks.base import MaskOutput, TrackletSnapshot
+from trackers.core.masks.manager import (
+    MASK_CREATION_BBOX_OVERLAP_THRESHOLD,
+    MaskManager,
+)
 from trackers.core.mcbyte.mask_association import (
     MINIMUM_MASK_AVERAGE_CONFIDENCE,
     MINIMUM_MASK_COVERAGE,
     MINIMUM_MASK_FILL_RATIO,
     condition_similarity_with_masks,
 )
-from trackers.core.mcbyte.mask_manager import (
-    MASK_CREATION_BBOX_OVERLAP_THRESHOLD,
-    MaskManager,
-)
-from trackers.core.mcbyte.masks.base import MaskOutput, TrackletSnapshot
 from trackers.core.mcbyte.tracklet import McByteTracklet
 from trackers.core.mcbyte.utils import _get_alive_tracklets
 from trackers.utils.cmc import CMC, CMCConfig, CMCMethod
@@ -150,9 +150,8 @@ def _build_default_mask_manager(
     config: McByteMaskConfig,
 ) -> MaskManager:
     """Create McByte's standard SAM + Cutie mask-management pipeline."""
-
-    from trackers.core.mcbyte.masks.cutie import CutieMaskPropagator
-    from trackers.core.mcbyte.masks.sam import SAMBoxMaskGenerator
+    from trackers.core.masks.cutie import CutieMaskPropagator
+    from trackers.core.masks.sam import SAMBoxMaskGenerator
 
     mask_generator = SAMBoxMaskGenerator(
         checkpoint_path=config.sam_checkpoint_path,
@@ -243,7 +242,10 @@ class McByteTracker(BaseTracker):
             association.
         cmc_method: Camera motion compensation method.
         cmc_downscale: Image downscale factor used during camera motion
-            estimation.
+            estimation. Defaults to 6 based on the 1280x720 SportsMOT
+            validation aggregate-performance criterion; it is not a strict
+            per-clip guarantee. Tune it for other workloads or pass 2 to
+            preserve the previous conservative behavior.
         instant_first_frame_activation: Whether tracklets created on the first
             frame receive confirmed tracker IDs immediately.
         state_estimator_class: State estimator class used by newly created
@@ -299,7 +301,7 @@ class McByteTracker(BaseTracker):
         high_conf_det_threshold: float = 0.6,
         enable_cmc: bool = True,
         cmc_method: CMCMethod = "sparseOptFlow",
-        cmc_downscale: int = 2,
+        cmc_downscale: int = 6,
         instant_first_frame_activation: bool = True,
         state_estimator_class: type[BaseStateEstimator] = XCYCWHStateEstimator,
         iou: BaseIoU | None = None,
@@ -429,6 +431,11 @@ class McByteTracker(BaseTracker):
             tracker_id of -1. When the update is skipped (backwards or non-finite
             timestamp), all ``tracker_id`` values are ``-1``.
 
+        Raises:
+            ValueError: If ``detections.xyxy`` contains NaN or inf. The check runs
+                before any tracker state is advanced, so a failed call leaves the
+                tracker unchanged.
+
         Warns:
             UserWarning: If ``timestamp`` is earlier than the previous call
                 (backwards order); the whole update is skipped and all output
@@ -436,6 +443,7 @@ class McByteTracker(BaseTracker):
                 (duplicate); predict is skipped but association still runs on
                 the last state.
         """
+        self._validate_detections(detections)
         timing = self._predict_timing(timestamp)
         if timing.skip_update:
             return self._detections_for_skipped_update(detections)
@@ -473,8 +481,7 @@ class McByteTracker(BaseTracker):
             self._last_mask_output = None
 
         if len(self.tracks) == 0 and len(detections) == 0:
-            result = sv.Detections.empty()
-            result.tracker_id = np.array([], dtype=int)
+            result = self._empty_result(detections)
             self._store_previous_mask_inputs(
                 frame=current_frame,
                 detections=result,
@@ -686,8 +693,7 @@ class McByteTracker(BaseTracker):
 
         # Build final detections
         if not out_det_indices:
-            result = sv.Detections.empty()
-            result.tracker_id = np.array([], dtype=int)
+            result = self._empty_result(detections)
             self._store_previous_mask_inputs(
                 frame=current_frame,
                 detections=result,
@@ -786,8 +792,8 @@ class McByteTracker(BaseTracker):
     ) -> list[TrackletSnapshot]:
         """Convert tracker output detections into mask-manager tracklet snapshots.
 
-        Only detections with valid non-negative tracker IDs are converted. The returned
-        snapshots contain the tracker ID and ``xyxy`` box needed by mask generators.
+        Only detections with valid non-negative tracker IDs are converted. The returned snapshots contain the tracker ID
+        and ``xyxy`` box needed by mask generators.
         """
         if detections.tracker_id is None:
             return []
@@ -809,10 +815,9 @@ class McByteTracker(BaseTracker):
     ) -> None:
         """Store tracker outputs and mask lifecycle events for the next frame.
 
-        The mask manager consumes these values at the beginning of the next ``update()``
-        call. New tracklets are detected among current visible outputs that do not yet
-        have masks. Removed tracklets are provided explicitly from tracker pruning, so
-        temporarily lost but still alive tracklets keep their masks.
+        The mask manager consumes these values at the beginning of the next ``update()`` call. New tracklets are
+        detected among current visible outputs that do not yet have masks. Removed tracklets are provided explicitly
+        from tracker pruning, so temporarily lost but still alive tracklets keep their masks.
 
         Note:
             Pending new and removed tracklet events accumulate across deferred
@@ -1074,10 +1079,8 @@ class McByteTracker(BaseTracker):
         similarity_matrix: np.ndarray,
         min_similarity_thresh: float,
     ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
-        """
-        Associate detections to tracks based on Similarity (IoU) using the
-        Jonker-Volgenant algorithm approach with no initialization instead of the
-        Hungarian algorithm as mentioned in the SORT paper, but it solves the
+        """Associate detections to tracks based on Similarity (IoU) using the Jonker-Volgenant algorithm approach with
+        no initialization instead of the Hungarian algorithm as mentioned in the SORT paper, but it solves the
         assignment problem in an optimal way.
 
         Args:
@@ -1154,9 +1157,9 @@ class McByteTracker(BaseTracker):
     def reset(self) -> None:
         """Reset tracker, camera-motion, and mask-manager state.
 
-        This clears active tracklets, resets the global McByte track ID counter, clears
-        stored mask lifecycle inputs, and resets optional camera motion compensation and
-        mask-manager components. Call this when switching to a new video or scene.
+        This clears active tracklets, resets the global McByte track ID counter, clears stored mask lifecycle inputs,
+        and resets optional camera motion compensation and mask-manager components. Call this when switching to a new
+        video or scene.
         """
         self.tracks = []
         self.frame_id = 0

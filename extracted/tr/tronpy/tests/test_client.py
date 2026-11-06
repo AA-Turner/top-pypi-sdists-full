@@ -1,3 +1,6 @@
+import asyncio
+import json
+import socket
 import time
 
 import pytest
@@ -41,18 +44,36 @@ TRANSFER_TRC10_EXPECTED_RESP = {
     "type": "TransferAssetContract",
 }
 
+TRANSACTION_JSON = {
+    "txID": "c93cdd6b4d9f5b3c617060ea0a9c7b6080d9855f599cc987f69105a5e3e9c9b4",
+    "raw_data": {
+        "contract": [TRANSFER_EXPECTED_RESP],
+        "timestamp": 1751466432131,
+        "expiration": 1751466492131,
+        "ref_block_bytes": "6431",
+        "ref_block_hash": "212a13dbe72ac5c0",
+    },
+    "raw_data_hex": "0a0264312208212a13dbe72ac5c040e381a7dcfc325a65080112610a2d747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e5472616e73666572436f6e747261637412300a154194a15629b2b2bbd3a5453e6d6696b2875278633b1215413c9b65b212316904572826240224750eccce29a218017083ada3dcfc32",  # noqa: E501
+    "signature": [],
+    "permission": None,
+}
+
+
+@pytest.fixture
+def stalled_node():
+    with socket.create_server(("127.0.0.1", 0)) as server:
+        yield f"http://127.0.0.1:{server.getsockname()[1]}"
+
 
 def test_client_keygen():
     client = Tron()
     check_generate_address(client.generate_address())
-    check_generate_address(client.get_address_from_passphrase("A"))
 
 
 @pytest.mark.asyncio
 async def test_async_client_keygen():
     client = AsyncTron()
     check_generate_address(client.generate_address())
-    check_generate_address(client.get_address_from_passphrase("A"))
 
 
 def test_client():
@@ -110,6 +131,37 @@ def test_client_update_tx():
     tx.update()
     assert tx_id != tx.txid
     assert tx._signature == []
+    check_transaction_structure(tx.to_json(), TRANSFER_EXPECTED_RESP, 100_000_000, expect_signature=False)
+
+
+@pytest.mark.asyncio
+async def test_async_client_update_tx():
+    async with AsyncTron(network="nile") as client:
+        tx = await client.trx.transfer(FROM_ADDR, TO_ADDR, 1).memo("test memo").fee_limit(100_000_000).build()
+        tx.sign(FROM_PRIV_KEY)
+        tx_id = tx.txid
+        await asyncio.sleep(0.01)
+        await tx.update()
+        assert tx_id != tx.txid
+        assert tx._signature == []
+        check_transaction_structure(tx.to_json(), TRANSFER_EXPECTED_RESP, 100_000_000, expect_signature=False)
+
+
+@pytest.mark.parametrize("serialize", [json.dumps, lambda data: data], ids=["str", "dict"])
+def test_transaction_from_json(serialize):
+    tx = Transaction.from_json(serialize(TRANSACTION_JSON))
+    assert tx.to_json() == TRANSACTION_JSON
+
+
+@pytest.mark.parametrize("serialize", [json.dumps, lambda data: data], ids=["str", "dict"])
+@pytest.mark.asyncio
+async def test_async_transaction_from_json(serialize):
+    tx = await AsyncTransaction.from_json(serialize(TRANSACTION_JSON))
+    assert tx.to_json() == TRANSACTION_JSON
+
+
+def test_async_transaction_from_full_transaction_dict():
+    assert AsyncTransaction(TRANSACTION_JSON).to_json() == TRANSACTION_JSON
 
 
 @pytest.mark.asyncio
@@ -202,21 +254,21 @@ async def test_async_client_transfer_trc10():
         check_transaction_structure(tx.to_json(), TRANSFER_TRC10_EXPECTED_RESP, 0)
 
 
-def test_client_timeout():
+def test_client_timeout(stalled_node):
     import requests.exceptions
 
-    # must be a timeout
-    client = Tron(network="nile", conf={"timeout": 0.0001})
+    client = Tron(network="nile", conf={"timeout": 0.01})
+    client.provider.endpoint_uri = stalled_node
 
     with pytest.raises(requests.exceptions.Timeout):
         client.get_block()
 
 
 @pytest.mark.asyncio
-async def test_async_client_timeout():
+async def test_async_client_timeout(stalled_node):
     from httpx import TimeoutException
 
-    # must be a timeout
-    async with AsyncTron(network="nile", conf={"timeout": 0.0001}) as client:
+    async with AsyncTron(network="nile", conf={"timeout": 0.01}) as client:
+        client.provider.endpoint_uri = stalled_node
         with pytest.raises(TimeoutException):
             await client.get_block()

@@ -28,7 +28,6 @@ from cozy_runtime.author._markers import (
     ImagePreparation,
     VideoPreparation,
 )
-from cozy_runtime.author._media import KIND_MEDIA
 from cozy_runtime.author._model import ENCODED_LEAVES
 from cozy_runtime.author._model_defaults import model_default
 from cozy_runtime.author._recipes import DeclaredRecipe
@@ -172,8 +171,8 @@ class CallableDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True)
     publishes: bool = False
     #: written only as false: CPU only. Absent: the machine's GPU when it has one.
     accelerator: bool | msgspec.UnsetType = msgspec.UNSET
-    #: A project adapter's tags: what its model reads in a text, which stay text.
-    reserved: tuple[str, ...] = ()
+    #: What its box says that its types can't (`author.Node`).
+    node: JsonValue | msgspec.UnsetType = msgspec.UNSET
     weights_outputs: (
         Annotated[tuple[WeightsOutputDeclaration, ...], msgspec.Meta(min_length=1, max_length=16)]
         | msgspec.UnsetType
@@ -269,9 +268,7 @@ def entry(declared: Declaration) -> dict[str, Json]:
         for cls, bound in assets.kinds:
             row: dict[str, Json] = {
                 "kind": cls.kind,
-                "media_types": list(
-                    bound.media_types if bound and bound.media_types else KIND_MEDIA[cls.kind]
-                ),
+                "media_types": list(assets.media_types(cls.kind)),
             }
             counts = dict(assets.counts)
             if cls.kind in counts:
@@ -288,8 +285,8 @@ def entry(declared: Declaration) -> dict[str, Json]:
         doc["publishes"] = True
     if not declared.accelerator:
         doc["accelerator"] = False
-    if declared.reserved:
-        doc["reserved"] = list(declared.reserved)
+    if declared.node is not None:
+        doc["node"] = declared.node.document()
     if declared.weights_outputs:
         doc["weights_outputs"] = [
             {
@@ -398,6 +395,8 @@ def _fixed_point(value: Json, path: str = "") -> None:
     """The package interface's fixed point, proven over the built document (§1.0)."""
     if isinstance(value, Mapping):
         for key, item in value.items():
+            if key == "description":  # an author's words, the same in every environment
+                continue
             if key == "operation_identity" and re.fullmatch(
                 r"\.entrypoints\[\d+\]\.invocable", path
             ):
@@ -413,7 +412,7 @@ def _fixed_point(value: Json, path: str = "") -> None:
                 raise ConformanceError(
                     f"{path}.{key}: the package interface is the SOURCE-STABLE surface — release "
                     "digests, timestamps, machine paths, mutable bindings and "
-                    "candidate-selected facts live on other clocks (cr-004)",
+                    "candidate-selected facts don't belong in it: remove this key",
                     code="fixed_point",
                     fields=[f"{path}.{key}"],
                 )

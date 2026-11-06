@@ -354,6 +354,7 @@ class Block(_message.Message):
         ID_FIELD_NUMBER: _builtins.int
         ICON_FIELD_NUMBER: _builtins.int
         POSITION_FIELD_NUMBER: _builtins.int
+        PIXEL_WIDTH_FIELD_NUMBER: _builtins.int
         title: _builtins.str
         dismissible: _builtins.bool
         width: Global___Block.Dialog.DialogWidth.ValueType
@@ -364,6 +365,10 @@ class Block(_message.Message):
         """Optional icon shown next to the dialog title."""
         position: Global___Block.Dialog.DialogPosition.ValueType
         """Placement of the dialog. LEFT/RIGHT render it as a full-height side drawer."""
+        pixel_width: _builtins.int
+        """Explicit dialog width in CSS pixels. When set, it overrides the `width`
+        enum, which the backend keeps at SMALL for clients that ignore this field.
+        """
         def __init__(
             self,
             *,
@@ -374,14 +379,20 @@ class Block(_message.Message):
             id: _builtins.str = ...,
             icon: _builtins.str = ...,
             position: Global___Block.Dialog.DialogPosition.ValueType = ...,
+            pixel_width: _builtins.int | None = ...,
         ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["_is_open", b"_is_open", "is_open", b"is_open"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_is_open", b"_is_open", "_pixel_width", b"_pixel_width", "is_open", b"is_open", "pixel_width", b"pixel_width"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_is_open", b"_is_open", "dismissible", b"dismissible", "icon", b"icon", "id", b"id", "is_open", b"is_open", "position", b"position", "title", b"title", "width", b"width"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_is_open", b"_is_open", "_pixel_width", b"_pixel_width", "dismissible", b"dismissible", "icon", b"icon", "id", b"id", "is_open", b"is_open", "pixel_width", b"pixel_width", "position", b"position", "title", b"title", "width", b"width"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__is_open: _TypeAlias = _typing.Literal["is_open"]  # noqa: Y015
         _WhichOneofArgType__is_open: _TypeAlias = _typing.Literal["_is_open", b"_is_open"]  # noqa: Y015
+        _WhichOneofReturnType__pixel_width: _TypeAlias = _typing.Literal["pixel_width"]  # noqa: Y015
+        _WhichOneofArgType__pixel_width: _TypeAlias = _typing.Literal["_pixel_width", b"_pixel_width"]  # noqa: Y015
+        @_typing.overload
         def WhichOneof(self, oneof_group: _WhichOneofArgType__is_open) -> _WhichOneofReturnType__is_open | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__pixel_width) -> _WhichOneofReturnType__pixel_width | None: ...
 
     @_typing.final
     class Form(_message.Message):
@@ -587,6 +598,146 @@ class Block(_message.Message):
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
+    @_typing.final
+    class GridContainer(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        class _VerticalAlignment:
+            ValueType = _typing.NewType("ValueType", _builtins.int)
+            V: _TypeAlias = ValueType  # noqa: Y015
+
+        class _VerticalAlignmentEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[Block.GridContainer._VerticalAlignment.ValueType], _builtins.type):
+            DESCRIPTOR: _descriptor.EnumDescriptor
+            TOP: Block.GridContainer._VerticalAlignment.ValueType  # 0
+            CENTER: Block.GridContainer._VerticalAlignment.ValueType  # 1
+            BOTTOM: Block.GridContainer._VerticalAlignment.ValueType  # 2
+
+        class VerticalAlignment(_VerticalAlignment, metaclass=_VerticalAlignmentEnumTypeWrapper):
+            """Vertical alignment of content within grid cells."""
+
+        TOP: Block.GridContainer.VerticalAlignment.ValueType  # 0
+        CENTER: Block.GridContainer.VerticalAlignment.ValueType  # 1
+        BOTTOM: Block.GridContainer.VerticalAlignment.ValueType  # 2
+
+        class _RowHeightMode:
+            ValueType = _typing.NewType("ValueType", _builtins.int)
+            V: _TypeAlias = ValueType  # noqa: Y015
+
+        class _RowHeightModeEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[Block.GridContainer._RowHeightMode.ValueType], _builtins.type):
+            DESCRIPTOR: _descriptor.EnumDescriptor
+            CONTENT: Block.GridContainer._RowHeightMode.ValueType  # 0
+            FIXED: Block.GridContainer._RowHeightMode.ValueType  # 1
+
+        class RowHeightMode(_RowHeightMode, metaclass=_RowHeightModeEnumTypeWrapper):
+            """How rows are sized.
+            CONTENT: each row is as tall as its tallest cell.
+            FIXED: every row is row_height_config pixels.
+            """
+
+        CONTENT: Block.GridContainer.RowHeightMode.ValueType  # 0
+        FIXED: Block.GridContainer.RowHeightMode.ValueType  # 1
+
+        COLUMNS_FIELD_NUMBER: _builtins.int
+        MIN_COLUMN_WIDTH_PX_FIELD_NUMBER: _builtins.int
+        ROW_GAP_CONFIG_FIELD_NUMBER: _builtins.int
+        COLUMN_GAP_CONFIG_FIELD_NUMBER: _builtins.int
+        VERTICAL_ALIGNMENT_FIELD_NUMBER: _builtins.int
+        BORDER_FIELD_NUMBER: _builtins.int
+        ROW_HEIGHT_MODE_FIELD_NUMBER: _builtins.int
+        ROW_HEIGHT_CONFIG_FIELD_NUMBER: _builtins.int
+        DENSE_FIELD_NUMBER: _builtins.int
+        WRAP_FIELD_NUMBER: _builtins.int
+        columns: _builtins.int
+        """Number of columns. Absent means auto (determined by min_column_width_px)."""
+        min_column_width_px: _builtins.int
+        """Minimum column width in pixels. Absent means "auto": the frontend uses
+        theme.sizes.gridMinColumnWidth (12.5rem, about 200px) as the wrap
+        threshold. With wrap=false, tracks do not shrink below it.
+        """
+        vertical_alignment: Global___Block.GridContainer.VerticalAlignment.ValueType
+        border: _builtins.bool
+        """Whether to show a border around each cell."""
+        row_height_mode: Global___Block.GridContainer.RowHeightMode.ValueType
+        dense: _builtins.bool
+        """Whether to use dense packing mode (grid-auto-flow: dense).
+        When true, the grid fills gaps by reordering items.
+        """
+        wrap: _builtins.bool
+        """Whether the column count may decrease when the container narrows.
+        Absent means wrap (the default). False keeps the declared column count
+        and scrolls horizontally once cells would drop below min_column_width.
+        """
+        @_builtins.property
+        def row_gap_config(self) -> _GapSize_pb2.GapConfig:
+            """Gap configuration for row and column gaps."""
+
+        @_builtins.property
+        def column_gap_config(self) -> _GapSize_pb2.GapConfig: ...
+        @_builtins.property
+        def row_height_config(self) -> _HeightConfig_pb2.HeightConfig:
+            """Optional fixed row height (used when row_height_mode is FIXED)."""
+
+        def __init__(
+            self,
+            *,
+            columns: _builtins.int | None = ...,
+            min_column_width_px: _builtins.int | None = ...,
+            row_gap_config: _GapSize_pb2.GapConfig | None = ...,
+            column_gap_config: _GapSize_pb2.GapConfig | None = ...,
+            vertical_alignment: Global___Block.GridContainer.VerticalAlignment.ValueType = ...,
+            border: _builtins.bool = ...,
+            row_height_mode: Global___Block.GridContainer.RowHeightMode.ValueType = ...,
+            row_height_config: _HeightConfig_pb2.HeightConfig | None = ...,
+            dense: _builtins.bool = ...,
+            wrap: _builtins.bool | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_columns", b"_columns", "_min_column_width_px", b"_min_column_width_px", "_row_height_config", b"_row_height_config", "_wrap", b"_wrap", "column_gap_config", b"column_gap_config", "columns", b"columns", "min_column_width_px", b"min_column_width_px", "row_gap_config", b"row_gap_config", "row_height_config", b"row_height_config", "wrap", b"wrap"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_columns", b"_columns", "_min_column_width_px", b"_min_column_width_px", "_row_height_config", b"_row_height_config", "_wrap", b"_wrap", "border", b"border", "column_gap_config", b"column_gap_config", "columns", b"columns", "dense", b"dense", "min_column_width_px", b"min_column_width_px", "row_gap_config", b"row_gap_config", "row_height_config", b"row_height_config", "row_height_mode", b"row_height_mode", "vertical_alignment", b"vertical_alignment", "wrap", b"wrap"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        _WhichOneofReturnType__columns: _TypeAlias = _typing.Literal["columns"]  # noqa: Y015
+        _WhichOneofArgType__columns: _TypeAlias = _typing.Literal["_columns", b"_columns"]  # noqa: Y015
+        _WhichOneofReturnType__min_column_width_px: _TypeAlias = _typing.Literal["min_column_width_px"]  # noqa: Y015
+        _WhichOneofArgType__min_column_width_px: _TypeAlias = _typing.Literal["_min_column_width_px", b"_min_column_width_px"]  # noqa: Y015
+        _WhichOneofReturnType__row_height_config: _TypeAlias = _typing.Literal["row_height_config"]  # noqa: Y015
+        _WhichOneofArgType__row_height_config: _TypeAlias = _typing.Literal["_row_height_config", b"_row_height_config"]  # noqa: Y015
+        _WhichOneofReturnType__wrap: _TypeAlias = _typing.Literal["wrap"]  # noqa: Y015
+        _WhichOneofArgType__wrap: _TypeAlias = _typing.Literal["_wrap", b"_wrap"]  # noqa: Y015
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__columns) -> _WhichOneofReturnType__columns | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__min_column_width_px) -> _WhichOneofReturnType__min_column_width_px | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__row_height_config) -> _WhichOneofReturnType__row_height_config | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__wrap) -> _WhichOneofReturnType__wrap | None: ...
+
+    @_typing.final
+    class GridCell(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        COLUMN_SPAN_FIELD_NUMBER: _builtins.int
+        ROW_SPAN_FIELD_NUMBER: _builtins.int
+        COLUMN_SPAN_ALL_FIELD_NUMBER: _builtins.int
+        column_span: _builtins.int
+        """Number of columns this cell spans. Ignored when column_span_all is true."""
+        row_span: _builtins.int
+        """Number of rows this cell spans."""
+        column_span_all: _builtins.bool
+        """Occupies every column track on its own row (CSS grid-column: 1 / -1)."""
+        def __init__(
+            self,
+            *,
+            column_span: _builtins.int = ...,
+            row_span: _builtins.int = ...,
+            column_span_all: _builtins.bool = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["column_span", b"column_span", "column_span_all", b"column_span_all", "row_span", b"row_span"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     VERTICAL_FIELD_NUMBER: _builtins.int
     HORIZONTAL_FIELD_NUMBER: _builtins.int
     COLUMN_FIELD_NUMBER: _builtins.int
@@ -599,11 +750,13 @@ class Block(_message.Message):
     DIALOG_FIELD_NUMBER: _builtins.int
     FLEX_CONTAINER_FIELD_NUMBER: _builtins.int
     TRANSPARENT_FIELD_NUMBER: _builtins.int
+    GRID_CONTAINER_FIELD_NUMBER: _builtins.int
     ALLOW_EMPTY_FIELD_NUMBER: _builtins.int
     ID_FIELD_NUMBER: _builtins.int
     HEIGHT_CONFIG_FIELD_NUMBER: _builtins.int
     WIDTH_CONFIG_FIELD_NUMBER: _builtins.int
     AUTOSCROLL_FIELD_NUMBER: _builtins.int
+    GRID_CELL_FIELD_NUMBER: _builtins.int
     allow_empty: _builtins.bool
     id: _builtins.str
     autoscroll: _builtins.bool
@@ -632,9 +785,17 @@ class Block(_message.Message):
     @_builtins.property
     def transparent(self) -> Global___Block.Transparent: ...
     @_builtins.property
+    def grid_container(self) -> Global___Block.GridContainer: ...
+    @_builtins.property
     def height_config(self) -> _HeightConfig_pb2.HeightConfig: ...
     @_builtins.property
     def width_config(self) -> _WidthConfig_pb2.WidthConfig: ...
+    @_builtins.property
+    def grid_cell(self) -> Global___Block.GridCell:
+        """Grid cell configuration for blocks that are direct children of a GridContainer.
+        When set, the block spans the specified number of columns and rows.
+        """
+
     def __init__(
         self,
         *,
@@ -650,28 +811,34 @@ class Block(_message.Message):
         dialog: Global___Block.Dialog | None = ...,
         flex_container: Global___Block.FlexContainer | None = ...,
         transparent: Global___Block.Transparent | None = ...,
+        grid_container: Global___Block.GridContainer | None = ...,
         allow_empty: _builtins.bool = ...,
         id: _builtins.str | None = ...,
         height_config: _HeightConfig_pb2.HeightConfig | None = ...,
         width_config: _WidthConfig_pb2.WidthConfig | None = ...,
         autoscroll: _builtins.bool | None = ...,
+        grid_cell: Global___Block.GridCell | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_autoscroll", b"_autoscroll", "_height_config", b"_height_config", "_id", b"_id", "_width_config", b"_width_config", "autoscroll", b"autoscroll", "chat_message", b"chat_message", "column", b"column", "dialog", b"dialog", "expandable", b"expandable", "flex_container", b"flex_container", "form", b"form", "height_config", b"height_config", "horizontal", b"horizontal", "id", b"id", "popover", b"popover", "tab", b"tab", "tab_container", b"tab_container", "transparent", b"transparent", "type", b"type", "vertical", b"vertical", "width_config", b"width_config"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_autoscroll", b"_autoscroll", "_grid_cell", b"_grid_cell", "_height_config", b"_height_config", "_id", b"_id", "_width_config", b"_width_config", "autoscroll", b"autoscroll", "chat_message", b"chat_message", "column", b"column", "dialog", b"dialog", "expandable", b"expandable", "flex_container", b"flex_container", "form", b"form", "grid_cell", b"grid_cell", "grid_container", b"grid_container", "height_config", b"height_config", "horizontal", b"horizontal", "id", b"id", "popover", b"popover", "tab", b"tab", "tab_container", b"tab_container", "transparent", b"transparent", "type", b"type", "vertical", b"vertical", "width_config", b"width_config"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_autoscroll", b"_autoscroll", "_height_config", b"_height_config", "_id", b"_id", "_width_config", b"_width_config", "allow_empty", b"allow_empty", "autoscroll", b"autoscroll", "chat_message", b"chat_message", "column", b"column", "dialog", b"dialog", "expandable", b"expandable", "flex_container", b"flex_container", "form", b"form", "height_config", b"height_config", "horizontal", b"horizontal", "id", b"id", "popover", b"popover", "tab", b"tab", "tab_container", b"tab_container", "transparent", b"transparent", "type", b"type", "vertical", b"vertical", "width_config", b"width_config"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_autoscroll", b"_autoscroll", "_grid_cell", b"_grid_cell", "_height_config", b"_height_config", "_id", b"_id", "_width_config", b"_width_config", "allow_empty", b"allow_empty", "autoscroll", b"autoscroll", "chat_message", b"chat_message", "column", b"column", "dialog", b"dialog", "expandable", b"expandable", "flex_container", b"flex_container", "form", b"form", "grid_cell", b"grid_cell", "grid_container", b"grid_container", "height_config", b"height_config", "horizontal", b"horizontal", "id", b"id", "popover", b"popover", "tab", b"tab", "tab_container", b"tab_container", "transparent", b"transparent", "type", b"type", "vertical", b"vertical", "width_config", b"width_config"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__autoscroll: _TypeAlias = _typing.Literal["autoscroll"]  # noqa: Y015
     _WhichOneofArgType__autoscroll: _TypeAlias = _typing.Literal["_autoscroll", b"_autoscroll"]  # noqa: Y015
+    _WhichOneofReturnType__grid_cell: _TypeAlias = _typing.Literal["grid_cell"]  # noqa: Y015
+    _WhichOneofArgType__grid_cell: _TypeAlias = _typing.Literal["_grid_cell", b"_grid_cell"]  # noqa: Y015
     _WhichOneofReturnType__height_config: _TypeAlias = _typing.Literal["height_config"]  # noqa: Y015
     _WhichOneofArgType__height_config: _TypeAlias = _typing.Literal["_height_config", b"_height_config"]  # noqa: Y015
     _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
     _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
     _WhichOneofReturnType__width_config: _TypeAlias = _typing.Literal["width_config"]  # noqa: Y015
     _WhichOneofArgType__width_config: _TypeAlias = _typing.Literal["_width_config", b"_width_config"]  # noqa: Y015
-    _WhichOneofReturnType_type: _TypeAlias = _typing.Literal["vertical", "horizontal", "column", "expandable", "form", "tab_container", "tab", "chat_message", "popover", "dialog", "flex_container", "transparent"]  # noqa: Y015
+    _WhichOneofReturnType_type: _TypeAlias = _typing.Literal["vertical", "horizontal", "column", "expandable", "form", "tab_container", "tab", "chat_message", "popover", "dialog", "flex_container", "transparent", "grid_container"]  # noqa: Y015
     _WhichOneofArgType_type: _TypeAlias = _typing.Literal["type", b"type"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__autoscroll) -> _WhichOneofReturnType__autoscroll | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__grid_cell) -> _WhichOneofReturnType__grid_cell | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__height_config) -> _WhichOneofReturnType__height_config | None: ...
     @_typing.overload

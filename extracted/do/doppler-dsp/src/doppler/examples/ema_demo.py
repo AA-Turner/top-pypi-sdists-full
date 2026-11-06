@@ -38,6 +38,9 @@ Run:
 
 import math
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")  # headless: render straight to a file, no display

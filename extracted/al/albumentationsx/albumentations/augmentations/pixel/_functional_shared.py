@@ -14,15 +14,10 @@ import numpy as np
 from albucore import (
     MAX_VALUES_BY_DTYPE,
     add,
-    add_array,
-    add_constant,
-    add_vector,
     add_weighted,
     apply_uint8_lut,
     clip,
-    clipped,
-    float32_io,
-    from_float,
+    convert_dtype,
     get_num_channels,
     is_grayscale_image,
     is_rgb_image,
@@ -30,18 +25,13 @@ from albucore import (
     mean,
     multiply,
     multiply_add,
-    multiply_by_array,
-    multiply_by_constant,
     normalize_per_image,
     power,
-    preserve_channel_dim,
     reduce_sum,
     remap,
     std,
-    sz_lut,
-    to_float,
-    uint8_io,
 )
+from numpy.typing import NDArray
 
 import albumentations.augmentations.geometric.functional as fgeometric
 from albumentations.augmentations.utils import (
@@ -53,12 +43,23 @@ from albumentations.core.type_definitions import (
     NUM_MULTI_CHANNEL_DIMENSIONS,
     NUM_RGB_CHANNELS,
     ImageFloat32,
-    ImageType,
     ImageUInt8,
 )
 
 MULTICHANNEL_LUT_MEDIUM_IMAGE_PIXELS = 512 * 512
 MULTICHANNEL_LUT_LARGE_IMAGE_PIXELS = 1024 * 1024
+
+
+def to_uint8_working_image(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+) -> tuple[ImageUInt8, np.dtype]:
+    return convert_dtype(img, np.uint8), img.dtype
+
+
+def restore_uint8_working_image(
+    img: ImageUInt8, input_dtype: np.dtype
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    return convert_dtype(img, input_dtype)
 
 
 __all__ = [
@@ -71,22 +72,16 @@ __all__ = [
     "PCA",
     "Any",
     "ImageFloat32",
-    "ImageType",
     "ImageUInt8",
     "Literal",
     "Sequence",
     "add",
-    "add_array",
-    "add_constant",
-    "add_vector",
     "add_weighted",
     "apply_uint8_lut",
     "clip",
-    "clipped",
+    "convert_dtype",
     "cv2",
     "fgeometric",
-    "float32_io",
-    "from_float",
     "get_num_channels",
     "is_grayscale_image",
     "is_rgb_image",
@@ -96,19 +91,15 @@ __all__ = [
     "mean",
     "multiply",
     "multiply_add",
-    "multiply_by_array",
-    "multiply_by_constant",
     "non_rgb_error",
     "normalize_per_image",
     "np",
     "power",
-    "preserve_channel_dim",
     "random",
     "reduce_sum",
     "remap",
+    "restore_uint8_working_image",
     "std",
-    "sz_lut",
-    "to_float",
-    "uint8_io",
+    "to_uint8_working_image",
     "warn",
 ]

@@ -3,12 +3,17 @@ from uuid import UUID
 from datetime import datetime, date
 from typing import Any, Optional, List, Union, Dict
 from alpaca.trading.enums import (
+    AssetBorrowStatus,
     AssetClass,
     AssetStatus,
     AssetExchange,
     ContractType,
     DTBPCheck,
     ExerciseStyle,
+    OptionDeliverableSettlementMethod,
+    OptionDeliverableSettlementType,
+    OptionDeliverableType,
+    OrderGroupRole,
     OrderStatus,
     OrderType,
     OrderClass,
@@ -46,9 +51,18 @@ class Asset(ModelWithID):
         tradable (bool): Whether the asset can be traded.
         marginable (bool): Whether the asset can be traded on margin.
         shortable (bool): Whether the asset can be shorted.
-        easy_to_borrow (bool): When shorting, whether the asset is easy to borrow
+        easy_to_borrow (bool): When shorting, whether the asset is easy to borrow.
+          Deprecated and will be removed in the next release. Use borrow_status instead.
+          A missing or null value is False, unless borrow_status is easy_to_borrow.
         fractionable (bool): Whether fractional shares are available
+        maintenance_margin_requirement (Optional[float]): Margin requirement percentage for the asset (equities only).
+          Deprecated and will be removed in the next release. Use margin_requirement_long or
+          margin_requirement_short instead. Those fields are decimal strings.
         attributes (Optional[List[str]]): One of ptp_no_exception or ptp_with_exception. It will include unique characteristics of the asset here.
+        borrow_status (Optional[AssetBorrowStatus]): Borrow status for US equity assets. Omitted for other asset classes.
+        cusip (Optional[str]): The CUSIP identifier for the asset. US equities only.
+        margin_requirement_long (Optional[str]): Margin requirement percentage for long positions, as a decimal string.
+        margin_requirement_short (Optional[str]): Margin requirement percentage for short positions, as a decimal string.
     """
 
     asset_class: AssetClass = Field(
@@ -61,13 +75,46 @@ class Asset(ModelWithID):
     tradable: bool
     marginable: bool
     shortable: bool
-    easy_to_borrow: bool
+    easy_to_borrow: bool = Field(
+        default=False,
+        deprecated=(
+            "Asset.easy_to_borrow is deprecated and will be removed in the next release. "
+            "Use borrow_status instead."
+        ),
+    )
     fractionable: bool
     min_order_size: Optional[float] = None
     min_trade_increment: Optional[float] = None
     price_increment: Optional[float] = None
-    maintenance_margin_requirement: Optional[float] = None
+    maintenance_margin_requirement: Optional[float] = Field(
+        default=None,
+        deprecated=(
+            "Asset.maintenance_margin_requirement is deprecated and will be removed in the next release. "
+            "Use margin_requirement_long or margin_requirement_short instead. "
+            "Those fields are decimal strings."
+        ),
+    )
     attributes: Optional[List[str]] = None
+    borrow_status: Optional[AssetBorrowStatus] = None
+    cusip: Optional[str] = None
+    margin_requirement_long: Optional[str] = None
+    margin_requirement_short: Optional[str] = None
+
+    @model_validator(mode="before")
+    def _fill_easy_to_borrow(cls, data: Any) -> Any:
+        """Keep easy_to_borrow a bool when the payload omits the old field."""
+        if not isinstance(data, dict):
+            return data
+        if data.get("easy_to_borrow") is not None:
+            return data
+        if "easy_to_borrow" not in data and data.get("borrow_status") is None:
+            return data
+
+        filled = dict(data)
+        filled["easy_to_borrow"] = (
+            data.get("borrow_status") == AssetBorrowStatus.EASY_TO_BORROW
+        )
+        return filled
 
 
 class USDPositionValues(BaseModel):
@@ -124,6 +171,7 @@ class Position(BaseModel):
         change_today (Optional[str]): Percent change from last day's price.
         swap_rate (Optional[str]): Swap rate is the exchange rate (without mark-up) used to convert the price into local currency or crypto asset.
         avg_entry_swap_rate (Optional[str]): The average exchange rate the price was converted into the local currency at.
+        prev_swap_rate (Optional[str]): The exchange rate as of the previous close.
         usd (USDPositionValues): Represents the position in USD values.
         qty_available (Optional[str]): Total number of shares available minus open orders.
 
@@ -148,6 +196,7 @@ class Position(BaseModel):
     change_today: Optional[str] = None
     swap_rate: Optional[str] = None
     avg_entry_swap_rate: Optional[str] = None
+    prev_swap_rate: Optional[str] = None
     usd: Optional[USDPositionValues] = None
     qty_available: Optional[str] = None
 
@@ -193,6 +242,10 @@ class Order(ModelWithID):
         filled_avg_price (Optional[str]): Filled average price. Can be 0 until order is processed in case order is
           passed outside of market hours.
         order_class (OrderClass): Valid values: simple, bracket, oco or oto.
+        group_id (Optional[UUID]): The opaque UUID shared by every order in the group, including its legs and
+          replacement orders. Omitted for orders outside a bracket, oto, or oco group.
+        group_role (Optional[OrderGroupRole]): The role of this order within the group. Valid values: entry,
+          take_profit, or stop_loss. Omitted whenever group_id is omitted.
         order_type (Optional[OrderType]): Deprecated with just type field below. Omitted from legs of mleg orders.
         type (Optional[OrderType]): Valid values: market, limit, stop, stop_limit, trailing_stop. Omitted from legs of mleg orders.
         side (Optional[OrderSide]): Valid values: buy and sell. Omitted from top-level of response if the order is of mleg class.
@@ -230,7 +283,10 @@ class Order(ModelWithID):
     filled_qty: Optional[Union[str, float]] = None
     filled_avg_price: Optional[Union[str, float]] = None
     order_class: OrderClass
-    order_type: Optional[OrderType] = None
+    order_type: Optional[OrderType] = Field(
+        default=None,
+        deprecated="Order.order_type is deprecated. Use type instead.",
+    )
     type: Optional[OrderType] = None
     side: Optional[OrderSide] = None
     time_in_force: TimeInForce
@@ -244,6 +300,10 @@ class Order(ModelWithID):
     hwm: Optional[str] = None
     position_intent: Optional[PositionIntent] = None
     ratio_qty: Optional[Union[str, float]] = None
+    group_id: Optional[UUID] = None
+    group_role: Optional[Union[OrderGroupRole, str]] = Field(
+        default=None, union_mode="left_to_right"
+    )
 
     def __init__(self, **data: Any) -> None:
         if "order_class" not in data or data["order_class"] == "":
@@ -311,6 +371,7 @@ class PortfolioHistory(BaseModel):
         profit_loss (List[float]): Profit/loss in dollar from the base value.
         profit_loss_pct (List[Optional[float]]): Profit/loss in percentage from the base value.
         base_value (Optional[float]): Basis in dollar of the profit loss calculation.
+        base_value_asof (Optional[date]): Trading date of the closing equity used as base_value, when the baseline is a prior close.
         timeframe (str): Time window size of each data element.
         cashflow (Dict[ActivityType, List[float]]): Cash flow amounts per activity type, if any.
     """
@@ -320,6 +381,7 @@ class PortfolioHistory(BaseModel):
     profit_loss: List[float]
     profit_loss_pct: List[Optional[float]]
     base_value: Optional[float] = None
+    base_value_asof: Optional[date] = None
     timeframe: str
     cashflow: Dict[ActivityType, List[float]] = {}
 
@@ -365,11 +427,24 @@ class Clock(BaseModel):
 class Calendar(BaseModel):
     """
     The market calendar for equity markets. Describes the market open and close time on a given day.
+
+    Attributes:
+        date (date): The trading date.
+        open (datetime): The time the market opens on this date.
+        close (datetime): The time the market closes on this date.
+        session_open (Optional[str]): The time the session opens, in HHMM format.
+        session_close (Optional[str]): The time the session closes, in HHMM format.
+        settlement_date (Optional[date]): Settlement date for trades made on this date.
     """
 
     date: date
     open: datetime
     close: datetime
+    # Session times stay HHMM strings. open and close are HH:MM and are combined
+    # with date below; these two must not go through that parser.
+    session_open: Optional[str] = None
+    session_close: Optional[str] = None
+    settlement_date: Optional[date] = None
 
     def __init__(self, **data: Any) -> None:
         """
@@ -484,11 +559,14 @@ class TradeAccount(ModelWithID):
         status (AccountStatus): The current status of the account
         crypto_status (Optional[AccountStatus]): The status of the account in regards to trading crypto. Only present if
           crypto trading is enabled for your brokerage account.
+        crypto_tier (Optional[int]): The crypto trading tier assigned to the account. Only present if crypto trading is
+          enabled.
         currency (Optional[str]): Currently will always be the value "USD".
         buying_power (Optional[str]): Current available cash buying power. If multiplier = 2 then
           buying_power = max(equity-initial_margin(0) * 2). If multiplier = 1 then buying_power = cash.
+        effective_buying_power (Optional[str]): Buying power available for new orders after current requirements.
         regt_buying_power (Optional[str]): User’s buying power under Regulation T
-          (excess equity - (equity - margin value) - * margin multiplier)
+          ((excess equity - (equity - margin value)) * margin multiplier)
         daytrading_buying_power (Optional[str]): The buying power for day trades for the account.
           Deprecated; removed from Alpaca responses on 2026-07-06 (FINRA intraday-margin migration) and defaults to None.
         non_marginable_buying_power (Optional[str]): The non marginable buying power for the account
@@ -512,6 +590,7 @@ class TradeAccount(ModelWithID):
         last_equity (Optional[str]): Equity as of previous trading day at 16:00:00 ET
         long_market_value (Optional[str]): Real-time MtM value of all long positions held in the account
         short_market_value (Optional[str]): Real-time MtM value of all short positions held in the account
+        position_market_value (Optional[str]): Real-time market value of the positions held in the account.
         initial_margin (Optional[str]): Reg T initial margin requirement
         maintenance_margin (Optional[str]): Maintenance margin requirement
         last_maintenance_margin (Optional[str]): Maintenance margin requirement on the previous trading day
@@ -524,22 +603,42 @@ class TradeAccount(ModelWithID):
           0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long Call/Put, 3=Spreads/Straddles.
         options_trading_level (Optional[int]): The effective options trading level of the account. This is the minimum between account options_approved_level and account configurations max_options_trading_level.
           0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long, 3=Spreads/Straddles.
+        balance_asof (Optional[str]): The date of the snapshot for last_* fields.
+        intraday_adjustments (Optional[str]): Intraday adjustment from non-trade activities such as deposits and withdrawals.
+        pending_reg_taf_fees (Optional[str]): Pending regulatory fees for the account.
     """
 
     account_number: str
     status: AccountStatus
     crypto_status: Optional[AccountStatus] = None
+    crypto_tier: Optional[int] = None
     currency: Optional[str] = None
     buying_power: Optional[str] = None
+    effective_buying_power: Optional[str] = None
     regt_buying_power: Optional[str] = None
-    daytrading_buying_power: Optional[str] = None
+    daytrading_buying_power: Optional[str] = Field(
+        default=None,
+        deprecated=(
+            "TradeAccount.daytrading_buying_power is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     non_marginable_buying_power: Optional[str] = None
     cash: Optional[str] = None
     accrued_fees: Optional[str] = None
     pending_transfer_out: Optional[str] = None
     pending_transfer_in: Optional[str] = None
-    portfolio_value: Optional[str] = None
-    pattern_day_trader: Optional[bool] = None
+    portfolio_value: Optional[str] = Field(
+        default=None,
+        deprecated="TradeAccount.portfolio_value is deprecated. Use equity instead.",
+    )
+    pattern_day_trader: Optional[bool] = Field(
+        default=None,
+        deprecated=(
+            "TradeAccount.pattern_day_trader is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     trading_blocked: Optional[bool] = None
     transfers_blocked: Optional[bool] = None
     account_blocked: Optional[bool] = None
@@ -551,14 +650,24 @@ class TradeAccount(ModelWithID):
     last_equity: Optional[str] = None
     long_market_value: Optional[str] = None
     short_market_value: Optional[str] = None
+    position_market_value: Optional[str] = None
     initial_margin: Optional[str] = None
     maintenance_margin: Optional[str] = None
     last_maintenance_margin: Optional[str] = None
     sma: Optional[str] = None
-    daytrade_count: Optional[int] = None
+    daytrade_count: Optional[int] = Field(
+        default=None,
+        deprecated=(
+            "TradeAccount.daytrade_count is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     options_buying_power: Optional[str] = None
     options_approved_level: Optional[int] = None
     options_trading_level: Optional[int] = None
+    balance_asof: Optional[str] = None
+    intraday_adjustments: Optional[str] = None
+    pending_reg_taf_fees: Optional[str] = None
 
 
 class AccountConfiguration(BaseModel):
@@ -577,17 +686,44 @@ class AccountConfiguration(BaseModel):
         trade_confirm_email (TradeConfirmationEmail): Controls whether Trade confirmation emails are sent.
         ptp_no_exception_entry (bool): If set to true then Alpaca will accept orders for PTP symbols with no exception. Default is false.
         max_options_trading_level (Optional[int]): The desired maximum options trading level. 0=disabled, 1=Covered Call/Cash-Secured Put, 2=Long Call/Put, 3=Spreads/Straddles.
+        disable_overnight_trading (Optional[bool]): If true, overnight trading is disabled.
+          Omitted from PATCH bodies when the caller did not set it, so a default null is not sent.
     """
 
-    dtbp_check: Optional[DTBPCheck] = None
+    dtbp_check: Optional[DTBPCheck] = Field(
+        default=None,
+        deprecated=(
+            "AccountConfiguration.dtbp_check is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     fractional_trading: bool
     max_margin_multiplier: str
     no_shorting: bool
-    pdt_check: Optional[PDTCheck] = None
+    pdt_check: Optional[PDTCheck] = Field(
+        default=None,
+        deprecated=(
+            "AccountConfiguration.pdt_check is deprecated. "
+            "Removed from Alpaca responses on 2026-07-06 following the FINRA intraday-margin migration."
+        ),
+    )
     suspend_trade: bool
     trade_confirm_email: TradeConfirmationEmail
     ptp_no_exception_entry: bool
     max_options_trading_level: Optional[int] = None
+    disable_overnight_trading: Optional[bool] = None
+
+    def to_patch_payload(self) -> Dict[str, Any]:
+        """Serialize this configuration for a PATCH.
+
+        ``disable_overnight_trading`` defaults to None. Including that null in an
+        update can reset overnight trading when the caller never set the flag.
+        Explicit True and False are still sent.
+        """
+        payload = self.model_dump()
+        if "disable_overnight_trading" not in self.model_fields_set:
+            payload.pop("disable_overnight_trading", None)
+        return payload
 
 
 class CorporateActionAnnouncement(ModelWithID):
@@ -646,6 +782,31 @@ class TradeUpdate(BaseModel):
     qty: Optional[float] = None
 
 
+class OptionDeliverable(BaseModel):
+    """
+    One cash or equity deliverable tied to an option contract.
+
+    Attributes:
+        type (OptionDeliverableType): Whether the deliverable is cash or equity.
+        symbol (str): Symbol of the deliverable asset.
+        amount (Optional[str]): Deliverable amount. Null when settlement is delayed and the amount is not yet known.
+        allocation_percentage (str): Cost allocation percentage used for the cost basis of shares received on exercise.
+        settlement_type (OptionDeliverableSettlementType): When the deliverable settles.
+        settlement_method (OptionDeliverableSettlementMethod): How the deliverable settles.
+        delayed_settlement (bool): Whether settlement of this deliverable is delayed.
+        asset_id (Optional[UUID]): Deliverable asset id. Omitted for cash deliverables.
+    """
+
+    type: OptionDeliverableType
+    symbol: str
+    allocation_percentage: str
+    settlement_type: OptionDeliverableSettlementType
+    settlement_method: OptionDeliverableSettlementMethod
+    delayed_settlement: bool
+    amount: Optional[str] = None
+    asset_id: Optional[UUID] = None
+
+
 class OptionContract(BaseModel):
     """
     Represents an option contract.
@@ -656,6 +817,7 @@ class OptionContract(BaseModel):
         name (str): The name of the option contract.
         status (AssetStatus): The status of the option contract.
         tradable (bool): Indicates whether the option contract is tradable.
+        ppind (Optional[bool]): Whether the contract is eligible for penny price increments.
         expiration_date (date): The expiration date of the option contract.
         root_symbol (str): The root symbol of the option contract.
         underlying_symbol (str): The underlying symbol of the option contract.
@@ -663,7 +825,9 @@ class OptionContract(BaseModel):
         type (ContractType): The type of the option contract.
         style (ExerciseStyle): The style of the option contract.
         strike_price (float): The strike price of the option contract.
+        multiplier (Optional[str]): Contract multiplier as a decimal string. Standard contracts use "100".
         size (str): The size of the option contract. Usually contracts have size=100.
+        deliverables (Optional[List[OptionDeliverable]]): Deliverables for the contract. The list endpoint includes this only when show_deliverables is true.
         open_interest (Optional[str]): The open interest of the option contract.
         open_interest_date (Optional[date]): The date of the open interest data.
         close_price (Optional[str]): The close price of the option contract.
@@ -675,6 +839,7 @@ class OptionContract(BaseModel):
     name: str
     status: AssetStatus
     tradable: bool
+    ppind: Optional[bool] = None
     expiration_date: date
     root_symbol: str
     underlying_symbol: str
@@ -682,7 +847,9 @@ class OptionContract(BaseModel):
     type: ContractType
     style: ExerciseStyle
     strike_price: float
+    multiplier: Optional[str] = None
     size: str
+    deliverables: Optional[List[OptionDeliverable]] = None
     open_interest: Optional[str] = None
     open_interest_date: Optional[date] = None
     close_price: Optional[str] = None

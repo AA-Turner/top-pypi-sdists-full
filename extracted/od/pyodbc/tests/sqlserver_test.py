@@ -1,12 +1,19 @@
-#!/usr/bin/python
+# ignore naive dates/datetimes (DTZnnn):
+# ruff: noqa: DTZ001, DTZ005, DTZ011
 
-import os, uuid, re, sys
+import ctypes
+import decimal
+import gc
+import os
+import re
+import uuid
+from collections.abc import Iterator
 from decimal import Decimal
 from datetime import date, time, datetime
 from functools import lru_cache
-from typing import Iterator
 
-import pyodbc, pytest
+import pyodbc
+import pytest
 
 
 # WARNING: Wow Microsoft always manages to do the stupidest thing possible always trying to be
@@ -28,8 +35,8 @@ def connect(autocommit=False, attrs_before=None):
 
 
 DRIVER = connect().getinfo(pyodbc.SQL_DRIVER_NAME)
-
-IS_FREEDTS   = bool(re.search('tsodbc', DRIVER, flags=re.IGNORECASE))
+DRIVER_VERSION = tuple(int(n) for n in connect().getinfo(pyodbc.SQL_DRIVER_VER).split("."))
+IS_FREETDS   = bool(re.search(r'(tsodbc|tdsodbc)', DRIVER, flags=re.IGNORECASE))
 IS_MSODBCSQL = bool(re.search(r'(msodbcsql|sqlncli|sqlsrv32\.dll)', DRIVER, re.IGNORECASE))
 
 
@@ -49,14 +56,14 @@ def _get_sqlserver_year():
     return {
         # https://sqlserverbuilds.blogspot.com/
         '8': 2000, '9': 2005, '10': 2008, '11': 2012, '12': 2014,
-        '13': 2016, '14': 2017, '15': 2019, '16': 2022
+        '13': 2016, '14': 2017, '15': 2019, '16': 2022, '17': 2025
     }[major]
 
 
 SQLSERVER_YEAR = _get_sqlserver_year()
 
 
-@pytest.fixture()
+@pytest.fixture
 def cursor() -> Iterator[pyodbc.Cursor]:
     cnxn = connect()
     cur = cnxn.cursor()
@@ -114,10 +121,10 @@ def test_bigint(cursor: pyodbc.Cursor):
 
 def test_overflow_int(cursor: pyodbc.Cursor):
     # python allows integers of any size, bigger than an 8 byte int can contain
-    input = 9999999999999999999999999999999999999
+    value = 9999999999999999999999999999999999999
     cursor.execute("create table t1(d bigint)")
     with pytest.raises(OverflowError):
-        cursor.execute("insert into t1 values (?)", input)
+        cursor.execute("insert into t1 values (?)", value)
     result = cursor.execute("select * from t1").fetchall()
     assert result == []
 
@@ -128,9 +135,17 @@ def test_float(cursor: pyodbc.Cursor):
 
 def test_non_numeric_float(cursor: pyodbc.Cursor):
     cursor.execute("create table t1(d float)")
-    for input in (float('+Infinity'), float('-Infinity'), float('NaN')):
+    for value in (float('+Infinity'), float('-Infinity'), float('NaN')):
         with pytest.raises(pyodbc.ProgrammingError):
-            cursor.execute("insert into t1 values (?)", input)
+            cursor.execute("insert into t1 values (?)", value)
+    if IS_FREETDS:
+        # Give the driver a chance to unconfuse itself. Without creating and closing
+        # this second connection, this test will pass, but the next test in the queue
+        # depending on the cursor-generator fixture will fail when that fixture tries
+        # to commit the "DROP TABLE IF EXISTS…" statements, triggering an exception.
+        # For details refer to https://github.com/FreeTDS/freetds/issues/718.
+        conn2 = connect()
+        conn2.close()
 
 
 def test_drivers():
@@ -141,6 +156,12 @@ def test_drivers():
 def test_datasources():
     p = pyodbc.dataSources()
     assert isinstance(p, dict)
+
+
+def test_failed_connect_raises():
+    # The error is read before any Connection object exists, which used to segfault.
+    with pytest.raises(pyodbc.InterfaceError):
+        pyodbc.connect('DSN=pyodbc-no-such-dsn')
 
 
 def test_getinfo_string():
@@ -219,31 +240,52 @@ LARGE_FENCEPOST_SIZES = SMALL_FENCEPOST_SIZES + [4095, 4096, 4097, 10 * 1024, 20
 
 def _test_vartype(cursor: pyodbc.Cursor, datatype):
 
+    is_binary = datatype in {"blob", "varbinary"}
+    encoding = "utf8" if is_binary else None
+
     if datatype == 'text':
         lengths = LARGE_FENCEPOST_SIZES
     else:
         lengths = SMALL_FENCEPOST_SIZES
 
-    if datatype == 'text':
-        cursor.execute(f"create table t1(c1 {datatype})")
-    else:
-        maxlen = lengths[-1]
-        cursor.execute(f"create table t1(c1 {datatype}({maxlen}))")
+    assert cursor.connection.readvar_initsize == 4096
+    for initsize in (None, 1024 * 1024, 0):
+        if initsize is not None:
+            cursor.connection.readvar_initsize = initsize
 
-    for length in lengths:
-        cursor.execute("delete from t1")
+        if datatype == 'text':
+            cursor.execute(f"create table t1(c1 {datatype})")
+        else:
+            maxlen = lengths[-1]
+            cursor.execute(f"create table t1(c1 {datatype}({maxlen}))")
 
-        encoding = (datatype in ('blob', 'varbinary')) and 'utf8' or None
-        value = _generate_str(length, encoding=encoding)
+        for length in lengths:
 
-        try:
-            cursor.execute("insert into t1 values(?)", value)
-        except pyodbc.Error as ex:
-            msg = f'{datatype} insert failed: length={length} len={len(value)}'
-            raise Exception(msg) from ex
+            # FreeTDS did not support SQLDescribeParam until version 1.5.16 (see ticket
+            # https://github.com/FreeTDS/freetds/issues/104), so pyodbc had to infer the
+            # SQL type from the Python value. None carries no type information, causing
+            # pyodbc to fall back to SQL_VARCHAR, which SQL Server rejects for binary
+            # columns.
+            if length is None and IS_FREETDS and is_binary and DRIVER_VERSION < (1, 5, 16):
+                continue
 
-        v = cursor.execute("select * from t1").fetchone()[0]
-        assert v == value
+            cursor.execute("delete from t1")
+
+            value = _generate_str(length, encoding=encoding)
+
+            try:
+                cursor.execute("insert into t1 values(?)", value)
+            except pyodbc.Error as ex:
+                if value is None:
+                    msg = f"{datatype} insert of NULL failed"
+                else:
+                    msg = f'{datatype} insert failed: length={length} len={len(value)}'
+                raise Exception(msg) from ex
+
+            v = cursor.execute("select * from t1").fetchone()[0]
+            assert v == value
+
+        cursor.execute("drop table t1")
 
 
 def _test_scalar(cursor: pyodbc.Cursor, datatype, values):
@@ -265,27 +307,34 @@ def test_noscan(cursor: pyodbc.Cursor):
 
 
 def test_nonnative_uuid(cursor: pyodbc.Cursor):
-    # The default is False meaning we should return a string.  Note that
-    # SQL Server seems to always return uppercase.
+    # Resetting the native_uuid flag should force return of a text value.
+    # Note that SQL Server seems to always return uppercase.
     value = uuid.uuid4()
     cursor.execute("create table t1(n uniqueidentifier)")
     cursor.execute("insert into t1 values (?)", value)
 
-    pyodbc.native_uuid = False
-    result = cursor.execute("select n from t1").fetchval()
+    saved_native_uuid = pyodbc.native_uuid
+    try:
+        pyodbc.native_uuid = False
+        result = cursor.execute("select n from t1").fetchval()
+    finally:
+        pyodbc.native_uuid = saved_native_uuid
     assert isinstance(result, str)
     assert result == str(value).upper()
-    pyodbc.native_uuid = True
 
 
 def test_native_uuid(cursor: pyodbc.Cursor):
-    # When true, we should return a uuid.UUID object.
+    # With the native_uuid flag set we should get a uuid.UUID object.
     value = uuid.uuid4()
     cursor.execute("create table t1(n uniqueidentifier)")
     cursor.execute("insert into t1 values (?)", value)
 
-    pyodbc.native_uuid = True
-    result = cursor.execute("select n from t1").fetchval()
+    saved_native_uuid = pyodbc.native_uuid
+    try:
+        pyodbc.native_uuid = True
+        result = cursor.execute("select n from t1").fetchval()
+    finally:
+        pyodbc.native_uuid = saved_native_uuid
     assert isinstance(result, uuid.UUID)
     assert value == result
 
@@ -310,11 +359,11 @@ def test_nextset(cursor: pyodbc.Cursor):
         assert i + 2 == row.i
 
 
-@pytest.mark.skipif(IS_FREEDTS, reason='https://github.com/FreeTDS/freetds/issues/230')
+@pytest.mark.skipif(IS_FREETDS, reason='https://github.com/FreeTDS/freetds/issues/230')
 def test_nextset_with_raiserror(cursor: pyodbc.Cursor):
     cursor.execute("select i = 1; RAISERROR('c', 16, 1);")
     row = next(cursor)
-    assert 1 == row.i
+    assert row.i == 1
     with pytest.raises(pyodbc.ProgrammingError):
         cursor.nextset()
 
@@ -353,29 +402,31 @@ def test_bit(cursor: pyodbc.Cursor):
 def test_decimal(cursor: pyodbc.Cursor):
     # From test provided by planders (thanks!) in Issue 91
 
-    for (precision, scale, negative) in [
-            (1, 0, False), (1, 0, True), (6, 0, False), (6, 2, False), (6, 4, True),
-            (6, 6, True), (38, 0, False), (38, 10, False), (38, 38, False), (38, 0, True),
-            (38, 10, True), (38, 38, True)]:
+    for mode in (True, False):
+        for (precision, scale, negative) in [
+                (1, 0, False), (1, 0, True), (6, 0, False), (6, 2, False),
+                (6, 4, True), (6, 6, True), (38, 0, False), (38, 10, False),
+                (38, 38, False), (38, 0, True), (38, 10, True), (38, 38, True)]:
 
-        try:
-            cursor.execute("drop table t1")
-        except:
-            pass
+            cursor.connection.fetch_decimal_as_string = mode
+            try:
+                cursor.execute("drop table t1")
+            except Exception:
+                pass
 
-        cursor.execute(f"create table t1(d decimal({precision}, {scale}))")
+            cursor.execute(f"create table t1(d decimal({precision}, {scale}))")
 
-        # Construct a decimal that uses the maximum precision and scale.
-        sign   = negative and '-' or ''
-        before = '9' * (precision - scale)
-        after  = scale and ('.' + '9' * scale) or ''
-        decStr = f'{sign}{before}{after}'
-        value = Decimal(decStr)
+            # Construct a decimal that uses the maximum precision and scale.
+            sign   = negative and '-' or ''
+            before = '9' * (precision - scale)
+            after  = scale and ('.' + '9' * scale) or ''
+            decStr = f'{sign}{before}{after}'
+            value = Decimal(decStr)
 
-        cursor.execute("insert into t1 values(?)", value)
+            cursor.execute("insert into t1 values(?)", value)
 
-        v = cursor.execute("select d from t1").fetchone()[0]
-        assert v == value
+            v = cursor.execute("select d from t1").fetchval()
+            assert v == value
 
 
 def test_decimal_e(cursor: pyodbc.Cursor):
@@ -385,6 +436,45 @@ def test_decimal_e(cursor: pyodbc.Cursor):
     cursor.execute("insert into t1 values (?)", value)
     result = cursor.execute("select * from t1").fetchone()[0]
     assert result == value
+
+
+@pytest.mark.parametrize("prec", [10, 28, 38])
+def test_decimal_fast_executemany_ignores_context_precision(cursor: pyodbc.Cursor, prec):
+    """
+    fast_executemany must not round Decimal parameters to the calling thread's decimal
+    context precision (28 digits by default).
+    https://github.com/mkleehammer/pyodbc/issues/1507
+    """
+    cursor.execute("create table t1(v decimal(38, 10), w decimal(38, 0))")
+    cursor.fast_executemany = True
+
+    # 38 significant digits, more than the default context precision of 28.
+    value = Decimal("1234567890123456789012345678.1234567891")
+    # Rounds up to 1E+38 under a 28-digit context, which does not fit decimal(38, 0).
+    max_int = Decimal("9" * 38)
+
+    with decimal.localcontext() as ctx:
+        ctx.prec = prec
+        cursor.executemany("insert into t1(v, w) values (?, ?)", [(value, max_int)])
+
+    row = cursor.execute("select v, w from t1").fetchone()
+    assert row.v == value
+    assert row.w == max_int
+
+
+def test_decimal_fast_executemany_trailing_zeros(cursor: pyodbc.Cursor):
+    """Trailing zeros, zeros with any exponent, and negative values still bind correctly."""
+    cursor.execute("create table t1(id int, v decimal(20, 4))")
+    cursor.fast_executemany = True
+
+    values = [
+        Decimal("1.50"), Decimal("100"), Decimal("0"), Decimal("0.00"),
+        Decimal("0E-10"), Decimal("-12.3400"), Decimal((0, (1, 2, 3), 5)),
+    ]
+    cursor.executemany("insert into t1(id, v) values (?, ?)", list(enumerate(values)))
+
+    rows = cursor.execute("select id, v from t1 order by id").fetchall()
+    assert [r.v for r in rows] == values
 
 
 def test_subquery_params(cursor: pyodbc.Cursor):
@@ -475,7 +565,7 @@ def test_negative_row_index(cursor: pyodbc.Cursor):
 
 
 def test_version():
-    assert 3 == len(pyodbc.version.split('.'))  # 1.3.1 etc.
+    assert len(pyodbc.version.split('.')) == 3  # 1.3.1 etc.
 
 
 @pytest.mark.skipif(IS_MSODBCSQL and SQLSERVER_YEAR < 2008,
@@ -670,7 +760,11 @@ def test_sp_with_none(cursor: pyodbc.Cursor):
 
 
 def test_rowcount_delete(cursor: pyodbc.Cursor):
-    assert cursor.rowcount == -1
+    # After DDL (DROP TABLE), rowcount is driver-defined per the ODBC spec.
+    # Microsoft's driver might reliably return -1 here, but that's not true
+    # for FreeTDS.
+    if IS_MSODBCSQL:
+        assert cursor.rowcount == -1
     cursor.execute("create table t1(i int)")
     count = 4
     for i in range(count):
@@ -722,7 +816,7 @@ def test_rowcount_reset(cursor: pyodbc.Cursor):
     assert cursor.rowcount == 1
 
     cursor.execute("create table t2(i int)")
-    ddl_rowcount = (0 if IS_FREEDTS else -1)
+    ddl_rowcount = (0 if IS_FREETDS else -1)
     assert cursor.rowcount == ddl_rowcount
 
 
@@ -953,7 +1047,7 @@ def test_sqlserver_callproc(cursor: pyodbc.Cursor):
     try:
         cursor.execute("drop procedure pyodbctest")
         cursor.commit()
-    except:
+    except Exception:
         pass
 
     cursor.execute("create table t1(s varchar(10))")
@@ -1045,14 +1139,14 @@ def test_description(cursor: pyodbc.Cursor):
     # int
     t = cursor.description[0]
     assert t[0] == 'n'
-    assert t[1] == int
+    assert t[1] is int
     assert t[5] == 0       # scale
     assert t[6] is True    # nullable
 
     # varchar(8)
     t = cursor.description[1]
     assert t[0] == 's'
-    assert t[1] == str
+    assert t[1] is str
     assert t[4] == 8       # precision
     assert t[5] == 0       # scale
     assert t[6] is True    # nullable
@@ -1082,7 +1176,7 @@ def test_cursor_messages_with_print(cursor: pyodbc.Cursor):
         assert len(messages[0]) == 2
         assert isinstance(messages[0][0], str)
         assert isinstance(messages[0][1], str)
-        assert '[01000] (0)' == messages[0][0]
+        assert messages[0][0] == '[01000] (0)'
         assert messages[0][1].endswith(msg)
 
     # maximum size message
@@ -1094,7 +1188,15 @@ def test_cursor_messages_with_print(cursor: pyodbc.Cursor):
     assert len(messages) == 1
     assert messages[0][1].endswith(msg)
 
+    # Confirm that the PRINT message is captured when DAE kicks in.
+    # https://github.com/mkleehammer/pyodbc/issues/1140
+    cursor.execute("PRINT 'HI!'; SELECT ?", "x" * 2001)
+    assert len(cursor.messages) == 1
+    assert cursor.messages[0][1].endswith("HI!")
 
+
+@pytest.mark.skipif(IS_FREETDS and DRIVER_VERSION < (1, 5, 15),
+                    reason="FreeTDS ignores bind offset")
 def test_cursor_messages_with_fast_executemany(cursor: pyodbc.Cursor):
     """
     Ensure the Cursor.messages attribute is set with fast_executemany=True.
@@ -1185,7 +1287,7 @@ def test_none_param(cursor: pyodbc.Cursor):
     try:
         cursor.execute(sql, 2, None)
     except pyodbc.DataError:
-        if IS_FREEDTS:
+        if IS_FREETDS:
             # cnxn.getinfo(pyodbc.SQL_DESCRIBE_PARAMETER) returns False for FreeTDS, so pyodbc
             # can't call SQLDescribeParam to get the correct parameter type.  This can lead to
             # errors being returned from SQL Server when sp_prepexec is called, e.g., "Implicit
@@ -1358,7 +1460,7 @@ def test_large_update_nodata(cursor: pyodbc.Cursor):
 def test_func_param(cursor: pyodbc.Cursor):
     try:
         cursor.execute("drop function func1")
-    except:
+    except Exception:
         pass
     cursor.execute("""
                    create function func1 (@testparam varchar(4))
@@ -1420,6 +1522,44 @@ def test_columns(cursor: pyodbc.Cursor):
         assert col_count == 1
 
         cursor.execute(f"drop table {table_name}")
+
+
+def test_table_privileges(cursor: pyodbc.Cursor):
+    # Confirm exposure of SQLTablePrivileges.  We're limited in what we can test, as
+    # we can't control whether we're running with permission to create users or grant
+    # permissions.  We can at least verify that the method generates a results set
+    # with the right columns.
+    cols = ["table_cat", "table_schem", "table_name", "grantor",
+            "grantee", "privilege", "is_grantable"]
+    cursor.tablePrivileges()
+    names = [col[0] for col in cursor.description]
+    assert len(cols) == len(names), "privileges results set has the wrong shape"
+    assert cols == names, "unexpected column names for privileges results set"
+
+
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS Unicode handling for catalog functions is unreliable")
+def test_statistics_unicode():
+    # https://github.com/mkleehammer/pyodbc/issues/1457
+    # statistics() passed the table name straight to the ANSI SQLStatistics, mis-encoding a
+    # non-ASCII name so the driver matched nothing and returned no rows.  The failure is
+    # masked on a *reused* pooled connection -- it only shows on a fresh physical connection
+    # -- which is why a plain test in the suite doesn't reliably catch it.  Force a fresh
+    # connection with a unique APP= (pooling keys on the connection string), plus a unique
+    # table name for good measure.
+    suffix = uuid.uuid4().hex
+    name = "ランドマーク_" + suffix
+    cnxn = pyodbc.connect(CNXNSTR + f";APP=pyodbc_1457_{suffix}", autocommit=True)
+    cur = cnxn.cursor()
+    cur.execute(f"CREATE TABLE [{name}] (id INT PRIMARY KEY, foo INT)")
+    cur.execute(f"CREATE INDEX ix_foo ON [{name}] (foo)")
+    try:
+        # index_name is column 5 of the SQLStatistics result set
+        index_names = {row[5] for row in cur.statistics(name).fetchall() if row[5] is not None}
+        assert "ix_foo" in index_names, \
+            f"statistics() returned no index info for a Unicode table name; got {index_names}"
+    finally:
+        cur.execute(f"IF OBJECT_ID(N'[{name}]', N'U') IS NOT NULL DROP TABLE [{name}]")
+        cnxn.close()
 
 
 def test_cancel(cursor: pyodbc.Cursor):
@@ -1484,9 +1624,6 @@ def _test_tvp(cursor: pyodbc.Cursor, diff_schema):
     # to define a wrapper pyodbc.TVP or pyodbc.Table object, similar to the DB APIs `Binary`
     # object.
 
-    pyodbc.native_uuid = True
-    # This is the default, but we'll reset it in case a previous test fails to.
-
     procname = 'SelectTVP'
     typename = 'TestTVP'
 
@@ -1499,16 +1636,16 @@ def _test_tvp(cursor: pyodbc.Cursor, diff_schema):
     # (Don't use "if exists" since older SQL Servers don't support it.)
     try:
         cursor.execute("drop procedure " + procname)
-    except:
+    except Exception:
         pass
     try:
         cursor.execute("drop type " + typename)
-    except:
+    except Exception:
         pass
     if diff_schema:
         try:
             cursor.execute("drop schema " + schemaname)
-        except:
+        except Exception:
             pass
     cursor.commit()
 
@@ -1549,7 +1686,8 @@ def _test_tvp(cursor: pyodbc.Cursor, diff_schema):
     very_long_bytearray = long_bytearray * (VERY_LONG_LEN // len(long_bytearray))
 
     params = [
-        # Three rows with all of the types in the table defined above.
+        # Four rows with all of the types in the table defined above.
+        (None, None, None, None, None, None, None, None, None, None, None, None),
         (
             'abc', 'abc',
             bytes([0xD1, 0xCE, 0xFA, 0xCE]),
@@ -1582,7 +1720,13 @@ def _test_tvp(cursor: pyodbc.Cursor, diff_schema):
         p1 = [[typenameonly, schemaname] + params]
     else:
         p1 = [params]
-    result_array = [tuple(row) for row in cursor.execute(f"exec {procname} ?", p1).fetchall()]
+
+    saved_native_uuid = pyodbc.native_uuid
+    try:
+        pyodbc.native_uuid = True
+        result_array = [tuple(row) for row in cursor.execute(f"exec {procname} ?", p1).fetchall()]
+    finally:
+        pyodbc.native_uuid = saved_native_uuid
 
     # The values make it very difficult to troubleshoot if something is wrong, so instead of
     # asserting they are the same, we'll walk them if there is a problem to identify which is
@@ -1604,14 +1748,119 @@ def _test_tvp(cursor: pyodbc.Cursor, diff_schema):
     assert result_array == params
 
 
-@pytest.mark.skipif(IS_FREEDTS, reason='FreeTDS does not support TVP')
+@pytest.mark.skipif(IS_FREETDS, reason='FreeTDS does not support TVP')
 def test_tvp(cursor: pyodbc.Cursor):
     _test_tvp(cursor, False)
 
 
-@pytest.mark.skipif(IS_FREEDTS, reason='FreeTDS does not support TVP')
+@pytest.mark.skipif(IS_FREETDS, reason='FreeTDS does not support TVP')
 def test_tvp_diffschema(cursor: pyodbc.Cursor):
     _test_tvp(cursor, True)
+
+
+def _test_scanning_all_tvp_rows(cursor: pyodbc.Cursor, data):
+    # Make sure we check all the rows of the TVP before binding.
+    # Splitting into multiple tests to prevent one failure from
+    # masking other problems.
+    procname = "SelectFromScannedTVP"
+    typename = "TestTVPForScanning"
+    try:
+        cursor.execute(f"DROP PROCEDURE {procname}")
+    except pyodbc.ProgrammingError:
+        pass
+    try:
+        cursor.execute(f"DROP TYPE {typename}")
+    except pyodbc.ProgrammingError:
+        pass
+    cursor.execute(f"CREATE TYPE {typename} AS TABLE(val DECIMAL(20,4))")
+    cursor.execute(f"""\
+        CREATE PROCEDURE {procname}
+            @TVP {typename} READONLY
+        AS
+        BEGIN
+            SET NOCOUNT ON;
+            SELECT * FROM @TVP;
+        END
+        """)
+    cursor.commit()
+    cursor.execute(f"EXEC {procname} ?", [data])
+    results = [list(row) for row in cursor.fetchall()]
+    assert results == data
+    cursor.execute(f"DROP PROCEDURE {procname}")
+    cursor.execute(f"DROP TYPE {typename}")
+    cursor.commit()
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason='FreeTDS does not support TVP')
+def test_tvp_decimal_mixed_precision(cursor: pyodbc.Cursor):
+    """Test for https://github.com/mkleehammer/pyodbc/issues/996."""
+    _test_scanning_all_tvp_rows(cursor, [[Decimal("4.0000")], [Decimal("25.000")]])
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason='FreeTDS does not support TVP')
+def test_tvp_decimal_mixed_scale(cursor: pyodbc.Cursor):
+    """Test the different number decimal digits, but same number of integer digits."""
+    _test_scanning_all_tvp_rows(cursor, [[Decimal("4.000")], [Decimal("4.0000")]])
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason='FreeTDS does not support TVP')
+def test_tvp_decimal_mixed_shape(cursor: pyodbc.Cursor):
+    """Test same number of digits, shifting decimal point.
+
+    See the lengthy comment in the code for BindTVPColumns().
+    """
+    _test_scanning_all_tvp_rows(cursor, [[Decimal("4.0000")], [Decimal("40.000")]])
+    _test_scanning_all_tvp_rows(cursor, [[Decimal("40.000")], [Decimal("4.0000")]])
+
+
+def _test_tvp_with_nulls_cleanup(cursor: pyodbc.Cursor, procname: str, typename: str):
+    """Leave the forest as pristine as you found it."""
+
+    cursor.execute(f"""\
+        IF OBJECT_ID(N'dbo.{procname}', N'P') IS NOT NULL
+        DROP PROCEDURE dbo.{procname};
+    """)
+    cursor.execute(f"""
+        IF TYPE_ID(N'dbo.{typename}') IS NOT NULL
+            DROP TYPE dbo.{typename};
+    """)
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_with_nulls(cursor: pyodbc.Cursor):
+    """Make sure NULL values in a TVP don't crash the interpreter."""
+
+    # Start with a clean slate.
+    typename = "typeTestNullsInTVP"
+    procname = "spTestNullsInTVP"
+    _test_tvp_with_nulls_cleanup(cursor, procname, typename)
+
+    # Create the custom type and stored procedure.
+    ncols = 100
+    cols = ", ".join([f"col_{c:03d} DECIMAL(36,20)" for c in range(1, ncols+1)])
+    cursor.execute(f"CREATE TYPE dbo.{typename} AS TABLE ({cols})")
+    cursor.execute(f"""\
+        CREATE PROCEDURE dbo.{procname}
+            @data dbo.{typename} READONLY
+        AS
+        BEGIN
+            RETURN 0;
+        END;
+    """)
+    cursor.commit()
+
+    # Invoke the stored procedure.
+    tvp: list[list] = [[3.14159] * ncols, [None] * ncols]
+    cursor.execute(f"EXEC [dbo].{procname} @data=?", [tvp])
+    gc.collect()
+
+    # Be a good digital citizen.
+    _test_tvp_with_nulls_cleanup(cursor, procname, typename)
+    cursor.commit()
 
 
 @pytest.mark.skipif(SQLSERVER_YEAR < 2000, reason='sql_variant not supported until 2000')
@@ -1633,8 +1882,15 @@ def test_sql_variant(cursor: pyodbc.Cursor):
         "insert into t1 values (CAST('0592b437-745f-4b2c-a997-97022c624cf6' AS UNIQUEIDENTIFIER))"
     )
 
-    # select all of the values we inserted and ensure they have the correct types
-    results = [record[0] for record in cursor.execute("select a from t1").fetchall()]
+    # Expected behavior depends on this flag being set.
+    saved_native_uuid = pyodbc.native_uuid
+    try:
+        pyodbc.native_uuid = True
+        results = [record[0] for record in cursor.execute("select a from t1").fetchall()]
+    finally:
+        pyodbc.native_uuid = saved_native_uuid
+
+    # Ensure all of the fetched values have the expected types.
     for index, assertion_tuple in enumerate(
         [
             (Decimal, Decimal("456.7")),
@@ -1648,8 +1904,69 @@ def test_sql_variant(cursor: pyodbc.Cursor):
         # pylint: disable=unidiomatic-typecheck
         expected_type, expected_value = assertion_tuple
 
-        assert type(results[index]) == expected_type
+        assert type(results[index]) is expected_type
         assert results[index] == expected_value
+
+
+def test_rows_as_dicts(cursor: pyodbc.Cursor):
+    """Test enhancement for ticket #171"""
+
+    # Create and populate a test table.
+    cursor.execute("create table t1 (id int, name varchar(20))")
+    cursor.execute("insert into t1 values (42, 'Kathleen')")
+
+    # Verify the default behavior
+    assert cursor.rows_as_dicts is False
+    row = cursor.execute("select * from t1").fetchone()
+    assert not isinstance(row, dict)
+    assert isinstance(row, pyodbc.Row)
+    assert isinstance(row[0], int)
+    assert isinstance(row[1], str)
+    assert len(row) == 2
+    with pytest.raises(TypeError, match="row indices must be integers"):
+        print(row["name"])
+
+    # Test the dict option
+    cursor.rows_as_dicts = True
+    row = cursor.execute("select * from t1").fetchone()
+    assert not isinstance(row, pyodbc.Row)
+    assert isinstance(row, dict)
+    assert row == {"id": 42, "name": "Kathleen"}
+    assert isinstance(row["id"], int)
+    assert isinstance(row["name"], str)
+    assert len(row) == 2
+    with pytest.raises(KeyError):
+        print(row[1])
+
+    # Test aliasing
+    row = cursor.execute("select name as n1, name as n2 from t1").fetchone()
+    assert len(row) == 2
+    assert row == {"n1": "Kathleen", "n2": "Kathleen"}
+    with pytest.raises(KeyError):
+        print(row["name"])
+
+    # Test with a duplicate name
+    row = cursor.execute("select name, name from t1").fetchone()
+    assert len(row) == 1
+    assert row == {"name": "Kathleen"}
+
+
+def test_handles(cursor: pyodbc.Cursor):
+    """Test the exposed native ODBC handles"""
+
+    conn = cursor.connection
+    for handle in (pyodbc.henv, conn.hdbc, cursor.hstmt):
+        assert isinstance(handle, ctypes.c_void_p)
+        with pytest.raises(TypeError):
+            if handle > 42:
+                print("we should never get here")
+    cursor.close()
+    assert not isinstance(cursor.hstmt, ctypes.c_void_p)
+    assert cursor.hstmt is None
+    assert isinstance(conn.hdbc, ctypes.c_void_p)
+    conn.close()
+    assert not isinstance(conn.hdbc, ctypes.c_void_p)
+    assert conn.hdbc is None
 
 
 def get_sqlserver_version(cursor: pyodbc.Cursor):
@@ -1696,3 +2013,15 @@ def _generate_str(length, encoding=None):
     v = v[:length]
 
     return v
+
+
+def test_set_string_attr(cursor: pyodbc.Cursor):
+    """Confirm that set_attr() now accepts string values.
+
+    See https://github.com/mkleehammer/pyodbc/issues/505
+    """
+    original_db = cursor.execute("SELECT db_name()").fetchval()
+    assert original_db != "master"
+    cursor.connection.set_attr(pyodbc.SQL_ATTR_CURRENT_CATALOG, "master")
+    new_db = cursor.execute("SELECT db_name()").fetchval()
+    assert new_db == "master"

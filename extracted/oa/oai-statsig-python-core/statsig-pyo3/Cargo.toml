@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 parking_lot = "0.12.5"
 pyo3 = { version = "0.29.2", features = ["abi3-py310"] }
-pyo3-stub-gen = "0.23.0"
+pyo3-stub-gen = { version = "0.23.0", default-features = false, features = ["infer_signature"] }
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 statsig-rust = { package = "oai-statsig-rust", path = "../statsig-rust", features = [
     "with_grpc",
@@ -25,6 +25,5 @@ statsig-rust = { package = "oai-statsig-rust", path = "../statsig-rust", feature
     "pyo3_event_zstd",
 ] }
 async-trait = "0.1.92"
-serde = { version = "1.0.229", features = ["derive"] }
 lazy_static = "1.5.0"
 rkyv = "0.8.18"

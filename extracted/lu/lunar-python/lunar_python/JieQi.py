@@ -27,6 +27,9 @@ class JieQi:
         """
         from . import Lunar
         self.__name = name
+        # Reset state before determining new values
+        self.__jie = False
+        self.__qi = False
         for i in range(0, len(Lunar.JIE_QI)):
             if name == Lunar.JIE_QI[i]:
                 if i % 2 == 0:

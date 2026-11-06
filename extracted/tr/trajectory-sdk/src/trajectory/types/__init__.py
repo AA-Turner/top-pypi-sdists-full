@@ -114,6 +114,10 @@ from trajectory.types.chat_completion_chunk_function import (
 from trajectory.types.chat_completion_response_function import (
   ChatCompletionResponseFunction as ChatCompletionResponseFunction,
 )
+from trajectory.types.checkpoint_export_file import CheckpointExportFile as CheckpointExportFile
+from trajectory.types.checkpoint_export_precision import (
+  CheckpointExportPrecision as CheckpointExportPrecision,
+)
 from trajectory.types.complete_trajectory_response import (
   CompleteTrajectoryResponse as CompleteTrajectoryResponse,
 )
@@ -201,6 +205,15 @@ from trajectory.types.ingest_benchmark_response import (
 )
 from trajectory.types.ingest_benchmark_response import (
   IngestBenchmarkResponse as IngestBenchmarkResponse,
+)
+from trajectory.types.list_checkpoint_export_files_response import (
+  ListCheckpointExportFilesResponse as ListCheckpointExportFilesResponse,
+)
+from trajectory.types.list_checkpoint_exports_response import (
+  CheckpointExportPrecisionOption as CheckpointExportPrecisionOption,
+)
+from trajectory.types.list_checkpoint_exports_response import (
+  CheckpointExportType as CheckpointExportType,
 )
 from trajectory.types.list_checkpoint_exports_response import (
   ListCheckpointExportsResponse as ListCheckpointExportsResponse,
@@ -418,7 +431,11 @@ __all__ = [
   "ChatCompletionTokenTopLogprob",
   "CheckpointExport",
   "CheckpointExportDownload",
+  "CheckpointExportFile",
+  "CheckpointExportPrecision",
+  "CheckpointExportPrecisionOption",
   "CheckpointExportState",
+  "CheckpointExportType",
   "CompleteTrajectoryResponse",
   "CompletionTokensDetails",
   "CreateBenchmarkUploadResponse",
@@ -455,6 +472,7 @@ __all__ = [
   "InferenceOperationResponse",
   "InferenceOperationState",
   "IngestBenchmarkResponse",
+  "ListCheckpointExportFilesResponse",
   "ListCheckpointExportsResponse",
   "ListDeploymentsResponse",
   "ListSupportedModelsResponse",

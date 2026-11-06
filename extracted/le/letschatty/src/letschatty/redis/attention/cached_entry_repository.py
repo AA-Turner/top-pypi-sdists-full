@@ -7,7 +7,6 @@ Adding, editing and deleting invalidate them (ADR-006, `AssetCache`). A cache fa
 """
 from __future__ import annotations
 
-import json
 from typing import Any, Optional, Tuple
 
 from ...models.company.assets.atencion import Entrada
@@ -23,14 +22,7 @@ class CachedEntryRepository(CachedCatalogById[Entrada]):
     item_type = Entrada
 
     async def get_fresh(self, entry_id: StrObjectId) -> Entrada:
-        entry = await self.inner.get_fresh(entry_id)
-        try:
-            await self.assets.cache.set(self.assets.item_key(entry_id),
-                                        json.dumps(entry.model_dump(by_alias=True, mode="json")),
-                                        ttl=self.assets.config.cache_ttl)
-        except Exception:
-            pass
-        return entry
+        return await self.assets.item(entry_id, lambda: self.inner.get_fresh(entry_id), ignore_cache=True)
 
     async def stored_updated_at(self, entry_id: StrObjectId) -> Tuple[bool, Any]:
         return await self.inner.stored_updated_at(entry_id)

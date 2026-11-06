@@ -736,7 +736,7 @@
 },
 /* version.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    exports.version = "3.10.1";
+    exports.version = "3.10.2";
 },
 /* embed/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
@@ -2416,7 +2416,6 @@
     exports.subselect = subselect;
     exports.mul = mul;
     exports.map = map;
-    exports.inplace_map = inplace_map;
     exports.filter = filter;
     exports.reduce = reduce;
     exports.sort_by = sort_by;
@@ -2575,13 +2574,6 @@
             result[i] = fn(array[i], i, array);
         }
         return result;
-    }
-    function inplace_map(array, fn, output) {
-        const n = array.length;
-        const result = output ?? array;
-        for (let i = 0; i < n; i++) {
-            result[i] = fn(array[i], i);
-        }
     }
     function filter(array, pred) {
         const n = array.length;
@@ -4338,7 +4330,7 @@
                 (0, assert_1.unreachable)();
             }
         }
-        array(source) {
+        _array(source) {
             let array;
             const length = source.get_length() ?? 1;
             const obj = this.get_value();
@@ -4376,7 +4368,11 @@
                     array = (0, array_1.repeat)(value, length);
                 }
             }
-            const { transform } = obj;
+            return array;
+        }
+        array(source) {
+            let array = this._array(source);
+            const { transform } = this.get_value();
             if (transform != null) {
                 array = transform.v_compute(array);
             }
@@ -4422,7 +4418,55 @@
         }
     }
     exports.NumberUnitsSpec = NumberUnitsSpec;
+    const date_pattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+    function parse_date_string(value) {
+        const match = date_pattern.exec(value);
+        if (match == null) {
+            return null;
+        }
+        const [, year, month, day] = match.map(Number);
+        const date = new Date(0);
+        date.setUTCFullYear(year, month - 1, day);
+        if (date.getUTCFullYear() != year || date.getUTCMonth() != month - 1 || date.getUTCDate() != day) {
+            return null;
+        }
+        return date.valueOf();
+    }
+    function convert_date_strings(array, depth) {
+        if (depth == 0 && (0, types_2.isTypedArray)(array)) {
+            return array;
+        }
+        let result = null;
+        for (let i = 0; i < array.length; i++) {
+            const value = array[i];
+            const converted = depth > 0
+                ? (0, types_2.isArrayable)(value) ? convert_date_strings(value, depth - 1) : value
+                : (0, types_2.isString)(value) ? parse_date_string(value) ?? value : value;
+            if (!Object.is(converted, value)) {
+                result ??= array.slice();
+                result[i] = converted;
+            }
+        }
+        return result ?? array;
+    }
     class BaseCoordinateSpec extends DataSpec {
+        array(source, materialize_dates = false) {
+            let array = this._array(source);
+            const { transform } = this.get_value();
+            const materialize_dates_before = transform?.materialize_dates_before ?? false;
+            if (materialize_dates && materialize_dates_before) {
+                const depth = this instanceof CoordinateSpec ? 0 : this instanceof CoordinateSeqSpec ? 1 : 3;
+                array = convert_date_strings(array, depth);
+            }
+            if (transform != null) {
+                array = transform.v_compute(array);
+            }
+            if (materialize_dates && !materialize_dates_before) {
+                const depth = this instanceof CoordinateSpec ? 0 : this instanceof CoordinateSeqSpec ? 1 : 3;
+                array = convert_date_strings(array, depth);
+            }
+            return array;
+        }
     }
     exports.BaseCoordinateSpec = BaseCoordinateSpec;
     class CoordinateSpec extends BaseCoordinateSpec {
@@ -5939,6 +5983,14 @@
             }
             return bits;
         }
+        static from_indices_array(size, indices_array) {
+            const bits = new BitSet(size);
+            const n = indices_array.length;
+            for (let i = 0; i < n; i++) {
+                bits.set(indices_array[i]);
+            }
+            return bits;
+        }
         static from_booleans(size, booleans) {
             const bits = new BitSet(size);
             let i = 0;
@@ -6007,21 +6059,25 @@
             }
             return count;
         }
+        _popcount(x) {
+            // SWAR algorithm, see https://www.playingwithpointers.com/blog/swar.html
+            x = x - ((x >>> 1) & 0x55555555);
+            x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+            x = (x + (x >>> 4)) & 0x0f0f0f0f;
+            return Math.imul(x, 0x01010101) >>> 24;
+        }
         _get_count() {
             const { _array, _nwords, size } = this;
+            const trailing = size % BitSet._word_length;
+            const full = trailing == 0 ? _nwords : _nwords - 1;
             let c = 0;
-            for (let k = 0, i = 0; i < _nwords; i++) {
-                const word = _array[i];
-                if (word == 0) {
-                    k += BitSet._word_length;
-                }
-                else {
-                    for (let j = 0; j < BitSet._word_length && k < size; j++, k++) {
-                        if (((word >>> j) & 0b1) == 0b1) {
-                            c += 1;
-                        }
-                    }
-                }
+            for (let i = 0; i < full; i++) {
+                c += this._popcount(_array[i]);
+            }
+            if (trailing != 0) {
+                // trailing is strictly 1..31 here, so the shift won't overflow 32 bits
+                const mask = (1 << trailing) - 1;
+                c += this._popcount(_array[full] & mask);
             }
             return c;
         }
@@ -6044,7 +6100,7 @@
             return indices;
         }
         zeros() {
-            const indices = new Array(this.count);
+            const indices = new Array(this.size - this.count);
             let index = 0;
             const { _array, _nwords, size } = this;
             for (let k = 0, i = 0; i < _nwords; i++) {
@@ -6065,24 +6121,28 @@
             (0, assert_1.assert)(this.size == other.size, `Size mismatch (${this.size} != ${other.size})`);
         }
         invert() {
+            this._count = null;
             for (let i = 0; i < this._nwords; i++) {
                 this._array[i] = ~this._array[i] >>> 0;
             }
         }
         add(other) {
             this._check_size(other);
+            this._count = null;
             for (let i = 0; i < this._nwords; i++) {
                 this._array[i] |= other._array[i];
             }
         }
         intersect(other) {
             this._check_size(other);
+            this._count = null;
             for (let i = 0; i < this._nwords; i++) {
                 this._array[i] &= other._array[i];
             }
         }
         subtract(other) {
             this._check_size(other);
+            this._count = null;
             for (let i = 0; i < this._nwords; i++) {
                 const a = this._array[i];
                 const b = other._array[i];
@@ -6091,6 +6151,7 @@
         }
         symmetric_subtract(other) {
             this._check_size(other);
+            this._count = null;
             for (let i = 0; i < this._nwords; i++) {
                 this._array[i] ^= other._array[i];
             }
@@ -20005,6 +20066,10 @@
         constructor(attrs) {
             super(attrs);
         }
+        /** Whether coordinate date strings should be materialized before this transform. */
+        get materialize_dates_before() {
+            return false;
+        }
     }
     exports.Transform = Transform;
 },
@@ -21853,6 +21918,9 @@
             for (const child_view of this.layoutable_views) {
                 if (child_view.layout == null) {
                     child_view._compute_layout();
+                }
+                else {
+                    child_view._propagate_layout();
                 }
             }
         }
@@ -40041,6 +40109,7 @@
     const eq_1 = require(27) /* ../../core/util/eq */;
     const factor_range_1 = require(121) /* ../ranges/factor_range */;
     const decoration_1 = require(309) /* ../graphics/decoration */;
+    const bitset_1 = require(26) /* ../../core/util/bitset */;
     const selection_defaults = {
         fill: {},
         line: {},
@@ -40378,31 +40447,27 @@
             }
             else {
                 // reset the selection mask
-                const selected_mask = new Set(selected_full_indices);
-                // intersect/different selection with render mask
-                const selected_subset_indices = new Array();
-                const nonselected_subset_indices = new Array();
-                // now, selected is changed to subset space, except for Line/Step glyph
-                if (this.glyph instanceof line_1.LineView || this.glyph instanceof step_1.StepView) {
-                    for (const i of all_indices) {
-                        if (selected_mask.has(i)) {
-                            selected_subset_indices.push(i);
-                        }
-                        else {
-                            nonselected_subset_indices.push(i);
-                        }
+                const selected_mask = bitset_1.BitSet.from_indices_array(this.model.view.indices.size, selected_full_indices);
+                const is_line_or_step = this.glyph instanceof line_1.LineView || this.glyph instanceof step_1.StepView;
+                const source = is_line_or_step ? all_indices : indices;
+                const selected_subset_indices = new Array(source.length);
+                const nonselected_subset_indices = new Array(source.length);
+                let n_selected = 0;
+                let n_nonselected = 0;
+                for (let k = 0; k < source.length; k++) {
+                    const i = source[k];
+                    // Line/Step: i is in full data space; otherwise it's in subset space
+                    const full_index = is_line_or_step ? i : all_indices[i];
+                    if (selected_mask.get(full_index)) {
+                        selected_subset_indices[n_selected++] = i;
+                    }
+                    else {
+                        nonselected_subset_indices[n_nonselected++] = i;
                     }
                 }
-                else {
-                    for (const i of indices) {
-                        if (selected_mask.has(all_indices[i])) {
-                            selected_subset_indices.push(i);
-                        }
-                        else {
-                            nonselected_subset_indices.push(i);
-                        }
-                    }
-                }
+                selected_subset_indices.length = n_selected;
+                nonselected_subset_indices.length = n_nonselected;
+                // Paint selection last so selected glyphs remain on top.
                 nonselection_glyph.paint(ctx, nonselected_subset_indices);
                 selection_glyph.paint(ctx, selected_subset_indices);
                 if (this.hover_glyph != null) {
@@ -40707,7 +40772,6 @@
     const types_2 = require(8) /* ../../core/util/types */;
     const ragged_array_1 = require(307) /* ../../core/util/ragged_array */;
     const array_1 = require(10) /* ../../core/util/array */;
-    const arrayable_1 = require(14) /* ../../core/util/arrayable */;
     const projections_1 = require(148) /* ../../core/util/projections */;
     const eq_1 = require(27) /* ../../core/util/eq */;
     const spatial_1 = require(308) /* ../../core/util/spatial */;
@@ -40871,7 +40935,9 @@
                 }
             }
             if (dilate) {
-                (0, arrayable_1.inplace_map)(sdist, (sd) => ceil(sd));
+                for (let i = 0; i < n; i++) {
+                    sdist[i] = ceil(sdist[i]);
+                }
             }
             return sdist;
         }
@@ -41105,7 +41171,8 @@
                 }
                 else {
                     if (prop instanceof p.BaseCoordinateSpec) {
-                        const array = this._transform_array(prop, indices.select(prop.array(source)));
+                        const range = prop.dimension == "x" ? this.renderer.coordinates.x_source : this.renderer.coordinates.y_source;
+                        const array = this._transform_array(prop, indices.select(prop.array(source, !(range instanceof factor_range_1.FactorRange))));
                         this._define_attr(prop.attr, array);
                     }
                     else {
@@ -41454,7 +41521,9 @@
             this._indices = new this.array_type_indices(this._data_byte_buffer, n_bytes_nodes, this._n_total_nodes);
         }
         add_rect(x0, y0, x1, y1) {
-            if (!isFinite(x0 + y0 + x1 + y1)) {
+            // x * 0 is 0 for every finite x and NaN for NaN/±Infinity, so unlike summing
+            // the coordinates this cannot overflow to Infinity for large finite values
+            if (!isFinite(x0 * 0 + y0 * 0 + x1 * 0 + y1 * 0)) {
                 x0 = Infinity;
                 y0 = Infinity;
                 x1 = -Infinity;
@@ -41630,101 +41699,79 @@
             return arr[lo];
         }
         _optimize_item_order() {
-            const { n_items } = this;
-            const hilbert_values = new Uint32Array(n_items);
-            this._compute_hilbert_values(hilbert_values);
-            // sort items by their Hilbert value
-            this._sort_by_hilbert_values(hilbert_values);
+            const { n_items, array_type_coordinates } = this;
+            // workspace has the same size as the bbox array
+            const bytes_per_coordinate_value = array_type_coordinates.BYTES_PER_ELEMENT;
+            const workspace_size = n_items * 4 * bytes_per_coordinate_value;
+            const workspace_buffer = new ArrayBuffer(workspace_size);
+            this._sort_by_hilbert_values(workspace_buffer);
+            this._apply_item_order(workspace_buffer);
         }
-        _compute_hilbert_values(hilbert_values) {
-            const { n_items, _bboxes, minX, minY, maxX, maxY } = this;
-            const width = (maxX - minX);
-            const height = (maxY - minY);
-            const hilbertMax = (1 << 16) - 1;
-            const scaleX = hilbertMax / width;
-            const scaleY = hilbertMax / height;
-            // calculate Hilbert values from rect center
-            for (let i = 0, pos = 0; i < n_items; i++) {
-                const _minX = _bboxes[pos++];
-                const _minY = _bboxes[pos++];
-                const _maxX = _bboxes[pos++];
-                const _maxY = _bboxes[pos++];
-                const x_center = (_minX + _maxX) * 0.5;
-                const y_center = (_minY + _maxY) * 0.5;
-                const x = Math.floor((x_center - minX) * scaleX);
-                const y = Math.floor((y_center - minY) * scaleY);
-                hilbert_values[i] = compute_hilbert(x, y);
+        /** Computes the Hilbert key of every item and writes the sorted item order into _indices. */
+        _sort_by_hilbert_values(workspace_buffer) {
+            const { n_items, _bboxes, _indices, minX, minY, maxX, maxY } = this;
+            const BITS = 11;
+            const RADIX = 1 << BITS;
+            const MASK = RADIX - 1;
+            const PASSES = 3; // 3 * 11 >= 32
+            const hilbertMax = 65535; // (1 << 16) - 1
+            const scaleX = hilbertMax / (maxX - minX);
+            const scaleY = hilbertMax / (maxY - minY);
+            // interleaved [key, id] pairs: one scatter write stream instead of two
+            let src = new Uint32Array(workspace_buffer, 0, 2 * n_items);
+            let dst = new Uint32Array(workspace_buffer, 8 * n_items, 2 * n_items);
+            const counts = new Uint32Array(PASSES * RADIX);
+            // keys and all histograms in a single read over _bboxes
+            for (let i = 0, pos = 0, j = 0; i < n_items; i++, pos += 4, j += 2) {
+                const x_center = (_bboxes[pos] + _bboxes[pos + 2]) * 0.5;
+                const y_center = (_bboxes[pos + 1] + _bboxes[pos + 3]) * 0.5;
+                // `| 0` maps NaN (empty rects, zero extent) to 0
+                const k = compute_hilbert(((x_center - minX) * scaleX) | 0, ((y_center - minY) * scaleY) | 0);
+                src[j] = k;
+                src[j + 1] = i;
+                for (let p = 0; p < PASSES; p++) {
+                    counts[p * RADIX + ((k >>> (p * BITS)) & MASK)]++;
+                }
             }
-        }
-        _sort_by_hilbert_values(hilbert_values) {
-            const { n_items, node_size, _bboxes, _indices, shift_factor_bbox } = this;
-            const is_power_of_2 = (node_size & (node_size - 1)) === 0;
-            const node_mask = node_size - 1;
-            // log(N) allocation possible due to pushing smallest partition always last
-            const stack = new Int32Array(2 * 2 * Math.ceil(Math.log2(n_items + 1)));
-            let sp = 0;
-            stack[sp++] = 0;
-            stack[sp++] = n_items - 1;
-            while (sp > 0) {
-                const r = stack[--sp];
-                const l = stack[--sp];
-                const r_mod = is_power_of_2 ? (r & node_mask) : (r % node_size);
-                if (r - l <= node_size && r - r_mod <= l) {
-                    continue;
+            for (let p = 0; p < PASSES; p++) {
+                const shift = p * BITS;
+                const offset = p * RADIX;
+                let sum = 0;
+                for (let b = 0; b < RADIX; b++) {
+                    const c = counts[offset + b];
+                    counts[offset + b] = sum;
+                    sum += c;
                 }
-                const a = hilbert_values[l];
-                const b = hilbert_values[(l + r) >> 1];
-                const c = hilbert_values[r];
-                const pivot = ((a > b) !== (a > c)) ? a :
-                    ((b < a) !== (b < c)) ? b : c;
-                let i = l - 1;
-                let j = r + 1;
-                while (true) {
-                    do {
-                        i++;
-                    } while (hilbert_values[i] < pivot);
-                    do {
-                        j--;
-                    } while (hilbert_values[j] > pivot);
-                    if (i >= j) {
-                        break;
+                if (p < PASSES - 1) {
+                    for (let j = 0; j < 2 * n_items; j += 2) {
+                        const k = src[j];
+                        const pos = counts[offset + ((k >>> shift) & MASK)]++ << 1;
+                        dst[pos] = k;
+                        dst[pos + 1] = src[j + 1];
                     }
-                    const temp_h = hilbert_values[i];
-                    hilbert_values[i] = hilbert_values[j];
-                    hilbert_values[j] = temp_h;
-                    const k = i << shift_factor_bbox;
-                    const m = j << shift_factor_bbox;
-                    const b0 = _bboxes[k];
-                    const b1 = _bboxes[k + 1];
-                    const b2 = _bboxes[k + 2];
-                    const b3 = _bboxes[k + 3];
-                    _bboxes[k] = _bboxes[m];
-                    _bboxes[k + 1] = _bboxes[m + 1];
-                    _bboxes[k + 2] = _bboxes[m + 2];
-                    _bboxes[k + 3] = _bboxes[m + 3];
-                    _bboxes[m] = b0;
-                    _bboxes[m + 1] = b1;
-                    _bboxes[m + 2] = b2;
-                    _bboxes[m + 3] = b3;
-                    const temp_i = _indices[i];
-                    _indices[i] = _indices[j];
-                    _indices[j] = temp_i;
-                }
-                const left_size = j - l;
-                const right_size = r - (j + 1);
-                // always push smallest partition last to process it first
-                if (left_size < right_size) {
-                    stack[sp++] = j + 1;
-                    stack[sp++] = r;
-                    stack[sp++] = l;
-                    stack[sp++] = j;
+                    const t = src;
+                    src = dst;
+                    dst = t;
                 }
                 else {
-                    stack[sp++] = l;
-                    stack[sp++] = j;
-                    stack[sp++] = j + 1;
-                    stack[sp++] = r;
+                    // final pass: keys are no longer needed, write the order straight into _indices
+                    for (let j = 0; j < 2 * n_items; j += 2) {
+                        _indices[counts[offset + ((src[j] >>> shift) & MASK)]++] = src[j + 1];
+                    }
                 }
+            }
+        }
+        _apply_item_order(workspace_buffer) {
+            // gather bboxes once: sequential writes, random reads
+            const { n_items, _bboxes, _indices, array_type_coordinates, shift_factor_bbox } = this;
+            const tmp = new array_type_coordinates(workspace_buffer, 0, n_items << shift_factor_bbox);
+            tmp.set(_bboxes.subarray(0, n_items << shift_factor_bbox));
+            for (let i = 0, k = 0; i < n_items; i++, k += 4) {
+                const m = _indices[i] << 2;
+                _bboxes[k] = tmp[m];
+                _bboxes[k + 1] = tmp[m + 1];
+                _bboxes[k + 2] = tmp[m + 2];
+                _bboxes[k + 3] = tmp[m + 3];
             }
         }
         _generate_internal_tree_nodes() {
@@ -48174,6 +48221,7 @@
     const bbox_1 = require(62) /* ../../core/util/bbox */;
     const array_1 = require(10) /* ../../core/util/array */;
     const object_1 = require(9) /* ../../core/util/object */;
+    const eq_1 = require(27) /* ../../core/util/eq */;
     const types_1 = require(8) /* ../../core/util/types */;
     const iterator_1 = require(15) /* ../../core/util/iterator */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
@@ -48221,9 +48269,18 @@
             this.connect(this.model.change, () => this.rerender());
             const { items } = this.model.properties;
             this.on_transitive_change(items, () => {
-                this._render_items();
-                // Refresh the measured size before the queued paint checks side layout.
-                this.update_position();
+                if (this._should_rerender_items) {
+                    this._render_items();
+                    // Refresh geometry only when the entries change. Renderer data and
+                    // visual changes still need a repaint, but usually don't affect size.
+                    this.update_position();
+                }
+                else {
+                    // Visibility and muting still affect the overlay on reused entries.
+                    for (const entry of this.entries) {
+                        this._toggle_inactive(entry);
+                    }
+                }
                 this.request_paint();
             }, { recursive: true });
         }
@@ -48277,7 +48334,7 @@
                 return true;
             }
             for (const [entry, { item, label }] of (0, iterator_1.zip)(entries, labels)) {
-                if (entry.item != item || entry.label != label) {
+                if (entry.item != item || !(0, eq_1.is_equal)(entry.label, label)) {
                     return true;
                 }
             }
@@ -55362,10 +55419,8 @@
                 };
                 const now = Date.now();
                 const remaining = wait - (now - previous);
-                if (remaining <= 0 && !pending) {
-                    if (timeout != null) {
-                        clearTimeout(timeout);
-                    }
+                // A queued callback owns a promise; keep it even if its timer is late.
+                if (remaining <= 0 && timeout == null && !pending) {
                     pending = true;
                     request = requestAnimationFrame(later);
                 }
@@ -59186,7 +59241,6 @@
     const utils_1 = require(310) /* ./utils */;
     const selection_1 = require(144) /* ../selections/selection */;
     const bbox_1 = require(62) /* ../../core/util/bbox */;
-    const arrayable_1 = require(14) /* ../../core/util/arrayable */;
     const kinds_1 = require(124) /* ../common/kinds */;
     const resolve = tslib_1.__importStar(require(127) /* ../common/resolve */);
     const painting_1 = require(267) /* ../common/painting */;
@@ -59250,19 +59304,32 @@
         // We need to clamp the endpoints inside the viewport, because various browser canvas
         // implementations have issues drawing rects with endpoints far outside the viewport
         _clamp_to_viewport() {
-            const { min, max } = Math;
             const { h_range, v_range } = this.renderer.plot_view.frame.bbox;
             if (!this.inherited_sleft) {
-                (0, arrayable_1.inplace_map)(this.sleft, (left) => max(left, h_range.start));
+                this._enforce_lower_bound(this.sleft, h_range.start);
             }
             if (!this.inherited_sright) {
-                (0, arrayable_1.inplace_map)(this.sright, (right) => min(right, h_range.end));
+                this._enforce_upper_bound(this.sright, h_range.end);
             }
             if (!this.inherited_stop) {
-                (0, arrayable_1.inplace_map)(this.stop, (top) => max(top, v_range.start));
+                this._enforce_lower_bound(this.stop, v_range.start);
             }
             if (!this.inherited_sbottom) {
-                (0, arrayable_1.inplace_map)(this.sbottom, (bottom) => min(bottom, v_range.end));
+                this._enforce_upper_bound(this.sbottom, v_range.end);
+            }
+        }
+        _enforce_lower_bound(values, lower) {
+            for (let i = 0; i < values.length; i++) {
+                if (values[i] < lower) {
+                    values[i] = lower;
+                }
+            }
+        }
+        _enforce_upper_bound(values, upper) {
+            for (let i = 0; i < values.length; i++) {
+                if (values[i] > upper) {
+                    values[i] = upper;
+                }
             }
         }
         _hit_rect(geometry) {
@@ -64482,10 +64549,13 @@
             let nrows = 0;
             let ncols = 0;
             const layoutable = new grid_1.Container();
-            for (const [[, row, col, row_span = 1, col_span = 1], i] of (0, iterator_1.enumerate)(this._children)) {
-                const view = this.child_views[i];
+            for (const [child, row, col, row_span = 1, col_span = 1] of this._children) {
                 nrows = max(nrows, row + row_span);
                 ncols = max(ncols, col + col_span);
+                const view = this._child_views.get(child);
+                if (view == null) {
+                    continue;
+                }
                 // CSS grid is 1-based, but layout is 0-based
                 const styles = {};
                 styles.grid_row_start = `${row + 1}`;
@@ -64551,8 +64621,11 @@
             const cols_template = Array(ncols).fill(null).map(() => ({}));
             parse_sizing(rows, rows_template);
             parse_sizing(cols, cols_template);
-            for (const [[, row, col], i] of (0, iterator_1.enumerate)(this._children)) {
-                const view = this.child_views[i];
+            for (const [child, row, col] of this._children) {
+                const view = this._child_views.get(child);
+                if (view == null) {
+                    continue;
+                }
                 const { halign, valign } = view.box_sizing();
                 view.parent_style.append(":host", {
                     justify_self: halign ?? cols_template[col].align,
@@ -65632,6 +65705,9 @@
     class RangeTransform extends transform_1.Transform {
         constructor(attrs) {
             super(attrs);
+        }
+        get materialize_dates_before() {
+            return !(this.range instanceof factor_range_1.FactorRange);
         }
         static {
             this.define(({ Ref, Nullable }) => ({

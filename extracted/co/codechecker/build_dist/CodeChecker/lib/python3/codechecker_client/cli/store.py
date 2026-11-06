@@ -153,6 +153,7 @@ def get_argparser_ctor_args():
     return {
         'prog': 'CodeChecker store',
         'formatter_class': arg.RawDescriptionDefaultHelpFormatter,
+        'allow_abbrev': False,
 
         # Description is shown when the command's help is queried directly
         'description': """
@@ -722,6 +723,8 @@ def should_be_zipped(input_file: str, input_files: Iterable[str]) -> bool:
 
 
 def get_analysis_statistics(inputs, limits):
+    # This function handles failure ZIP limits incorrectly.
+    # Namely, there is no size limit for "should_be_zipped" files.
     """
     Collects analysis statistics information and returns them.
 

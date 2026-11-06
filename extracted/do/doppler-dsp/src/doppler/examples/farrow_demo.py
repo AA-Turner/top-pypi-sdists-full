@@ -21,6 +21,7 @@ import sys
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.resample import Farrow
 
 ORDERS = ["linear", "parabolic", "cubic"]
@@ -50,6 +51,7 @@ def _response(order, freqs):
 
 
 def main(out_path="farrow_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

@@ -413,8 +413,8 @@ from akshare.stock.quote.stock_summary import (
 from akshare.stock.quote.stock_us_famous import stock_us_famous_spot_em
 from akshare.stock.quote.stock_us_pink import stock_us_pink_spot_em
 from akshare.stock.quote.stock_us_sina import (
-    get_us_stock_name,
     stock_us_daily,
+    stock_us_name_sina,
     stock_us_spot,
 )
 from akshare.stock.quote.stock_xq import stock_individual_spot_xq
@@ -570,23 +570,23 @@ from akshare.futures.futures_cot import (
     futures_dce_position_rank,
     futures_dce_position_rank_other,
     futures_gfex_position_rank,
-    get_cffex_rank_table,
-    get_dce_rank_table,
-    get_rank_sum,
-    get_rank_sum_daily,
-    get_rank_table_czce,
-    get_shfe_rank_table,
+    futures_rank_sum,
+    futures_rank_sum_daily,
+    futures_rank_table_cffex,
+    futures_rank_table_czce,
+    futures_rank_table_dce,
+    futures_rank_table_shfe,
 )
 from akshare.futures.futures_cot_sina import futures_hold_pos_sina
 from akshare.futures.futures_daily_bar import (
+    futures_daily,
+    futures_daily_cffex,
+    futures_daily_czce,
+    futures_daily_dce,
+    futures_daily_gfex,
+    futures_daily_ine,
+    futures_daily_shfe,
     futures_hist_daily_cffex,
-    get_cffex_daily,
-    get_czce_daily,
-    get_dce_daily,
-    get_futures_daily,
-    get_gfex_daily,
-    get_ine_daily,
-    get_shfe_daily,
 )
 from akshare.futures.futures_foreign import futures_foreign_detail, futures_foreign_hist
 from akshare.futures.futures_hf_em import futures_global_hist_em, futures_global_spot_em
@@ -610,8 +610,11 @@ from akshare.futures.futures_index_sina import (
 from akshare.futures.futures_inventory_99 import futures_inventory_99
 from akshare.futures.futures_inventory_em import futures_inventory_em
 from akshare.futures.futures_news_shmet import futures_news_shmet
-from akshare.futures.futures_receipt import get_receipt
-from akshare.futures.futures_roll_yield import get_roll_yield, get_roll_yield_bar
+from akshare.futures.futures_receipt import futures_receipt
+from akshare.futures.futures_roll_yield import (
+    futures_roll_yield,
+    futures_roll_yield_bar,
+)
 from akshare.futures.futures_rule import futures_rule
 from akshare.futures.futures_settle import (
     futures_settle,
@@ -786,7 +789,6 @@ from akshare.fund.fund_aum_em import fund_aum_em, fund_aum_hist_em, fund_aum_tre
 from akshare.fund.fund_em import (
     fund_etf_fund_daily_em,
     fund_etf_fund_info_em,
-    fund_financial_fund_daily_em,
     fund_financial_fund_info_em,
     fund_graded_fund_daily_em,
     fund_graded_fund_info_em,
@@ -894,12 +896,8 @@ from akshare.index.index_cx import (
     index_ai_cx,
     index_awpr_cx,
     index_bei_cx,
-    index_bi_cx,
     index_cci_cx,
     index_ci_cx,
-    index_dei_cx,
-    index_fi_cx,
-    index_ii_cx,
     index_li_cx,
     index_neaw_cx,
     index_neei_cx,
@@ -908,7 +906,6 @@ from akshare.index.index_cx import (
     index_pmi_man_cx,
     index_pmi_ser_cx,
     index_qli_cx,
-    index_si_cx,
     index_ti_cx,
 )
 from akshare.index.index_drewry import drewry_wci_index
@@ -1341,11 +1338,9 @@ from akshare.alternative.alternative_fortune_hurun import hurun_rank
 from akshare.alternative.alternative_fortune_xincaifu_500 import xincaifu_rank
 from akshare.alternative.alternative_movie_yien import (
     movie_boxoffice_cinema_daily,
-    movie_boxoffice_cinema_weekly,
     movie_boxoffice_daily,
     movie_boxoffice_monthly,
     movie_boxoffice_realtime,
-    movie_boxoffice_weekly,
     movie_boxoffice_yearly,
     movie_boxoffice_yearly_first_week,
 )
@@ -1542,7 +1537,6 @@ __all__ = [
     "fund_fee_em",
     "fund_fh_em",
     "fund_fh_rank_em",
-    "fund_financial_fund_daily_em",
     "fund_financial_fund_info_em",
     "fund_graded_fund_daily_em",
     "fund_graded_fund_info_em",
@@ -1603,6 +1597,13 @@ __all__ = [
     "futures_contract_info_gfex",
     "futures_contract_info_ine",
     "futures_contract_info_shfe",
+    "futures_daily",
+    "futures_daily_cffex",
+    "futures_daily_czce",
+    "futures_daily_dce",
+    "futures_daily_gfex",
+    "futures_daily_ine",
+    "futures_daily_shfe",
     "futures_dce_position_rank",
     "futures_dce_position_rank_other",
     "futures_delivery_czce",
@@ -1633,6 +1634,15 @@ __all__ = [
     "futures_inventory_em",
     "futures_main_sina",
     "futures_news_shmet",
+    "futures_rank_sum",
+    "futures_rank_sum_daily",
+    "futures_rank_table_cffex",
+    "futures_rank_table_czce",
+    "futures_rank_table_dce",
+    "futures_rank_table_shfe",
+    "futures_receipt",
+    "futures_roll_yield",
+    "futures_roll_yield_bar",
     "futures_rule",
     "futures_settle",
     "futures_settle_cffex",
@@ -1664,26 +1674,9 @@ __all__ = [
     "fx_spot_quote",
     "fx_swap_quote",
     "game_hot_rank_taptap",
-    "get_cffex_daily",
-    "get_cffex_rank_table",
-    "get_czce_daily",
-    "get_dce_daily",
-    "get_dce_rank_table",
-    "get_futures_daily",
-    "get_gfex_daily",
-    "get_ine_daily",
     "get_proxies",
-    "get_rank_sum",
-    "get_rank_sum_daily",
-    "get_rank_table_czce",
-    "get_receipt",
-    "get_roll_yield",
-    "get_roll_yield_bar",
-    "get_shfe_daily",
-    "get_shfe_rank_table",
     "get_timeout",
     "get_token",
-    "get_us_stock_name",
     "hf_sp_500",
     "hurun_rank",
     "index_ai_cx",
@@ -1694,7 +1687,6 @@ __all__ = [
     "index_analysis_weekly_sw",
     "index_awpr_cx",
     "index_bei_cx",
-    "index_bi_cx",
     "index_bloomberg_billionaires",
     "index_bloomberg_billionaires_hist",
     "index_cci_cx",
@@ -1702,12 +1694,10 @@ __all__ = [
     "index_code_id_map_em",
     "index_component_sw",
     "index_csindex_all",
-    "index_dei_cx",
     "index_detail_cni",
     "index_detail_hist_adjust_cni",
     "index_detail_hist_cni",
     "index_eri",
-    "index_fi_cx",
     "index_global_hist_em",
     "index_global_hist_sina",
     "index_global_name_table",
@@ -1716,7 +1706,6 @@ __all__ = [
     "index_hist_fund_sw",
     "index_hist_sw",
     "index_hog_spot_price",
-    "index_ii_cx",
     "index_inner_quote_sugar_msweet",
     "index_kq_fashion",
     "index_kq_fz",
@@ -1752,7 +1741,6 @@ __all__ = [
     "index_qli_cx",
     "index_realtime_fund_sw",
     "index_realtime_sw",
-    "index_si_cx",
     "index_stock_cons",
     "index_stock_cons_csindex",
     "index_stock_cons_sina",
@@ -1997,11 +1985,9 @@ __all__ = [
     "migration_area_baidu",
     "migration_scale_baidu",
     "movie_boxoffice_cinema_daily",
-    "movie_boxoffice_cinema_weekly",
     "movie_boxoffice_daily",
     "movie_boxoffice_monthly",
     "movie_boxoffice_realtime",
-    "movie_boxoffice_weekly",
     "movie_boxoffice_yearly",
     "movie_boxoffice_yearly_first_week",
     "news_cctv",
@@ -2427,6 +2413,7 @@ __all__ = [
     "stock_us_famous_spot_em",
     "stock_us_hist",
     "stock_us_hist_min_em",
+    "stock_us_name_sina",
     "stock_us_pink_spot_em",
     "stock_us_spot",
     "stock_us_spot_em",

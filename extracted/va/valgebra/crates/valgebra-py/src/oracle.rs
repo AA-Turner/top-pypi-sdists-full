@@ -14,7 +14,7 @@
 //! sit where nothing it governs lives. The `Validator` holds the pool these
 //! answers read; it is not the thing the contract is about.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 use pyo3::PyTypeInfo;
@@ -23,15 +23,18 @@ use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyBool, PyBytes, PyComplex, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString,
-    PyTuple, PyType,
+    PyBool, PyByteArray, PyBytes, PyComplex, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyRange,
+    PySet, PyString, PyTuple, PyType,
 };
 use rustc_hash::FxHashMap;
 use valgebra_core::descr::classes::{Attributes, Class, Hook, Member, Namespace, Reach};
 use valgebra_core::descr::lower::{Constants, Operand};
 use valgebra_core::{ClassIx, ConstIx, Kind, LeafRelations, OperandIx, Schema};
 
-use crate::check::{Ctx, Unwritten, ValidatorIndex, WalkMode, WalkState, member};
+use crate::check::{
+    Ctx, Unwritten, ValidatorIndex, WalkMode, WalkState, build_index, forget_unindexed, member,
+};
+use crate::codes::Code;
 use crate::errors::is_fatal;
 use crate::input::Value;
 
@@ -57,6 +60,23 @@ pub(crate) struct PoolRelations<'py, 'pool> {
     /// as [`Self::classes`]. Both deciders ask it -- the descriptor through the
     /// snapshot, the rules field by field -- and one reading is one answer.
     attributes: RefCell<FxHashMap<usize, Arc<Attributes>>>,
+    /// Whether each class compares by identity, read once per class for the
+    /// query and keyed by the type object's address on the same argument as
+    /// [`Self::classes`]: the constant whose class it is holds the class alive.
+    /// Every question about two literals asks it of their class, and a union
+    /// of literals read a member at a time asks it of every pair; unread, each
+    /// asking walked the class's `__mro__` twice for `__eq__` and read its
+    /// flags, which was half of such a query.
+    identity: RefCell<FxHashMap<usize, bool>>,
+    /// What [`LeafRelations::no_int_between`] answered of each interval the
+    /// query asked, by its operands and their strictness. A refinement over the
+    /// integers is asked it at every verdict the rules read of the refinement,
+    /// and a meet distributed through a fixpoint reads one refinement tens of
+    /// thousands of times, each asking a floor or a ceiling of each bound and
+    /// the standard library's classes of both in the interpreter. An answer is
+    /// a function of the two constants, which the pool holds for the query; a
+    /// decline is asked again, as a lookup that raised is.
+    intervals: RefCell<FxHashMap<(OperandIx, bool, OperandIx, bool), bool>>,
     /// The first fatal signal a probe raised, for the query to re-raise.
     ///
     /// A probe runs user code -- a predicate, an `__eq__`, a rich comparison, a
@@ -65,6 +85,10 @@ pub(crate) struct PoolRelations<'py, 'pool> {
     /// signal itself is carried to [`Self::answer`], which hands it back in
     /// place of whatever the core decided without it.
     fatal: RefCell<Option<PyErr>>,
+    /// Whether a walk ran for this query, which is what can compile a pattern
+    /// outside an index: most relations walk nothing, and an oracle dropped
+    /// then touches no thread-local.
+    walked: Cell<bool>,
 }
 
 impl<'py, 'pool> PoolRelations<'py, 'pool> {
@@ -85,14 +109,32 @@ impl<'py, 'pool> PoolRelations<'py, 'pool> {
             definitions,
             classes: RefCell::default(),
             attributes: RefCell::default(),
+            identity: RefCell::default(),
+            intervals: RefCell::default(),
             fatal: RefCell::default(),
+            walked: Cell::new(false),
         }
     }
 
+    /// [`compares_by_identity`] of `ty`, read once for the query. A lookup that
+    /// raised has answered nothing and is not kept, so the next asking reads
+    /// the class again.
+    fn compares_by_identity(&self, ty: &Bound<'py, PyType>) -> Option<bool> {
+        let key = ty.as_ptr() as usize;
+        if let Some(&known) = self.identity.borrow().get(&key) {
+            return Some(known);
+        }
+        let answer = self.heard(compares_by_identity(ty))?;
+        self.identity.borrow_mut().insert(key, answer);
+        Some(answer)
+    }
+
     /// The query's answer, or the fatal signal a probe raised while it was
-    /// decided. The one way a relation leaves the bindings.
-    pub(crate) fn answer<T>(self, decided: T) -> PyResult<T> {
-        self.fatal.into_inner().map_or(Ok(decided), Err)
+    /// decided. The one way a relation leaves the bindings. By reference: the
+    /// oracle's size is past what a move does inline, and it drops at its
+    /// caller's end either way.
+    pub(crate) fn answer<T>(&self, decided: T) -> PyResult<T> {
+        self.fatal.take().map_or(Ok(decided), Err)
     }
 
     /// A probe's result, or `None` where it raised: a check that raised has
@@ -106,6 +148,16 @@ impl<'py, 'pool> PoolRelations<'py, 'pool> {
     fn keep_if_fatal(&self, err: PyErr) {
         if is_fatal(&err, self.py) {
             self.fatal.borrow_mut().get_or_insert(err);
+        }
+    }
+}
+
+impl Drop for PoolRelations<'_, '_> {
+    /// The patterns this query's walks compiled outside an index are its own,
+    /// and go with it.
+    fn drop(&mut self) {
+        if self.walked.get() {
+            forget_unindexed();
         }
     }
 }
@@ -138,23 +190,80 @@ fn math_floor_ceil(py: Python<'_>) -> PyResult<&'static (Py<PyAny>, Py<PyAny>)> 
 /// The subtype rule asks whether a class is an enumeration for *every* class it
 /// cannot place in a union, so importing a module there would put an import on
 /// a decision path.
-static ENUM_TYPES: PyOnceLock<(Py<PyAny>, Py<PyAny>)> = PyOnceLock::new();
+static ENUM_TYPES: PyOnceLock<(Py<PyAny>, Py<PyAny>, Py<PyAny>)> = PyOnceLock::new();
 
-/// `(enum.EnumMeta, enum.Flag)`, imported once per interpreter.
+/// `(enum.EnumMeta, enum.Flag, enum.Enum)`, imported once per interpreter.
 ///
-/// Both are needed at the same place and neither on any other path, so they
+/// All three are needed at the same place and none on any other path, so they
 /// share one lock. `Flag` is here because it is the one enumeration whose
 /// instances are *not* the members it lists: `P.A | P.B` is an instance of `P`
-/// that `list(P)` never yields.
-fn enum_types(py: Python<'_>) -> Option<&(Py<PyAny>, Py<PyAny>)> {
+/// that `list(P)` never yields. `Enum` holds the `_missing_` that makes no
+/// instance.
+fn enum_types(py: Python<'_>) -> Option<&(Py<PyAny>, Py<PyAny>, Py<PyAny>)> {
     ENUM_TYPES
         .get_or_try_init(py, || {
             let module = py.import("enum")?;
             let meta = module.getattr(intern!(py, "EnumMeta"))?.unbind();
             let flag = module.getattr(intern!(py, "Flag"))?.unbind();
-            Ok::<_, PyErr>((meta, flag))
+            let base = module.getattr(intern!(py, "Enum"))?.unbind();
+            Ok::<_, PyErr>((meta, flag, base))
         })
         .ok()
+}
+
+/// Whether every instance an enumeration's class makes is a member it lists:
+/// the class lists its members through `EnumMeta`'s `__iter__`, makes an
+/// instance only through `EnumMeta`'s `__call__`, which looks a member up, and
+/// answers a value it holds no member for with `Enum`'s `_missing_`, which
+/// makes none.
+///
+/// A `_missing_` of its own is the hook a class makes a new instance through
+/// -- `E(5)`, a pseudo-member `list(E)` never yields -- and a metaclass's own
+/// `__iter__` can leave a member out of the list, or its `__call__` build an
+/// instance past the lookup. The two are read where `list(E)` and `E(5)` call
+/// them ([`special_lookup`]); `_missing_` as `Enum.__new__` asks for it, an
+/// attribute of the class, which a metaclass does answer.
+fn lists_every_instance(
+    class: &Bound<'_, PyType>,
+    meta: &Bound<'_, PyAny>,
+    base: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
+    let py = class.py();
+    let metaclass = class.get_type();
+    let meta = meta.cast::<PyType>()?;
+    for name in [intern!(py, "__iter__"), intern!(py, "__call__")] {
+        let (mine, theirs) = (
+            special_lookup(&metaclass, name)?,
+            special_lookup(meta, name)?,
+        );
+        if !matches!((mine, theirs), (Some(mine), Some(theirs)) if mine.is(&theirs)) {
+            return Ok(false);
+        }
+    }
+    let (missing, function) = (intern!(py, "_missing_"), intern!(py, "__func__"));
+    Ok(class
+        .getattr(missing)?
+        .getattr(function)?
+        .is(&base.getattr(missing)?.getattr(function)?))
+}
+
+/// `type.__subclasses__`, read once.
+static TYPE_SUBCLASSES: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// Whether no class derives from `class` as it stands: `type`'s own
+/// `__subclasses__`, which a metaclass does not answer for, lists the live
+/// ones, each assigned base included.
+fn has_no_subclass(class: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = class.py();
+    let subclasses = TYPE_SUBCLASSES.get_or_try_init(py, || {
+        Ok::<_, PyErr>(
+            PyType::type_object(py)
+                .getattr(intern!(py, "__dict__"))?
+                .get_item(intern!(py, "__subclasses__"))?
+                .unbind(),
+        )
+    })?;
+    Ok(subclasses.bind(py).call1((class,))?.len()? == 0)
 }
 
 /// The most members an enumeration may have before it is read as an atom.
@@ -174,14 +283,361 @@ const MAX_ENUM_MEMBERS: usize = 512;
 /// refused here, which is right: its members are equal to the integers they
 /// carry.
 ///
+/// One type defines an `__eq__` and compares by identity all the same: the
+/// interpreter's `sentinel` (PEP 661, a builtin from 3.15), whose `__eq__`
+/// answers `True` for the sentinel itself and declines every other value, so
+/// two sentinels of one name are two values, as two `object()`s are.
+///
 /// The lookup runs a metaclass's own attribute hook, so it can raise, and the
 /// caller hears what it raised: a check that raised has answered nothing, and
 /// a signal among it is the query's to raise.
 fn compares_by_identity(ty: &Bound<'_, PyType>) -> PyResult<bool> {
     let py = ty.py();
-    let theirs = ty.getattr(intern!(py, "__eq__"))?;
-    let inherited = PyAny::type_object(py).getattr(intern!(py, "__eq__"))?;
-    Ok(theirs.is(&inherited))
+    let eq = intern!(py, "__eq__");
+    let theirs = special_lookup(ty, eq)?;
+    let inherited = special_lookup(&PyAny::type_object(py), eq)?;
+    Ok(
+        matches!((theirs, inherited), (Some(theirs), Some(inherited)) if theirs.is(&inherited))
+            || is_the_sentinel_type(ty)?,
+    )
+}
+
+/// Whether `ty` is the interpreter's `sentinel`: a static type, which no class
+/// statement makes, named `sentinel` in `builtins`, which its qualified name
+/// spells bare. A literal of one is the model's singleton [FCB08, §4.2], as
+/// one of an `object()` is. The flag is read first, since every type has one
+/// and a class made where no `__name__` is bound has no `__module__`, so its
+/// qualified name raises.
+fn is_the_sentinel_type(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    Ok(!is_heap_type(ty)? && ty.fully_qualified_name()? == "sentinel")
+}
+
+/// Whether `ty` was made at run time, as a class statement and a C type built
+/// from a spec make one, rather than defined static in C, as the builtins are.
+///
+/// The flags are the ones Python set, read through `type`'s own descriptor
+/// ([`read_by_type`]): a metaclass answering `__flags__` makes no class
+/// static.
+fn is_heap_type(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    static TYPE_FLAGS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    let name = intern!(ty.py(), "__flags__");
+    let flags: std::os::raw::c_ulong = read_by_type(&TYPE_FLAGS, name, ty)?.extract()?;
+    Ok(flags & pyo3::ffi::Py_TPFLAGS_HEAPTYPE != 0)
+}
+
+/// The value types the standard library defines whose order, `%` and length
+/// are their equality's, by the module that defines each: two values equal by
+/// one's `==` answer a bound, a step and a length alike.
+const STDLIB_VALUE_TYPES: &[(&str, &[&str])] = &[
+    ("decimal", &["Decimal"]),
+    ("fractions", &["Fraction"]),
+    ("datetime", &["date", "datetime", "time", "timedelta"]),
+    ("uuid", &["UUID"]),
+    (
+        "ipaddress",
+        &[
+            "IPv4Address",
+            "IPv6Address",
+            "IPv4Network",
+            "IPv6Network",
+            "IPv4Interface",
+            "IPv6Interface",
+        ],
+    ),
+    (
+        "pathlib",
+        &[
+            "PurePath",
+            "PurePosixPath",
+            "PureWindowsPath",
+            "Path",
+            "PosixPath",
+            "WindowsPath",
+        ],
+    ),
+];
+
+/// Whether `ty` is exactly `fractions.Fraction` or `decimal.Decimal`.
+fn is_exact_rational(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    Ok(is_stdlib_class(ty, "fractions", "Fraction")? || is_stdlib_class(ty, "decimal", "Decimal")?)
+}
+
+/// Whether `ty` is exactly the class `name` the standard-library `module`
+/// binds, asked as [`is_a_value_type`] asks: by identity, among the modules
+/// imported so far, where the module is the interpreter's
+/// ([`ships_with_the_interpreter`]).
+///
+/// The modules are read as the dict they are, whose lookup raises nothing
+/// where `module` is not imported. Asked of every bound a refinement over the
+/// integers compares, a `KeyError` made and dropped a bound was a third of
+/// the time an emptiness over the JSON value took.
+fn is_stdlib_class(ty: &Bound<'_, PyType>, module: &'static str, name: &str) -> PyResult<bool> {
+    let modules = SYS_MODULES
+        .import(ty.py(), "sys", "modules")?
+        .cast::<PyDict>()?;
+    let Some(bound) = modules.get_item(module)? else {
+        return Ok(false);
+    };
+    if !bound.getattr_opt(name)?.is_some_and(|class| class.is(ty)) {
+        return Ok(false);
+    }
+    ships_with_the_interpreter(module, &bound)
+}
+
+/// Whether `module`, the module `sys.modules` binds to `name`, is the one the
+/// interpreter ships: frozen or built into it, or loaded from the directory
+/// the standard library lives in, `sysconfig.get_path("stdlib")`.
+///
+/// A program's own `fractions.py`, beside its script or on its path, is
+/// imported under the standard library's name, and the class it binds is the
+/// program's: one comparing as `5` and rounding as `0` and `1` would read as a
+/// `Fraction` ordering as its `==` says. So a class is a value type only where
+/// the module binding it is the interpreter's. The directory is `stdlib` and
+/// never `platstdlib`, which in a virtual environment is the environment's own
+/// and holds its `site-packages`, and the origin is the one the import system
+/// recorded, read resolved and in the platform's case. A module this cannot
+/// place -- one with no origin, or a standard library read from an archive --
+/// is taken for none of the interpreter's, so its classes order as unknown,
+/// the decline.
+///
+/// What the interpreter's module imports in turn is the interpreter's too:
+/// `decimal` binds `_decimal`'s class, and a program replacing that
+/// accelerator, or a class the module binds, changes the interpreter
+/// (`docs/14-soundness.md`).
+///
+/// Read once for each module object and kept under its name, so a
+/// `sys.modules` entry replaced is read again, and the names being those of
+/// [`STDLIB_VALUE_TYPES`], the record holds six at most. It is a dict, so a
+/// module the record lets go of is released with no lock held.
+fn ships_with_the_interpreter(name: &'static str, module: &Bound<'_, PyAny>) -> PyResult<bool> {
+    static READ: PyOnceLock<Py<PyDict>> = PyOnceLock::new();
+    let py = module.py();
+    let read = READ
+        .get_or_try_init(py, || Ok::<_, PyErr>(PyDict::new(py).unbind()))?
+        .bind(py);
+    if let Some(held) = read.get_item(name)? {
+        let (kept, verdict): (Bound<'_, PyAny>, bool) = held.extract()?;
+        if kept.is(module) {
+            return Ok(verdict);
+        }
+    }
+    let verdict = placed_in_the_standard_library(module)?;
+    read.set_item(name, (module, verdict))?;
+    Ok(verdict)
+}
+
+/// Whether the import system loaded `module` from the interpreter itself or
+/// from the standard library's directory ([`ships_with_the_interpreter`]).
+fn placed_in_the_standard_library(module: &Bound<'_, PyAny>) -> PyResult<bool> {
+    static ROOT: PyOnceLock<Option<String>> = PyOnceLock::new();
+    let py = module.py();
+    let spec = module.getattr_opt(intern!(py, "__spec__"))?;
+    let Some(origin) = spec
+        .filter(|spec| !spec.is_none())
+        .map(|spec| spec.getattr_opt(intern!(py, "origin")))
+        .transpose()?
+        .flatten()
+        .and_then(|origin| origin.extract::<String>().ok())
+    else {
+        return Ok(false);
+    };
+    if origin == "frozen" || origin == "built-in" {
+        return Ok(true);
+    }
+    let resolved = |path: &str| -> PyResult<String> {
+        let paths = py.import(intern!(py, "os"))?.getattr(intern!(py, "path"))?;
+        let real = paths.call_method1(intern!(py, "realpath"), (path,))?;
+        paths
+            .call_method1(intern!(py, "normcase"), (real,))?
+            .extract()
+    };
+    let root = ROOT.get_or_try_init(py, || {
+        let stdlib = py
+            .import(intern!(py, "sysconfig"))?
+            .call_method1(intern!(py, "get_path"), ("stdlib",))?;
+        if stdlib.is_none() {
+            return Ok::<_, PyErr>(None);
+        }
+        Ok(Some(resolved(&stdlib.extract::<String>()?)?))
+    })?;
+    let Some(root) = root else {
+        return Ok(false);
+    };
+    Ok(std::path::Path::new(&resolved(&origin)?).starts_with(root))
+}
+
+/// The digits past which a bound is not rounded to an `int`: the
+/// interpreter's own default for the conversions between an `int` and its
+/// text, whose time is quadratic in the digits
+/// (`sys.int_info.default_max_str_digits`).
+///
+/// Rounding a `Decimal` to an `int` is such a conversion. It takes 0.3 ms at
+/// this many digits, 160 ms at a hundred thousand and 13 s at a million, and a
+/// `Decimal` carries an exponent far past that, so an unbounded rounding is a
+/// relation that does not end.
+const ROUNDED_DIGITS: i64 = 4300;
+
+/// Whether rounding `value` to an `int` is a conversion past
+/// [`ROUNDED_DIGITS`]: a `Decimal` whose leading digit sits that far up. An
+/// `int`, a `float` and a `Fraction` round in time linear in what they hold.
+fn rounds_past_its_digits(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if !is_stdlib_class(&value.get_type(), "decimal", "Decimal")? {
+        return Ok(false);
+    }
+    let leading: i64 = value
+        .call_method0(intern!(value.py(), "adjusted"))?
+        .extract()?;
+    Ok(leading >= ROUNDED_DIGITS)
+}
+
+/// `sys.modules`, the modules imported so far, read once.
+static SYS_MODULES: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// Whether `ty` is exactly a value type whose order, `%` and length are its
+/// equality's: `complex`, `bytearray`, `range`, a builtin container, or one of
+/// [`STDLIB_VALUE_TYPES`].
+///
+/// Asked by identity with the class the module that defines it binds, never by
+/// the `__module__` or the name a class states: a class body can state any.
+/// And the module is the interpreter's ([`ships_with_the_interpreter`]): one of
+/// the program's own can take a standard-library name. A module not imported
+/// defines no class a value has, so it is looked up among the imported ones
+/// and never imported here. A subclass is none of these.
+fn is_a_value_type(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    let py = ty.py();
+    let builtins = [
+        PyComplex::type_object(py),
+        PyByteArray::type_object(py),
+        PyRange::type_object(py),
+        PyTuple::type_object(py),
+        PyList::type_object(py),
+        PyDict::type_object(py),
+        PySet::type_object(py),
+        PyFrozenSet::type_object(py),
+    ];
+    if builtins.iter().any(|builtin| ty.is(builtin)) {
+        return Ok(true);
+    }
+    let modules = SYS_MODULES.import(py, "sys", "modules")?;
+    for (name, classes) in STDLIB_VALUE_TYPES {
+        let Some(module) = modules.get_item(*name).ok() else {
+            continue;
+        };
+        for class in *classes {
+            if module
+                .getattr_opt(*class)?
+                .is_some_and(|class| class.is(ty))
+            {
+                return ships_with_the_interpreter(name, &module);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Whether the values `==` joins to `value` read alike to a pattern, a length,
+/// a bound and a step: [`LeafRelations::equal_values_read_alike`] of its class.
+///
+/// Those atoms read an `int`, a `float`, a `str` or `bytes` through the
+/// builtin's storage, so a subclass of one reads alike where it keeps the
+/// builtin's `__eq__` -- an `IntEnum` does -- and not where its `__eq__` is its
+/// own. Any other class reads alike where it compares by identity, the equal
+/// values being one, or where it is exactly one of the value types whose
+/// order, `%` and length are their equality's ([`is_a_value_type`]):
+/// `Decimal`, `Fraction`, the date types, `complex`. A user class with an
+/// `__eq__` of its own is read as unknown, whatever module it names.
+///
+/// Asked of the class Python reports, through `issubclass` and attribute
+/// lookups a metaclass can answer, so it can raise, and the caller hears what
+/// it raised.
+fn equal_values_read_alike(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if kind_of(value).is_some() {
+        return Ok(true);
+    }
+    let py = value.py();
+    let ty = value.get_type();
+    if let Some(builtin) = builtin_base(&ty)? {
+        return keeps(&ty, &builtin, &[intern!(py, "__eq__")]);
+    }
+    if compares_by_identity(&ty)? {
+        return Ok(true);
+    }
+    is_a_value_type(&ty)
+}
+
+/// Whether a bound's operand orders as the walk reads it: an exact builtin, a
+/// builtin subclass keeping every comparison and rounding method of its
+/// builtin, or exactly one of the value types whose order is their equality's
+/// ([`is_a_value_type`]).
+///
+/// The walk asks `x >= b` of a value `x`, which reads a builtin subclass's
+/// operand through the builtin's storage unless the subclass overrides the
+/// reflected method, while the rules order two operands through `==` first
+/// and round one through `__floor__` and `__ceil__`. A subclass with its own
+/// `__eq__` is one bound to the rules and another to the walk -- `Mod7(1) == 8`,
+/// and `1 >= Mod7(1)` reads `1` -- and one with its own order reads the other
+/// way round. Any other class orders as unknown: Python implies no
+/// relationship among a class's comparison operators (the data model, "Basic
+/// customization"), and the walk reads `>=` alone.
+fn orders_as_the_walk_reads(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if kind_of(value).is_some() {
+        return Ok(true);
+    }
+    let py = value.py();
+    let ty = value.get_type();
+    let Some(builtin) = builtin_base(&ty)? else {
+        return is_a_value_type(&ty);
+    };
+    keeps(
+        &ty,
+        &builtin,
+        &[
+            intern!(py, "__eq__"),
+            intern!(py, "__lt__"),
+            intern!(py, "__le__"),
+            intern!(py, "__gt__"),
+            intern!(py, "__ge__"),
+            intern!(py, "__floor__"),
+            intern!(py, "__ceil__"),
+        ],
+    )
+}
+
+/// The builtin whose storage the atoms read a value of `ty` through -- `int`,
+/// `float`, `str` or `bytes` -- where `ty` derives from one.
+fn builtin_base<'py>(ty: &Bound<'py, PyType>) -> PyResult<Option<Bound<'py, PyType>>> {
+    let py = ty.py();
+    for builtin in [
+        PyInt::type_object(py),
+        PyFloat::type_object(py),
+        PyString::type_object(py),
+        PyBytes::type_object(py),
+    ] {
+        if ty.is_subclass(&builtin)? {
+            return Ok(Some(builtin));
+        }
+    }
+    Ok(None)
+}
+
+/// Whether `ty` resolves each of `names` its builtin has to what the builtin
+/// resolves it to, each read where Python dispatches it ([`special_lookup`]):
+/// a metaclass answering the name with the builtin's keeps no method the
+/// class's own namespace replaces. A subclass inherits every name the builtin
+/// has, so one the builtin lacks is no method of its to keep.
+pub(crate) fn keeps<'py>(
+    ty: &Bound<'py, PyType>,
+    builtin: &Bound<'py, PyType>,
+    names: &[&Bound<'py, PyString>],
+) -> PyResult<bool> {
+    for name in names {
+        if let Some(theirs) = special_lookup(builtin, name)?
+            && !special_lookup(ty, name)?.is_some_and(|mine| mine.is(&theirs))
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 impl PoolRelations<'_, '_> {
@@ -189,8 +645,8 @@ impl PoolRelations<'_, '_> {
     /// is one.
     ///
     /// Reading a class as the union of `list(cls)` is sound only when every
-    /// instance of the class is one of the values listed, and that takes four
-    /// things:
+    /// instance of the class is one of the values listed, and that takes each of
+    /// these:
     ///
     /// * it is an enumeration, so the members are fixed when the class is
     ///   created;
@@ -206,20 +662,37 @@ impl PoolRelations<'_, '_> {
     ///   union would make it a subtype of `nothing`.
     /// * two members are two values, which is the identity check. An `IntEnum`
     ///   fails it because its members equal the integers behind them.
+    /// * the class makes no instance but by looking a member up
+    ///   ([`lists_every_instance`]). A `_missing_` of its own makes one --
+    ///   `E(5)` -- and a metaclass's own `__iter__` or `__call__` can hide a
+    ///   member from the list or build an instance past the lookup.
+    /// * it **has no subclass** ([`has_no_subclass`]). A class statement
+    ///   cannot derive from an enumeration with members, but `__bases__`
+    ///   assigned to a plain class can, from `CPython` 3.15, and that class's
+    ///   own constructor makes an instance that is no member.
     ///
     /// A class failing any of them stays the `isinstance` atom it was, which is
     /// sound for every enumeration and merely less complete.
     fn enum_members<'py>(&self, class: &Bound<'py, PyAny>) -> Option<Vec<Bound<'py, PyAny>>> {
         let py = class.py();
         let class = class.cast::<PyType>().ok()?;
-        let (meta, flag) = enum_types(py)?;
-        if !self.heard(class.is_instance(meta.bind(py)))? {
+        let (meta, flag, base) = enum_types(py)?;
+        // The metaclass Python laid down, which is what lists the members and
+        // makes an instance: `isinstance` reads a `__class__` past it on a
+        // miss, and this is asked of every class a query reads.
+        if !self.heard(class.get_type().is_subclass(meta.bind(py)))? {
             return None;
         }
         if self.heard(class.is_subclass(flag.bind(py)))? {
             return None;
         }
-        if !self.heard(compares_by_identity(class))? {
+        if !self.compares_by_identity(class)? {
+            return None;
+        }
+        if !self.heard(lists_every_instance(class, meta.bind(py), base.bind(py)))? {
+            return None;
+        }
+        if !self.heard(has_no_subclass(class))? {
             return None;
         }
         let members: Vec<Bound<'py, PyAny>> = self.heard(
@@ -230,23 +703,64 @@ impl PoolRelations<'_, '_> {
         (!members.is_empty() && members.len() <= MAX_ENUM_MEMBERS).then_some(members)
     }
 
-    fn is_member(&self, schema: &Schema, value: &Bound<'_, PyAny>) -> bool {
+    fn is_member(&self, schema: &Schema, value: &Bound<'_, PyAny>) -> Option<bool> {
         // These leaf-subtype probes run on transient schemas during compilation,
         // not on a finished validator, so they carry no precomputed index; the
         // walk falls back to its general path for any record or union here. A
         // fatal signal the walk records is kept for the query, and a query
         // already interrupted runs no more of them.
-        if self.fatal.borrow().is_some() {
-            return false;
+        self.is_member_under(schema, value, &ValidatorIndex::default())
+    }
+
+    /// [`Self::is_member`] under an `index` built for `schema`, for a probe
+    /// that walks several values through it.
+    ///
+    /// **A walk that stopped decides nothing**, so the probe answers in three
+    /// values. The walk refuses a value it stopped on -- a predicate that raised,
+    /// the depth bound -- and refuses it from the set's complement as well
+    /// (`docs/14-soundness.md`), so a bare refusal is no value outside the set:
+    /// read as one, a literal is refuted below `T | ~T`. A refusal is read as a
+    /// complement reads its inner walk ([`WalkMode::Settle`]), where a stop is
+    /// the third value; an admission needs no such reading, no stop admitting
+    /// anything, and where a settling walk met a stop the plain walk is asked
+    /// whether a later branch admits.
+    fn is_member_under(
+        &self,
+        schema: &Schema,
+        value: &Bound<'_, PyAny>,
+        index: &ValidatorIndex,
+    ) -> Option<bool> {
+        match self.walk(schema, value, index, WalkMode::Settle)? {
+            (false, _) => Some(false),
+            (true, None) => Some(true),
+            (true, Some(_)) => self
+                .walk(schema, value, index, WalkMode::Fast)?
+                .0
+                .then_some(true),
         }
+    }
+
+    /// One walk of `value` through `schema` in `mode`: whether it admitted, and
+    /// the stop it met, or `None` where a fatal signal ended it or the value
+    /// moved while it was read, which is no answer whatever the walk decided.
+    fn walk(
+        &self,
+        schema: &Schema,
+        value: &Bound<'_, PyAny>,
+        index: &ValidatorIndex,
+        mode: WalkMode,
+    ) -> Option<(bool, Option<Code>)> {
+        if self.fatal.borrow().is_some() {
+            return None;
+        }
+        self.walked.set(true);
         let state = WalkState::new();
-        let index = ValidatorIndex::default();
         let ctx = Ctx {
             pool: self.literals,
             defs: self.definitions,
-            index: &index,
+            index,
             state: &state,
-            mode: WalkMode::Fast,
+            mode,
         };
         let admitted = member(
             schema,
@@ -255,8 +769,9 @@ impl PoolRelations<'_, '_> {
         );
         if let Some(err) = state.take_fatal() {
             self.keep_if_fatal(err);
+            return None;
         }
-        admitted
+        (state.moves() == 0).then(|| (admitted, state.signals.stopped.get()))
     }
 }
 
@@ -320,11 +835,12 @@ fn builtin_of(py: Python<'_>, kind: Kind) -> Option<Bound<'_, PyType>> {
 /// down extends the other's: `class C(int, str)` is "multiple bases have
 /// instance lay-out conflict", and so is `class C(A, B)` for two classes whose
 /// `__slots__` each add a slot over `object`. The class laying down a layout is
-/// the first on the `__mro__` that does -- one of the nine builtins below, or a
-/// class whose own `__slots__` add one -- and a class built on none of them
-/// carries no layout, which conflicts with nothing and confines nothing:
-/// `class Both(Plain, MyStr)` builds, so a plain class and a `str` subclass do
-/// share instances, and those instances are strings.
+/// the first on the `__base__` chain that does -- one of the nine builtins
+/// below, or a class that lays down one of its own ([`lays_down_its_own`]) --
+/// and a class
+/// built on none of them carries no layout, which conflicts with nothing and
+/// confines nothing: `class Both(Plain, MyStr)` builds, so a plain class and a
+/// `str` subclass do share instances, and those instances are strings.
 ///
 /// The kind is the builtin's alone. A class whose `__slots__` add to a `str`
 /// lays down a layout of its own and its instances are still strings; one whose
@@ -346,44 +862,240 @@ fn layout_of<'py>(ty: &Bound<'py, PyType>) -> PyResult<(Option<Bound<'py, PyType
         (PySet::type_object(py), Kind::Set),
         (PyDict::type_object(py), Kind::Dict),
     ];
-    // `bool` derives from `int` and shares its layout, so a `bool` and an
-    // `int` subclass land in one part rather than two -- which is right: the
-    // pair is disjoint for a reason the layout does not carry. It is also why
-    // the kind is `Int` and not `Bool`: `bool` is final, so an `int` subclass
-    // is never a boolean.
-    let mut kind = None;
-    for (builtin, of) in &builtins {
-        if ty.is_subclass(builtin)? {
+    // `bool` derives from `int`, so its kind is `Int` and not `Bool`, and a
+    // `bool` and an `int` subclass land in one part rather than two -- which is
+    // right: `bool` is final, so an `int` subclass is never a boolean, and the
+    // pair is disjoint for a reason the layout does not carry.
+    //
+    // Walked along `__base__`, the chain Python lays an instance out on, and
+    // never along `__mro__` or `issubclass`, which read the order a
+    // metaclass's `mro()` writes: one that leaves `int` out of it makes no
+    // instance of the class less of an `int`.
+    let (mut solid, mut kind) = (None, None);
+    let mut at = Some(ty.clone());
+    while let Some(class) = at {
+        if let Some((_, of)) = builtins.iter().find(|(builtin, _)| class.is(builtin)) {
             kind = Some(*of);
+            solid.get_or_insert(class);
             break;
         }
-    }
-    for base in ty.mro().iter() {
-        let Ok(base) = base.cast_into::<PyType>() else {
-            continue;
-        };
-        if builtins.iter().any(|(builtin, _)| base.is(builtin)) || adds_slots(&base)? {
-            return Ok((Some(base), kind));
+        if solid.is_none() && lays_down_its_own(&class)? {
+            solid = Some(class.clone());
         }
+        at = base_of(&class)?;
     }
-    Ok((None, kind))
+    Ok((solid, kind))
 }
 
-/// Whether a class's own `__slots__` add an instance slot.
+/// `type`'s own readers of a class's `__base__`, `__mro__` and `__dict__`:
+/// each descriptor's `__get__`, read once.
+static TYPE_BASE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static TYPE_MRO: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static TYPE_DICT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// What `type`'s own descriptor `name` reads of `of`, the descriptor kept in
+/// `held`: the value Python laid down, which a metaclass defining an attribute
+/// of that name does not answer for, as `inspect.getattr_static` reads it. A
+/// class whose metaclass is `type` itself is asked by name, which finds those
+/// descriptors first, `type`'s being data descriptors: it is nearly every
+/// class, and the descriptor's call costs a relation between two dataclasses
+/// three percent.
+#[inline]
+fn read_by_type<'py>(
+    held: &'static PyOnceLock<Py<PyAny>>,
+    name: &Bound<'py, PyString>,
+    of: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if made_by_type(of) {
+        return of.getattr(name);
+    }
+    read_through_type(held, name, of)
+}
+
+/// [`read_by_type`] for a class with a metaclass of its own, out of line.
+#[cold]
+#[inline(never)]
+fn read_through_type<'py>(
+    held: &'static PyOnceLock<Py<PyAny>>,
+    name: &Bound<'py, PyString>,
+    of: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = of.py();
+    let get = held.get_or_try_init(py, || {
+        Ok::<_, PyErr>(
+            PyType::type_object(py)
+                .getattr(intern!(py, "__dict__"))?
+                .get_item(name)?
+                .getattr(intern!(py, "__get__"))?
+                .unbind(),
+        )
+    })?;
+    get.bind(py).call1((of,))
+}
+
+/// Whether `class`'s metaclass is `type` itself, compared by address: the
+/// reference two owned types would take and give back costs more than the
+/// lookup this decides to make.
+#[inline]
+fn made_by_type(class: &Bound<'_, PyAny>) -> bool {
+    class.get_type_ptr() == PyType::type_object_raw(class.py())
+}
+
+/// The class Python lays `ty`'s instances out on, or `None` for `object`.
+fn base_of<'py>(ty: &Bound<'py, PyType>) -> PyResult<Option<Bound<'py, PyType>>> {
+    let name = intern!(ty.py(), "__base__");
+    Ok(read_by_type(&TYPE_BASE, name, ty)?
+        .cast_into::<PyType>()
+        .ok())
+}
+
+/// The method resolution order Python laid down for `ty`, which `isinstance`
+/// and attribute lookup read.
+fn mro_of<'py>(ty: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    read_by_type(&TYPE_MRO, intern!(ty.py(), "__mro__"), ty)
+}
+
+/// The namespace `ty`'s class statement filled, as Python holds it.
+fn namespace_by_type<'py>(ty: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    read_by_type(&TYPE_DICT, intern!(ty.py(), "__dict__"), ty)
+}
+
+/// What Python's special-method lookup finds for `name` on `ty`, or `None`
+/// where it finds nothing: the first namespace along `ty`'s method resolution
+/// order holding the name.
+///
+/// The interpreter dispatches `len`, `iter`, `==`, a call, `isinstance` and a
+/// descriptor's `__set__` through the type's slots, filled from those
+/// namespaces, and asks no `__getattribute__` -- not even the metaclass's
+/// (the language reference, "Special method lookup"). `getattr` on a class
+/// asks its metaclass first, so a metaclass answering the name, by a hook or
+/// by a data descriptor of that name, reports a method other than the one
+/// Python calls. A class whose metaclass is `type` itself answers `getattr`
+/// by exactly this lookup, and is asked that way: it is nearly every class,
+/// and one attribute read where the walk below is one a class.
+#[inline]
+pub(crate) fn special_lookup<'py>(
+    ty: &Bound<'py, PyType>,
+    name: &Bound<'py, PyString>,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    if made_by_type(ty) {
+        return ty.getattr_opt(name);
+    }
+    along_the_mro(ty, name)
+}
+
+/// Whether Python's special-method lookup finds `name` on `ty`: the presence
+/// [`special_lookup`] reads, asked through [`type_has`] where the metaclass is
+/// `type`, since a miss is what most of these questions meet.
+#[inline]
+fn special_has(ty: &Bound<'_, PyType>, name: &Bound<'_, PyString>) -> PyResult<bool> {
+    if made_by_type(ty) {
+        return type_has(ty, name);
+    }
+    Ok(along_the_mro(ty, name)?.is_some())
+}
+
+/// The first value of `name` along `ty`'s method resolution order, each
+/// namespace read as Python holds it: the lookup for a class with a metaclass
+/// of its own, out of line.
+#[cold]
+#[inline(never)]
+fn along_the_mro<'py>(
+    ty: &Bound<'py, PyType>,
+    name: &Bound<'py, PyString>,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    for class in mro_of(ty)?.try_iter()? {
+        let namespace = namespace_by_type(&class?)?;
+        if namespace.contains(name)? {
+            return namespace.get_item(name).map(Some);
+        }
+    }
+    Ok(None)
+}
+
+/// `types.MemberDescriptorType`, read once.
+static MEMBER_DESCRIPTOR: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// Whether `value`, found in `ty`'s own namespace, is a slot Python laid down
+/// for `ty`: a member descriptor whose `__objclass__` is `ty`. Python makes one
+/// for each name a class's `__slots__` lists when it makes the class, and no
+/// assignment makes another -- naming `__slots__` afterwards lays nothing down,
+/// and one class's descriptor copied into another names its own class.
+fn is_own_slot(value: &Bound<'_, PyAny>, ty: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = value.py();
+    let member = MEMBER_DESCRIPTOR.import(py, "types", "MemberDescriptorType")?;
+    Ok(value.get_type().is(member) && value.getattr(intern!(py, "__objclass__"))?.is(ty))
+}
+
+/// Whether a class lays down an instance layout of its own over the one its
+/// base carries.
+///
+/// A class defined in Python does where its own `__slots__` add a slot
+/// ([`adds_slots`]). A type defined in C as a static type does where its
+/// instance is larger than its base's, by `__basicsize__` or by
+/// `__itemsize__`: that is the test `CPython` puts to a static type in
+/// `solid_base`, in `Objects/typeobject.c`, on every release this crate builds
+/// for, and the layout Python refuses to combine with one that neither extends
+/// nor is extended by it. `complex` lays down one, so no class derives
+/// from it and from `int`; `Exception` lays down none, its instance being the
+/// one `BaseException` lays down, so `class Both(ValueError, TypeError)` builds
+/// and the two share instances.
+///
+/// A type defined in C as a heap type -- `collections.deque`, and
+/// `decimal.Decimal` from 3.13 -- is read as a class defined in Python is, by
+/// its own `__slots__`, and lays down nothing here: the size of a heap type
+/// counts the `__dict__` and `__weakref__` pointers before 3.12, which lay down
+/// nothing.
+///
+/// The flags, the base and the two sizes are the ones Python laid down, read
+/// through `type`'s own descriptors ([`read_by_type`]) as `solid_base` reads
+/// the type object: a metaclass answering any of them lays no layout down.
+#[cfg(not(PyPy))]
+fn lays_down_its_own(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    static TYPE_BASICSIZE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    static TYPE_ITEMSIZE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+    let py = ty.py();
+    if is_heap_type(ty)? {
+        return adds_slots(ty);
+    }
+    let Some(base) = base_of(ty)? else {
+        return Ok(false);
+    };
+    let shape = |of: &Bound<'_, PyType>| -> PyResult<(isize, isize)> {
+        Ok((
+            read_by_type(&TYPE_BASICSIZE, intern!(py, "__basicsize__"), of)?.extract()?,
+            read_by_type(&TYPE_ITEMSIZE, intern!(py, "__itemsize__"), of)?.extract()?,
+        ))
+    };
+    Ok(shape(ty)? != shape(&base)?)
+}
+
+/// Whether a class lays down an instance layout of its own: on PyPy, where its
+/// own `__slots__` add a slot. PyPy refuses the classes `CPython` refuses but
+/// names no size, so a type defined in C is read as laying down nothing, and
+/// what `CPython` decides of it PyPy declines.
+#[cfg(PyPy)]
+fn lays_down_its_own(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+    adds_slots(ty)
+}
+
+/// Whether a class's own `__slots__` add an instance slot Python laid down.
 ///
 /// Read from the class's own namespace rather than inherited, because a slot is
-/// laid down once and a subclass without `__slots__` of its own adds none.
-/// `__dict__` and `__weakref__` name no slot: they ask for the two pointers a
-/// plain instance has anyway, and Python lays down no layout for them -- a
-/// class listing only those meets any other. A name is one slot, and a sequence
-/// of names is each of them; an empty sequence is no slot at all.
+/// laid down once and a subclass without `__slots__` of its own adds none, and
+/// read off the member descriptor each slot is ([`is_own_slot`]) rather than
+/// off the names: `__slots__` assigned after the class is made lays nothing
+/// down. `__dict__` and `__weakref__` name no slot: they ask for the two
+/// pointers a plain instance has anyway, and Python lays down no member for
+/// them -- a class listing only those meets any other. A name is one slot, and
+/// a sequence of names is each of them; an empty sequence is no slot at all.
 ///
 /// A class without `__slots__` of its own adds none; any other error reading
 /// them -- the namespace through a metaclass's hook, the names through an
 /// iterable of the class's -- is the caller's.
 fn adds_slots(ty: &Bound<'_, PyType>) -> PyResult<bool> {
     let py = ty.py();
-    let namespace = ty.getattr(intern!(py, "__dict__"))?;
+    let namespace = namespace_by_type(ty)?;
     // Asked before it is read: most classes declare no slots, and a `KeyError`
     // built for each of them and read for its type costs a relation between
     // two dataclasses more than the rest of its class reading.
@@ -391,20 +1103,29 @@ fn adds_slots(ty: &Bound<'_, PyType>) -> PyResult<bool> {
         return Ok(false);
     }
     let slots = namespace.get_item(intern!(py, "__slots__"))?;
-    let adds = |name: &Bound<'_, PyAny>| {
-        !name
-            .cast::<PyString>()
-            .is_ok_and(|name| name == "__dict__" || name == "__weakref__")
-    };
-    if slots.is_instance_of::<PyString>() {
-        return Ok(adds(&slots));
-    }
-    for name in slots.try_iter()? {
-        if adds(&name?) {
+    for name in slot_names(&slots)? {
+        let value = namespace.call_method1(intern!(py, "get"), (slot_key(ty, &name)?,))?;
+        if is_own_slot(&value, ty)? {
             return Ok(true);
         }
     }
     Ok(false)
+}
+
+/// The key a slot named `name` is stored under in `ty`'s namespace: the name,
+/// or for a private one -- two leading underscores and not two trailing --
+/// the name mangled with the class's, as Python stores it.
+fn slot_key(ty: &Bound<'_, PyType>, name: &str) -> PyResult<String> {
+    if !name.starts_with("__") || name.ends_with("__") {
+        return Ok(name.to_owned());
+    }
+    let owner: String = ty.getattr(intern!(ty.py(), "__name__"))?.extract()?;
+    let owner = owner.trim_start_matches('_');
+    Ok(if owner.is_empty() {
+        name.to_owned()
+    } else {
+        format!("_{owner}{name}")
+    })
 }
 
 /// The names a class's own `__slots__` -- one name, or a sequence of them --
@@ -430,7 +1151,7 @@ fn slot_names(slots: &Bound<'_, PyAny>) -> PyResult<Vec<Box<str>>> {
 /// hook: `object`, which defines it, and the builtins a value's kind is read
 /// from, with `BaseException`.
 ///
-/// `CPython` 3.10 to 3.13 put a slot wrapper for the generic lookup in each of
+/// `CPython` 3.11 to 3.13 put a slot wrapper for the generic lookup in each of
 /// those namespaces, and 3.14 puts it in `object`'s alone; read as a hook, it
 /// would make every `int` or exception subclass's attributes code's answer on
 /// the older releases and not on the newer. The classes whose lookup is their
@@ -480,8 +1201,8 @@ fn type_has(ty: &Bound<'_, PyType>, name: &Bound<'_, PyString>) -> PyResult<bool
 /// Before 3.13 `PyO3`'s `hasattr` is a `getattr` whose `AttributeError` is
 /// cleared, and on a type object the error's message is formatted before it
 /// is. The builtin `hasattr` asks a type through the lookup 3.12 gives it,
-/// which answers a miss without building the error; 3.10 and 3.11 build it
-/// either way. On 3.12 that error is most of what reading a dataclass's
+/// which answers a miss without building the error; 3.11 builds it either
+/// way. On 3.12 that error is most of what reading a dataclass's
 /// namespace costs, since every value type that is no data descriptor misses
 /// twice.
 #[cfg(not(Py_3_13))]
@@ -522,9 +1243,11 @@ struct NamespaceReading {
 /// unless `generic` says it is the generic lookup.
 ///
 /// A name is a [`Member::Slot`] where the namespace's own `__slots__` names
-/// it, a [`Member::Descriptor`] where its value's type defines `__set__` or
-/// `__delete__`, and a [`Member::Plain`] otherwise. A slot is read by its
-/// name rather than by its descriptor's type, so a mangled slot name, which
+/// it and holds the member descriptor Python laid down for it
+/// ([`is_own_slot`]), a [`Member::Descriptor`] where its value's type defines
+/// `__set__` or `__delete__`, and a [`Member::Plain`] otherwise. A slot whose
+/// descriptor an assignment replaced is read as what replaced it: every
+/// instance then reads the class's value. A mangled slot name, which
 /// `__slots__` spells unmangled, reads as a descriptor: the conservative
 /// direction. `__slots__` is found among the items rather than asked for,
 /// because asking a namespace without it raises a `KeyError` for every
@@ -537,8 +1260,7 @@ fn read_namespace<'py>(
     let py = base.py();
     let mut entries = Vec::new();
     let mut slots = None;
-    for item in base
-        .getattr(intern!(py, "__dict__"))?
+    for item in namespace_by_type(base)?
         .call_method0(intern!(py, "items"))?
         .try_iter()?
     {
@@ -568,7 +1290,7 @@ fn read_namespace<'py>(
             "__getattribute__" => getattribute = !generic,
             _ => {}
         }
-        let member = if slots.contains(&name) {
+        let member = if slots.contains(&name) && is_own_slot(&value, base)? {
             Member::Slot
         } else if is_data_descriptor(&value, descriptors)? {
             Member::Descriptor
@@ -598,7 +1320,7 @@ fn is_data_descriptor<'py>(
     }
     let py = value.py();
     let answer =
-        type_has(&ty, intern!(py, "__set__"))? || type_has(&ty, intern!(py, "__delete__"))?;
+        special_has(&ty, intern!(py, "__set__"))? || special_has(&ty, intern!(py, "__delete__"))?;
     descriptors.push((ty, answer));
     Ok(answer)
 }
@@ -627,10 +1349,7 @@ impl<'py> PoolRelations<'py, '_> {
             return None;
         }
         let mut bases = Vec::new();
-        for base in self.heard(
-            ty.getattr(intern!(ty.py(), "__mro__"))
-                .and_then(|mro| mro.try_iter()),
-        )? {
+        for base in self.heard(mro_of(ty).and_then(|mro| mro.try_iter()))? {
             let base = self.heard(base)?;
             let base = base.cast_into::<PyType>().ok()?;
             // A base need not denote a set for the order to hold: what `is_a`
@@ -662,7 +1381,16 @@ impl<'py> PoolRelations<'py, '_> {
         if let Some(read) = self.attributes.borrow().get(&key) {
             return Some(Arc::clone(read));
         }
-        let read = Arc::new(self.read_attributes(ty)?);
+        // An enumeration read as the union of its members has no instance but
+        // them, and a member holds what it holds as it stands, which the
+        // members' own reading asks (`leaf_subtype`). A direct instance made
+        // past them is no value of the set, so no name of one is read: the
+        // reading a `__getattribute__` hook gets, as a builtin's instance does.
+        let read = Arc::new(if self.enum_members(ty).is_some() {
+            Attributes::new(false, Hook::Getattribute)
+        } else {
+            self.read_attributes(ty)?
+        });
         self.attributes.borrow_mut().insert(key, Arc::clone(&read));
         Some(read)
     }
@@ -682,10 +1410,7 @@ impl<'py> PoolRelations<'py, '_> {
     fn read_attributes(&self, ty: &Bound<'py, PyType>) -> Option<Attributes> {
         let mut namespaces = Vec::new();
         let mut descriptors = Vec::new();
-        for base in self.heard(
-            ty.getattr(intern!(self.py, "__mro__"))
-                .and_then(|mro| mro.try_iter()),
-        )? {
+        for base in self.heard(mro_of(ty).and_then(|mro| mro.try_iter()))? {
             let base = self.heard(base)?;
             namespaces.push(self.heard(self.namespace_of(&base, &mut descriptors))?);
         }
@@ -754,6 +1479,34 @@ impl<'py> PoolRelations<'py, '_> {
         None
     }
 
+    /// A pooled bound operand that is exactly a `Fraction` or a `Decimal`, as
+    /// the integers at its floor and at its ceiling: Python compares an `int`
+    /// with either exactly, so a bound over the integers reads no more of it.
+    /// One with no finite value, or past the integers an `i64` holds, is not
+    /// read. The range is asked by comparison first, so a `Decimal` with a vast
+    /// exponent is never made an `int`.
+    fn rational(&self, slot: usize) -> Option<Operand> {
+        let value = self.literals.get(slot)?.bind(self.py);
+        if !self.heard(is_exact_rational(&value.get_type()))? {
+            return None;
+        }
+        if !self.heard(value.ge(i64::MIN))? {
+            return None;
+        }
+        if !self.heard(value.lt(1u64 << 63))? {
+            return None;
+        }
+        let at = |method| {
+            self.heard(value.call_method0(method))?
+                .extract::<i64>()
+                .ok()
+        };
+        Some(Operand::Rational {
+            floor: at(intern!(self.py, "__floor__"))?,
+            ceil: at(intern!(self.py, "__ceil__"))?,
+        })
+    }
+
     /// Whether a class denotes a set.
     ///
     /// A class is **pure** when its metaclass leaves both `isinstance` and
@@ -775,10 +1528,9 @@ impl<'py> PoolRelations<'py, '_> {
             return Some(true);
         }
         let untouched = |hook: &Bound<'_, PyString>| -> Option<bool> {
-            Some(
-                self.heard(metaclass.getattr(hook))?
-                    .is(&plain.getattr(hook).ok()?),
-            )
+            let mine = self.heard(special_lookup(&metaclass, hook))?;
+            let theirs = special_lookup(&plain, hook).ok()?;
+            Some(matches!((mine, theirs), (Some(mine), Some(theirs)) if mine.is(&theirs)))
         };
         Some(
             untouched(intern!(self.py, "__instancecheck__"))?
@@ -792,6 +1544,7 @@ impl<'py> PoolRelations<'py, '_> {
 impl Constants for PoolRelations<'_, '_> {
     fn operand(&self, index: OperandIx) -> Option<Operand> {
         self.pooled(index.get())
+            .or_else(|| self.rational(index.get()))
     }
 
     fn constant(&self, index: ConstIx) -> Option<Operand> {
@@ -840,7 +1593,7 @@ impl LeafRelations for PoolRelations<'_, '_> {
             return None;
         }
         let (solid, own) = self.heard(layout_of(class))?;
-        // `bool` lays down `int`'s layout, so a class laid out as an int may be
+        // `bool` derives from `int`, so a class laid out as an int may be
         // `bool` itself and hold booleans. Sound and coarse: the pair is never
         // refuted here.
         match own {
@@ -859,7 +1612,7 @@ impl LeafRelations for PoolRelations<'_, '_> {
     /// decline.
     ///
     /// A class laid out as a builtin answers by comparing the two, with `bool`
-    /// under `int` for the reason the layout tag gives: a class laid out as an
+    /// under `int` for the reason the kind gives: a class laid out as an
     /// int may be `bool` itself.
     fn direct_instance_of_kind(&self, class: ClassIx, kind: Kind) -> Option<bool> {
         let value = self.literals.get(class.get())?.bind(self.py);
@@ -921,10 +1674,11 @@ impl LeafRelations for PoolRelations<'_, '_> {
         match sub {
             // The constant's membership, which is the literal's where the
             // constant is its one value or nothing in `sup` tells equal values
-            // apart; the core asks which, and keeps this proof only there.
+            // apart; the core asks which, and keeps this proof only there. A
+            // walk that stopped on the constant answers neither way.
             Schema::Literal(index) => {
                 let value = self.literals.get(index.get())?.bind(self.py);
-                Some(self.is_member(sup, value))
+                self.is_member(sup, value)
             }
             // The `isinstance(., C)` values are a subset of the `isinstance(., D)`
             // values exactly when `C` is a subclass of `D`.
@@ -951,6 +1705,16 @@ impl LeafRelations for PoolRelations<'_, '_> {
                         .ok()
                         .and_then(|class| self.heard(class.is_subclass(superclass)));
                 }
+                // A class with one instance and no subclass is the literal of
+                // that instance, as `None`'s kind is: `type(...)` and
+                // `type(NotImplemented)` refuse a subclass, and calling either
+                // returns its one object.
+                for only in [self.py.Ellipsis(), self.py.NotImplemented()] {
+                    let only = only.into_bound(self.py);
+                    if class.is(only.get_type()) {
+                        return self.is_member(sup, &only);
+                    }
+                }
                 // An enumeration whose members compare by identity is the union
                 // of them: the members are fixed when the class is defined, a
                 // class with any cannot be subclassed, and no other value is an
@@ -958,10 +1722,35 @@ impl LeafRelations for PoolRelations<'_, '_> {
                 // what makes `Color` and `Literal[Color.RED, Color.GREEN]` one
                 // set rather than two the procedure cannot relate.
                 let members = self.enum_members(class)?;
-                Some(members.iter().all(|member| self.is_member(sup, member)))
+                let mut every = Some(true);
+                for member in &members {
+                    match self.is_member(sup, member) {
+                        Some(false) => return Some(false),
+                        Some(true) => {}
+                        None => every = None,
+                    }
+                }
+                every
             }
+            // `None`'s kind is the literal of its one value: `NoneType` admits
+            // no subclass, so the walk of `None` is the kind's. `bool`'s two
+            // values are each a pooled literal, which the parts reading asks
+            // one at a time, and no kind with more is a set of values to walk.
+            Schema::NoneType => self.is_member(sup, &self.py.None().into_bound(self.py)),
             _ => None,
         }
+    }
+
+    /// Each text as a fresh `str`, walked through one index built for
+    /// `schema`, so a pattern compiles once for the question rather than once
+    /// a text. A probe a fatal signal stopped has answered nothing, and so has
+    /// one whose walk of a text stopped ([`Self::is_member_under`]).
+    fn strings_admitted(&self, schema: &Schema, texts: &[&str]) -> Option<Vec<bool>> {
+        let index = build_index(self.py, schema, self.definitions, self.literals);
+        texts
+            .iter()
+            .map(|text| self.is_member_under(schema, PyString::new(self.py, text).as_any(), &index))
+            .collect()
     }
 
     fn literal_kind(&self, constant: ConstIx) -> Option<Kind> {
@@ -991,7 +1780,7 @@ impl LeafRelations for PoolRelations<'_, '_> {
         // builtin scalar, whose equality is Python's, or a type that compares by
         // identity, where two distinct objects are two values by definition.
         if self.literal_kind(left).is_none()
-            && !self.heard(compares_by_identity(&left_value.get_type()))?
+            && !self.compares_by_identity(&left_value.get_type())?
         {
             return None;
         }
@@ -1001,7 +1790,8 @@ impl LeafRelations for PoolRelations<'_, '_> {
     /// [`literals_disjoint`](LeafRelations::literals_disjoint) over two sets of
     /// constants in one pass: two literals share a value where their constants
     /// are one exact type and equal [FCB08, §4.2], under the equality the pair
-    /// form trusts.
+    /// form trusts. A constant unequal to itself denotes no value, as the pair
+    /// form reads it, so it shares none even with itself.
     fn literal_sets_disjoint(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<bool> {
         // Hash the smaller side and probe with the larger, which turns the
         // core's member-by-member walk into one pass. Keyed by `(type, value)`
@@ -1021,7 +1811,7 @@ impl LeafRelations for PoolRelations<'_, '_> {
             // builtin scalar, whose equality is Python's, or a type comparing by
             // identity, where two distinct objects are two values.
             if self.literal_kind(*index).is_none()
-                && !self.heard(compares_by_identity(&value.get_type()))?
+                && !self.compares_by_identity(&value.get_type())?
             {
                 return None;
             }
@@ -1030,15 +1820,84 @@ impl LeafRelations for PoolRelations<'_, '_> {
         for index in probe {
             let value = self.literals.get(index.get())?.bind(self.py);
             if self.literal_kind(*index).is_none()
-                && !self.heard(compares_by_identity(&value.get_type()))?
+                && !self.compares_by_identity(&value.get_type())?
             {
                 return None;
             }
-            if self.heard(seen.contains((value.get_type(), value)))? {
+            // A set finds a member by identity before it asks `==`, so the
+            // one `nan` held on both sides is found; it is a value of neither
+            // literal, and only a constant equal to itself is one shared.
+            if self.heard(seen.contains((value.get_type(), value)))?
+                && self.heard(value.eq(value))?
+            {
                 return Some(false);
             }
         }
         Some(true)
+    }
+
+    /// [`literal_sets_disjoint`](LeafRelations::literal_sets_disjoint)'s one
+    /// pass, counting: the constants' `(type, value)` pairs held in one set,
+    /// whose size is how many values they hold apart. Only where every
+    /// constant's equality is one this oracle trusts, the condition the pair
+    /// form applies; the core has asked each to be a value, equal to itself.
+    fn literals_counted_apart(&self, constants: &[ConstIx]) -> Option<usize> {
+        let seen = PySet::empty(self.py).ok()?;
+        for index in constants {
+            let value = self.literals.get(index.get())?.bind(self.py);
+            if self.literal_kind(*index).is_none()
+                && !self.compares_by_identity(&value.get_type())?
+            {
+                return None;
+            }
+            self.heard(seen.add((value.get_type(), value)))?;
+        }
+        Some(seen.len())
+    }
+
+    /// [`literal_sets_disjoint`](LeafRelations::literal_sets_disjoint)'s one
+    /// pass, pairing: the right constants' positions held in one dict by
+    /// their `(type, value)` pair, and each left constant found there, so a
+    /// pair named shares a value and every other pair is two literals apart.
+    /// Only where every constant's equality is one this oracle trusts, the
+    /// condition the pair form applies; a constant unequal to itself, `nan`,
+    /// is paired with none, being a value of no literal.
+    fn literals_paired(&self, left: &[ConstIx], right: &[ConstIx]) -> Option<Vec<(usize, usize)>> {
+        let positions = PyDict::new(self.py);
+        for (at, index) in right.iter().enumerate() {
+            let value = self.literals.get(index.get())?.bind(self.py);
+            if self.literal_kind(*index).is_none()
+                && !self.compares_by_identity(&value.get_type())?
+            {
+                return None;
+            }
+            let key = (value.get_type(), value);
+            if let Some(held) = self.heard(positions.get_item(&key))? {
+                self.heard(held.cast_into::<PyList>().ok()?.append(at))?;
+            } else {
+                let held = self.heard(PyList::new(self.py, [at]))?;
+                self.heard(positions.set_item(key, held))?;
+            }
+        }
+        let mut pairs = Vec::new();
+        for (at, index) in left.iter().enumerate() {
+            let value = self.literals.get(index.get())?.bind(self.py);
+            if self.literal_kind(*index).is_none()
+                && !self.compares_by_identity(&value.get_type())?
+            {
+                return None;
+            }
+            let Some(held) = self.heard(positions.get_item((value.get_type(), value)))? else {
+                continue;
+            };
+            if !self.heard(value.eq(value))? {
+                continue;
+            }
+            for other in held.try_iter().ok()? {
+                pairs.push((at, self.heard(other)?.extract().ok()?));
+            }
+        }
+        Some(pairs)
     }
 
     /// Whether the constant is the only value of its exact type that `==` it,
@@ -1072,15 +1931,43 @@ impl LeafRelations for PoolRelations<'_, '_> {
         if let Ok(complex) = value.cast_exact::<PyComplex>() {
             return complex.real() != 0.0 && complex.imag() != 0.0;
         }
-        self.heard(compares_by_identity(&ty)).unwrap_or(false)
+        self.compares_by_identity(&ty).unwrap_or(false)
+    }
+
+    /// Whether the values the constant's literal holds -- the model's
+    /// singleton [FCB08, §4.2] widened to the values `==` joins to the
+    /// constant -- read alike to a pattern, a length, a bound and a step, as
+    /// [`equal_values_read_alike`] reads the constant's class. A check that
+    /// raised has answered nothing.
+    fn equal_values_read_alike(&self, constant: ConstIx) -> bool {
+        self.literals.get(constant.get()).is_some_and(|value| {
+            self.heard(equal_values_read_alike(value.bind(self.py)))
+                .unwrap_or(false)
+        })
     }
 
     fn compare(&self, left: OperandIx, right: OperandIx) -> Option<core::cmp::Ordering> {
         // Order two refinement-bound values by Python's own comparison, so the
         // core can decide an unsatisfiable bound conjunction. An incomparable
-        // pair (a TypeError) leaves the bound undecided.
+        // pair (a TypeError) leaves the bound undecided, and so does an operand
+        // the walk reads through another order than this one.
         let left = self.literals.get(left.get())?.bind(self.py);
         let right = self.literals.get(right.get())?.bind(self.py);
+        if !(self.heard(orders_as_the_walk_reads(left))?
+            && self.heard(orders_as_the_walk_reads(right))?)
+        {
+            return None;
+        }
+        // A list or a tuple orders item by item, stopping at the first pair
+        // that differs, so a value orders against one bound and raises against
+        // another: `[2 + 0j] >= [2]` holds, and `[2 + 0j] >= [1]` orders a
+        // complex number against an integer. No order between the bounds is an
+        // order of the values.
+        if [left, right].iter().any(|operand| {
+            operand.is_instance_of::<PyList>() || operand.is_instance_of::<PyTuple>()
+        }) {
+            return None;
+        }
         self.heard(left.compare(right))
     }
 
@@ -1114,6 +2001,26 @@ impl LeafRelations for PoolRelations<'_, '_> {
         hi: OperandIx,
         hi_strict: bool,
     ) -> Option<bool> {
+        let key = (lo, lo_strict, hi, hi_strict);
+        if let Some(&known) = self.intervals.borrow().get(&key) {
+            return Some(known);
+        }
+        let answer = self.reads_no_int_between(lo, lo_strict, hi, hi_strict)?;
+        self.intervals.borrow_mut().insert(key, answer);
+        Some(answer)
+    }
+}
+
+impl PoolRelations<'_, '_> {
+    /// [`LeafRelations::no_int_between`] read from the two constants, which
+    /// the trait's method keeps for the query.
+    fn reads_no_int_between(
+        &self,
+        lo: OperandIx,
+        lo_strict: bool,
+        hi: OperandIx,
+        hi_strict: bool,
+    ) -> Option<bool> {
         // Decide whether the open/half-open interval bounded by the pooled values
         // admits no integer. The least admissible integer is `floor(lo) + 1` when
         // `lo` is excluded and `ceil(lo)` when it is included; the greatest is
@@ -1125,6 +2032,16 @@ impl LeafRelations for PoolRelations<'_, '_> {
         let ceil = ceil.bind(self.py);
         let lo = self.literals.get(lo.get())?.bind(self.py);
         let hi = self.literals.get(hi.get())?.bind(self.py);
+        // An operand the walk orders otherwise than `floor` and `ceil` round it
+        // names no interval here, and nor does one rounding it would take time
+        // quadratic in more digits than CPython converts.
+        if !(self.heard(orders_as_the_walk_reads(lo))?
+            && self.heard(orders_as_the_walk_reads(hi))?)
+            || self.heard(rounds_past_its_digits(lo))?
+            || self.heard(rounds_past_its_digits(hi))?
+        {
+            return None;
+        }
         // A non-real bound (`math.floor` raises a `TypeError`) or a non-finite one
         // (an `OverflowError`) leaves the rule undecided rather than guessing.
         let one = 1i64;

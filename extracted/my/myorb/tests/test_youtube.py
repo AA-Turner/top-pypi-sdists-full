@@ -99,6 +99,7 @@ def test_new_videos_from_subscriptions(client: TestClient, fake_google: FakeGoog
     assert '<span class="node-value">1</span>' in text
     assert "Fresh &lt;video&gt;" in text
     assert "Server Side · 3h ago" in text
+    assert '<img class="row-image" src="https://i.ytimg.com/vi/new/mqdefault.jpg"' in text
     assert "Last week" in text
     assert "Long ago" not in text
     assert ">2</div><div" in text  # channels, including one whose feed is gone

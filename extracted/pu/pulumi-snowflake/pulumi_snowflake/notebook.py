@@ -387,6 +387,8 @@ class Notebook(pulumi.CustomResource):
                  warehouse: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
+        > **Deprecation** This resource is deprecated and will be removed in a future major version of the provider. It manages [Legacy Notebooks](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks), and Snowflake is [disabling the creation of new Legacy Notebooks](https://docs.snowflake.com/en/release-notes/bcr-bundles/un-bundled/bcr-disable-legacy-notebooks) in a rollout that started on September 1, 2026. On accounts where the change is rolled out, creating this resource fails. Snowflake plans to stop the execution and editing of existing Legacy Notebooks in November 2026. [Code Bundles replace Legacy Notebook objects](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks-in-workspaces/notebooks-in-workspaces-migrate), so migrate to the `CodeBundle` resource.
+
         > **Note** Due to Snowflake limitations, external changes to `from` are not currently detected.
 
         > **Note** `secrets` is currently not supported. It will be supported in the following versions of the provider which may still affect this resource.
@@ -455,6 +457,8 @@ class Notebook(pulumi.CustomResource):
                  args: NotebookArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        > **Deprecation** This resource is deprecated and will be removed in a future major version of the provider. It manages [Legacy Notebooks](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks), and Snowflake is [disabling the creation of new Legacy Notebooks](https://docs.snowflake.com/en/release-notes/bcr-bundles/un-bundled/bcr-disable-legacy-notebooks) in a rollout that started on September 1, 2026. On accounts where the change is rolled out, creating this resource fails. Snowflake plans to stop the execution and editing of existing Legacy Notebooks in November 2026. [Code Bundles replace Legacy Notebook objects](https://docs.snowflake.com/en/user-guide/ui-snowsight/notebooks-in-workspaces/notebooks-in-workspaces-migrate), so migrate to the `CodeBundle` resource.
+
         > **Note** Due to Snowflake limitations, external changes to `from` are not currently detected.
 
         > **Note** `secrets` is currently not supported. It will be supported in the following versions of the provider which may still affect this resource.
@@ -612,6 +616,36 @@ class Notebook(pulumi.CustomResource):
         __props__.__dict__["show_outputs"] = show_outputs
         __props__.__dict__["warehouse"] = warehouse
         return Notebook(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            database: pulumi.Input[Optional[_builtins.str]] = None,
+            describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookDescribeOutputArgs', 'NotebookDescribeOutputArgsDict', 'outputs.NotebookDescribeOutput']]]]] = None,
+            froms: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookFromArgs', 'NotebookFromArgsDict', 'outputs.NotebookFrom']]]]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            idle_auto_shutdown_time_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            main_file: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            query_warehouse: pulumi.Input[Optional[_builtins.str]] = None,
+            schema: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookShowOutputArgs', 'NotebookShowOutputArgsDict', 'outputs.NotebookShowOutput']]]]] = None,
+            warehouse: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["comment"] = comment
+        __props__["database"] = database
+        __props__["describeOutputs"] = describe_outputs
+        __props__["froms"] = froms
+        __props__["fullyQualifiedName"] = fully_qualified_name
+        __props__["idleAutoShutdownTimeSeconds"] = idle_auto_shutdown_time_seconds
+        __props__["mainFile"] = main_file
+        __props__["name"] = name
+        __props__["queryWarehouse"] = query_warehouse
+        __props__["schema"] = schema
+        __props__["showOutputs"] = show_outputs
+        __props__["warehouse"] = warehouse
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/notebook:Notebook', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter

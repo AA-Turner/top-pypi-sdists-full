@@ -12,6 +12,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod aoa;
 mod arrays;
+mod bap;
 mod beast;
 mod bfast;
 mod bfastlite;
@@ -34,6 +35,7 @@ mod sma;
 mod smooth;
 mod snic;
 mod som;
+mod texture;
 mod tmask;
 mod twdtw;
 mod utils;
@@ -57,6 +59,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     add_submodule(m, &parts::module(m.py())?)?;
     add_submodule(m, &twdtw::module(m.py())?)?;
     add_submodule(m, &snic::module(m.py())?)?;
+    add_submodule(m, &texture::module(m.py())?)?;
+    add_submodule(m, &bap::module(m.py())?)?;
     add_submodule(m, &smooth::module(m.py())?)?;
     add_submodule(m, &sma::module(m.py())?)?;
     add_submodule(m, &coded::module(m.py())?)?;

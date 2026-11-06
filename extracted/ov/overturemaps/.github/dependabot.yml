@@ -15,13 +15,13 @@ updates:
     labels:
       - "bot"
     commit-message:
-      prefix: "[CHORE](deps)"
+      prefix: "chore"
       include: "scope"
     cooldown:
       default-days: 7
 
-  # Maintain Python dependencies
-  - package-ecosystem: "pip"
+  # Maintain Python dependencies (pyproject.toml and uv.lock)
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -33,7 +33,7 @@ updates:
     labels:
       - "bot"
     commit-message:
-      prefix: "[CHORE](deps)"
+      prefix: "chore"
       include: "scope"
     cooldown:
       default-days: 7

@@ -6,6 +6,7 @@ protocol specification that they must implement.
 import importlib.util
 import logging
 import os
+import tomllib
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatch
 from pathlib import Path
@@ -14,14 +15,6 @@ from typing import (
     Protocol,
     cast,
 )
-
-from ._compat import PY_311
-
-
-if PY_311:
-    import tomllib
-else:
-    import tomli as tomllib  # type: ignore[no-redef]
 
 from . import cls_utils
 from .dict_utils import set_path
@@ -456,10 +449,17 @@ class FileLoader:
 
 class PythonFormat:
     """
-    Support for Python files.  Read settings from the given *section*.
+    Support for Python files.  Read settings from the specified class or module.
 
     Args:
-        section: The config file section to load settings from.
+        cls_name: The name of the class to load.
+            If ``None`` is given read settings from module instead.
+        key_transformer: Function to map from class/module variables to settings keys.
+            Defaults to identity.
+        flat: If ``True``, keys in the source are considered flattened.
+            For example,  if the source contains ``a_b``
+            and there is an option ``a.b``,
+            ``a_b`` is mapped to ``a.b``.
     """
 
     def __init__(
@@ -487,9 +487,9 @@ class PythonFormat:
 
         Args:
             path: The path to the config file.
-            options: The list of available settings.
             settings_cls: The base settings class for all options.  If ``None``, load
                 directly from the module instead.
+            options: The list of available settings.
 
         Return:
             A dict with the loaded settings.
@@ -532,7 +532,7 @@ class PythonFormat:
         module_name = path.stem
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
-            raise ConfigFileNotFoundError("No such file or directory: '{path}'")
+            raise ConfigFileNotFoundError(f"No such file or directory: '{path}'")
         module = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(module)

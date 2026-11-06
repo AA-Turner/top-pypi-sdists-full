@@ -7,14 +7,25 @@ from __future__ import annotations
 
 
 class InstanceRepoError(Exception):
-    """SDK 异常基类；``code`` 为稳定错误码（与 Go 对齐）。"""
+    """SDK 异常基类；``code`` 为稳定错误码（与 Go 对齐）。
+
+    ``data`` 为服务端错误响应里**可选结构化负载**（如 grant miss 的
+    ``reason``/``apply_url``）。旧服务不带 data 时为空 dict（兼容默认），
+    调用方 ``getattr(e, "data", {})`` 或直接 ``e.data`` 均安全。
+    注意：``data`` 只作结构化读取，绝不拼进 message/repr（凭据等秘密值
+    不因异常日志而泄漏），SDK 也不自动消费其中的 URL。
+    """
 
     code = "E_UNKNOWN"
 
-    def __init__(self, message: str = "", *, cause: BaseException | None = None) -> None:
+    def __init__(self, message: str = "", *, cause: BaseException | None = None,
+                 data: dict | None = None) -> None:
         super().__init__(message or self.code)
         self.message = message or self.code
         self.__cause__ = cause
+        # 非 dict（含 None/缺省）一律回退空 dict：旧服务无 data、data=null、
+        # data 为字符串等场景都拿到稳定类型，免调用方逐处判空。
+        self.data = data if isinstance(data, dict) else {}
 
 
 class LayoutError(InstanceRepoError):
@@ -73,8 +84,9 @@ class BizCodeError(InstanceRepoError):
     """携带 apiserver 数字业务码的异常基类（Dataset RBAC 等数字码场景）。"""
 
     def __init__(self, message: str = "", *, status: int | None = None,
-                 biz_code: int | None = None) -> None:
-        super().__init__(message)
+                 biz_code: int | None = None,
+                 data: dict | None = None) -> None:
+        super().__init__(message, data=data)
         self.status = status
         # 未显式传入时继承类属性里的数字业务码（如 DatasetAccessDenied.biz_code=94016）。
         self.biz_code = biz_code if biz_code is not None else getattr(self, "biz_code", None)
@@ -124,11 +136,24 @@ class TransportError(InstanceRepoError):
 
     def __init__(self, message: str = "", *, status: int | None = None,
                  biz_code: int | None = None, report=None,
-                 cause: BaseException | None = None) -> None:
-        super().__init__(message, cause=cause)
+                 cause: BaseException | None = None,
+                 data: dict | None = None) -> None:
+        super().__init__(message, cause=cause, data=data)
         self.status = status
         self.biz_code = biz_code
         self.report = report
+        # data 由基类归一化（非 dict → {}），不在此重复处理。
+
+
+class RequestDeadlineExceeded(TransportError):
+    """调用方显式给定的总预算（deadline）耗尽——**本地**信号（非服务器
+    响应，不携带任何远端数据；retry/transport 层共享的 safe 异常形态）。
+
+    与超时类传输错误的区别：这是**编排预算**（请求发出前/后判定），
+    不是单次 socket 超时；调用方可据此区分"预算用尽"与"网络慢"。
+    transport/retry 层使用；**禁止** import client 层模块（依赖方向：
+    errors ← retry/transport ← clients）。"""
+    code = "E_REQUEST_DEADLINE"
 
 
 class JobFailed(InstanceRepoError):
@@ -182,14 +207,22 @@ BIZ_CODE_TO_EXC: dict[int, type[BizCodeError]] = {
 }
 
 
-def exc_for_code(code: str, message: str = "") -> InstanceRepoError:
-    """按 apiserver 返回的 code 构造对应异常；未知 code 回退 TransportError。"""
+def exc_for_code(code: str, message: str = "",
+                 data: dict | None = None) -> InstanceRepoError:
+    """按 apiserver 返回的 code 构造对应异常；未知 code 回退 TransportError。
+
+    ``data`` 为错误响应可选结构化负载（非 dict 安全回退 {}）。
+    **不设 status**（R1返修①）：base 语义中字符串码路径的异常从不携带 status
+    （重试策略 is_transient 依赖这一点——一旦补 status，503 等会误触发
+    retry_transient 重试，改变调用次数语义）。数字业务码请走 exc_for_biz_code。
+    """
     cls = CODE_TO_EXC.get(code, TransportError)
-    return cls(message)
+    return cls(message, data=data)
 
 
 def exc_for_biz_code(code: int, message: str = "", *,
-                     status: int | None = None) -> InstanceRepoError:
+                     status: int | None = None,
+                     data: dict | None = None) -> InstanceRepoError:
     """按 apiserver 返回的数字业务码构造对应异常；未知码回退 TransportError。"""
     cls = BIZ_CODE_TO_EXC.get(code, TransportError)
-    return cls(message, status=status, biz_code=code)
+    return cls(message, status=status, biz_code=code, data=data)

@@ -552,6 +552,124 @@ class Client(OpenApiClient):
         headers = dingtalkexclusive__1__0_models.BanOrOpenGroupWordsHeaders()
         return await self.ban_or_open_group_words_with_options_async(request, headers, runtime)
 
+    def batch_change_private_storage_open_apps_with_options(
+        self,
+        request: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsRequest,
+        headers: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse:
+        """
+        @summary 批量配置企业专属存储开放应用
+        
+        @param request: BatchChangePrivateStorageOpenAppsRequest
+        @param headers: BatchChangePrivateStorageOpenAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchChangePrivateStorageOpenAppsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.delete_client_ids):
+            body['deleteClientIds'] = request.delete_client_ids
+        if not UtilClient.is_unset(request.save_client_ids):
+            body['saveClientIds'] = request.save_client_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchChangePrivateStorageOpenApps',
+            version='exclusive_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/exclusive/privateStores/openApps/batchChange',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def batch_change_private_storage_open_apps_with_options_async(
+        self,
+        request: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsRequest,
+        headers: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse:
+        """
+        @summary 批量配置企业专属存储开放应用
+        
+        @param request: BatchChangePrivateStorageOpenAppsRequest
+        @param headers: BatchChangePrivateStorageOpenAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: BatchChangePrivateStorageOpenAppsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.delete_client_ids):
+            body['deleteClientIds'] = request.delete_client_ids
+        if not UtilClient.is_unset(request.save_client_ids):
+            body['saveClientIds'] = request.save_client_ids
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='BatchChangePrivateStorageOpenApps',
+            version='exclusive_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/exclusive/privateStores/openApps/batchChange',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def batch_change_private_storage_open_apps(
+        self,
+        request: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsRequest,
+    ) -> dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse:
+        """
+        @summary 批量配置企业专属存储开放应用
+        
+        @param request: BatchChangePrivateStorageOpenAppsRequest
+        @return: BatchChangePrivateStorageOpenAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsHeaders()
+        return self.batch_change_private_storage_open_apps_with_options(request, headers, runtime)
+
+    async def batch_change_private_storage_open_apps_async(
+        self,
+        request: dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsRequest,
+    ) -> dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsResponse:
+        """
+        @summary 批量配置企业专属存储开放应用
+        
+        @param request: BatchChangePrivateStorageOpenAppsRequest
+        @return: BatchChangePrivateStorageOpenAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkexclusive__1__0_models.BatchChangePrivateStorageOpenAppsHeaders()
+        return await self.batch_change_private_storage_open_apps_with_options_async(request, headers, runtime)
+
     def business_event_update_with_options(
         self,
         request: dingtalkexclusive__1__0_models.BusinessEventUpdateRequest,
@@ -11263,6 +11381,124 @@ class Client(OpenApiClient):
         runtime = util_models.RuntimeOptions()
         headers = dingtalkexclusive__1__0_models.ListPartnerRolesHeaders()
         return await self.list_partner_roles_with_options_async(parent_id, headers, runtime)
+
+    def list_private_storage_open_apps_with_options(
+        self,
+        request: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsRequest,
+        headers: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse:
+        """
+        @summary 分页查询企业专属存储开放应用配置
+        
+        @param request: ListPrivateStorageOpenAppsRequest
+        @param headers: ListPrivateStorageOpenAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListPrivateStorageOpenAppsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.next_token):
+            body['nextToken'] = request.next_token
+        if not UtilClient.is_unset(request.page_size):
+            body['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='ListPrivateStorageOpenApps',
+            version='exclusive_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/exclusive/privateStores/openApps/query',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_private_storage_open_apps_with_options_async(
+        self,
+        request: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsRequest,
+        headers: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse:
+        """
+        @summary 分页查询企业专属存储开放应用配置
+        
+        @param request: ListPrivateStorageOpenAppsRequest
+        @param headers: ListPrivateStorageOpenAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListPrivateStorageOpenAppsResponse
+        """
+        UtilClient.validate_model(request)
+        body = {}
+        if not UtilClient.is_unset(request.next_token):
+            body['nextToken'] = request.next_token
+        if not UtilClient.is_unset(request.page_size):
+            body['pageSize'] = request.page_size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            body=OpenApiUtilClient.parse_to_map(body)
+        )
+        params = open_api_models.Params(
+            action='ListPrivateStorageOpenApps',
+            version='exclusive_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/exclusive/privateStores/openApps/query',
+            method='POST',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_private_storage_open_apps(
+        self,
+        request: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsRequest,
+    ) -> dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse:
+        """
+        @summary 分页查询企业专属存储开放应用配置
+        
+        @param request: ListPrivateStorageOpenAppsRequest
+        @return: ListPrivateStorageOpenAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsHeaders()
+        return self.list_private_storage_open_apps_with_options(request, headers, runtime)
+
+    async def list_private_storage_open_apps_async(
+        self,
+        request: dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsRequest,
+    ) -> dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsResponse:
+        """
+        @summary 分页查询企业专属存储开放应用配置
+        
+        @param request: ListPrivateStorageOpenAppsRequest
+        @return: ListPrivateStorageOpenAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkexclusive__1__0_models.ListPrivateStorageOpenAppsHeaders()
+        return await self.list_private_storage_open_apps_with_options_async(request, headers, runtime)
 
     def list_punch_schedule_by_condition_with_paging_with_options(
         self,

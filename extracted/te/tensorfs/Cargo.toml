@@ -7,7 +7,7 @@ exclude = ["vendor/faer"]
 members = ["crates/executor-protocol", "crates/platform", "crates/tensorfs", "crates/tensorfs-py", "crates/varena"]
 
 [workspace.package]
-version = "0.18.3"
+version = "0.20.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
@@ -16,6 +16,7 @@ homepage = "https://github.com/cozy-creator/cozy-creator"
 publish = false
 
 [workspace.dependencies]
+backon = { version = "1.6", default-features = false, features = ["std", "tokio-sleep"] }
 calcifer = { path = "crates/calcifer" }
 cli = { path = "crates/cli" }
 executor-protocol = { path = "crates/executor-protocol" }
@@ -66,6 +67,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 rustix = { version = "1.1.4", default-features = false, features = ["std"] }
 rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 saphyr = { version = "0.2.2", default-features = false }
+saphyr-parser = { version = "0.2.2", default-features = false }
 self-replace = "1.5"
 semver = "1"
 serde = { version = "1", features = ["derive"] }

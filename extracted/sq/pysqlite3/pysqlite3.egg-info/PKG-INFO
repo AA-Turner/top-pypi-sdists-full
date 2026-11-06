@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysqlite3
-Version: 0.6.1
+Version: 0.6.2
 Summary: DB-API 2.0 interface for Sqlite 3.x
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/pysqlite3

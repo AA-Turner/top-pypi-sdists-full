@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured-client
-Version: 0.46.4
+Version: 0.47.0
 Summary: Python Client SDK for Unstructured API
 Author: Unstructured
 License: MIT
@@ -9,6 +9,7 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: aiofiles>=25.1.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: httpcore>=1.0.9
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: pydantic>=2.12.5
@@ -175,6 +176,10 @@ with UnstructuredClient(
 | `err.body`         | `str`            | HTTP body. Can be empty string if no body is returned.                                  |
 | `err.raw_response` | `httpx.Response` | Raw HTTP response                                                                       |
 | `err.data`         |                  | Optional. Some errors may contain structured data. [See Error Classes](https://github.com/Unstructured-IO/unstructured-python-client/blob/master/#error-classes). |
+| `err.retryable`    | `Optional[bool]` | Whether the API declared that sending the same request again can succeed. `None` if it declared nothing. |
+| `err.error_type`   | `Optional[str]`  | The kind of failure the API declared, eg `timeout`. `None` if it declared nothing.     |
+| `err.error_reason` | `Optional[str]`  | A stable name for the failure the API declared. `None` if it declared nothing.         |
+| `err.audience`     | `Optional[str]`  | Whose fault the API declared the failure to be, `user` or `platform`. `None` if it declared nothing. |
 
 ### Example
 ```python

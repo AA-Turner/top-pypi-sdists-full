@@ -35,7 +35,7 @@ extras_require["all"] = sorted({pkg for group in extras_require.values() for pkg
 
 setuptools.setup(
     name="abstract_utilities",
-    version='0.2.2.811',
+    version='0.2.2.812',
     author="putkoff",
     author_email="partners@abstractendeavors.com",
     description="Utility modules for data comparison, JSON handling, string manipulation, math operations, and general automation tasks.",
@@ -55,7 +55,7 @@ setuptools.setup(
     # Core install pulls in only abstract_essentials (the stdlib-only core this
     # package builds on and pulls shared helpers + the MIME reference from); every
     # heavy dependency is imported lazily and is declared as an optional extra above.
-    install_requires=["abstract_essentials>=0.0.0.27", "abstract_search>=0.1.3"],
+    install_requires=["abstract_essentials>=0.0.0.33", "abstract_search>=0.1.3"],
     extras_require=extras_require,
 
     package_dir={"": "src"},

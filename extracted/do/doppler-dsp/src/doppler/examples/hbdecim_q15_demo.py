@@ -18,6 +18,9 @@ Run:
   python hbdecim_q15_demo.py
 """
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

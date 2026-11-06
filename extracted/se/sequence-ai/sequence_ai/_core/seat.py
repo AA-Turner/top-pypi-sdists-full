@@ -242,13 +242,13 @@ class _KeptSeat:
             self._waiting_ready = False
 
     def _keep_seat(self) -> str:
-        """One keepalive (POST /v1/act/keepalive): the seat this session holds is kept seat_ttl_s more. It keeps the
-        seat alone - not the worker, which stops idle_timeout after its last act whatever its robots' keepalives say,
-        and its seats with it. When the platform says the seat is gone ("held": false - released, run out, or its
-        worker stopped), keepalives stop, the robot is told (_say_seat_went), and the next act renews at once, which
-        seats the robot again or puts it in line. Unreached: nothing changes; the seat lasts its seat_ttl_s and the
-        keepalive tries again soon (_keep_alive). A kept seat's answer may say its worker is leaving (`rotate`, as a
-        renewal does): the robot is told once and moves at its next episode boundary. What it came to - "kept", "gone",
+        """One keepalive (POST /v1/act/keepalive): the seat this session holds is kept seat_ttl_s more, and a seat holds
+        its worker, an act or none, for as long as this client lives. When the platform says the seat is gone ("held":
+        false - released, run out, or its worker stopped), keepalives stop, the robot is told (_say_seat_went), and the
+        next act renews at once, which seats the robot again or puts it in line. Unreached: nothing changes; the seat
+        lasts its seat_ttl_s and the keepalive tries again soon (_keep_alive). A kept seat's answer may say its worker is
+        leaving (`rotate`, as a renewal does): the robot is told once and moves at its next episode boundary. What it
+        came to - "kept", "gone",
         "unreached" or "off" (none asked for, or its seat is going back: _reseat). Never raises."""
         given_back = self._given_back
         if not self._seat_kept or self._reseating:
@@ -265,12 +265,15 @@ class _KeptSeat:
         if body.get("held") is False:
             if self._given_back != given_back:
                 return "off"
+            serving = body.get("version")
             with self._lock:
                 self._seat_kept = False
 
                 if self._worker is not None:
                     self._lease_deadline = time.monotonic()
-            self._say_seat_went(body.get("why"))
+                if self._another_version(serving):
+                    self._ended = {"reason": "new_version", "version": serving, "on_version": self._epoch}
+            self._say_seat_went(body.get("why"), serving)
             return "gone"
         self._kept_at = time.time()
         if "request_timeout_s" in body:
@@ -308,12 +311,16 @@ class _KeptSeat:
                 self._say_moving(rotate)
         return "kept"
 
+    def _another_version(self, serving: Any) -> bool:
+        """Whether `serving`, the version the platform says serves, is another than the one this robot was on."""
+        return self._epoch is not None and isinstance(serving, int) and serving != self._epoch
+
     def _may_hold(self) -> bool:
         """Whether the platform may still hold this robot's seat: within seat_ttl_s, by the wall clock, of the last time
         it said so. Past it the seat has gone whatever a beat would say, and the keepalive keeps its own pace."""
         return self._kept_at is not None and time.time() - self._kept_at < self._seat_ttl_s
 
-    def _say_seat_went(self, why: Optional[str] = None) -> None:
+    def _say_seat_went(self, why: Optional[str] = None, serving: Any = None) -> None:
         """The robot's place went while its Policy is open: said once each time, on stderr as the line's notices are,
         so a robot that lost its seat while it could not reach the platform - longer than seat_ttl_s - or whose worker
         stopped knows why its next act waits.
@@ -326,8 +333,12 @@ A robot in line had no seat: it is told it is no longer in line. `why` is the pl
         nothing ran out. In wait_until_ready() only a stop is said, as its next connect places the robot again. Before,
         both said no keepalive had reached the platform for 60 s.
 
- 
-"""
+
+
+        `serving`: the version the platform serves now. Another than the one this robot was on took its seat: a version
+        that begins to serve disconnects the robots on the others and ends their workers, this connection is over
+        (_ended), and that is said. {the user 11-05: "the v1 just disconnect at the moment you deploy v2", "we dont route
+        it", "user should jsut reconnect"}"""
         if self._waiting_ready and why != "stopped":
             return
         in_line = self._in_line
@@ -337,6 +348,9 @@ A robot in line had no seat: it is told it is no longer in line. `why` is the pl
         if why == "stopped":
             cause = (f"{self._model} was stopped; its acts are refused until `seq policy start {self._model}` lets "
                      "robots connect again")
+        elif not in_line and self._another_version(serving):
+            cause = (f"version {serving} went live, which ended version {self._epoch}'s workers; this connection is "
+                     f"over: connect() again for version {serving}")
         elif self._may_hold():
             heard = f"the platform heard from it {max(0.0, time.time() - self._kept_at):.0f} s ago"
             cause = (f"{heard} and let its place go; {then}" if in_line

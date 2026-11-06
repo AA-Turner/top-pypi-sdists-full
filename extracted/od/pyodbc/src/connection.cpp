@@ -59,7 +59,7 @@ static char* StrDup(const char* text) {
 }
 
 
-static bool Connect(PyObject* pConnectString, HDBC hdbc, long timeout, PyObject* encoding)
+static bool Connect(PyObject* pConnectString, HDBC hdbc, long timeout, PyObject* encoding, SQLUSMALLINT driver_completion)
 {
     assert(PyUnicode_Check(pConnectString));
 
@@ -88,24 +88,41 @@ static bool Connect(PyObject* pConnectString, HDBC hdbc, long timeout, PyObject*
     if (!cstring.isValid())
         return false;
 
+    SQLHWND hwnd = 0;
+#ifdef _WIN32
+    if (driver_completion != SQL_DRIVER_NOPROMPT)
+    {
+        hwnd = GetDesktopWindow();
+        if (!hwnd)
+        {
+            PyErr_SetString(OperationalError, "Failed to get desktop window handle");
+            return false;
+        }
+    }
+#endif
+
     Py_BEGIN_ALLOW_THREADS
-    ret = SQLDriverConnectW(hdbc, 0, cstring, SQL_NTS, 0, 0, 0, SQL_DRIVER_NOPROMPT);
+    ret = SQLDriverConnectW(hdbc, hwnd, cstring, SQL_NTS, 0, 0, 0, driver_completion);
     Py_END_ALLOW_THREADS
     if (SQL_SUCCEEDED(ret))
         return true;
+
+    if (ret == SQL_NO_DATA)
+    {
+        PyErr_SetString(OperationalError, "User cancelled connection request");
+        return false;
+    }
 
     RaiseErrorFromHandle(0, "SQLDriverConnect", hdbc, SQL_NULL_HANDLE);
 
     return false;
 }
 
-static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char *strencoding)
+static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char *strencoding, PyObject *keepalives)
 {
     SQLRETURN ret;
     SQLPOINTER ivalue = 0;
     SQLINTEGER vallen = 0;
-
-    SQLWChar sqlchar;
 
     if (PyLong_Check(value))
     {
@@ -121,19 +138,42 @@ static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char 
     }
     else if (PyByteArray_Check(value))
     {
-        ivalue = (SQLPOINTER)PyByteArray_AsString(value);
+        // A bytearray is mutable: PyByteArray_AsString returns a pointer into its internal
+        // storage, which a concurrent resize (.extend(), +=, slice assignment) reallocates,
+        // invalidating the pointer we hand to the driver.  Some drivers read the buffer late
+        // (during SQLDriverConnectW, after the GIL has been released), so snapshot the contents
+        // into an immutable bytes and keep that alive instead -- matching the bytes/str paths
+        // and closing the race for the bytearray case.
+        // https://github.com/mkleehammer/pyodbc/issues/1497
+        Object po(PyBytes_FromObject(value));
+        if (!po)
+            return false;  // OOM
+        ivalue = (SQLPOINTER)PyBytes_AsString(po);
         vallen = SQL_IS_POINTER;
+        // PyList_Append increments the refcount, so the list owns the snapshot for as long as
+        // the driver needs it; po releases our own reference when it goes out of scope.
+        if (PyList_Append(keepalives, po))  // OOM
+            return false;
     }
     else if (PyBytes_Check(value))
     {
-        ivalue = PyBytes_AsString(value);
+        // Keep the value alive beyond this function invocation's lifetime.
+        if (PyList_Append(keepalives, value))  // OOM
+            return false;
+        ivalue = (SQLPOINTER)PyBytes_AsString(value);
         vallen = SQL_IS_POINTER;
     }
     else if (PyUnicode_Check(value))
     {
-        sqlchar.set(value, strencoding ? strencoding : "utf-16le");
-        ivalue = sqlchar.get();
+        Object po(PyUnicode_AsEncodedString(value, strencoding ? strencoding : "utf-16le", "strict"));
+        if (!po)
+            return false;  // OOM
+        ivalue = (SQLPOINTER)PyBytes_AsString(po);
         vallen = SQL_NTS;
+        // PyList_Append increments the refcount, so the list owns the encoded buffer for as long
+        // as the driver needs it; po releases our own reference when it goes out of scope.
+        if (PyList_Append(keepalives, po))  // OOM
+            return false;
     }
     else if (PySequence_Check(value))
     {
@@ -142,7 +182,7 @@ static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char 
         for (Py_ssize_t i = 0; i < len; i++)
         {
             Object v(PySequence_GetItem(value, i));
-            if (!ApplyPreconnAttrs(hdbc, ikey, v.Get(), strencoding))
+            if (!ApplyPreconnAttrs(hdbc, ikey, v.Get(), strencoding, keepalives))
                 return false;
         }
         return true;
@@ -170,7 +210,7 @@ static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char 
 }
 
 PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeout, bool fReadOnly,
-                         PyObject* attrs_before, PyObject* encoding)
+                         PyObject* attrs_before, PyObject* encoding, SQLUSMALLINT driver_completion)
 {
     //
     // Allocate HDBC and connect
@@ -189,8 +229,18 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
     // Attributes that must be set before connecting.
     //
 
+    PyObject* preconn_keepalives = 0;
     if (attrs_before)
     {
+        // We have evidence that some drivers hold on to preconnection values longer after the
+        // call to SQLSetConnectAttrW has returned, so we're keeping those values alive to avoid
+        // a crash.
+        // https://github.com/mkleehammer/pyodbc/issues/1469
+        // https://github.com/microsoft/msphpsql/issues/1594
+        preconn_keepalives = PyList_New(0);
+        if (!preconn_keepalives)
+            return 0;
+
         Py_ssize_t pos = 0;
         PyObject* key = 0;
         PyObject* value = 0;
@@ -206,21 +256,27 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
 
             if (PyLong_Check(key))
                 ikey = (int)PyLong_AsLong(key);
-            if (!ApplyPreconnAttrs(hdbc, ikey, value, strencoding))
+            if (!ApplyPreconnAttrs(hdbc, ikey, value, strencoding, preconn_keepalives))
             {
+                Py_DECREF(preconn_keepalives);
                 return 0;
             }
         }
     }
 
-    if (!Connect(pConnectString, hdbc, timeout, encoding))
+    if (!Connect(pConnectString, hdbc, timeout, encoding, driver_completion))
     {
         // Connect has already set an exception.
         Py_BEGIN_ALLOW_THREADS
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         Py_END_ALLOW_THREADS
+        Py_XDECREF(preconn_keepalives);
         return 0;
     }
+
+    // The current evidence indicates that the bug in Microsoft's driver isn't as bad as it
+    // could be, so we don't have to keep these objects alive until the connection is closed.
+    Py_XDECREF(preconn_keepalives);
 
     //
     // Connected, so allocate the Connection object.
@@ -250,8 +306,11 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
     cnxn->maxwrite     = 0;
     cnxn->timeout      = 0;
     cnxn->map_sqltype_to_converter = 0;
+    cnxn->readvar_initsize = 4096;
+    cnxn->compat_diagrec_byte_length = false;
 
     cnxn->attrs_before = attrs_before_o.Detach();
+    cnxn->fetch_decimal_as_string = false;
 
     // This is an inefficient default, but should work all the time.  When we are offered
     // single-byte text we don't actually know what the encoding is.  For example, with SQL
@@ -351,25 +410,44 @@ static char set_attr_doc[] =
     "attr_id\n"
     "  The attribute id (integer) to set.  These are ODBC or driver constants.\n\n"
     "value\n"
-    "  An integer value.\n\n"
-    "At this time, only integer values are supported and are always passed as SQLUINTEGER.";
+    "  An integer or string value.";
 
 static PyObject* Connection_set_attr(PyObject* self, PyObject* args)
 {
     int id;
-    int value;
-    if (!PyArg_ParseTuple(args, "ii", &id, &value))
+    PyObject* value;
+    if (!PyArg_ParseTuple(args, "iO", &id, &value))
         return 0;
 
     Connection* cnxn = (Connection*)self;
 
     SQLRETURN ret;
-    Py_BEGIN_ALLOW_THREADS
-    ret = SQLSetConnectAttr(cnxn->hdbc, id, (SQLPOINTER)(intptr_t)value, SQL_IS_INTEGER);
-    Py_END_ALLOW_THREADS
+    SQLWChar sqlchar;  // declared here so buffer stays alive across the call
+
+    if (PyLong_Check(value))
+    {
+        long ival = PyLong_AsLong(value);
+        Py_BEGIN_ALLOW_THREADS
+        ret = SQLSetConnectAttrW(cnxn->hdbc, id, (SQLPOINTER)(intptr_t)ival, SQL_IS_INTEGER);
+        Py_END_ALLOW_THREADS
+    }
+    else if (PyUnicode_Check(value))
+    {
+        sqlchar.set(value, "utf-16le");
+        Py_BEGIN_ALLOW_THREADS
+        ret = SQLSetConnectAttrW(cnxn->hdbc, id, sqlchar.get(), SQL_NTS);
+        Py_END_ALLOW_THREADS
+    }
+    else
+    {
+        PyErr_Format(PyExc_TypeError, "set_attr value must be a string or integer, not '%s'",
+                     Py_TYPE(value)->tp_name);
+        return 0;
+    }
 
     if (!SQL_SUCCEEDED(ret))
         return RaiseErrorFromHandle(cnxn, "SQLSetConnectAttr", cnxn->hdbc, SQL_NULL_HANDLE);
+
     Py_RETURN_NONE;
 }
 
@@ -875,6 +953,21 @@ static PyObject* Connection_getclosed(PyObject* self, void* closure)
     Py_RETURN_FALSE;
 }
 
+static PyObject* Connection_gethdbc(PyObject* self, void* closure)
+{
+    UNUSED(closure);
+    Connection* cnxn;
+
+    if (!self || !Connection_Check(self))
+    {
+        PyErr_SetString(PyExc_TypeError, "Connection object required");
+        return nullptr;
+    }
+
+    cnxn = (Connection*)self;
+
+    return MakeVoidPointerFromHandle(cnxn->hdbc);
+}
 
 static PyObject* Connection_getsearchescape(PyObject* self, void* closure)
 {
@@ -942,6 +1035,34 @@ static int Connection_setmaxwrite(PyObject* self, PyObject* value, void* closure
     return 0;
 }
 
+static PyObject* Connection_getreadvarinitsize(PyObject* self, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return 0;
+    return PyLong_FromSsize_t(cnxn->readvar_initsize);
+}
+
+static int Connection_setreadvarinitsize(PyObject* self, PyObject* value, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return -1;
+    Py_ssize_t v = PyLong_AsSsize_t(value);
+    if (v == -1 && PyErr_Occurred())
+        return -1;
+    if (v < 0)
+    {
+        PyErr_SetString(PyExc_TypeError, "Cannot set readvar_initsize to a negative value.");
+        return -1;
+    }
+    cnxn->readvar_initsize = v;
+    return 0;
+}
 
 static PyObject* Connection_gettimeout(PyObject* self, void* closure)
 {
@@ -988,6 +1109,53 @@ static int Connection_settimeout(PyObject* self, PyObject* value, void* closure)
 
     cnxn->timeout = timeout;
 
+    return 0;
+}
+
+static PyObject* Connection_getfetchdecimalasstring(PyObject* self, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return 0;
+
+    PyObject* result = cnxn->fetch_decimal_as_string ? Py_True : Py_False;
+    Py_INCREF(result);
+    return result;
+}
+
+static int Connection_setfetchdecimalasstring(PyObject* self, PyObject* value, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return -1;
+
+    if (value == 0)
+    {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the fetch_decimal_as_string attribute.");
+        return -1;
+    }
+
+    cnxn->fetch_decimal_as_string = PyObject_IsTrue(value);
+    return 0;
+}
+
+static PyObject* Connection_getcompat_diagrec_byte_length(PyObject* self, void* closure)
+{
+    return PyBool_FromLong(((Connection*)self)->compat_diagrec_byte_length);
+}
+
+static int Connection_setcompat_diagrec_byte_length(PyObject* self, PyObject* value, void* closure)
+{
+    if (!PyBool_Check(value))
+    {
+        PyErr_SetString(PyExc_TypeError, "compat_diagrec_byte_length must be a bool");
+        return -1;
+    }
+    ((Connection*)self)->compat_diagrec_byte_length = (value == Py_True);
     return 0;
 }
 
@@ -1386,6 +1554,7 @@ static struct PyMethodDef Connection_methods[] =
 static PyGetSetDef Connection_getseters[] = {
     { "closed", (getter)Connection_getclosed, 0,
       "Returns True if the connection is closed; False otherwise.", 0},
+    { "hdbc", (getter)Connection_gethdbc, 0, "ODBC connection handle.", 0 },
     { "searchescape", (getter)Connection_getsearchescape, 0,
         "The ODBC search pattern escape character, as returned by\n"
         "SQLGetInfo(SQL_SEARCH_PATTERN_ESCAPE).  These are driver specific.", 0 },
@@ -1394,6 +1563,14 @@ static PyGetSetDef Connection_getseters[] = {
     { "timeout", Connection_gettimeout, Connection_settimeout,
       "The timeout in seconds, zero means no timeout.", 0 },
     { "maxwrite", Connection_getmaxwrite, Connection_setmaxwrite, "The maximum bytes to write before using SQLPutData.", 0 },
+    { "readvar_initsize", Connection_getreadvarinitsize, Connection_setreadvarinitsize,
+      "The initial buffer size in bytes for reading values from variable-length columns.", 0 },
+    { "fetch_decimal_as_string", Connection_getfetchdecimalasstring, Connection_setfetchdecimalasstring,
+      "If True, DECIMAL and NUMERIC values are fetched as strings using the legacy\n"
+      "locale-aware path.  If False (the default), values are fetched using a binary\n"
+      "representation that is not affected by the locale.", 0 },
+    { "compat_diagrec_byte_length", Connection_getcompat_diagrec_byte_length, Connection_setcompat_diagrec_byte_length,
+      "If True, the driver reports byte length instead of character length in SQLGetDiagRecW().", 0 },
     { 0 }
 };
 

@@ -1380,6 +1380,10 @@ async def _handle_pre_body_request(method: str, path: str, headers: dict, query_
     if response is not None:
         return response
 
+    response = _handle_elb_public_key_request(method, path, host)
+    if response is not None:
+        return response
+
     return await _handle_admin_reset(path, method, query_params)
 
 
@@ -1399,6 +1403,34 @@ def _handle_elasticache_ca_request(method: str, path: str):
             json.dumps({"message": str(e)}).encode(),
         )
     return (200, {"Content-Type": "application/x-pem-file"}, cert_pem.encode())
+
+
+_ELB_PUBLIC_KEYS_PREFIX = "/_ministack/elb/public-keys/"
+_ELB_PUBLIC_KEYS_HOST_RE = re.compile(r"^public-keys\.auth\.elb\.[a-z0-9-]+\.amazonaws\.com(?::\d+)?$", re.IGNORECASE)
+
+
+def _handle_elb_public_key_request(method: str, path: str, host: str):
+    """`GET public-keys.auth.elb.<region>.amazonaws.com/<kid>` (or
+    `/_ministack/elb/public-keys/<kid>`) returns the PEM key that verifies
+    x-amzn-oidc-data; an unknown kid gets AWS's S3 AccessDenied."""
+    if method != "GET":
+        return None
+    if _ELB_PUBLIC_KEYS_HOST_RE.match(host):
+        kid = path[1:]
+    elif path.startswith(_ELB_PUBLIC_KEYS_PREFIX):
+        kid = path[len(_ELB_PUBLIC_KEYS_PREFIX):]
+    else:
+        return None
+    from ministack.services import alb
+
+    public_key_pem = alb.oidc_public_key_pem(kid)
+    if public_key_pem is None:
+        return (
+            403,
+            {"Content-Type": "application/xml"},
+            b'<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>',
+        )
+    return (200, {"Content-Type": "application/x-pem-file"}, public_key_pem.encode())
 
 
 def _handle_rds_ca_request(method: str, path: str):
@@ -2287,12 +2319,13 @@ async def _handle_alb_request(
         return None
 
     alb_module = _get_module("alb")
-    load_balancer = alb_module.find_lb_for_host(host)
+    load_balancer = None
     dispatch_path = path
     # Instance and IP targets get the path as the client sent it, percent-encoding included.
     raw_dispatch_path = raw_path
 
-    if load_balancer is None and path.startswith(_ALB_PATH_PREFIX):
+    # /_alb/<name>/ names the load balancer dialed; Host then only feeds its listener rules.
+    if path.startswith(_ALB_PATH_PREFIX):
         path_parts = path[len(_ALB_PATH_PREFIX) :].split("/", 1)
         load_balancer = alb_module._find_lb_by_name(path_parts[0])
         if load_balancer:
@@ -2301,6 +2334,8 @@ async def _handle_alb_request(
                 raw_parts = raw_path[len(_ALB_PATH_PREFIX) :].split("/", 1)
                 raw_dispatch_path = "/" + raw_parts[1] if len(raw_parts) > 1 else "/"
 
+    if load_balancer is None:
+        load_balancer = alb_module.find_lb_for_host(host)
     if load_balancer is None:
         return None
 
@@ -3769,6 +3804,10 @@ def _stop_docker_containers(include_unlabelled: bool = False):
     if client is None:
         return
     container_reaper.reap_all(client, include_unlabelled=include_unlabelled)
+    # *_PERSIST=0 keeps no data across a restart, so that service's named volumes go too.
+    for service, flag in (("rds", "RDS_PERSIST"), ("mwaa", "MWAA_PERSIST"), ("dsql", "DSQL_PERSIST")):
+        if os.environ.get(flag, "0").lower() not in ("1", "true", "yes"):
+            container_reaper.reap_volumes(client, service)
 
 
 def _build_persistence_save_dict():

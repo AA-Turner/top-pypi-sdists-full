@@ -640,6 +640,48 @@ class TestExpressions:
         with pytest.raises(ValueError, match="expected a JSON string"):
             evaluate_expression("{{ steps.emit.output.exit_code | from_json }}", ctx)
 
+    @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+    @pytest.mark.parametrize("location", ["root", "array", "object"])
+    def test_filter_from_json_rejects_non_json_constants(self, constant, location):
+        from specify_cli.workflows.expressions import evaluate_expression
+        from specify_cli.workflows.base import StepContext
+
+        payload = {
+            "root": constant,
+            "array": f"[{constant}]",
+            "object": f'{{"value": {constant}}}',
+        }[location]
+        ctx = StepContext(steps={"emit": {"output": {"stdout": payload}}})
+        with pytest.raises(ValueError, match=f"from_json: invalid JSON.*{constant}"):
+            evaluate_expression("{{ steps.emit.output.stdout | from_json }}", ctx)
+
+    @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+    def test_condition_from_json_rejects_non_json_constants(self, constant):
+        from specify_cli.workflows.expressions import evaluate_condition
+        from specify_cli.workflows.base import StepContext
+
+        ctx = StepContext(inputs={"payload": constant})
+        with pytest.raises(ValueError, match="from_json: invalid JSON"):
+            evaluate_condition("{{ inputs.payload | from_json }}", ctx)
+
+    @pytest.mark.parametrize(("payload", "expected"), [
+        ('"NaN"', "NaN"),
+        ('["Infinity", "-Infinity"]', ["Infinity", "-Infinity"]),
+        ('{"NaN": "Infinity"}', {"NaN": "Infinity"}),
+        ("0", 0),
+        ("-1.5", -1.5),
+        ("1e3", 1000.0),
+        ("null", None),
+        ("true", True),
+        ('{"values": [0, 1.5, null]}', {"values": [0, 1.5, None]}),
+    ])
+    def test_filter_from_json_preserves_valid_json(self, payload, expected):
+        from specify_cli.workflows.expressions import evaluate_expression
+        from specify_cli.workflows.base import StepContext
+
+        ctx = StepContext(inputs={"payload": payload})
+        assert evaluate_expression("{{ inputs.payload | from_json }}", ctx) == expected
+
     def test_filter_from_json_rejects_malformed_forms(self):
         # `from_json` is strict: no arguments and no trailing tokens. Every
         # mis-wired form must raise rather than silently fall through to the
@@ -8535,7 +8577,7 @@ steps:
 
 # ===== continue_on_error Tests =====
 #
-# Locks the contract documented in workflows/README.md "Error Handling"
+# Locks the contract documented in docs/workflows/api.md "Error Handling"
 # section: when a step returns `StepResult(status=StepStatus.FAILED, ...)` and
 # `continue_on_error: true` is declared, the engine records the step's
 # `output` (with `exit_code` and `stderr` from the failure) and its
@@ -10348,6 +10390,17 @@ class TestWorkflowCatalog:
         catalog = WorkflowCatalog(project_dir)
         with pytest.raises(WorkflowValidationError, match="HTTPS"):
             catalog._validate_catalog_url("http://evil.com/catalog.json")
+
+    def test_validate_url_schemeless_names_the_value(self, project_dir):
+        from specify_cli.workflows.catalog import WorkflowCatalog, WorkflowValidationError
+        from specify_cli.workflows.step.catalog import StepCatalog, StepValidationError
+
+        for catalog, error in (
+            (WorkflowCatalog(project_dir), WorkflowValidationError),
+            (StepCatalog(project_dir), StepValidationError),
+        ):
+            with pytest.raises(error, match=r"\(got a URL with no scheme\)"):
+                catalog._validate_catalog_url("example.com/catalog.json")
 
     def test_validate_url_localhost_http_allowed(self, project_dir):
         from specify_cli.workflows.catalog import WorkflowCatalog

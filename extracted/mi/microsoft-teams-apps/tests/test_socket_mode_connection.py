@@ -1,0 +1,716 @@
+"""
+Copyright (c) Microsoft Corporation. All rights reserved.
+Licensed under the MIT License.
+"""
+
+import asyncio
+import json
+from typing import Awaitable, Callable, Optional, Union
+
+import httpx2
+import pytest
+from microsoft_teams.apps.socket_mode import connection as connection_module
+from microsoft_teams.apps.socket_mode.connection import (
+    SignalRSocketConnection,
+    SocketConnectionAborted,
+    SocketConnectionContext,
+)
+from microsoft_teams.apps.socket_mode.signalr import RECORD_SEPARATOR, SignalRProtocolError
+from microsoft_teams.apps.socket_mode.types import (
+    ReplyFrame,
+    SocketActivityEnvelope,
+    SocketConnectionHandlers,
+    SocketReadyFrame,
+)
+
+
+class MockWebSocket:
+    def __init__(self):
+        self.incoming: asyncio.Queue[Union[str, bytes, Exception]] = asyncio.Queue()
+        self.sent: list[str] = []
+        self.closed = 0
+
+    async def send(self, message: str) -> None:
+        self.sent.append(message)
+
+    async def recv(self) -> Union[str, bytes]:
+        item = await self.incoming.get()
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    async def close(self) -> None:
+        self.closed += 1
+        self.incoming.put_nowait(ConnectionError("closed"))
+
+
+def make_http_client(*, hub_url: str = "https://signalr.example/client/?hub=teams") -> httpx2.AsyncClient:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.host == "botapi.example":
+            return httpx2.Response(
+                200,
+                json={"url": hub_url, "accessToken": "signalr-token", "expiresIn": 120},
+            )
+        return httpx2.Response(
+            200,
+            json={
+                "connectionToken": "connection-token",
+                "availableTransports": [{"transport": "WebSockets", "transferFormats": ["Text"]}],
+            },
+        )
+
+    return httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+
+
+def make_handlers(
+    *,
+    on_activity: Optional[Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]]] = None,
+    on_ready: Optional[Callable[[SocketReadyFrame], None]] = None,
+    on_closed: Optional[Callable[[Optional[Exception]], None]] = None,
+) -> SocketConnectionHandlers:
+    async def default_activity(_: SocketActivityEnvelope) -> Optional[ReplyFrame]:
+        return None
+
+    return SocketConnectionHandlers(
+        on_activity=on_activity or default_activity,
+        on_ready=on_ready or (lambda _: None),
+        on_closed=on_closed or (lambda _: None),
+    )
+
+
+def make_context(**overrides: float) -> SocketConnectionContext:
+    values = {
+        "readiness_timeout": 1.0,
+        "keep_alive_interval": 30.0,
+        "server_timeout": 30.0,
+        "websocket_open_timeout": 1.0,
+    }
+    values.update(overrides)
+    return SocketConnectionContext(
+        negotiate_url="https://botapi.example/v3/websockets/connect",
+        get_bot_token=lambda: _token("bot-token"),
+        **values,
+    )
+
+
+@pytest.mark.asyncio
+async def test_connection_waits_for_socket_ready_and_returns_client_result(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    websocket = MockWebSocket()
+    ready_frames: list[SocketReadyFrame] = []
+    activity_seen = asyncio.Event()
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        activity_seen.set()
+        return ReplyFrame(status=201, envelope_id=envelope.envelope_id, body={"ok": True})
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_activity=on_activity, on_ready=ready_frames.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+        websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
+        await asyncio.sleep(0)
+        assert not start.done()
+        assert connection.connection_id is None
+        now = 1119.0
+
+        websocket.incoming.put_nowait(
+            json.dumps(
+                {
+                    "type": 1,
+                    "target": "SocketReady",
+                    "arguments": [{"botKey": "bot-1", "connectionId": "conn-1"}],
+                }
+            )
+            + RECORD_SEPARATOR
+        )
+        await start
+        assert ready_frames == [SocketReadyFrame(bot_key="bot-1", connection_id="conn-1")]
+        assert connection.connection_id == "conn-1"
+        assert connection.expires_in_seconds == 120
+        assert not connection.is_token_expired
+        now = 1120.0
+        assert connection.is_token_expired
+        assert connection.is_open
+
+        websocket.incoming.put_nowait(
+            json.dumps(
+                {
+                    "type": 1,
+                    "invocationId": "inv-1",
+                    "target": "Activity",
+                    "arguments": [{"envelopeId": "env-1", "payload": {"type": "invoke"}}],
+                }
+            )
+            + RECORD_SEPARATOR
+        )
+        await activity_seen.wait()
+        await _eventually(lambda: len(websocket.sent) == 2)
+        completion = json.loads(websocket.sent[1].removesuffix(RECORD_SEPARATOR))
+        assert completion["type"] == 3
+        assert completion["invocationId"] == "inv-1"
+        assert completion["result"]["status"] == 201
+        await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_connection_closes_when_readiness_times_out():
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(readiness_timeout=0.01),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
+
+        with pytest.raises(TimeoutError, match="Socket Mode connection timed out"):
+            await connection.start()
+
+    assert websocket.closed >= 1
+
+
+@pytest.mark.asyncio
+async def test_connection_cleans_up_when_signalr_handshake_fails():
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(json.dumps({"error": "handshake rejected"}) + RECORD_SEPARATOR)
+
+        with pytest.raises(ValueError, match="handshake rejected"):
+            await connection.start()
+
+    assert websocket.closed >= 1
+
+
+@pytest.mark.asyncio
+async def test_connection_abort_cancels_websocket_handshake_without_late_start():
+    factory_started = asyncio.Event()
+    factory_cancelled = asyncio.Event()
+    stop_event = asyncio.Event()
+
+    async def blocked_factory(_: str) -> MockWebSocket:
+        factory_started.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            factory_cancelled.set()
+            raise
+        raise AssertionError("unreachable")
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=blocked_factory,
+        )
+        start = asyncio.create_task(connection.start(stop_event))
+        await factory_started.wait()
+        stop_event.set()
+
+        with pytest.raises(SocketConnectionAborted):
+            await start
+
+    assert factory_cancelled.is_set()
+
+
+@pytest.mark.asyncio
+async def test_connection_abort_leaves_no_orphan_tasks():
+    """The interruptible wait races several watcher tasks; none may outlive the call."""
+    factory_started = asyncio.Event()
+    stop_event = asyncio.Event()
+
+    async def blocked_factory(_: str) -> MockWebSocket:
+        factory_started.set()
+        await asyncio.Future()
+        raise AssertionError("unreachable")
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=blocked_factory,
+        )
+        before = {id(task) for task in asyncio.all_tasks()}
+        start = asyncio.create_task(connection.start(stop_event))
+        await factory_started.wait()
+        # The race really is running: operation + internal stop + external stop are live.
+        assert len(asyncio.all_tasks()) > len(before) + 1
+        stop_event.set()
+
+        with pytest.raises(SocketConnectionAborted):
+            await start
+        await asyncio.sleep(0)
+
+        survivors = [task for task in asyncio.all_tasks() if id(task) not in before]
+        assert survivors == [], [task.get_name() for task in survivors]
+
+
+@pytest.mark.asyncio
+async def test_connection_notifies_terminal_close_once_and_ignores_duplicate_ready():
+    websocket = MockWebSocket()
+    ready_count = 0
+    closed: list[Optional[Exception]] = []
+
+    def on_ready(_: SocketReadyFrame) -> None:
+        nonlocal ready_count
+        ready_count += 1
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_ready=on_ready, on_closed=closed.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        websocket.incoming.put_nowait(
+            json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]}) + RECORD_SEPARATOR
+        )
+        websocket.incoming.put_nowait(ConnectionError("network drop"))
+        await _eventually(lambda: len(closed) == 1)
+
+    assert ready_count == 1
+    assert isinstance(closed[0], ConnectionError)
+    await connection.stop()
+
+
+async def _token(value: str) -> str:
+    return value
+
+
+@pytest.mark.asyncio
+async def test_connection_sends_keep_alive_pings_at_the_configured_interval():
+    """Without pings on the configured cadence the service times the socket out as idle."""
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(keep_alive_interval=0.01),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await _eventually(lambda: any(_is_ping(message) for message in websocket.sent))
+        await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_connection_treats_a_silent_server_as_a_terminal_close():
+    """``server_timeout`` bounds the wait for inbound traffic, so a peer that goes quiet is noticed."""
+    websocket = MockWebSocket()
+    closed: list[Optional[Exception]] = []
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(server_timeout=0.02, keep_alive_interval=60.0),
+            make_handlers(on_closed=closed.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await _eventually(lambda: len(closed) == 1)
+
+    assert isinstance(closed[0], asyncio.TimeoutError)
+    await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_socket_ready_arriving_after_stop_is_ignored():
+    """
+    The frame is handed to the message handler directly: by the time ``stop`` returns the
+    listener is already cancelled, so driving this through the socket would pass whether or
+    not the guard exists.
+    """
+    websocket = MockWebSocket()
+    ready_count = 0
+
+    def on_ready(_: SocketReadyFrame) -> None:
+        nonlocal ready_count
+        ready_count += 1
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_ready=on_ready),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        websocket.incoming.put_nowait(
+            f"{{}}{RECORD_SEPARATOR}"
+            + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+            + RECORD_SEPARATOR
+        )
+        await connection.start()
+        await connection.stop()
+
+        connection._handle_hub_message({"type": 1, "target": "SocketReady", "arguments": [{}]})  # pyright: ignore[reportPrivateUsage]
+
+    assert ready_count == 1
+
+
+def _is_ping(message: str) -> bool:
+    return json.loads(message.removesuffix(RECORD_SEPARATOR)) == {"type": 6}
+
+
+async def _websocket(value: MockWebSocket) -> MockWebSocket:
+    return value
+
+
+async def _eventually(predicate: Callable[[], bool], timeout: float = 1.0) -> None:
+    async def poll() -> None:
+        for _ in range(round(timeout / 0.001) + 1):
+            if predicate():
+                return
+            await asyncio.sleep(0.001)
+        raise TimeoutError("condition did not become true")
+
+    await asyncio.wait_for(poll(), timeout)
+
+
+@pytest.mark.asyncio
+async def test_default_websocket_factory_defers_open_timeout_to_caller(monkeypatch: pytest.MonkeyPatch):
+    """The connection bounds the open itself; a second timeout here would cap the configured value."""
+    captured: dict[str, object] = {}
+
+    async def fake_connect(url: str, **kwargs: object) -> object:
+        captured.update(kwargs)
+        return MockWebSocket()
+
+    monkeypatch.setattr(connection_module, "connect", fake_connect)
+    await connection_module._open_websocket("wss://socket.example/hub")
+
+    assert captured["open_timeout"] is None
+
+
+@pytest.mark.asyncio
+async def test_default_websocket_factory_caps_frame_size(monkeypatch: pytest.MonkeyPatch):
+    """The library-level cap is the first line of defence against an oversized single frame."""
+    captured: dict[str, object] = {}
+
+    async def fake_connect(url: str, **kwargs: object) -> object:
+        captured.update(kwargs)
+        return MockWebSocket()
+
+    monkeypatch.setattr(connection_module, "connect", fake_connect)
+    await connection_module._open_websocket("wss://socket.example/hub")
+
+    assert captured["max_size"] == connection_module.MAX_FRAME_BYTES
+
+
+@pytest.mark.asyncio
+async def test_connection_rejects_a_pre_aborted_start_without_minting_a_token():
+    """Stop already requested: abort before the bot token is fetched or a socket is opened."""
+    side_effects: list[str] = []
+
+    async def token() -> str:
+        side_effects.append("token")
+        return "bot-token"
+
+    async def factory(_: str) -> MockWebSocket:
+        side_effects.append("websocket")
+        return MockWebSocket()
+
+    connection = SignalRSocketConnection(
+        SocketConnectionContext(
+            negotiate_url="https://botapi.example/v3/websockets/connect",
+            get_bot_token=token,
+        ),
+        make_handlers(),
+        websocket_factory=factory,
+    )
+    stop = asyncio.Event()
+    stop.set()
+
+    with pytest.raises(SocketConnectionAborted):
+        await connection.start(stop)
+
+    assert side_effects == []
+
+
+@pytest.mark.asyncio
+async def test_readiness_survives_a_throwing_on_ready_observer():
+    """A failing observer must not strand start(); readiness is resolved before it runs."""
+    websocket = MockWebSocket()
+
+    def on_ready(_: SocketReadyFrame) -> None:
+        raise RuntimeError("observer exploded")
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_ready=on_ready),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+        websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
+        websocket.incoming.put_nowait(
+            json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]}) + RECORD_SEPARATOR
+        )
+
+        await asyncio.wait_for(start, timeout=1.0)
+        await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_chunk_without_record_separator_fails_closed():
+    """
+    Nothing is buffered across reads, so an endless separator-less stream cannot grow
+    memory: the first incomplete chunk ends the connection.
+    """
+    websocket = MockWebSocket()
+    closed: list[Optional[Exception]] = []
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(on_closed=closed.append),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+
+        websocket.incoming.put_nowait("x" * 32)
+
+        with pytest.raises(SignalRProtocolError, match="incomplete"):
+            await asyncio.wait_for(start, timeout=1.0)
+
+        await _eventually(lambda: len(closed) == 1)
+        assert websocket.closed == 1
+
+
+@pytest.mark.asyncio
+async def test_hub_message_split_across_reads_is_rejected():
+    """
+    Matches the SignalR JS client: each chunk is parsed on its own, and a half-delivered
+    frame is a protocol error rather than something held back for the next read.
+    """
+    websocket = MockWebSocket()
+
+    async with make_http_client() as client:
+        connection = SignalRSocketConnection(
+            make_context(),
+            make_handlers(),
+            http_client=client,
+            websocket_factory=lambda _: _websocket(websocket),
+        )
+        start = asyncio.create_task(connection.start())
+        await _eventually(lambda: len(websocket.sent) == 1)
+        websocket.incoming.put_nowait(f"{{}}{RECORD_SEPARATOR}")
+
+        ready = (
+            json.dumps(
+                {
+                    "type": 1,
+                    "target": "SocketReady",
+                    "arguments": [{"botKey": "bot-1", "connectionId": "conn-1"}],
+                }
+            )
+            + RECORD_SEPARATOR
+        )
+        websocket.incoming.put_nowait(ready[: len(ready) // 2])
+
+        with pytest.raises(SignalRProtocolError, match="incomplete"):
+            await asyncio.wait_for(start, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_drain_tracks_replies_and_acks_through_send_lock_and_socket_send(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    send_started, release_send = asyncio.Event(), asyncio.Event()
+    handled: list[Optional[str]] = []
+
+    class GatedSendWebSocket(MockWebSocket):
+        async def send(self, message: str) -> None:
+            if json.loads(message.removesuffix(RECORD_SEPARATOR)).get("type") == 3:
+                send_started.set()
+                await release_send.wait()
+            await super().send(message)
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        assert asyncio.current_task() in connection._inflight
+        handled.append(envelope.envelope_id)
+        if envelope.envelope_id == "error":
+            raise RuntimeError("handler failed")
+        return ReplyFrame(status=200, body={"ok": True} if envelope.envelope_id == "invoke" else None)
+
+    websocket = GatedSendWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        try:
+            await connection._send_lock.acquire()
+            for name in ("invoke", "ack", "error", "ack"):
+                connection._handle_hub_message(_activity_message(name, 25000))
+            assert len(connection._inflight) == 4
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: len(handled) == 4)
+            assert not draining.done()
+
+            now = 1005.0
+            assert len(connection._inflight) == 4
+            assert not draining.done()
+            connection._send_lock.release()
+            await asyncio.wait_for(send_started.wait(), 1)
+            assert not draining.done()
+            assert len(websocket.sent) == 1
+
+            release_send.set()
+            await asyncio.wait_for(draining, 1)
+            completions = [json.loads(message.removesuffix(RECORD_SEPARATOR)) for message in websocket.sent[1:]]
+            assert [message["invocationId"] for message in completions] == ["invoke", "ack", "error", "ack"]
+            assert completions[0]["result"]["body"] == {"ok": True}
+            assert "body" not in completions[1]["result"]
+            assert completions[2]["error"] == "Socket Mode activity handler failed"
+            assert connection._inflight == {}
+        finally:
+            release_send.set()
+            await connection.stop()
+
+
+@pytest.mark.asyncio
+async def test_drain_recomputes_remaining_deadlines_from_arrival_per_socket(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    gates = {name: asyncio.Event() for name in ("short", "long", "other")}
+    entered: list[Optional[str]] = []
+    cancelled: list[Optional[str]] = []
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        entered.append(envelope.envelope_id)
+        assert envelope.envelope_id is not None
+        try:
+            await gates[envelope.envelope_id].wait()
+        except asyncio.CancelledError:
+            cancelled.append(envelope.envelope_id)
+            raise
+        return ReplyFrame(status=200)
+
+    websocket, other_websocket = MockWebSocket(), MockWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        other = await _start_connection(other_websocket, on_activity, client)
+        try:
+            connection._handle_hub_message(_activity_message("short", 6000))
+            connection._handle_hub_message(_activity_message("long", 30000))
+            other._handle_hub_message(_activity_message("other", 90000))
+            now = 1004.0
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: len(entered) == 3)
+            assert sorted(connection._inflight.values()) == [1006.0, 1030.0]
+
+            now = 1007.0
+            gates["long"].set()
+            await asyncio.wait_for(draining, 1)
+            assert list(connection._inflight.values()) == [1006.0]
+            await connection.stop()
+            assert cancelled == ["short"]
+            assert connection._inflight == {}
+            assert other.is_open
+            assert other_websocket.closed == 0
+            gates["other"].set()
+            await asyncio.wait_for(other.wait_for_drain(1005.0), 1)
+        finally:
+            await connection.stop()
+            await other.stop()
+
+
+@pytest.mark.asyncio
+async def test_drain_keeps_full_cache_grace_and_includes_late_arrivals(monkeypatch: pytest.MonkeyPatch):
+    now = 1000.0
+    monkeypatch.setattr(connection_module, "monotonic", lambda: now)
+    early_done, late_done = asyncio.Event(), asyncio.Event()
+    entered: list[Optional[str]] = []
+
+    async def on_activity(envelope: SocketActivityEnvelope) -> ReplyFrame:
+        entered.append(envelope.envelope_id)
+        await (early_done if envelope.envelope_id == "early" else late_done).wait()
+        return ReplyFrame(status=200)
+
+    websocket = MockWebSocket()
+    async with make_http_client() as client:
+        connection = await _start_connection(websocket, on_activity, client)
+        try:
+            connection._handle_hub_message(_activity_message("early", 1000))
+            draining = asyncio.create_task(connection.wait_for_drain(1005.0))
+            await _eventually(lambda: entered == ["early"])
+            now = 1001.0
+            early_done.set()
+            await _eventually(lambda: not connection._inflight)
+            assert not draining.done()
+
+            now = 1004.999
+            connection._handle_hub_message(_activity_message("late", 101))
+            await _eventually(lambda: entered == ["early", "late"])
+            assert not draining.done()
+            now = 1005.0
+            await asyncio.sleep(0)
+            assert not draining.done()
+            now = 1005.1
+            await asyncio.wait_for(draining, 1)
+            assert len(connection._inflight) == 1
+            assert not late_done.is_set()
+            assert len(websocket.sent) == 2
+        finally:
+            await connection.stop()
+
+
+def _activity_message(name: str, deadline_ms: int) -> dict[str, object]:
+    return {
+        "type": 1,
+        "target": "Activity",
+        "invocationId": name,
+        "arguments": [{"envelopeId": name, "deadlineMs": deadline_ms, "payload": {"type": "message"}}],
+    }
+
+
+async def _start_connection(
+    websocket: MockWebSocket,
+    on_activity: Callable[[SocketActivityEnvelope], Awaitable[Optional[ReplyFrame]]],
+    client: httpx2.AsyncClient,
+) -> SignalRSocketConnection:
+    connection = SignalRSocketConnection(
+        make_context(),
+        make_handlers(on_activity=on_activity),
+        http_client=client,
+        websocket_factory=lambda _: _websocket(websocket),
+    )
+    websocket.incoming.put_nowait(
+        f"{{}}{RECORD_SEPARATOR}"
+        + json.dumps({"type": 1, "target": "SocketReady", "arguments": [{}]})
+        + RECORD_SEPARATOR
+    )
+    await connection.start()
+    return connection

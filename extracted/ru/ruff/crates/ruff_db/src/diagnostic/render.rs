@@ -676,11 +676,12 @@ impl<'r> RenderableAnnotation<'r> {
     /// lifetime parameter here refers to the lifetime of the resolver that
     /// created the given `ResolvedAnnotation`.
     fn new(snippet_start: TextSize, ann: &'_ ResolvedAnnotation<'r>) -> RenderableAnnotation<'r> {
-        // This should only ever saturate if a BOM is present _and_ the annotation range points
-        // before the BOM (i.e. at offset 0). In Ruff this typically results from the use of
-        // `TextRange::default()` for a diagnostic range instead of a range relative to file
-        // contents.
-        let range = ann.range.checked_sub(snippet_start).unwrap_or(ann.range);
+        // An annotation can start at byte zero even when a leading BOM was stripped from the
+        // snippet. Clamp each endpoint separately so the annotation still covers any visible text.
+        let range = TextRange::new(
+            ann.range.start().saturating_sub(snippet_start),
+            ann.range.end().saturating_sub(snippet_start),
+        );
         RenderableAnnotation {
             range,
             message: ann.message,
@@ -2431,6 +2432,23 @@ watermelon
            | ------ secondary fruits 2
         ",
         );
+    }
+
+    #[test]
+    fn diagnostic_order_with_missing_locations() {
+        let mut env = TestEnvironment::new();
+        env.add("fruits", FRUITS);
+
+        let fileless = Diagnostic::new(DiagnosticId::Io, Severity::Hint, "Missing directory");
+        let mut whole_file =
+            Diagnostic::new(DiagnosticId::Io, Severity::Warning, "Check this file");
+        whole_file.annotate(Annotation::primary(env.path("fruits")));
+        let at_zero = env.err().primary("fruits", "1:0", "1:0", "").build();
+        let at_one = env.err().primary("fruits", "1:1", "1:1", "").build();
+
+        let mut diagnostics = [&at_one, &whole_file, &at_zero, &fileless];
+        diagnostics.sort_by_key(|diagnostic| diagnostic.rendering_sort_key(&env.db));
+        assert_eq!(diagnostics, [&fileless, &at_zero, &whole_file, &at_one]);
     }
 
     #[test]

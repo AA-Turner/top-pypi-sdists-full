@@ -44,7 +44,12 @@ from trilogy.core.models.execute import (
     QueryDatasource,
     UnionCTE,
 )
-from trilogy.dialect.base import BaseDialect, is_array_arg
+from trilogy.dialect.base import (
+    CALENDAR_PARTS,
+    BaseDialect,
+    is_array_arg,
+    offset_keeps_date,
+)
 from trilogy.dialect.cancel import duckdb_side_cursor
 from trilogy.utility import safe_open
 
@@ -84,19 +89,6 @@ def render_sort(args, types):
         return f"list_sort({args[0]}, '{order[0]}', '{order[1]}')"
 
 
-def render_log(args):
-    if len(args) == 1:
-        return f"log({args[0]})"
-    elif len(args) == 2:
-        if int(args[1]) == 10:
-            return f"log({args[0]})"
-        else:
-            # change of base formula
-            return f"log({args[0]})/log({args[1]})"
-    else:
-        raise ValueError("log function requires 1 or 2 arguments")
-
-
 def map_date_part_specifier(specifier: str) -> str:
     """Map date part specifiers to DuckDB-compatible names"""
     mapping = {
@@ -107,10 +99,13 @@ def map_date_part_specifier(specifier: str) -> str:
 
 
 def date_trunc(args, types):
+    rendered = f"date_trunc('{args[1]}', {args[0]})"
+    # day and coarser are typed DATE (`get_date_trunc_output`)
+    if args[1].lower() in CALENDAR_PARTS:
+        return f"cast({rendered} as date)"
     if len(types) > 0 and types[0] == DataType.DATETIME:
-        return f"cast(date_trunc('{args[1]}', {args[0]}) as datetime)"
-    else:
-        return f"date_trunc('{args[1]}', {args[0]})"
+        return f"cast({rendered} as datetime)"
+    return rendered
 
 
 def handle_cast(args, types):
@@ -124,6 +119,14 @@ def handle_cast(args, types):
     ].data_type in (DataType.INTEGER, DataType.BIGINT):
         return f"cast(round({args[0]}) as {args[1]})"
     return f"cast({args[0]} as {args[1]})"
+
+
+def date_offset(args: list[str], types: list, sign: str) -> str:
+    # a DATE plus an interval is a TIMESTAMP here
+    rendered = f"date_add({args[0]}, {sign}({args[2]}) * INTERVAL 1 {args[1]})"
+    if offset_keeps_date(args, types):
+        return f"cast({rendered} as date)"
+    return rendered
 
 
 def contains(args, types):
@@ -169,7 +172,6 @@ def render_geo_transform(args: list[str]) -> str:
 
 FUNCTION_MAP = {
     FunctionType.CAST: handle_cast,
-    FunctionType.LOG: lambda args, types: render_log(args),
     FunctionType.SPLIT: lambda args, types: (
         f"STRING_SPLIT({','.join([f''' {a!s} ''' for a in args])})"
     ),
@@ -197,8 +199,8 @@ FUNCTION_MAP = {
     FunctionType.DATE_TRUNCATE: lambda x, types: date_trunc(x, types),
     # the offset is parenthesized: `n + 1 * INTERVAL` binds the 1, and `--1`
     # comments out the rest of the statement
-    FunctionType.DATE_ADD: lambda x, types: f"date_add({x[0]}, ({x[2]}) * INTERVAL 1 {x[1]})",
-    FunctionType.DATE_SUB: lambda x, types: f"date_add({x[0]}, -({x[2]}) * INTERVAL 1 {x[1]})",
+    FunctionType.DATE_ADD: lambda x, types: date_offset(x, types, ""),
+    FunctionType.DATE_SUB: lambda x, types: date_offset(x, types, "-"),
     FunctionType.DATE_PART: lambda x, types: date_part(x, types),
     FunctionType.DATE_DIFF: lambda x, types: f"date_diff('{x[2]}', {x[0]}, {x[1]})",
     # concat() skips NULLs, || (CONCAT_STRICT) propagates, concat_ws(sep, ...)
@@ -218,7 +220,9 @@ FUNCTION_MAP = {
     FunctionType.GEO_TRANSFORM: lambda x, types: render_geo_transform(x),
 }
 
-DATATYPE_MAP: dict[DataType, str] = {}
+# Trilogy's float is a double; DuckDB's FLOAT is 4 bytes and rounds a stored
+# value (`1234567.891` reads back `1234567.875`)
+DATATYPE_MAP: dict[DataType, str] = {DataType.FLOAT: "double"}
 
 
 # Identifies the disabled-form `uv_run` guard in an existing macro body, so a

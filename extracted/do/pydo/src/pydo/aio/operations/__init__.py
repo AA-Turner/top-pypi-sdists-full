@@ -5,9 +5,12 @@
 # --------------------------------------------------------------------------
 
 from ._operations import ActorLimitsOperations
+from ._operations import ProviderCredentialsOperations
 from ._operations import ConnectionsOperations
 from ._operations import McpServersOperations
 from ._operations import OutputViewsOperations
+from ._operations import EndpointsOperations
+from ._operations import EndpointVersionsOperations
 from ._operations import SessionsOperations
 from ._operations import ToolbeltsOperations
 from ._operations import ToolsOperations
@@ -87,9 +90,12 @@ from ._patch import patch_sdk as _patch_sdk
 
 __all__ = [
     "ActorLimitsOperations",
+    "ProviderCredentialsOperations",
     "ConnectionsOperations",
     "McpServersOperations",
     "OutputViewsOperations",
+    "EndpointsOperations",
+    "EndpointVersionsOperations",
     "SessionsOperations",
     "ToolbeltsOperations",
     "ToolsOperations",

@@ -28,9 +28,11 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::ops::Range;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
-use tokio::sync::{Notify, OnceCell, OwnedMutexGuard, RwLock as AsyncRwLock, Semaphore};
+use tokio::sync::{
+    Notify, OnceCell, OwnedMutexGuard, OwnedRwLockWriteGuard, RwLock as AsyncRwLock, Semaphore,
+};
 use tokio::time::sleep;
 
 const DEFAULT_RETRY_POLICY: RetryPolicy = RetryPolicy {
@@ -60,8 +62,16 @@ tokio::task_local! {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum RefreshTrigger {
-    Initialize,
+    PrivateInitialize,
+    SharedInitialize,
     Background,
+}
+
+#[derive(Default)]
+struct AdapterShutdown {
+    notify: Notify,
+    // Force shutdown waits for entered synchronous listeners, including private hash commits.
+    handoff: ReentrantMutex<()>,
 }
 
 pub struct StatsigHttpIdListsAdapter {
@@ -74,26 +84,22 @@ pub struct StatsigHttpIdListsAdapter {
     fallback_url: Option<String>,
     fallback_to_statsig_api: bool,
     listener: RwLock<Option<Arc<dyn IdListsUpdateListener>>>,
-    inline_handoff: ReentrantMutex<()>,
     pub(super) refresh_gate: Arc<tokio::sync::Mutex<()>>,
     network: NetworkClient,
     sync_interval_duration: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
-    shutdown_notify: Arc<Notify>,
+    shutdown: Arc<AdapterShutdown>,
     manifest_failures: RefreshFailureTracker,
     file_failures: RefreshFailureTracker,
-    // Compact listeners can leave a worker running when a cold load is cancelled.
-    lazy_blocking_publication: Option<Arc<tokio::sync::Mutex<()>>>,
     /// Temporary per-list singleflight entries. Concurrent callers for the same
     /// name await one shared load instead of scheduling duplicate body requests.
     in_flight_loads: DashMap<String, Arc<SharedIdListLoad>>,
     /// Caps body downloads across distinct list names. This bounds network work
     /// but does not replace the same-name singleflight above.
     download_permits: Semaphore,
-    /// Polling syncs take the write side while replacing the manifest and
-    /// publishing updates; on-demand loads take the read side. Thus a load uses
-    /// either the complete previous snapshot or the complete new snapshot.
-    latest_manifest: AsyncRwLock<Option<IdListsManifest>>,
+    /// The write guard fences lazy publication and listener replacement. A blocking
+    /// callback owns it until installation finishes, even when its caller is cancelled.
+    lazy_manifest: Option<Arc<AsyncRwLock<Option<IdListsManifest>>>>,
 }
 
 impl StatsigHttpIdListsAdapter {
@@ -158,32 +164,29 @@ impl StatsigHttpIdListsAdapter {
             fallback_url,
             fallback_to_statsig_api: options.fallback_to_statsig_api == Some(true),
             listener: RwLock::new(None),
-            inline_handoff: ReentrantMutex::default(),
             refresh_gate: Default::default(),
             network,
             sync_interval_duration,
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
-            shutdown_notify: Arc::new(Notify::new()),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options)),
+            shutdown: Arc::default(),
             manifest_failures: RefreshFailureTracker::default(),
             file_failures: RefreshFailureTracker::default(),
-            lazy_blocking_publication: (options.lazy_load_id_lists == Some(true))
-                .then(Default::default),
+            lazy_manifest: (options.lazy_load_id_lists == Some(true)).then(Default::default),
             in_flight_loads: DashMap::new(),
             download_permits: Semaphore::new(ID_LIST_DOWNLOAD_CONCURRENCY),
-            latest_manifest: AsyncRwLock::new(None),
         }
     }
 
     pub fn force_shutdown(&self) {
         self.signal_shutdown();
         // The listener itself may request shutdown while holding this fence.
-        drop(self.inline_handoff.lock());
+        drop(self.shutdown.handoff.lock());
     }
 
     pub(super) fn signal_shutdown(&self) {
         let _output_scope = self.output_policy.enter();
         self.network.shutdown();
-        self.shutdown_notify.notify_waiters();
+        self.shutdown.notify.notify_waiters();
     }
 
     #[cfg(test)]
@@ -364,7 +367,7 @@ impl StatsigHttpIdListsAdapter {
             KeyType::GetIDList,
             StepType::Process,
             None,
-            Some(download_url.clone()),
+            Some(download_url.as_str()),
         );
         let result = normalize_id_list_download(
             response,
@@ -378,7 +381,7 @@ impl StatsigHttpIdListsAdapter {
             StepType::Process,
             result.is_ok(),
             None,
-            Some(download_url.clone()),
+            Some(download_url.as_str()),
         );
         result
     }
@@ -493,7 +496,7 @@ impl StatsigHttpIdListsAdapter {
     }
 
     async fn while_running<T>(&self, work: impl Future<Output = T>) -> Result<T, StatsigErr> {
-        let stopped = self.shutdown_notify.notified();
+        let stopped = self.shutdown.notify.notified();
         if self.network.shutdown_flag().load(Ordering::SeqCst) {
             return Err(Self::publication_stopped());
         }
@@ -519,10 +522,8 @@ impl StatsigHttpIdListsAdapter {
                 .await?,
         );
         if let Some(listener) = listener.filter(|listener| !self.is_current_listener(listener)) {
-            if let Some(publication) = &self.lazy_blocking_publication {
-                // A cold load may still be publishing into the old listener.
-                let _worker = self.while_running(publication.lock()).await?;
-                let mut manifest = self.while_running(self.latest_manifest.write()).await?;
+            if let Some(manifest) = &self.lazy_manifest {
+                let mut manifest = self.while_running(manifest.write()).await?;
                 *manifest = None;
                 self.set_listener(listener);
             } else {
@@ -536,7 +537,7 @@ impl StatsigHttpIdListsAdapter {
             ContextType::Initialize
         });
         let result = self
-            .sync_id_lists_with_trigger(background, &refresh_guard)
+            .sync_id_lists_with_trigger(trigger, &refresh_guard)
             .await;
         if background
             && !matches!(
@@ -554,14 +555,15 @@ impl StatsigHttpIdListsAdapter {
 
     #[cfg(test)]
     async fn sync_id_lists(&self) -> Result<(), StatsigErr> {
-        self.refresh(RefreshTrigger::Initialize).await
+        self.refresh(RefreshTrigger::PrivateInitialize).await
     }
 
     async fn sync_id_lists_with_trigger(
         &self,
-        background: bool,
+        trigger: RefreshTrigger,
         refresh_guard: &Arc<OwnedMutexGuard<()>>,
     ) -> Result<(), StatsigErr> {
+        let background = trigger == RefreshTrigger::Background;
         let sync_start_ms = Utc::now().timestamp_millis() as u64;
         let mut summary = scopeguard::guard(RefreshSummary::default(), |summary| {
             if summary.manifest_success {
@@ -594,7 +596,7 @@ impl StatsigHttpIdListsAdapter {
             .process_id_lists(
                 new_manifest,
                 &mut summary.successful_downloads,
-                background,
+                trigger,
                 refresh_guard,
             )
             .await;
@@ -606,76 +608,99 @@ impl StatsigHttpIdListsAdapter {
         &self,
         new_manifest: IdListsManifest,
         successful_downloads: &mut u64,
-        background: bool,
+        trigger: RefreshTrigger,
         refresh_guard: &Arc<OwnedMutexGuard<()>>,
     ) -> Result<(), StatsigErr> {
-        if self.lazy_blocking_publication.is_none() {
+        let background = trigger == RefreshTrigger::Background;
+        let listener = self.current_listener()?;
+        let Some(lazy_manifest) = &self.lazy_manifest else {
+            let current = listener.get_current_id_list_metadata();
             let prepared = self
-                .prepare_id_lists(new_manifest, successful_downloads, background)
+                .prepare_id_lists(&current, new_manifest, successful_downloads, background)
                 .await?;
+            let eager_downloads = (trigger == RefreshTrigger::PrivateInitialize
+                && *successful_downloads > 0
+                && listener.uses_parallel_id_list_init())
+            .then_some(*successful_downloads);
             return self
                 .publish_id_list_updates(
+                    listener,
                     prepared,
                     IdListPublicationMode::Replace,
                     Some(refresh_guard),
+                    None,
+                    eager_downloads,
+                )
+                .await;
+        };
+        loop {
+            let curr_manifest = {
+                let _manifest = self.while_running(lazy_manifest.read()).await?;
+                listener.get_current_id_list_metadata()
+            };
+            let active_manifest = new_manifest
+                .iter()
+                .filter(|(name, _entry)| curr_manifest.contains_key(name.as_str()))
+                .map(|(name, entry)| (name.clone(), entry.clone()))
+                .collect();
+            let mut prepared = self
+                .prepare_id_lists(
+                    &curr_manifest,
+                    active_manifest,
+                    successful_downloads,
+                    background,
+                )
+                .await?;
+
+            // Commit the fetched generation and its prepared updates atomically with
+            // respect to on-demand publication. Downloads remain outside this guard.
+            let mut manifest = self
+                .while_running(lazy_manifest.clone().write_owned())
+                .await?;
+            let current = listener.get_current_id_list_metadata();
+            if !prepared.matches_cursors(&curr_manifest, &current) {
+                continue;
+            }
+            // A cold load can install a valid prefix while this poll downloads another list.
+            // Compare its advertised targets. The installed size is a consumed byte offset.
+            for (name, current) in current {
+                let previous = manifest.as_ref().and_then(|cached| cached.get(&name));
+                if previous
+                    .zip(new_manifest.get(&name))
+                    .is_some_and(|(old, new)| same_id_list_generation(&old.metadata, &new.metadata))
+                    && !prepared.updates.contains_key(&name)
+                {
+                    prepared.updates.insert(
+                        name,
+                        IdListUpdate {
+                            raw_changeset: None,
+                            new_metadata: current,
+                        },
+                    );
+                }
+            }
+
+            *manifest = Some(new_manifest);
+            return self
+                .publish_id_list_updates(
+                    listener,
+                    prepared,
+                    IdListPublicationMode::Replace,
+                    Some(refresh_guard),
+                    Some(manifest),
+                    None,
                 )
                 .await;
         }
-        let curr_manifest = self.current_listener()?.get_current_id_list_metadata();
-        let active_manifest = new_manifest
-            .iter()
-            .filter(|(name, _entry)| curr_manifest.contains_key(name.as_str()))
-            .map(|(name, entry)| (name.clone(), entry.clone()))
-            .collect();
-        let mut prepared = self
-            .prepare_id_lists(active_manifest, successful_downloads, background)
-            .await?;
-
-        // Commit the fetched generation and its prepared updates atomically with
-        // respect to on-demand publication. Downloads remain outside this guard.
-        let mut manifest = self.while_running(self.latest_manifest.write()).await?;
-        // A list may have materialized while this poll was downloading other
-        // bodies. Preserve it only when it still matches the new manifest.
-        // A changed generation is omitted from the replacement so the next
-        // dependent evaluation observes it as missing and loads it.
-        for (name, current) in self.current_listener()?.get_current_id_list_metadata() {
-            if new_manifest
-                .get(&name)
-                .is_some_and(|entry| same_id_list_generation(&current, &entry.metadata))
-                && !prepared.updates.contains_key(&name)
-            {
-                prepared.updates.insert(
-                    name,
-                    IdListUpdate {
-                        raw_changeset: None,
-                        new_metadata: current,
-                    },
-                );
-            }
-        }
-
-        *manifest = Some(new_manifest);
-        self.publish_id_list_updates(
-            prepared,
-            IdListPublicationMode::Replace,
-            Some(refresh_guard),
-        )
-        .await
     }
 
     async fn prepare_id_lists(
         &self,
+        curr_manifest: &IdListsResponse,
         new_manifest: IdListsManifest,
         successful_downloads: &mut u64,
         background: bool,
     ) -> Result<PreparedIdListUpdates, StatsigErr> {
-        let listener = self.current_listener()?;
-        let blocking = listener.requires_blocking_id_list_publication();
-        let publication = match &self.lazy_blocking_publication {
-            Some(gate) if blocking => Some(self.while_running(gate.clone().lock_owned()).await?),
-            _ => None,
-        };
-        let mut curr_manifest: IdListsResponse = listener.get_current_id_list_metadata();
         let mut jobs = Vec::new();
         let mut updates = HashMap::new();
         let mut propagation = HashMap::with_capacity(new_manifest.len());
@@ -688,18 +713,7 @@ impl StatsigHttpIdListsAdapter {
             }
             propagation.insert(name.clone(), entry.propagation_update());
             let metadata = entry.metadata;
-            let range_start = match curr_manifest.get(&name) {
-                Some(current)
-                    if metadata.creation_time > current.creation_time
-                        || metadata.file_id != current.file_id =>
-                {
-                    Some(0)
-                }
-                Some(current) if metadata.size > current.size => Some(current.size),
-                Some(_) => None,
-                None => Some(0),
-            };
-            if let Some(range_start) = range_start {
+            if let Some(range_start) = id_list_range_start(curr_manifest.get(&name), &metadata) {
                 jobs.push(IdListDownloadJob {
                     name,
                     url: self.get_override_id_list_download_url(&metadata.url),
@@ -801,7 +815,7 @@ impl StatsigHttpIdListsAdapter {
                 // Keep the installed generation and cursor for failed warm downloads.
                 for job in pending.into_inner() {
                     propagation.remove(&job.name);
-                    if let Some(installed) = curr_manifest.remove(&job.name) {
+                    if let Some(installed) = curr_manifest.get(&job.name).cloned() {
                         updates.insert(
                             job.name,
                             IdListUpdate {
@@ -830,61 +844,65 @@ impl StatsigHttpIdListsAdapter {
             file_failure,
             updates,
             propagation,
-            listener,
-            blocking,
-            publication,
         })
     }
 
     async fn publish_id_list_updates(
         &self,
+        listener: Arc<dyn IdListsUpdateListener>,
         prepared: PreparedIdListUpdates,
         publication_mode: IdListPublicationMode,
         refresh_guard: Option<&Arc<OwnedMutexGuard<()>>>,
+        manifest_guard: Option<OwnedRwLockWriteGuard<Option<IdListsManifest>>>,
+        eager_downloads: Option<u64>,
     ) -> Result<(), StatsigErr> {
         let PreparedIdListUpdates {
             updates,
             propagation,
-            listener,
-            blocking,
-            publication,
             file_failure,
         } = prepared;
-        let publication_mode = if file_failure.is_some() {
-            IdListPublicationMode::IncompleteRefresh
-        } else {
-            publication_mode
+        let incomplete = file_failure.is_some();
+        let blocking_listener = listener.requires_blocking_id_list_publication();
+        let offload = blocking_listener || eager_downloads.is_some();
+        let stopped = self.network.shutdown_flag();
+        // Keep the elected listener (and its lease) through installation, even if
+        // the refresh future is cancelled while a blocking publication is running.
+        let publish = move |stopped: &AtomicBool| {
+            if stopped.load(Ordering::SeqCst) {
+                return Err(Self::publication_stopped());
+            }
+            if let Some(downloads) = eager_downloads {
+                return listener.try_receive_eager_id_list_updates(
+                    updates,
+                    propagation,
+                    incomplete,
+                    downloads,
+                );
+            }
+            let mode = if incomplete {
+                IdListPublicationMode::IncompleteRefresh
+            } else {
+                publication_mode
+            };
+            publish_prepared_id_lists(listener.as_ref(), updates, propagation, mode)
         };
-        if blocking {
-            let guard = (refresh_guard.cloned(), publication);
-            let stopped = self.network.shutdown_flag().clone();
+        if offload {
+            // An opted-in hash commit runs off-thread but still participates in force_shutdown.
+            let shutdown = (!blocking_listener).then(|| Arc::clone(&self.shutdown));
+            let stopped = Arc::clone(stopped);
+            let guard = (refresh_guard.cloned(), manifest_guard);
             let policy = self.output_policy;
             tokio::task::spawn_blocking(move || {
                 let _guard = guard;
                 let _scope = policy.enter();
-                // Owning the elected listener keeps its lease alive through fsync
-                // and installation even if the refresh future is cancelled.
-                let result = if stopped.load(Ordering::SeqCst) {
-                    Err(Self::publication_stopped())
-                } else {
-                    publish_prepared_id_lists(
-                        listener.as_ref(),
-                        updates,
-                        propagation,
-                        publication_mode,
-                    )
-                };
-                drop(listener);
-                result
+                let _handoff = shutdown.as_ref().map(|state| state.handoff.lock());
+                publish(&stopped)
             })
             .await
             .map_err(|error| StatsigErr::FileError(error.to_string()))??;
         } else {
-            let _handoff = self.inline_handoff.lock();
-            if self.network.shutdown_flag().load(Ordering::SeqCst) {
-                return Err(Self::publication_stopped());
-            }
-            publish_prepared_id_lists(listener.as_ref(), updates, propagation, publication_mode)?;
+            let _handoff = self.shutdown.handoff.lock();
+            publish(stopped)?;
         }
         file_failure.map_or(Ok(()), Err)
     }
@@ -894,29 +912,36 @@ impl StatsigHttpIdListsAdapter {
     /// result: this still uses the cached manifest and skips a list which is
     /// already at the manifest's target generation.
     async fn process_id_list_uncached(&self, name: &str) -> Result<(), StatsigErr> {
+        let lazy_manifest = self.lazy_manifest.as_ref().ok_or_else(|| {
+            StatsigErr::UnstartedAdapter("ID-list manifest has not been fetched yet".to_string())
+        })?;
         loop {
             // Polling and initialization populate this metadata-only snapshot.
             // Hold the barrier only long enough to clone one generation.
-            let entry = {
-                let manifest = self.latest_manifest.read().await;
+            let (entry, listener, current) = {
+                let manifest = lazy_manifest.read().await;
                 let manifest = manifest.as_ref().ok_or_else(|| {
                     StatsigErr::UnstartedAdapter(
                         "ID-list manifest has not been fetched yet".to_string(),
                     )
                 })?;
-                manifest.get(name).cloned().ok_or_else(|| {
+                let entry = manifest.get(name).ok_or_else(|| {
                     StatsigErr::CustomError(format!("ID list {name} is missing from the manifest"))
-                })?
+                })?;
+                let listener = self.current_listener()?;
+                let current = listener.get_current_id_list_metadata();
+                if id_list_is_at_target(current.get(name), &entry.metadata) {
+                    return Ok(());
+                }
+                (entry.clone(), listener, current)
             };
-            if self.id_list_is_at_target(name, &entry.metadata)? {
-                return Ok(());
-            }
 
             // Reuse the normal download and retry pipeline without holding the
             // publication barrier across network I/O.
             let mut successful_downloads = 0;
             let prepared = self
                 .prepare_id_lists(
+                    &current,
                     HashMap::from([(name.to_owned(), entry.clone())]),
                     &mut successful_downloads,
                     false,
@@ -925,39 +950,36 @@ impl StatsigHttpIdListsAdapter {
 
             // Publish only if the cached manifest still names the generation we
             // downloaded. Otherwise retry against the newer metadata.
-            let manifest = self.latest_manifest.read().await;
+            let manifest = lazy_manifest.clone().write_owned().await;
             let latest = manifest
                 .as_ref()
                 .and_then(|manifest| manifest.get(name))
                 .ok_or_else(|| {
                     StatsigErr::CustomError(format!("ID list {name} is missing from the manifest"))
                 })?;
-            if !self.is_current_listener(&prepared.listener)
+            if !self.is_current_listener(&listener)
                 || !same_id_list_generation(&entry.metadata, &latest.metadata)
             {
                 continue;
             }
-            if self.id_list_is_at_target(name, &entry.metadata)? {
+            let installed = listener.get_current_id_list_metadata();
+            if id_list_is_at_target(installed.get(name), &entry.metadata) {
                 return Ok(());
             }
+            if !prepared.matches_cursors(&current, &installed) {
+                continue;
+            }
             return self
-                .publish_id_list_updates(prepared, IdListPublicationMode::Merge, None)
+                .publish_id_list_updates(
+                    listener,
+                    prepared,
+                    IdListPublicationMode::Merge,
+                    None,
+                    Some(manifest),
+                    None,
+                )
                 .await;
         }
-    }
-
-    fn id_list_is_at_target(
-        &self,
-        name: &str,
-        target: &IdListMetadata,
-    ) -> Result<bool, StatsigErr> {
-        let current = self.current_listener()?.get_current_id_list_metadata();
-        Ok(current.get(name).is_some_and(|current| {
-            current.creation_time > target.creation_time
-                || (current.creation_time == target.creation_time
-                    && current.file_id == target.file_id
-                    && current.size >= target.size)
-        }))
     }
 
     /// Materializes one cached manifest entry through the existing
@@ -998,14 +1020,17 @@ impl StatsigHttpIdListsAdapter {
         key: KeyType,
         step: StepType,
         id_list_count: Option<usize>,
-        url: Option<String>,
+        url: Option<&str>,
     ) {
+        if self.ops_stats.remote_telemetry_disabled() {
+            return;
+        }
         let mut marker = Marker::new(key, ActionType::Start, Some(step));
         if let Some(count) = id_list_count {
             marker = marker.with_id_list_count(count);
         }
         if let Some(url) = url {
-            marker = marker.with_url(url);
+            marker = marker.with_url(url.to_string());
         }
         self.ops_stats.add_marker(marker, None);
     }
@@ -1016,14 +1041,17 @@ impl StatsigHttpIdListsAdapter {
         step: StepType,
         success: bool,
         status_code: Option<u16>,
-        url: Option<String>,
+        url: Option<&str>,
     ) {
+        if self.ops_stats.remote_telemetry_disabled() {
+            return;
+        }
         let mut marker = Marker::new(key, ActionType::End, Some(step)).with_is_success(success);
         if let Some(status_code) = status_code {
             marker = marker.with_status_code(status_code);
         }
         if let Some(url) = url {
-            marker = marker.with_url(url);
+            marker = marker.with_url(url.to_string());
         }
         self.ops_stats.add_marker(marker, None);
     }
@@ -1185,12 +1213,40 @@ struct PreparedIdListUpdates {
     file_failure: Option<StatsigErr>,
     updates: HashMap<String, IdListUpdate>,
     propagation: HashMap<String, IdListPropagationUpdate>,
-    /// The listener and optional blocking-publication lease are captured before
-    /// reading byte cursors, so a cancelled or concurrent refresh cannot publish
-    /// downloaded deltas against a different committed snapshot.
-    listener: Arc<dyn IdListsUpdateListener>,
-    blocking: bool,
-    publication: Option<OwnedMutexGuard<()>>,
+}
+
+impl PreparedIdListUpdates {
+    // A poll and a cold load can download from the same partial cursor. Only the
+    // first may apply that range. The other prepares again at the committed end.
+    fn matches_cursors(&self, planned: &IdListsResponse, installed: &IdListsResponse) -> bool {
+        self.updates.iter().all(|(name, update)| {
+            id_list_range_start(planned.get(name), &update.new_metadata)
+                == id_list_range_start(installed.get(name), &update.new_metadata)
+        })
+    }
+}
+
+fn id_list_range_start(current: Option<&IdListMetadata>, target: &IdListMetadata) -> Option<u64> {
+    match current {
+        Some(current)
+            if target.creation_time > current.creation_time
+                || target.file_id != current.file_id =>
+        {
+            Some(0)
+        }
+        Some(current) if target.size > current.size => Some(current.size),
+        Some(_) => None,
+        None => Some(0),
+    }
+}
+
+fn id_list_is_at_target(current: Option<&IdListMetadata>, target: &IdListMetadata) -> bool {
+    current.is_some_and(|current| {
+        current.creation_time > target.creation_time
+            || (current.creation_time == target.creation_time
+                && current.file_id == target.file_id
+                && current.size >= target.size)
+    })
 }
 
 fn publish_prepared_id_lists(
@@ -1256,7 +1312,7 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
         listener: Arc<dyn IdListsUpdateListener + Send + Sync>,
     ) -> Result<(), StatsigErr> {
         self.output_policy
-            .scope(self.refresh_with_listener(RefreshTrigger::Initialize, Some(listener)))
+            .scope(self.refresh_with_listener(RefreshTrigger::PrivateInitialize, Some(listener)))
             .await
     }
 
@@ -1266,10 +1322,8 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
                 self.signal_shutdown();
                 tokio::time::timeout(timeout, async {
                     let _refresh = self.refresh_gate.lock().await;
-                    if let Some(publication) = &self.lazy_blocking_publication {
-                        drop(publication.lock().await);
-                        // Drain any ordinary cold-list callback as well.
-                        drop(self.latest_manifest.write().await);
+                    if let Some(manifest) = &self.lazy_manifest {
+                        drop(manifest.write().await);
                     }
                 })
                 .await
@@ -1288,13 +1342,13 @@ impl IdListsAdapter for StatsigHttpIdListsAdapter {
                 let weak_self = Arc::downgrade(&self);
                 let interval_duration = self.sync_interval_duration;
 
-                let shutdown = self.shutdown_notify.clone();
+                let shutdown = self.shutdown.clone();
                 let stopped = self.network.shutdown_flag().clone();
                 statsig_runtime.spawn(
                     "http_id_list_bg_sync",
                     move |runtime_shutdown| async move {
                         loop {
-                            let notified = shutdown.notified();
+                            let notified = shutdown.notify.notified();
                             if weak_self.strong_count() == 0 || stopped.load(Ordering::SeqCst) {
                                 break;
                             }

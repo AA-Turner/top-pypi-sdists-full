@@ -152,6 +152,9 @@ class RunEngineWorker(Process):
         # Class that supports communication over the pipe
         self._comm_to_manager = None
 
+        # The reference for device progress update stream
+        self._device_progress_stream = None
+
         # Note: 'self._config' is a private attribute of 'multiprocessing.Process'. Overriding
         #   this variable may lead to unpredictable and hard to debug issues.
         self._config_dict = config or {}
@@ -203,7 +206,7 @@ class RunEngineWorker(Process):
         self._run_reg_cb = None  # Callback for RE
 
         self._re_namespace, self._plans_in_nspace, self._devices_in_nspace = {}, {}, {}
-        self._permitted_re_metadata_keys = set(self._config_dict.get("permitted_re_metadata_keys", ["/"]))
+        self._permitted_re_metadata_keys = set(self._config_dict.get("permitted_re_metadata_keys", []))
 
         self._worker_shutdown_initiated = False  # Indicates if shutdown is initiated by request
         self._unexpected_shutdown = False  # Indicates if shutdown is in progress, but it was not requested
@@ -239,6 +242,29 @@ class RunEngineWorker(Process):
 
         return value
 
+    def _setup_waiting_hook(self):
+        """
+        Set up the ``WatcherStreamManager`` as the RunEngine's ``waiting_hook`` if progress
+        streaming is enabled and the RunEngine and message queue are available.
+        """
+        if self._RE is None or self._msg_queue is None:
+            return
+        if not self._config_dict.get("zmq_stream_device_progress", True):
+            return
+        try:
+            from .plan_monitoring import WatcherStreamManager
+
+            if not self._device_progress_stream:
+                self._device_progress_stream = WatcherStreamManager(msg_queue=self._msg_queue)
+
+            if self._RE.waiting_hook != self._device_progress_stream:
+                self._device_progress_stream.waiting_hook = self._RE.waiting_hook
+                self._RE.waiting_hook = self._device_progress_stream
+                logger.info("Progress streaming is enabled (RE.waiting_hook is set).")
+
+        except Exception as ex:
+            logger.warning("Failed to set up progress streaming: %s", ex)
+
     def _execute_plan_or_task(self, parameters, exec_option):
         """
         Execute a plan or a task pulled from ``self._execution_queue``. Note, that the queue
@@ -248,6 +274,7 @@ class RunEngineWorker(Process):
         if exec_option == ExecOption.TASK:
             self._execute_task(parameters, exec_option)
         else:
+            self._setup_waiting_hook()
             self._execute_plan(parameters, exec_option)
 
     def _execute_plan(self, parameters, exec_option):
@@ -473,7 +500,14 @@ class RunEngineWorker(Process):
             plan_func = plan_parsed["callable"]
             plan_args_parsed = plan_parsed["args"]
             plan_kwargs_parsed = plan_parsed["kwargs"]
-            plan_meta_parsed = plan_parsed["meta"]
+            plan_meta_parsed = {**plan_parsed["meta"]}
+            submitted_queue_server_meta = plan_meta_parsed.get("queue_server")
+            if not isinstance(submitted_queue_server_meta, dict):
+                submitted_queue_server_meta = {}
+            plan_meta_parsed["queue_server"] = {
+                **submitted_queue_server_meta,
+                "queue_item_uid": plan_info["item_uid"],
+            }
 
             if self.re_state == "panicked":
                 raise RuntimeError(
@@ -818,6 +852,7 @@ class RunEngineWorker(Process):
         if update_re:
             if ("RE" in self._re_namespace) and (self._RE != self._re_namespace["RE"]):
                 self._RE = self._re_namespace["RE"]
+                self._setup_waiting_hook()
                 logger.info("Run Engine instance ('RE') was replaced.")
 
         if update_lists:
@@ -990,7 +1025,14 @@ class RunEngineWorker(Process):
             raise AttributeError("Run Engine does not have a metadata attribute")
 
         try:
-            return filter_dict_by_permitted_keys(dict(self._RE.md), self._permitted_re_metadata_keys)
+            if not self._permitted_re_metadata_keys:
+                raise RuntimeError("Permitted RE metadata keys are not set")
+
+            md = copy.deepcopy(self._RE.md)
+            md_filtered = filter_dict_by_permitted_keys(md, self._permitted_re_metadata_keys)
+            # Make sure the result is JSON-serializable. It is assumed that 'md_filtered' is small.
+            json.dumps(md_filtered)
+            return md_filtered
         except Exception as ex:
             raise RuntimeError(f"Failed to convert Run Engine metadata to dictionary: {ex}") from ex
 
@@ -1390,7 +1432,7 @@ class RunEngineWorker(Process):
 
         from bluesky.run_engine import get_bluesky_event_loop
 
-        # Setting the default event loop is needed to make the code work with Python 3.8.
+        # Set the Bluesky event loop as the default loop for the worker process.
         loop = get_bluesky_event_loop() or asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -1466,6 +1508,7 @@ class RunEngineWorker(Process):
 
                 # Copy reference to Run Engine from the namespace. Set to None if RE does not exist.
                 self._RE = self._re_namespace.get("RE", None)
+                self._setup_waiting_hook()
 
                 self._execution_queue = queue.Queue()
 

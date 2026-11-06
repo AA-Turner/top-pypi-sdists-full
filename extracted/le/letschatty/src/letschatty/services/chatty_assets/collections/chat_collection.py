@@ -25,7 +25,6 @@ from ....models.data_base.mongo_connection import MongoConnection
 from ....services.factories.chats.chat_factory import ChatFactory
 from ....models.messages.chatty_messages import ChattyMessage
 from ....models.utils import Status
-from ....models.utils.types.message_status_types import is_meta_message_id
 from ....models.utils.types.identifier import StrObjectId
 from ....models.utils.custom_exceptions.custom_exceptions import NotFoundError
 from ....models.messages.meta_message_model.meta_status_json import ErrorDetail
@@ -83,12 +82,12 @@ class ChatCollection(AssetCollection[Chat, ChattyAssetPreview]):
         if result.matched_count == 0:
             raise NotFoundError(f"No chat {chat_id} to apply message {message.id}", chat_id=chat_id)
 
-    async def apply_status(self, chat_id: StrObjectId, message_id: str, status: Status, error_details: Optional[ErrorDetail] = None) -> None:
+    async def apply_status(self, chat_id: StrObjectId, message_id: str, status: Status, error_details: Optional[ErrorDetail] = None, *, confirmed_by_provider: bool) -> None:
         """Lleva el ✓✓ al resumen si el mensaje es el último o el último saliente.
 
         Con la misma condición que el mensaje: un estado que llega tarde no retrocede el resumen.
         """
-        superseded = [s.value for s in status.superseded_statuses(confirmed_by_meta=is_meta_message_id(message_id))] + [None]
+        superseded = [s.value for s in status.superseded_statuses(confirmed_by_provider=confirmed_by_provider)] + [None]
         for field in ("last_message", "last_outgoing_message"):
             fields = {f"{field}.status": status.value}
             if error_details and field == "last_message":

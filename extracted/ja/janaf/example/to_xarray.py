@@ -21,13 +21,14 @@ t = janaf.search(formula="Fe", phase="ref")
 ds: xr.Dataset = t.to_xarray().pint.quantify(unit_registry=ureg)
 
 fig, ax = plt.subplots()
-ds["H-H(Tr)"].plot.line(".-", x="T", ax=ax)  # ty: ignore[invalid-argument-type]
+ds["H-H(Tr)"].plot.line(".-", x="T", ax=ax)
 plt.show()
 
 fig, ax = plt.subplots()
 (
     ds["H-H(Tr)"]
     .where(
+        # pyrefly: ignore [implicit-any-lambda]
         lambda x: (
             (x["T"] >= ureg.Quantity(0, "degC"))
             & (x["T"] <= ureg.Quantity(1800, "degC"))

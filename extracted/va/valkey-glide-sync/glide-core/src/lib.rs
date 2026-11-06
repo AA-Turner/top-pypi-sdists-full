@@ -1,18 +1,23 @@
 // Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
 
 #[cfg(feature = "proto")]
-include!("generated/mod.rs");
+include!(concat!(env!("OUT_DIR"), "/protobuf/mod.rs"));
+
 pub mod client;
 pub mod otel_db_semantics;
+pub mod pool;
 #[cfg(feature = "socket-layer")]
 pub mod rotating_buffer;
+pub mod scope;
 #[cfg(feature = "socket-layer")]
 mod socket_listener;
 #[cfg(feature = "socket-layer")]
 pub use socket_listener::*;
 pub mod address_resolver_registry;
 pub mod compression;
+pub mod credential_provider_registry;
 pub mod errors;
+pub mod rdma;
 pub mod scripts_container;
 pub mod timeout_watchdog;
 pub use client::ConnectionRequest;
@@ -20,7 +25,8 @@ pub mod cluster_scan_container;
 pub mod iam;
 pub mod pubsub;
 pub mod request_type;
-pub use telemetrylib::{
+pub mod tls_reload;
+pub use glide_telemetry::{
     DEFAULT_FLUSH_SIGNAL_INTERVAL_MS, DEFAULT_TRACE_SAMPLE_PERCENTAGE, GlideOpenTelemetry,
     GlideOpenTelemetryConfigBuilder, GlideOpenTelemetrySignalsExporter, GlideSpan, Telemetry,
 };

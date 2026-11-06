@@ -111,6 +111,9 @@ import random
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Union
 
+from ..config_flags import check_flag
+from ..value_text import shown
+
 __all__ = [
     "BICYCLE_BOUNDS",
     "BICYCLE_PARAMETER_BACKENDS",
@@ -354,20 +357,11 @@ def _named_spread(name: str, value: Optional[SpreadOrValue]) -> Optional[Spread]
     return as_spread(value)
 
 
-#: The strings a bool vehicle parameter (``lane_changes``,
-#: ``follow_visibility``) may be spelled with, read stripped and in any case:
-#: what Hydra leaves a ``lane_changes=no`` override as.  The scenario editor's
-#: bool fields take the same (``TRUTHY_VALUES`` and ``FALSY_VALUES`` of
-#: :mod:`autoware_carla_scenario.authoring.registry`), copied rather than
-#: imported, as the authoring package pulls in pydantic.
-_TRUE_SPELLINGS: tuple[str, ...] = ("1", "true", "on", "yes")
-_FALSE_SPELLINGS: tuple[str, ...] = ("0", "false", "off", "no")
-
-
 def _checked_bool(name: str, value: Optional[bool]) -> Optional[bool]:
-    """The bool field *name* as a real bool: ``None`` stays ``None``, a bool
-    is itself, and a string or an int is read by its text against
-    :data:`_TRUE_SPELLINGS` and :data:`_FALSE_SPELLINGS`.
+    """The bool field *name* as a real bool: ``None`` stays ``None``, and
+    anything else is read as every config switch is
+    (:func:`~autoware_carla_scenario.config_flags.check_flag`): a bool is
+    itself, ``"no"``, ``" Off "`` or ``0`` is false, ``"yes"`` or ``1`` true.
 
     A backend reads the field as a bool (the TrafficManager by ``bool()`` or
     ``is True``, SUMO by its truth), so ``"no"`` or ``"off"`` kept as a string
@@ -379,17 +373,7 @@ def _checked_bool(name: str, value: Optional[bool]) -> Optional[bool]:
     """
     if value is None:
         return None
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str) or isinstance(value, int):
-        text = str(value).strip().lower()
-        if text in _TRUE_SPELLINGS:
-            return True
-        if text in _FALSE_SPELLINGS:
-            return False
-    raise ValueError(
-        f"{name} must be true or false (or 1/0, on/off, yes/no), got {value!r}"
-    )
+    return check_flag(name, value)
 
 
 def _check(
@@ -417,6 +401,9 @@ def _number_of(name: str, value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         raise ValueError(f"{name} must be a number (got {value!r})") from None
+    except OverflowError:
+        # An int too big for a float (10**400), which repr() may refuse (#1652).
+        raise ValueError(f"{name} must be a number (got {shown(value)})") from None
 
 
 def _spread_of(name: str, value: Any) -> Optional[Spread]:

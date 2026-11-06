@@ -1,0 +1,326 @@
+use crate::ast::{AST, Error};
+use rayon::prelude::*;
+use std::fs;
+use std::io::BufWriter;
+use std::io::Write;
+
+use crate::cst::{CST, CSTStream};
+use crate::{Parser, Span};
+
+#[test]
+fn cst() {
+    env_logger::init();
+
+    let files: Vec<_> = globwalk::glob("src/parser/tests/testdata/*.in")
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.into_path())
+        .collect();
+
+    files.into_par_iter().for_each(|path| {
+        let mut mint = goldenfile::Mint::new(".");
+        // Path to the .out file, replace the .in extension with .out.
+        let output_path = path.with_extension("cst");
+        let output_file = mint.new_goldenfile(output_path).unwrap();
+
+        let source = fs::read_to_string(path).unwrap();
+        let cst = CST::try_from(Parser::new(source.as_bytes())).unwrap();
+        let mut w = BufWriter::new(output_file);
+        write!(&mut w, "{cst:?}").unwrap();
+    });
+}
+
+#[test]
+fn cst_stream() {
+    let files: Vec<_> = globwalk::glob("src/parser/tests/testdata/*.in")
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.into_path())
+        .collect();
+
+    files.into_par_iter().for_each(|path| {
+        let mut mint = goldenfile::Mint::new(".");
+        // Path to the .out file, replace the .in extension with .out.
+        let output_path = path.with_extension("cststream");
+        let output_file = mint.new_goldenfile(output_path).unwrap();
+
+        let source = fs::read_to_string(path).unwrap();
+        let cst = CSTStream::from(Parser::new(source.as_bytes()));
+        let mut w = BufWriter::new(output_file);
+
+        for event in cst {
+            writeln!(&mut w, "{event:?}").unwrap();
+        }
+    });
+}
+
+#[test]
+fn ast() {
+    let files: Vec<_> = globwalk::glob("src/parser/tests/testdata/*.in")
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.into_path())
+        .collect();
+
+    files.into_iter().for_each(|path| {
+        let mut mint = goldenfile::Mint::new(".");
+        // Path to the .out file, replace the .in extension with .out.
+        let output_path = path.with_extension("ast");
+        let output_file = mint.new_goldenfile(output_path).unwrap();
+
+        println!("file: {path:?}");
+        let source = fs::read_to_string(path).unwrap();
+        let ast = AST::from(source.as_str());
+        let mut w = BufWriter::new(output_file);
+        write!(&mut w, "{ast:?}").unwrap();
+    });
+}
+
+#[test]
+fn utf8_error_1() {
+    // Invalid UTF-8 anywhere.
+    let rules = b"
+rule test_1 { \xFF\xFF condition: true }
+rule test_2 { condition: true }";
+
+    let ast = AST::from(rules.as_slice());
+
+    assert_eq!(
+        &ast.errors()[0],
+        &Error::SyntaxError {
+            message: "invalid UTF-8 character".to_string(),
+            span: Span(15..16)
+        }
+    );
+
+    // The second rule is correctly parsed because it doesn't have any errors.
+    assert_eq!(ast.rules().count(), 1);
+}
+
+#[test]
+fn utf8_error_2() {
+    // Invalid UTF-8 in string literal.
+    let rules = b"
+rule test_1 { condition: \"\xFF\xFF\" contains \"foo\" }
+rule test_2 { condition: true }";
+
+    let ast = AST::from(rules.as_slice());
+
+    assert_eq!(&ast.errors()[0], &Error::InvalidUTF8(Span(27..28)));
+
+    // The second rule is correctly parsed because it doesn't have any errors.
+    assert_eq!(ast.rules().count(), 1);
+}
+
+#[test]
+fn utf8_error_3() {
+    // Invalid UTF-8 in a comment.
+    let rules = b"
+/* \xFF\xFF */
+rule test_1 { condition: true }";
+
+    let ast = AST::from(rules.as_slice());
+    assert_eq!(ast.rules().count(), 1);
+}
+
+#[test]
+fn utf8_error_4() {
+    // Invalid UTF-8 in a regular expression.
+    let rules = b"
+rule test_1 { strings: $a = /foo\xFF\xFFbar/ condition: $a }\
+rule test_2 { condition: true }";
+
+    let ast = AST::from(rules.as_slice());
+
+    assert_eq!(&ast.errors()[0], &Error::InvalidUTF8(Span(33..34)));
+    assert_eq!(ast.rules().count(), 1);
+}
+
+#[test]
+fn clear_speculative_errors_after_top_level_item() {
+    let rules = br#"
+rule test_1 {
+  condition:
+    true
+}
+rule test_2 {
+  condition:
+    true
+}
+"#;
+
+    let mut parser = Parser::new(rules.as_slice());
+    // Give the parser just enough fuel to finish parsing `test_1` (5 `begin`
+    // calls: RULE_DECL, RULE_MODS, CONDITION_BLK, BOOLEAN_EXPR, BOOLEAN_TERM),
+    // so that it runs out of fuel at the very first `begin(RULE_DECL)` of
+    // `test_2`. When `test_2` aborts with `State::OutOfFuel`, `end()` invokes
+    // `handle_errors()`. If speculative errors from `test_1` were not cleared
+    // in `flush_errors()`, `handle_errors()` would emit a spurious syntax error
+    // (`expecting operator, found `}`) pointing back to the closing brace of
+    // the valid `test_1` rule.
+    parser.parser.fuel = 5;
+
+    let errors: Vec<_> = parser
+        .filter_map(|event| match event {
+            crate::cst::Event::Error { message, span } => {
+                Some((message, span))
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert!(errors.is_empty(), "unexpected errors emitted: {errors:?}");
+}
+
+#[test]
+fn nesting_error() {
+    let source = format!(
+        "rule test_1 {{ condition: {}true{} }}\nrule test_2 {{ condition: true }}",
+        "(".repeat(505),
+        ")".repeat(505),
+    );
+
+    let cst = CST::try_from(Parser::new(source.as_bytes())).unwrap();
+    assert_eq!(cst.root().text().len(), source.len());
+
+    let ast = AST::from(source.as_str());
+    assert_eq!(
+        ast.errors(),
+        &[Error::SyntaxError {
+            message: "nesting limit reached".to_string(),
+            span: Span(522..523),
+        }]
+    );
+    assert_eq!(ast.rules().count(), 1);
+
+    // Flat CST chain of `BinaryExpr` operators (`|`) exceeding `MAX_AST_DEPTH`.
+    let source = format!(
+        "rule test_1 {{ condition: -({}) == 0 }}\nrule test_2 {{ condition: true }}",
+        vec!["1"; 25_000].join(" | ")
+    );
+    let ast = AST::from(source.as_str());
+    assert_eq!(
+        ast.errors(),
+        &[Error::SyntaxError {
+            message: "nesting limit reached".to_string(),
+            span: Span(27..96032),
+        }]
+    );
+    assert_eq!(ast.rules().count(), 1);
+
+    // Alternating same-precedence `NAryExpr` operators (`+` / `-`) cannot be
+    // flattened into a single `NAryExpr`, so they also hit `MAX_AST_DEPTH`.
+    let source = format!(
+        "rule test_1 {{ condition: {} == 0 }}\nrule test_2 {{ condition: true }}",
+        "1 + 1 - ".repeat(1_000) + "1"
+    );
+    let ast = AST::from(source.as_str());
+    assert_eq!(
+        ast.errors(),
+        &[Error::SyntaxError {
+            message: "nesting limit reached".to_string(),
+            span: Span(25..4030),
+        }]
+    );
+    assert_eq!(ast.rules().count(), 1);
+
+    // Parenthesized sub-chains accumulate their AST depth across parentheses.
+    let chunk = vec!["1"; 400].join(" | ");
+    let source = format!(
+        "rule test_1 {{ condition: (({chunk}) | {chunk}) | {chunk} == 0 }}\nrule test_2 {{ condition: true }}",
+    );
+    let ast = AST::from(source.as_str());
+    assert_eq!(ast.errors().len(), 1);
+    assert!(matches!(
+        &ast.errors()[0],
+        Error::SyntaxError { message, .. } if message == "nesting limit reached"
+    ));
+    assert_eq!(ast.rules().count(), 1);
+
+    // Homogeneous `NAryExpr` chains (`1 + 1 + 1 + ...`) flatten into a single
+    // `NAryExpr` node of depth 2 and must NOT hit `MAX_AST_DEPTH`.
+    let source = format!(
+        "rule test_1 {{ condition: {} == 2000 }}",
+        vec!["1"; 2_000].join(" + ")
+    );
+    let ast = AST::from(source.as_str());
+    assert!(ast.errors().is_empty());
+    assert_eq!(ast.rules().count(), 1);
+}
+
+#[test]
+fn string_lit_escape_error_spans_and_synthetic_incomplete_escape() {
+    // Invalid `\x` after a non-zero `first_backslash` and earlier valid escape.
+    let src = r#"rule r { condition: "prefix\nmid\x1" == "" }"#;
+    let ast = AST::from(src);
+    assert_eq!(
+        ast.errors(),
+        &[Error::InvalidEscapeSequence {
+            message: r"expecting two hex digits after `\x`".to_string(),
+            span: Span(32..34),
+        }]
+    );
+
+    // Invalid unknown escape in a multi-line string literal after `first_backslash`.
+    let src_multi =
+        "rule r { condition: \"\"\"abc\\ndef\\qghi\"\"\" == \"\" }";
+    let ast_multi = AST::from(src_multi);
+    assert_eq!(
+        ast_multi.errors(),
+        &[Error::InvalidEscapeSequence {
+            message: r"invalid escape sequence `\q`".to_string(),
+            span: Span(31..33),
+        }]
+    );
+
+    // Synthetic CST stream with a trailing bare `\` inside `STRING_LIT` (where
+    // `allow_escape_char == true`) must report `InvalidEscapeSequence` instead
+    // of panicking.
+    let template_src = br#"rule r { meta: m = "abcx" condition: true }"#;
+    let synthetic_src = br#"rule r { meta: m = "abc\" condition: true }"#;
+    let events: Vec<_> = Parser::new(template_src.as_slice()).collect();
+    let ast_syn = AST::new(synthetic_src.as_slice(), events.into_iter());
+    assert_eq!(
+        ast_syn.errors(),
+        &[Error::InvalidEscapeSequence {
+            message: "incomplete escape sequence".to_string(),
+            span: Span(23..24),
+        }]
+    );
+}
+
+#[test]
+fn source_too_large_error() {
+    let source = b"rule test { condition: true }";
+
+    for max_size in [source.len(), source.len() - 1, 1] {
+        let parser = Parser::new_with_max_size(source, max_size);
+        assert_eq!(parser.source(), source.as_slice());
+
+        let ast = AST::from(parser);
+        assert_eq!(ast.rules().count(), 0);
+        assert_eq!(
+            ast.errors(),
+            &[Error::SyntaxError {
+                message: "source file is too large".to_string(),
+                span: Span(0..0),
+            }]
+        );
+
+        let cst = CST::try_from(Parser::new_with_max_size(source, max_size))
+            .unwrap();
+        assert_eq!(cst.root().text(), "");
+        let has_err = cst.iter().any(|e| {
+            e == crate::cst::Event::Error {
+                message: "source file is too large".to_string(),
+                span: Span(0..0),
+            }
+        });
+        assert!(has_err);
+    }
+
+    // Input strictly smaller than `max_size` parses normally.
+    let ast = AST::from(Parser::new_with_max_size(source, source.len() + 1));
+    assert!(ast.errors().is_empty());
+    assert_eq!(ast.rules().count(), 1);
+}

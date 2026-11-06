@@ -24,24 +24,23 @@ def _catalog_order(connector_name: str) -> tuple[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class AllConnectors:
-    """Every MCP-capable connector the Session user can already use.
+    """Every connector that the user who runs the session has connected, as of the session's start.
 
-    A connector is in the set when it is active for that user's workspace and
-    organization, it exposes an MCP tool interface, and the user holds a usable
-    credential for it. Connectors the user has not connected yet stay out of the
-    set; with ``auto_auth`` the Agent can still discover them and ask the user to
-    connect one, which is the only path that starts an authorization flow.
+    ``agents.all_connectors()`` returns it. A connector is in the set when it is active in the
+    user's workspace, has MCP tools, and the user has connected it. With ``auto_auth``, the agent
+    can still find the other connectors and ask the user to connect one.
 
-    The set is always resolved on behalf of the Session user. There is no
-    deployment-identity form: "every connector the deployment can reach" is an
-    unbounded service identity, and no interactive authorization can complete
-    under it.
+    The set always uses the user's connections: it has no ``run_as="deployment"`` form.
     """
 
     exclude: tuple[str, ...] = ()
+    """Connector names to drop from the set."""
     max_connectors: int | None = None
+    """The most discovered connectors the agent mounts, the first by name. ``None`` sets no cap."""
     auto_auth: bool = True
+    """Whether the agent may ask the user to connect a connector it found unconnected."""
     allow_mcp_ui: bool = False
+    """Whether MCP app resources are shown for every discovered connector."""
 
     def __post_init__(self) -> None:
         # Validated here rather than in all_connectors(), so a selection built directly
@@ -88,28 +87,34 @@ def all_connectors(
     auto_auth: bool = True,
     allow_mcp_ui: bool = False,
 ) -> AllConnectors:
-    """Select every connector available to the user who runs the Session.
+    """Give the agent every connector that the user who runs the session has connected.
 
-    ``exclude`` drops connectors by name. Leave ``max_connectors`` unset: it caps
-    the connectors the user has signed in to, keeping the first by name rather
-    than the ones the task needs. A connector that fails to load still counts and
-    keeps its place. The Agent finds connector tools by searching for them rather
-    than receiving them up front, so each connector costs its context one prompt
-    line. A large set still widens that search; narrow it with ``exclude`` or by
-    naming the connectors the Agent needs.
+    ``exclude`` drops connectors by name. Leave ``max_connectors`` unset: it keeps
+    the first connectors by name, not the ones the task needs. Narrow the set with
+    ``exclude``.
 
     ``auto_auth`` and ``allow_mcp_ui`` apply to every discovered connector and
-    mean what they mean on :func:`connector`. Name a connector explicitly
-    alongside this selection to give that one connector different options - the
-    explicit declaration wins::
+    mean what they mean on :func:`connector`. To give one connector its own
+    ``credentials_name`` or ``allow_mcp_ui``, name it with ``agents.connector(...)``
+    in the same list, and the named declaration wins for that connector. It must keep the
+    same ``auto_auth`` and the default ``run_as``, or the session does not start. For example,
+    this agent gets every connector but Jira, and Notion with the ``team`` credentials::
 
         agents.Agent(
-            model="mistral-medium-latest",
+            model="mistral-large-4",
             connectors=[
                 agents.all_connectors(exclude=["jira"]),
                 agents.connector("notion", credentials_name="team"),
             ]
         )
+
+    Args:
+        exclude: Connector names to drop from the set.
+        max_connectors: The most discovered connectors the agent mounts, the first by name. Only
+            connectors the user can use count, and a connector you name yourself is never capped away.
+            ``None`` sets no cap.
+        auto_auth: Whether the agent may ask the user to connect a connector it found unconnected.
+        allow_mcp_ui: Whether MCP app resources are shown for every discovered connector.
     """
 
     return AllConnectors(

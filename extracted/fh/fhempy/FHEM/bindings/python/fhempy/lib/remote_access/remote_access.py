@@ -93,6 +93,9 @@ class remote_access(generic.FhemModule):
         self.problem = ""
         self._unique_id = None
         self._wakeup = asyncio.Event()
+        # a logout must not run in the middle of a check, the check could
+        # start Funnel again right after the logout stopped it
+        self._check_lock = asyncio.Lock()
         self._run_task = None
         self.sites = sites.Sites(self)
 
@@ -170,7 +173,9 @@ class remote_access(generic.FhemModule):
         stored = await fhem.ReadingsVal(self.hash["NAME"], ".password", "")
         if stored:
             try:
-                self.password = utils.decrypt_string(stored, self._unique_id)
+                self.password = await utils.async_decrypt_string(
+                    stored, self._unique_id
+                )
             except Exception:
                 self.password = ""
         if not self.password:
@@ -183,7 +188,7 @@ class remote_access(generic.FhemModule):
         await fhem.readingsSingleUpdate(
             self.hash,
             ".password",
-            utils.encrypt_string(password, self._unique_id),
+            await utils.async_encrypt_string(password, self._unique_id),
             0,
         )
 
@@ -305,7 +310,7 @@ class remote_access(generic.FhemModule):
     async def check_password_protection(self):
         """FHEMWEB must refuse requests without password before it is
         reachable from the internet, raises RuntimeError otherwise"""
-        import aiohttp
+        aiohttp = await utils.import_module("aiohttp")
 
         url = self.fhemweb_url() + "/fhem"
         timeout = aiohttp.ClientTimeout(total=15)
@@ -351,7 +356,8 @@ class remote_access(generic.FhemModule):
             # check wakes the next one instead of waiting ONLINE_INTERVAL
             self._wakeup.clear()
             try:
-                online = await self.step()
+                async with self._check_lock:
+                    online = await self.step()
             except asyncio.CancelledError:
                 raise
             except Exception as err:
@@ -476,9 +482,10 @@ class remote_access(generic.FhemModule):
         self._run_task = self.create_async_task(self.run())
 
     async def logout(self):
-        await self.sites.stop()
-        await self.ts.stop_funnel()
-        await self.ts.logout()
+        async with self._check_lock:
+            await self.sites.stop()
+            await self.ts.stop_funnel()
+            await self.ts.logout()
         self.url = ""
         await fhem.readingsSingleUpdate(self.hash, "url", "-", 1)
         self._wakeup.set()

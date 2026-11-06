@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uncalled-for
-Version: 0.4.2
+Version: 0.6.0
 Summary: Async dependency injection for Python functions
 Project-URL: Repository, https://github.com/chrisguidry/uncalled-for
 Project-URL: Bug Tracker, https://github.com/chrisguidry/uncalled-for/issues
@@ -11,13 +11,13 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # uncalled-for
@@ -49,6 +49,32 @@ async def handle_request(db: Connection = Depends(get_db)):
 - **Nested dependencies** — dependencies can depend on other dependencies
 - **Caching** — each dependency resolves once per call, even if referenced multiple times
 - **Call arguments** — a factory can reference the arguments of the call it serves
+
+## Annotated dependencies
+
+`Depends`, `Shared` and `CallArgument` also work as `Annotated` metadata, so
+you can name a dependency once and reuse it:
+
+```python
+DB = Annotated[Connection, Depends(get_db)]
+
+async def handle_request(db: DB):
+    await db.execute("SELECT 1")
+```
+
+This resolves like `db: Connection = Depends(get_db)`, but to Python `db` is
+still a required parameter. A custom dependency supplies a value from metadata
+only if it subclasses `Provider`; other dependencies there wrap the call.
+
+When something else calls the function with type-checked arguments, such as a
+task queue that schedules it, default the parameter to `Provided` so those
+callers can leave it out:
+
+```python
+async def handle_request(db: DB = Provided): ...
+```
+
+A `type` alias works the same way: `type DB = Annotated[Connection, Depends(get_db)]`.
 
 ## Call arguments
 

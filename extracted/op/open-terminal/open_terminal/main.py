@@ -31,6 +31,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.formparsers import MultiPartParser, MultiPartException, parse_options_header
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
+from open_terminal.agents import discovery as agent_discovery, sessions as agent_sessions
+from open_terminal.agents.router import router as agent_router
 from open_terminal.dependencies import get_filesystem, matches_api_key, verify_api_key
 from open_terminal.env import API_KEY, BINARY_FILE_MIME_PREFIXES, CORS_ALLOWED_ORIGINS, ENABLE_BROWSER, ENABLE_DESKTOP, ENABLE_NOTEBOOKS, ENABLE_SYSTEM_PROMPT, ENABLE_TERMINAL, EXECUTE_DESCRIPTION, EXECUTE_TIMEOUT, FILE_BROWSER_ROOT, LOG_DIR, MAX_TERMINAL_SESSIONS, MULTI_USER, OPEN_TERMINAL_INFO, PROCESS_LOG_RETENTION, SESSION_CWD_TTL, SYSTEM_PROMPT, TERMINAL_TERM
 from open_terminal.env import sanitized_environ
@@ -192,6 +194,8 @@ async def lifespan(app):
     finally:
         maintenance.cancel()
         await asyncio.gather(maintenance, return_exceptions=True)
+        await agent_discovery.shutdown()
+        await agent_sessions.shutdown()
         for process in list(_processes.values()):
             if process.finished_at is None:
                 process.runner.kill(force=True)
@@ -220,6 +224,7 @@ app = FastAPI(
     description="A remote computer API.",
     version=_pkg_version("open-terminal"),
 )
+app.include_router(agent_router)
 app.add_middleware(NormalizeNullQueryMiddleware)
 app.add_middleware(
     BrowserCORSMiddleware,
@@ -448,6 +453,7 @@ def _cleanup_log_files(active_paths):
 
 async def _maintenance_loop():
     while True:
+        await agent_sessions.maintain()
         _cleanup_expired()
         _expire_session_cwds()
         if ENABLE_TERMINAL:
@@ -508,6 +514,7 @@ async def get_config():
             "system": ENABLE_SYSTEM_PROMPT,
             "git": shutil.which("git") is not None,
             "events": True,
+            "agents": True,
             "browser": ENABLE_BROWSER,
             "desktop": ENABLE_DESKTOP and desktop_available(),
         },
@@ -2238,6 +2245,7 @@ if ENABLE_TERMINAL:
             input_lock=asyncio.Lock(),
             output_offset=0,
             output_changed=asyncio.Event(),
+            output_consumed=asyncio.Event(),
             reader_done=False,
             detached_at=time.monotonic(),
         )
@@ -2253,6 +2261,11 @@ if ENABLE_TERMINAL:
         """Drain the PTY even while no viewer is attached."""
         try:
             while True:
+                # Stop the producer before unread output can leave the retained history.
+                while (session.get("viewer_ack") is not None
+                       and session["output_offset"] - session["viewer_ack"] >= 512 * 1024):
+                    session["output_consumed"].clear()
+                    await session["output_consumed"].wait()
                 if session["backend"] == "pty":
                     data = await read_pty(session["master_fd"])
                 else:
@@ -2409,6 +2422,12 @@ if ENABLE_TERMINAL:
 
         The server replies with the same type and chat_id, or an error. A shell
         already assigned to a different chat cannot be reassigned.
+
+        With ``resume`` and ``flow_control`` set to true in auth, the server
+        confirms ``{"type": "flow_control"}``. Acknowledge consumed output with
+        ``{"type": "ack", "cursor": <output end>}`` to release more data.
+        Reads pause when the attached viewer falls behind; detached shells keep
+        running with bounded history.
         """
         session = _terminal_sessions.get(session_id)
         if session is None:
@@ -2463,34 +2482,73 @@ if ENABLE_TERMINAL:
             await ws.close(code=4000, reason="Invalid output cursor")
             return
 
+        flow_control = resume and payload.get("flow_control") is True
+        acknowledged = max(cursor, session["output_offset"] - len(session["output"]))
+        if flow_control:
+            session["viewer_ack"] = acknowledged
+
         async def _pty_reader():
             nonlocal cursor
+            if flow_control:
+                await ws.send_json({"type": "flow_control"})
             while not stop_event.is_set():
+                while flow_control and cursor - acknowledged >= 256 * 1024:
+                    session["output_consumed"].clear()
+                    await session["output_consumed"].wait()
                 session["output_changed"].clear()
-                end = session["output_offset"]
-                oldest = end - len(session["output"])
+                oldest = session["output_offset"] - len(session["output"])
                 start = max(cursor, oldest)
+                end = min(session["output_offset"], start + 64 * 1024)
+                if flow_control:
+                    end = min(end, acknowledged + 256 * 1024)
                 if end > cursor:
-                    data = bytes(session["output"][start - oldest:])
-                    if resume:
-                        await ws.send_json({"type": "output", "start": start, "end": end, "truncated": cursor < oldest})
-                    await ws.send_bytes(data)
+                    data = bytes(session["output"][start - oldest:end - oldest])
+                    truncated = cursor < oldest
                     cursor = end
+                    if resume:
+                        await ws.send_json({"type": "output", "start": start, "end": end, "truncated": truncated})
+                    await ws.send_bytes(data)
+                    continue
                 if session["reader_done"]:
                     return
                 await session["output_changed"].wait()
 
+        input_queue = asyncio.Queue(maxsize=64)
+        input_bytes = 0
+
+        async def _input_writer():
+            nonlocal input_bytes
+            while True:
+                data = await input_queue.get()
+                await _write_terminal(session, data)
+                input_bytes -= len(data)
+
         async def _ws_reader():
+            nonlocal acknowledged, input_bytes
             while True:
                 msg = await ws.receive()
                 if msg["type"] == "websocket.disconnect":
                     break
                 elif "bytes" in msg and msg["bytes"]:
-                    await _write_terminal(session, msg["bytes"])
+                    data = msg["bytes"]
+                    if input_queue.full() or input_bytes + len(data) > 1024 * 1024:
+                        await ws.close(code=4000, reason="Terminal input backlog exceeded")
+                        return
+                    input_bytes += len(data)
+                    # A blocked paste must not prevent reading output acknowledgements.
+                    input_queue.put_nowait(data)
                 elif "text" in msg and msg["text"]:
                     try:
                         payload = json.loads(msg["text"])
-                        if payload.get("type") == "resize":
+                        if payload.get("type") == "ack" and flow_control:
+                            consumed = payload.get("cursor")
+                            if type(consumed) is not int or not acknowledged <= consumed <= cursor:
+                                await ws.close(code=4000, reason="Invalid output acknowledgement")
+                                return
+                            acknowledged = consumed
+                            session["viewer_ack"] = consumed
+                            session["output_consumed"].set()
+                        elif payload.get("type") == "resize":
                             cols = payload.get("cols", 80)
                             rows = payload.get("rows", 24)
                             _do_resize(rows, cols)
@@ -2508,7 +2566,8 @@ if ENABLE_TERMINAL:
                                 await ws.send_json({"type": "chat", "chat_id": chat_id})
                     except (json.JSONDecodeError, KeyError):
                         pass
-        tasks = (asyncio.create_task(_pty_reader()), asyncio.create_task(_ws_reader()))
+        tasks = (asyncio.create_task(_pty_reader()), asyncio.create_task(_ws_reader()),
+                 asyncio.create_task(_input_writer()))
         session["viewer_tasks"] = tasks
         try:
             await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -2519,6 +2578,8 @@ if ENABLE_TERMINAL:
             for task in tasks:
                 task.cancel()
             session["connected"] = False
+            session.pop("viewer_ack", None)
+            session["output_consumed"].set()
             session["detached_at"] = time.monotonic()
             session["viewer_tasks"] = ()
             try:

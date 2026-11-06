@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Mapping
+from pathlib import Path
 
 #: One process rewrites a mark at most this often.
 WRITE_EVERY_S = 5 * 60
@@ -47,12 +48,13 @@ class Mark:
         except Exception:  # noqa: BLE001 -- a mark may never fail the request it rode on
             pass
 
-    def fresh(self, now: float | None = None) -> bool:
-        """A mark seen within `FRESH_S`. False when there is none. Never raises."""
+    def fresh(self, now: float | None = None, *, folder: Path | None = None) -> bool:
+        """A mark seen within `FRESH_S`, in `folder` (another caller context's state folder: the
+        Probe service's chores), else this process's. False when there is none. Never raises."""
         try:
             from probe.foundation.version_policy import version_policy
 
-            data = json.loads((version_policy.state_dir() / self.filename).read_text())
+            data = json.loads(((folder or version_policy.state_dir()) / self.filename).read_text())
             seen = float(data["seen_at"])
         except Exception:  # noqa: BLE001 -- no mark, an unreadable or a malformed one
             return False

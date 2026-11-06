@@ -1,5 +1,6 @@
 """Functional-style utilities."""
 import inspect
+import operator
 import sys
 from collections import UserList
 from functools import partial
@@ -97,15 +98,16 @@ def firstmethod(method, on_call=None):
 
     def _matcher(it, *args, **kwargs):
         for obj in it:
+            obj = maybe_evaluate(obj)
             try:
-                meth = getattr(maybe_evaluate(obj), method)
-                reply = (on_call(meth, *args, **kwargs) if on_call
-                         else meth(*args, **kwargs))
+                meth = getattr(obj, method)
             except AttributeError:
-                pass
-            else:
-                if reply is not None:
-                    return reply
+                continue
+
+            reply = (on_call(meth, *args, **kwargs) if on_call
+                     else meth(*args, **kwargs))
+            if reply is not None:
+                return reply
 
     return _matcher
 
@@ -239,10 +241,55 @@ class _regen(UserList, list):
                         break
 
     def __iter__(self):
-        yield from self.__consumed
-        yield from self.__lookahead_consume()
+        # Track our own position in `__consumed` rather than relying on the
+        # shared look-ahead generator, so that other consumers (``len()``,
+        # indexing or a nested loop) exhausting the underlying iterator
+        # midway through don't cut this iteration short.
+        it = None
+        index = 0
+        # Items already concretised are yielded without looking ahead, only
+        # once we pull from the underlying iterator ourselves do we look
+        # ahead, so a lazy generator isn't consumed any earlier than needed
+        # (see #3021).
+        pulling = False
+        while True:
+            if index >= len(self.__consumed):
+                if self.__done:
+                    return
+                if it is None:
+                    # map() may replace the source while we replay cached items.
+                    it = iter(self.__it)
+                    # __iter__() may itself consume and populate our cache.
+                    continue
+                try:
+                    self.__consumed.append(next(it))
+                except StopIteration:
+                    self.__done = True
+                    return
+                pulling = True
+            if (not pulling or self.__done or
+                    index + 1 < len(self.__consumed)):
+                yield self.__consumed[index]
+            else:
+                # Maintain a single look-ahead to ensure we set `__done` when
+                # the underlying iterator gets exhausted
+                try:
+                    self.__consumed.append(next(it))
+                except StopIteration:
+                    self.__done = True
+                finally:
+                    yield self.__consumed[index]
+            index += 1
 
     def __getitem__(self, index):
+        if isinstance(index, slice):
+            # A slice that is not bounded from the front needs the end of the
+            # iterator, so concretise rather than special casing the few that
+            # could stay lazy.
+            return self.data[index]
+        # Accept anything list accepts, and reject the rest with the same error
+        # rather than whatever the comparison below would raise.
+        index = operator.index(index)
         if index < 0:
             return self.data[index]
         # Consume elements up to the desired index prior to attempting to
@@ -321,8 +368,18 @@ if sys.version_info >= (3, 14):
         # annotations here, so use Format.STRING to avoid evaluation.
         # For bound methods, use __func__ so that 'self' is included in args,
         # matching the behaviour of getfullargspec on older Python versions.
+        # Pass follow_wrapped=False to match inspect.getfullargspec's behaviour
+        # of introspecting the callable itself rather than following __wrapped__;
+        # this matters for tasks defined via functools.wraps over a variadic
+        # wrapper (e.g. dependency-injection decorators) where the wrapper's
+        # signature -- not the inner function's -- is what should be validated
+        # against caller-supplied args.
         target = getattr(fun, '__func__', fun)
-        sig = inspect.signature(target, annotation_format=_annotationlib.Format.STRING)
+        sig = inspect.signature(
+            target,
+            follow_wrapped=False,
+            annotation_format=_annotationlib.Format.STRING,
+        )
         args, varargs, varkw, defaults, kwonlyargs, kwonlydefaults = [], None, None, [], [], {}
         for name, param in sig.parameters.items():
             kind = param.kind

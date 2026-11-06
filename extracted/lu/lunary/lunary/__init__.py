@@ -1,6 +1,8 @@
 import os
 import logging
 import json
+import asyncio
+from collections.abc import Iterable, Iterator, Mapping
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -29,8 +31,20 @@ from pydantic import BaseModel
 import humps
 
 from .exceptions import *
-from .parsers import default_input_parser, default_output_parser, filter_params, method_input_parser, PydanticHandler
-from .openai_utils import OpenAIUtils
+from .parsers import (
+    PydanticHandler,
+    default_input_parser,
+    default_output_parser,
+    filter_params,
+    is_openai_omitted,
+    method_input_parser,
+)
+from .openai_utils import (
+    OpenAIChatStreamAccumulator,
+    OpenAIResponsesStreamAccumulator,
+    OpenAIResponsesUtils,
+    OpenAIUtils,
+)
 from .anthropic_utils import AnthropicUtils
 from .ibm_utils import IBMUtils
 from .event_queue import EventQueue
@@ -169,93 +183,211 @@ def track_event(
         logger.exception("Error in `track_event`")
 
 
-def default_stream_handler(fn, run_id, name, type, *args, **kwargs):
-    try:
-        stream = fn(*args, **kwargs)
-
-        choices = []
-        tokens = 0
-
-        for chunk in stream:
-            tokens += 1
-            if not chunk.choices:
-                # Azure
-                continue
-
-            choice = chunk.choices[0]
-            index = choice.index
-
-            content = choice.delta.content
-            role = choice.delta.role
-            function_call = choice.delta.function_call
-            tool_calls = choice.delta.tool_calls
-
-            if len(choices) <= index:
-                choices.append(
-                    {
-                        "message": {
-                            "role": role,
-                            "content": content or "",
-                            "function_call": {},
-                            "tool_calls": [],
-                        }
-                    }
-                )
-
-            if content:
-                choices[index]["message"]["content"] += content
-
-            if role:
-                choices[index]["message"]["role"] = role
-
-            if hasattr(function_call, "name"):
-                choices[index]["message"]["function_call"]["name"] = function_call.name
-
-            if hasattr(function_call, "arguments"):
-                choices[index]["message"]["function_call"].setdefault("arguments", "")
-                choices[index]["message"]["function_call"][
-                    "arguments"
-                ] += function_call.arguments
-
-            if isinstance(tool_calls, list):
-                for tool_call in tool_calls:
-                    existing_call_index = next(
-                        (
-                            index
-                            for (index, tc) in enumerate(
-                                choices[index]["message"]["tool_calls"]
-                            )
-                            if tc.index == tool_call.index
-                        ),
-                        -1,
-                    )
-
-                if existing_call_index == -1:
-                    choices[index]["message"]["tool_calls"].append(tool_call)
-
-                else:
-                    existing_call = choices[index]["message"]["tool_calls"][
-                        existing_call_index
-                    ]
-                    if hasattr(tool_call, "function") and hasattr(
-                        tool_call.function, "arguments"
-                    ):
-                        existing_call.function.arguments += tool_call.function.arguments
-
-            yield chunk
-    finally:
-        stream.close()
-
-    output = OpenAIUtils.parse_message(choices[0]["message"])
-    track_event(
-        type,
-        "end",
+class _TrackedOpenAISyncStream:
+    def __init__(
+        self,
+        stream,
+        accumulator,
         run_id,
-        name=name,
-        output=output,
-        token_usage={"completion": tokens, "prompt": None},
+        name,
+        type,
+        add_item,
+        is_completed,
+        error_for_outcome,
+        has_authoritative_outcome=None,
+        terminal_claim=None,
+    ):
+        self._stream = stream
+        self._accumulator = accumulator
+        self._run_id = run_id
+        self._name = name
+        self._type = type
+        self._add_item = add_item
+        self._is_completed = is_completed
+        self._error_for_outcome = error_for_outcome
+        self._has_authoritative_outcome = (
+            has_authoritative_outcome or (lambda: False)
+        )
+        self._finalized = False
+        self._terminal_emitted = False
+        self._provider_errors_delegated = False
+        self._provider_operation_active = False
+        self._terminal_claim = terminal_claim or (lambda: True)
+
+    @property
+    def response(self):
+        return getattr(self._stream, "response")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._finalized:
+            raise StopIteration
+        self._provider_operation_active = True
+        try:
+            item = next(self._stream)
+            self._add_item(item)
+            return item
+        except StopIteration:
+            self._finalize(eof=True)
+            raise
+        except BaseException:
+            self._finalize_provider_failure(eof=False)
+            raise
+        finally:
+            self._provider_operation_active = False
+
+    def _close_provider(self):
+        close = getattr(self._stream, "close", None)
+        if callable(close):
+            self._provider_operation_active = True
+            try:
+                return close()
+            finally:
+                self._provider_operation_active = False
+        return None
+
+    def delegate_provider_errors(self):
+        self._provider_errors_delegated = True
+
+    def _emit_outcome(self, *, eof):
+        if self._terminal_emitted:
+            return
+        self._terminal_emitted = True
+        self._finalized = True
+        if not self._terminal_claim():
+            return
+        if self._is_completed():
+            track_event(
+                self._type,
+                "end",
+                self._run_id,
+                name=self._name,
+                output=self._accumulator.output(),
+                token_usage=self._accumulator.token_usage(),
+            )
+            return
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            name=self._name,
+            output=self._accumulator.output(),
+            token_usage=self._accumulator.token_usage(),
+            error=self._error_for_outcome(eof=eof),
+        )
+
+    def _emit_provider_failure(self, *, eof):
+        if self._has_authoritative_outcome():
+            self._emit_outcome(eof=eof)
+            return
+        self._finalized = True
+        if self._terminal_emitted or self._provider_errors_delegated:
+            return
+        self._terminal_emitted = True
+        if not self._terminal_claim():
+            return
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            name=self._name,
+            error=_openai_provider_stream_error(),
+        )
+
+    def _finalize_provider_failure(self, *, eof):
+        if self._finalized:
+            return
+        self._finalized = True
+        try:
+            self._close_provider()
+        except BaseException:
+            logger.exception("Error closing OpenAI stream after failure")
+        self._emit_provider_failure(eof=eof)
+
+    def _finalize(self, *, eof):
+        if self._finalized:
+            return
+        self._finalized = True
+        try:
+            self._close_provider()
+        except BaseException:
+            self._emit_provider_failure(eof=eof)
+            raise
+        self._emit_outcome(eof=eof)
+
+    def close(self):
+        return self._finalize(eof=False)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc, _exc_tb):
+        if _exc_type is None:
+            self.close()
+            return False
+        if self._finalized:
+            return False
+        try:
+            self.close()
+        except BaseException:
+            logger.exception(
+                "Error closing OpenAI stream while propagating an exception"
+            )
+        return False
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+def _chat_stream_error(accumulator, *, eof):
+    return {
+        "code": "chat_stream_incomplete" if eof else "stream_cancelled",
+        "message": (
+            "OpenAI Chat Completions stream ended without finish_reason"
+            if eof
+            else "OpenAI Chat Completions stream closed before completion"
+        ),
+    }
+
+
+def _openai_provider_stream_error():
+    return {
+        "code": "provider_stream_error",
+        "message": "OpenAI provider stream failed",
+    }
+
+
+def default_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    stream = fn(*args, **kwargs)
+    accumulator = OpenAIChatStreamAccumulator(kwargs.get("n", 1))
+    return _TrackedOpenAISyncStream(
+        stream,
+        accumulator,
+        run_id,
+        name,
+        type,
+        accumulator.add_chunk,
+        accumulator.has_terminal_choice_state,
+        lambda *, eof: _chat_stream_error(accumulator, eof=eof),
     )
-    return
+
+
+def openai_responses_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    stream = fn(*args, **kwargs)
+    accumulator = OpenAIResponsesStreamAccumulator()
+    return _TrackedOpenAISyncStream(
+        stream,
+        accumulator,
+        run_id,
+        name,
+        type,
+        accumulator.add_event,
+        accumulator.should_emit_end,
+        accumulator.error,
+        accumulator.has_terminal_response,
+    )
 
 
 def _ensure_list_size(items, index):
@@ -693,85 +825,274 @@ def anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
     )
 
 
-async def async_stream_handler(fn, run_id, name, type, *args, **kwargs):
-    stream = await fn(*args, **kwargs)
+class _TrackedOpenAIAsyncStream:
+    def __init__(
+        self,
+        stream,
+        accumulator,
+        run_id,
+        name,
+        type,
+        add_item,
+        is_completed,
+        error_for_outcome,
+        has_authoritative_outcome=None,
+        terminal_claim=None,
+    ):
+        self._stream = stream
+        self._accumulator = accumulator
+        self._run_id = run_id
+        self._name = name
+        self._type = type
+        self._add_item = add_item
+        self._is_completed = is_completed
+        self._error_for_outcome = error_for_outcome
+        self._has_authoritative_outcome = (
+            has_authoritative_outcome or (lambda: False)
+        )
+        self._finalized = False
+        self._terminal_emitted = False
+        self._terminal_suppressed = False
+        self._provider_close_complete = False
+        self._provider_errors_delegated = False
+        self._provider_operation_active = False
+        self._terminal_claim = terminal_claim or (lambda: True)
 
-    choices = []
-    tokens = 0
+    @property
+    def response(self):
+        return getattr(self._stream, "response")
 
-    async for chunk in stream:
-        tokens += 1
-        if not chunk.choices:
-            # Happens with Azure
-            continue
+    def __aiter__(self):
+        return self
 
-        choice = chunk.choices[0]
-        index = choice.index
+    async def __anext__(self):
+        if self._finalized:
+            raise StopAsyncIteration
+        self._provider_operation_active = True
+        try:
+            item = await self._stream.__anext__()
+            self._add_item(item)
+            return item
+        except StopAsyncIteration:
+            await self._finalize(eof=True)
+            raise
+        except asyncio.CancelledError:
+            try:
+                await self._close_provider()
+            except BaseException:
+                logger.exception(
+                    "Error closing OpenAI async stream after cancellation"
+                )
+            self._emit_outcome(eof=False)
+            raise
+        except BaseException:
+            await self._finalize_provider_failure(eof=False)
+            raise
+        finally:
+            self._provider_operation_active = False
 
-        content = choice.delta.content
-        role = choice.delta.role
-        tool_calls = choice.delta.tool_calls
+    async def _close_provider(self):
+        if self._provider_close_complete:
+            return None
+        close = getattr(self._stream, "aclose", None)
+        if not callable(close):
+            close = getattr(self._stream, "close", None)
+        if callable(close):
+            self._provider_operation_active = True
+            try:
+                close_result = close()
+                if isawaitable(close_result):
+                    result = await close_result
+                    self._provider_close_complete = True
+                    return result
+            finally:
+                self._provider_operation_active = False
+        self._provider_close_complete = True
+        return None
 
-        if len(choices) <= index:
-            choices.append(
-                {
-                    "message": {
-                        "role": role,
-                        "content": content or "",
-                        "function_call": {},
-                        "tool_calls": [],
-                    }
-                }
+    def delegate_provider_errors(self):
+        self._provider_errors_delegated = True
+
+    def _emit_provider_failure(self, *, eof):
+        if self._has_authoritative_outcome():
+            self._emit_outcome(eof=eof)
+            return
+        self._finalized = True
+        if self._terminal_emitted or self._provider_errors_delegated:
+            self._terminal_suppressed = True
+            return
+        self._terminal_emitted = True
+        if not self._terminal_claim():
+            return
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            name=self._name,
+            error=_openai_provider_stream_error(),
+        )
+
+    async def _finalize_provider_failure(self, *, eof):
+        if self._finalized:
+            return
+        self._finalized = True
+        try:
+            await self._close_provider()
+        except BaseException:
+            logger.exception("Error closing OpenAI async stream after failure")
+        self._emit_provider_failure(eof=eof)
+
+    def _emit_outcome(self, *, eof):
+        if self._terminal_emitted or self._terminal_suppressed:
+            return
+        self._finalized = True
+        self._terminal_emitted = True
+        if not self._terminal_claim():
+            return
+        if self._is_completed():
+            track_event(
+                self._type,
+                "end",
+                self._run_id,
+                name=self._name,
+                output=self._accumulator.output(),
+                token_usage=self._accumulator.token_usage(),
+            )
+        else:
+            track_event(
+                self._type,
+                "error",
+                self._run_id,
+                name=self._name,
+                output=self._accumulator.output(),
+                token_usage=self._accumulator.token_usage(),
+                error=self._error_for_outcome(eof=eof),
             )
 
-        if content:
-            choices[index]["message"]["content"] += content
+    async def _finalize(self, *, eof):
+        try:
+            await self._close_provider()
+        except asyncio.CancelledError:
+            self._emit_outcome(eof=eof)
+            raise
+        except BaseException:
+            self._emit_provider_failure(eof=eof)
+            raise
+        self._emit_outcome(eof=eof)
 
-        if role:
-            choices[index]["message"]["role"] = role
+    async def close(self):
+        return await self._finalize(eof=False)
 
-        if isinstance(tool_calls, list):
-            for tool_call in tool_calls:
-                existing_call_index = next(
-                    (
-                        index
-                        for (index, tc) in enumerate(
-                            choices[index]["message"]["tool_calls"]
-                        )
-                        if tc.index == tool_call.index
-                    ),
-                    -1,
-                )
+    async def aclose(self):
+        return await self.close()
 
-            if existing_call_index == -1:
-                choices[index]["message"]["tool_calls"].append(tool_call)
+    async def __aenter__(self):
+        return self
 
-            else:
-                existing_call = choices[index]["message"]["tool_calls"][
-                    existing_call_index
-                ]
-                if hasattr(tool_call, "function") and hasattr(
-                    tool_call.function, "arguments"
-                ):
-                    existing_call.function.arguments += tool_call.function.arguments
+    async def __aexit__(self, _exc_type, _exc, _exc_tb):
+        if _exc_type is None:
+            await self.close()
+            return False
+        if self._finalized:
+            return False
+        try:
+            await self.close()
+        except BaseException:
+            logger.exception(
+                "Error closing OpenAI async stream while propagating an exception"
+            )
+        return False
 
-        yield chunk
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
 
-    output = OpenAIUtils.parse_message(choices[0]["message"])
-    track_event(
-        type,
-        "end",
+
+async def async_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    stream = await fn(*args, **kwargs)
+    accumulator = OpenAIChatStreamAccumulator(kwargs.get("n", 1))
+    return _TrackedOpenAIAsyncStream(
+        stream,
+        accumulator,
         run_id,
-        name=name,
-        output=output,
-        token_usage={"completion": tokens, "prompt": None},
+        name,
+        type,
+        accumulator.add_chunk,
+        accumulator.has_terminal_choice_state,
+        lambda *, eof: _chat_stream_error(accumulator, eof=eof),
     )
-    return
+
+
+async def async_openai_responses_stream_handler(
+    fn, run_id, name, type, *args, **kwargs
+):
+    stream = await fn(*args, **kwargs)
+    accumulator = OpenAIResponsesStreamAccumulator()
+    return _TrackedOpenAIAsyncStream(
+        stream,
+        accumulator,
+        run_id,
+        name,
+        type,
+        accumulator.add_event,
+        accumulator.should_emit_end,
+        accumulator.error,
+        accumulator.has_terminal_response,
+    )
 
 
 async def async_anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
     stream = await fn(*args, **kwargs)
     return _TrackedAsyncAnthropicEventStream(stream, run_id, name, type)
+
+
+def _merge_parsed_input_params(params, parsed_input):
+    """Merge parser provenance, honoring explicit provider-shape overrides."""
+    merged = copy.deepcopy(params)
+    if not isinstance(parsed_input, dict):
+        return merged
+    extra = parsed_input.get("extra")
+    if not isinstance(extra, dict):
+        return merged
+    for key, value in extra.items():
+        merged.setdefault(key, copy.deepcopy(value))
+    overrides = parsed_input.get("param_overrides")
+    if isinstance(overrides, dict):
+        for key, value in overrides.items():
+            merged[key] = copy.deepcopy(value)
+    omissions = parsed_input.get("param_omissions")
+    if isinstance(omissions, (list, tuple, set)):
+        for key in omissions:
+            merged.pop(key, None)
+    return merged
+
+
+_MAX_TEMPLATE_VERSION_ID = 2_147_483_647
+
+
+def _extract_template_version_id(kwargs):
+    """Return only canonical template-version provenance from request headers."""
+    if not isinstance(kwargs, Mapping):
+        return None
+
+    headers = kwargs.get("extra_headers")
+    if not isinstance(headers, Mapping):
+        return None
+
+    value = headers.get("Template-Id")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return str(value) if 0 < value <= _MAX_TEMPLATE_VERSION_ID else None
+    if (
+        not isinstance(value, str)
+        or not value.isascii()
+        or not value.isdecimal()
+        or value.startswith("0")
+    ):
+        return None
+
+    parsed = int(value)
+    return value if parsed <= _MAX_TEMPLATE_VERSION_ID else None
 
 
 def _prepare_tracked_helper_context(
@@ -793,15 +1114,18 @@ def _prepare_tracked_helper_context(
         else tracked_kwargs.pop("metadata", None)
     )
     parsed_input = input_parser(*args, **tracked_kwargs)
+    params = _merge_parsed_input_params(
+        filter_params(tracked_kwargs), parsed_input
+    )
 
     return tracked_kwargs, {
         "finished": False,
         "name": name or parsed_input["name"],
         "input": parsed_input["input"],
         "metadata": metadata,
-        "params": filter_params(tracked_kwargs),
+        "params": params,
         "parent_run_id": parent_run_id,
-        "template_id": tracked_kwargs.get("extra_headers", {}).get("Template-Id", None),
+        "template_id": _extract_template_version_id(tracked_kwargs),
         "user_id": tracked_kwargs.pop("user_id", None) or user_ctx.get() or user_id,
         "user_props": tracked_kwargs.pop("user_props", None)
         or user_props
@@ -1457,6 +1781,1065 @@ def ibm_stream_handler(fn, run_id, name, type, *args, **kwargs):
     return
 
 
+class _OpenAISyncResponseProxy:
+    def __init__(self, response, close_stream):
+        self._response = response
+        self._close_stream = close_stream
+
+    def close(self):
+        return self._close_stream()
+
+    def __getattr__(self, key):
+        return getattr(self._response, key)
+
+
+class _ManagedOpenAISyncStream:
+    def __init__(
+        self, stream, run_id, type, name, app_id, terminal_claim=None
+    ):
+        self._stream = stream
+        self._stream.delegate_provider_errors()
+        self._run_id = run_id
+        self._type = type
+        self._name = name
+        self._app_id = app_id
+        self._error_tracked = False
+        self._response_proxy = None
+        self._terminal_claim = terminal_claim or (lambda: True)
+
+    @property
+    def __class__(self):
+        return self._stream._stream.__class__
+
+    @property
+    def response(self):
+        if self._response_proxy is None:
+            self._response_proxy = _OpenAISyncResponseProxy(
+                self._stream.response, self.close
+            )
+        return self._response_proxy
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self._stream)
+        except StopIteration:
+            raise
+        except Exception:
+            if not getattr(self._stream, "_terminal_emitted", False):
+                self._track_provider_error()
+            raise
+
+    def _track_provider_error(self):
+        if self._error_tracked:
+            return
+        self._error_tracked = True
+        if not self._terminal_claim():
+            return
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            name=self._name,
+            error=_openai_provider_stream_error(),
+            app_id=self._app_id,
+        )
+
+    def close(self):
+        try:
+            return self._stream.close()
+        except Exception:
+            if not getattr(self._stream, "_terminal_emitted", False):
+                self._track_provider_error()
+            raise
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exc_type, _exc, _exc_tb):
+        if _exc_type is None:
+            self.close()
+            return False
+        if getattr(self._stream, "_finalized", False):
+            return False
+        try:
+            self.close()
+        except BaseException:
+            logger.exception(
+                "Error closing managed OpenAI stream while propagating an exception"
+            )
+        return False
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+class _OpenAIAsyncResponseProxy:
+    def __init__(self, response, close_stream):
+        self._response = response
+        self._close_stream = close_stream
+
+    async def aclose(self):
+        return await self._close_stream()
+
+    def __getattr__(self, key):
+        return getattr(self._response, key)
+
+
+class _ManagedOpenAIAsyncStream:
+    def __init__(
+        self, stream, run_id, type, name, app_id, terminal_claim=None
+    ):
+        self._stream = stream
+        self._stream.delegate_provider_errors()
+        self._run_id = run_id
+        self._type = type
+        self._name = name
+        self._app_id = app_id
+        self._error_tracked = False
+        self._response_proxy = None
+        self._terminal_claim = terminal_claim or (lambda: True)
+
+    @property
+    def __class__(self):
+        return self._stream._stream.__class__
+
+    @property
+    def response(self):
+        if self._response_proxy is None:
+            self._response_proxy = _OpenAIAsyncResponseProxy(
+                self._stream.response, self.aclose
+            )
+        return self._response_proxy
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return await self._stream.__anext__()
+        except StopAsyncIteration:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if not getattr(self._stream, "_terminal_emitted", False):
+                self._track_provider_error()
+            raise
+
+    def _track_provider_error(self):
+        if self._error_tracked:
+            return
+        self._error_tracked = True
+        if not self._terminal_claim():
+            return
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            name=self._name,
+            error=_openai_provider_stream_error(),
+            app_id=self._app_id,
+        )
+
+    async def close(self):
+        try:
+            return await self._stream.close()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if not getattr(self._stream, "_terminal_emitted", False):
+                self._track_provider_error()
+            raise
+
+    async def aclose(self):
+        return await self.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, _exc_type, _exc, _exc_tb):
+        if _exc_type is None:
+            await self.close()
+            return False
+        if getattr(self._stream, "_finalized", False):
+            return False
+        try:
+            await self.close()
+        except BaseException:
+            logger.exception(
+                "Error closing managed OpenAI async stream while propagating an exception"
+            )
+        return False
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+_OPENAI_METADATA_MISSING = object()
+_OPENAI_STREAM_TRACKING_METADATA_KEY = object()
+_OPENAI_STREAM_LUNARY_CONTROLS_KEY = object()
+_OPENAI_LUNARY_CONTROL_KEYS = (
+    "parent",
+    "user_id",
+    "user_props",
+    "tags",
+)
+
+
+class _OpenAIFailedIterable(Iterator):
+    _lunary_capture_unavailable_reason = "materialization_failed"
+
+    def __init__(self, items, error):
+        self._items = iter(items)
+        self._error = error
+        self._raised = False
+
+    def __next__(self):
+        try:
+            return next(self._items)
+        except StopIteration:
+            if self._raised:
+                raise
+            self._raised = True
+            raise self._error
+
+
+def _materialize_openai_iterables(kwargs, fields):
+    for key in fields:
+        value = kwargs.get(key, _OPENAI_METADATA_MISSING)
+        if (
+            isinstance(value, (list, tuple, str, bytes, Mapping))
+            or not isinstance(value, Iterable)
+        ):
+            continue
+
+        materialized = []
+        try:
+            materialized.extend(value)
+        except Exception as error:
+            kwargs[key] = _OpenAIFailedIterable(materialized, error)
+        else:
+            kwargs[key] = materialized
+
+
+def _stream_entry_error_payload(
+    error, *, stream_handler, openai_metadata
+):
+    if openai_metadata or stream_handler in {
+        default_stream_handler,
+        openai_responses_stream_handler,
+        async_stream_handler,
+        async_openai_responses_stream_handler,
+    }:
+        return _openai_provider_stream_error()
+    return {"message": str(error), "stack": traceback.format_exc()}
+
+
+def _extract_call_metadata(
+    kwargs,
+    *,
+    preserve_metadata: bool,
+    openai_metadata: bool,
+):
+    extra_body = kwargs.get("extra_body")
+    if (
+        isinstance(extra_body, Mapping)
+        and _OPENAI_STREAM_TRACKING_METADATA_KEY in extra_body
+    ):
+        metadata = extra_body[_OPENAI_STREAM_TRACKING_METADATA_KEY]
+        cleaned_extra_body = {
+            key: value
+            for key, value in extra_body.items()
+            if key is not _OPENAI_STREAM_TRACKING_METADATA_KEY
+        }
+        if cleaned_extra_body:
+            kwargs["extra_body"] = cleaned_extra_body
+        else:
+            kwargs.pop("extra_body", None)
+        return None if is_openai_omitted(metadata) else metadata
+
+    if openai_metadata:
+        metadata = kwargs.pop("metadata", None)
+        provider_metadata = kwargs.pop(
+            "openai_metadata", _OPENAI_METADATA_MISSING
+        )
+        if provider_metadata is not _OPENAI_METADATA_MISSING:
+            kwargs["metadata"] = provider_metadata
+        return None if is_openai_omitted(metadata) else metadata
+
+    if preserve_metadata:
+        metadata = kwargs.get("metadata")
+        return None if is_openai_omitted(metadata) else metadata
+
+    metadata = kwargs.pop("metadata", None)
+    return None if is_openai_omitted(metadata) else metadata
+
+
+def _restore_openai_stream_lunary_controls(kwargs):
+    extra_body = kwargs.get("extra_body")
+    if (
+        not isinstance(extra_body, Mapping)
+        or _OPENAI_STREAM_LUNARY_CONTROLS_KEY not in extra_body
+    ):
+        return
+
+    controls = extra_body[_OPENAI_STREAM_LUNARY_CONTROLS_KEY]
+    cleaned_extra_body = {
+        key: value
+        for key, value in extra_body.items()
+        if key is not _OPENAI_STREAM_LUNARY_CONTROLS_KEY
+    }
+    if cleaned_extra_body:
+        kwargs["extra_body"] = cleaned_extra_body
+    else:
+        kwargs.pop("extra_body", None)
+
+    if not isinstance(controls, Mapping):
+        return
+    for key in _OPENAI_LUNARY_CONTROL_KEYS:
+        if key in controls:
+            kwargs.setdefault(key, controls[key])
+
+
+def _wrap_openai_stream_metadata(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        lunary_controls = {
+            key: kwargs.pop(key)
+            for key in _OPENAI_LUNARY_CONTROL_KEYS
+            if key in kwargs
+        }
+        provider_metadata = kwargs.pop(
+            "openai_metadata", _OPENAI_METADATA_MISSING
+        )
+        existing_response = (
+            "response_id" in kwargs
+            and not is_openai_omitted(kwargs["response_id"])
+        )
+        if (
+            existing_response
+            and provider_metadata is not _OPENAI_METADATA_MISSING
+        ):
+            raise TypeError(
+                "openai_metadata is not supported when streaming an "
+                "existing response"
+            )
+
+        tracking_metadata = _OPENAI_METADATA_MISSING
+        if existing_response:
+            tracking_metadata = kwargs.pop(
+                "metadata", _OPENAI_METADATA_MISSING
+            )
+            if (
+                tracking_metadata is _OPENAI_METADATA_MISSING
+                and not lunary_controls
+            ):
+                return fn(*args, **kwargs)
+        else:
+            if (
+                provider_metadata is _OPENAI_METADATA_MISSING
+                and not lunary_controls
+            ):
+                return fn(*args, **kwargs)
+            if provider_metadata is not _OPENAI_METADATA_MISSING:
+                tracking_metadata = kwargs.pop("metadata", None)
+
+        extra_body = kwargs.get("extra_body")
+        if extra_body is None or is_openai_omitted(extra_body):
+            extra_body = {}
+        elif isinstance(extra_body, Mapping):
+            extra_body = dict(extra_body)
+        else:
+            raise TypeError("extra_body must be a mapping")
+        if tracking_metadata is not _OPENAI_METADATA_MISSING:
+            extra_body[_OPENAI_STREAM_TRACKING_METADATA_KEY] = tracking_metadata
+        if lunary_controls:
+            extra_body[_OPENAI_STREAM_LUNARY_CONTROLS_KEY] = lunary_controls
+        kwargs["extra_body"] = extra_body
+        if (
+            not existing_response
+            and provider_metadata is not _OPENAI_METADATA_MISSING
+        ):
+            kwargs["metadata"] = provider_metadata
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def _raw_response_unparsed_error(*, streamed_response):
+    if streamed_response:
+        return {
+            "code": "stream_cancelled",
+            "message": "OpenAI response stream closed before parsing",
+        }
+    return {
+        "code": "raw_response_unparsed",
+        "message": "OpenAI raw response was not parsed",
+    }
+
+
+class _OpenAIDeferredResponseTracker:
+    def __init__(
+        self,
+        args,
+        kwargs,
+        *,
+        input_parser,
+        output_parser,
+        openai_iterable_fields,
+        responses_api,
+        async_client,
+        streamed_response,
+    ):
+        self._args = args
+        self._kwargs = copy.copy(kwargs)
+        self._input_parser = input_parser
+        self._output_parser = output_parser
+        self._openai_iterable_fields = openai_iterable_fields
+        self._responses_api = responses_api
+        self._async_client = async_client
+        self._streamed_response = streamed_response
+        self._explicit_parent = self._kwargs.pop(
+            "parent", _OPENAI_METADATA_MISSING
+        )
+        self._explicit_user_id = self._kwargs.pop("user_id", None)
+        self._explicit_user_props = self._kwargs.pop("user_props", None)
+        self._explicit_tags = self._kwargs.pop("tags", None)
+        try:
+            self._metadata = _extract_call_metadata(
+                self._kwargs,
+                preserve_metadata=False,
+                openai_metadata=True,
+            )
+        except Exception as error:
+            logger.exception(error)
+            self._metadata = None
+
+        self._run = None
+        self._request_scope_open = False
+        self._name = None
+        self._finished = False
+        self._managed_stream = None
+        self._managed_streams = {}
+        self._linked_stream_responses = set()
+        self._closing_managed_stream = False
+
+    @property
+    def provider_kwargs(self):
+        return self._kwargs
+
+    def materialize_iterables(self, request_func=None):
+        if not self._openai_iterable_fields:
+            return
+
+        _materialize_openai_iterables(
+            self._kwargs, self._openai_iterable_fields
+        )
+        request_kwargs = getattr(request_func, "keywords", None)
+        if not isinstance(request_kwargs, dict):
+            return
+        for field in self._openai_iterable_fields:
+            if field in self._kwargs and field in request_kwargs:
+                request_kwargs[field] = self._kwargs[field]
+
+    def start_request(self):
+        if self._run is not None:
+            return
+
+        parent_run_id = (
+            run_manager.current_run_id
+            if self._explicit_parent is _OPENAI_METADATA_MISSING
+            else self._explicit_parent
+        )
+        self._run = run_manager.start_run(parent_run_id=parent_run_id)
+        self._request_scope_open = True
+        parsed_input = {"name": None, "input": None}
+        params = {}
+        try:
+            params = filter_params(self._kwargs)
+            parsed_input = self._input_parser(*self._args, **self._kwargs)
+            params = _merge_parsed_input_params(params, parsed_input)
+        except Exception as error:
+            logger.exception(error)
+
+        self._name = parsed_input.get("name")
+        try:
+            track_event(
+                "llm",
+                "start",
+                run_id=self._run.id,
+                parent_run_id=parent_run_id,
+                input=parsed_input.get("input"),
+                name=self._name,
+                user_id=self._explicit_user_id or user_ctx.get(),
+                user_props=(
+                    self._explicit_user_props or user_props_ctx.get()
+                ),
+                params=params,
+                metadata=self._metadata,
+                tags=self._explicit_tags or tags_ctx.get(),
+                template_id=_extract_template_version_id(self._kwargs),
+            )
+        except Exception as error:
+            logger.exception(error)
+
+    def end_request_scope(self):
+        if not self._request_scope_open:
+            return
+        self._request_scope_open = False
+        run_manager.end_run(self._run.id)
+
+    def _track_error(self, error=None):
+        if self._finished or self._run is None:
+            return
+        self._finished = True
+        try:
+            track_event(
+                "llm",
+                "error",
+                self._run.id,
+                name=self._name,
+                error=error or _openai_provider_stream_error(),
+            )
+        except Exception as tracking_error:
+            logger.exception(tracking_error)
+
+    def track_provider_error(self):
+        self._track_error(_openai_provider_stream_error())
+
+    def _track_parsed_response(self, response):
+        if self._finished:
+            return
+        try:
+            parsed_output = self._output_parser(response, False)
+        except Exception as error:
+            logger.exception(error)
+            self._track_error(
+                {
+                    "code": "response_parse_error",
+                    "message": "OpenAI response could not be recorded",
+                }
+            )
+            return
+
+        self._finished = True
+        event = "end"
+        error = None
+        if self._responses_api:
+            status = OpenAIUtils.get_property(response, "status")
+            if status == "failed":
+                event = "error"
+                provider_error = OpenAIUtils.serialize_value(
+                    OpenAIUtils.get_property(response, "error")
+                )
+                if not isinstance(provider_error, dict):
+                    provider_error = {}
+                error = {
+                    "code": provider_error.get("code")
+                    or "response_failed",
+                    "message": provider_error.get("message")
+                    or "OpenAI response failed",
+                }
+
+        payload = {
+            "name": self._name,
+            "output": parsed_output["output"],
+            "token_usage": parsed_output["tokensUsage"],
+            "metadata": parsed_output.get("metadata"),
+        }
+        if error is not None:
+            payload["error"] = error
+        try:
+            track_event("llm", event, self._run.id, **payload)
+        except Exception as tracking_error:
+            logger.exception(tracking_error)
+
+    def _manage_parsed_stream(self, stream):
+        stream_key = id(stream)
+        existing = self._managed_streams.get(stream_key)
+        if existing is not None:
+            self._managed_stream = existing
+            return existing
+
+        if self._responses_api:
+            accumulator = OpenAIResponsesStreamAccumulator()
+            if self._async_client:
+                tracked = _TrackedOpenAIAsyncStream(
+                    stream,
+                    accumulator,
+                    self._run.id,
+                    self._name,
+                    "llm",
+                    accumulator.add_event,
+                    accumulator.should_emit_end,
+                    accumulator.error,
+                    accumulator.has_terminal_response,
+                    self._claim_stream_terminal,
+                )
+                self._managed_stream = _ManagedOpenAIAsyncStream(
+                    tracked,
+                    self._run.id,
+                    "llm",
+                    self._name,
+                    None,
+                    self._claim_stream_terminal,
+                )
+            else:
+                tracked = _TrackedOpenAISyncStream(
+                    stream,
+                    accumulator,
+                    self._run.id,
+                    self._name,
+                    "llm",
+                    accumulator.add_event,
+                    accumulator.should_emit_end,
+                    accumulator.error,
+                    accumulator.has_terminal_response,
+                    self._claim_stream_terminal,
+                )
+                self._managed_stream = _ManagedOpenAISyncStream(
+                    tracked,
+                    self._run.id,
+                    "llm",
+                    self._name,
+                    None,
+                    self._claim_stream_terminal,
+                )
+        else:
+            accumulator = OpenAIChatStreamAccumulator(
+                self._kwargs.get("n", 1)
+            )
+            if self._async_client:
+                tracked = _TrackedOpenAIAsyncStream(
+                    stream,
+                    accumulator,
+                    self._run.id,
+                    self._name,
+                    "llm",
+                    accumulator.add_chunk,
+                    accumulator.has_terminal_choice_state,
+                    lambda *, eof: _chat_stream_error(
+                        accumulator, eof=eof
+                    ),
+                    terminal_claim=self._claim_stream_terminal,
+                )
+                self._managed_stream = _ManagedOpenAIAsyncStream(
+                    tracked,
+                    self._run.id,
+                    "llm",
+                    self._name,
+                    None,
+                    self._claim_stream_terminal,
+                )
+            else:
+                tracked = _TrackedOpenAISyncStream(
+                    stream,
+                    accumulator,
+                    self._run.id,
+                    self._name,
+                    "llm",
+                    accumulator.add_chunk,
+                    accumulator.has_terminal_choice_state,
+                    lambda *, eof: _chat_stream_error(
+                        accumulator, eof=eof
+                    ),
+                    terminal_claim=self._claim_stream_terminal,
+                )
+                self._managed_stream = _ManagedOpenAISyncStream(
+                    tracked,
+                    self._run.id,
+                    "llm",
+                    self._name,
+                    None,
+                    self._claim_stream_terminal,
+                )
+
+        self._managed_streams[stream_key] = self._managed_stream
+        self._link_managed_stream_response(stream)
+        return self._managed_stream
+
+    def _claim_stream_terminal(self):
+        if self._finished:
+            return False
+        self._finished = True
+        return True
+
+    def _link_managed_stream_response(self, stream):
+        response = getattr(stream, "response", None)
+        if response is None:
+            return
+
+        self._managed_stream._response_proxy = response
+        response_key = id(response)
+        if response_key in self._linked_stream_responses:
+            return
+        self._linked_stream_responses.add(response_key)
+        close_name = "aclose" if self._async_client else "close"
+        close = getattr(response, close_name, None)
+        if not callable(close):
+            return
+
+        @wraps(close)
+        def tracked_response_close(*args, **kwargs):
+            tracked_streams = (
+                getattr(managed, "_stream", None)
+                for managed in self._managed_streams.values()
+            )
+            if self._finished or any(
+                getattr(tracked, "_provider_operation_active", False)
+                or getattr(tracked, "_terminal_emitted", False)
+                for tracked in tracked_streams
+            ):
+                return close(*args, **kwargs)
+            return self._managed_stream.close()
+
+        try:
+            setattr(response, close_name, tracked_response_close)
+        except Exception as error:
+            logger.exception(error)
+
+    def parsed(self, response):
+        if self._kwargs.get("stream") is True and (
+            hasattr(response, "__aiter__")
+            if self._async_client
+            else hasattr(response, "__iter__")
+        ):
+            return self._manage_parsed_stream(response)
+        self._track_parsed_response(response)
+        return response
+
+    def _managed_stream_terminal_emitted(self):
+        if self._managed_stream is None:
+            return False
+        tracked = getattr(self._managed_stream, "_stream", None)
+        return bool(getattr(tracked, "_terminal_emitted", False))
+
+    def instrument(self, response):
+        parse = getattr(response, "parse", None)
+        if callable(parse):
+
+            @wraps(parse)
+            def tracked_parse(*args, **kwargs):
+                try:
+                    parsed = parse(*args, **kwargs)
+                except BaseException:
+                    self.track_provider_error()
+                    raise
+
+                if isawaitable(parsed):
+
+                    async def await_and_track():
+                        try:
+                            result = await parsed
+                        except BaseException:
+                            self.track_provider_error()
+                            raise
+                        return self.parsed(result)
+
+                    return await_and_track()
+                return self.parsed(parsed)
+
+            try:
+                response.parse = tracked_parse
+            except Exception as error:
+                logger.exception(error)
+
+        close = getattr(response, "close", None)
+        if callable(close):
+
+            @wraps(close)
+            def tracked_close(*args, **kwargs):
+                if self._closing_managed_stream or self._finished:
+                    return close(*args, **kwargs)
+
+                if self._managed_stream_terminal_emitted():
+                    self._finished = True
+                    return close(*args, **kwargs)
+
+                if self._managed_stream is not None:
+                    self._closing_managed_stream = True
+                    try:
+                        result = self._managed_stream.close()
+                    finally:
+                        self._closing_managed_stream = False
+                    if isawaitable(result):
+
+                        async def await_managed_close():
+                            try:
+                                return await result
+                            finally:
+                                if self._managed_stream_terminal_emitted():
+                                    self._finished = True
+
+                        return await_managed_close()
+                    if self._managed_stream_terminal_emitted():
+                        self._finished = True
+                    return result
+
+                try:
+                    result = close(*args, **kwargs)
+                except BaseException:
+                    self.track_provider_error()
+                    raise
+
+                if isawaitable(result):
+
+                    async def await_close_and_track():
+                        try:
+                            close_result = await result
+                        except BaseException:
+                            self.track_provider_error()
+                            raise
+                        self._track_error(
+                            _raw_response_unparsed_error(
+                                streamed_response=self._streamed_response
+                            )
+                        )
+                        return close_result
+
+                    return await_close_and_track()
+
+                self._track_error(
+                    _raw_response_unparsed_error(
+                        streamed_response=self._streamed_response
+                    )
+                )
+                return result
+
+            try:
+                response.close = tracked_close
+            except Exception as error:
+                logger.exception(error)
+
+        return response
+
+
+def _wrap_openai_raw_response_method(
+    fn,
+    *,
+    input_parser,
+    output_parser,
+    openai_iterable_fields=(),
+    responses_api=False,
+    async_client=False,
+    stream_only=False,
+):
+    if getattr(fn, "_lunary_deferred_response_wrapper", False):
+        return fn
+
+    if async_client:
+
+        @wraps(fn)
+        async def async_wrapper(*args, **kwargs):
+            if stream_only and kwargs.get("stream") is not True:
+                return await fn(*args, **kwargs)
+            tracker = _OpenAIDeferredResponseTracker(
+                args,
+                kwargs,
+                input_parser=input_parser,
+                output_parser=output_parser,
+                openai_iterable_fields=openai_iterable_fields,
+                responses_api=responses_api,
+                async_client=True,
+                streamed_response=False,
+            )
+            tracker.materialize_iterables()
+            tracker.start_request()
+            try:
+                response = await fn(*args, **tracker.provider_kwargs)
+            except BaseException:
+                tracker.track_provider_error()
+                raise
+            finally:
+                tracker.end_request_scope()
+            return tracker.instrument(response)
+
+        async_wrapper._lunary_deferred_response_wrapper = True
+        return async_wrapper
+
+    @wraps(fn)
+    def sync_wrapper(*args, **kwargs):
+        if stream_only and kwargs.get("stream") is not True:
+            return fn(*args, **kwargs)
+        tracker = _OpenAIDeferredResponseTracker(
+            args,
+            kwargs,
+            input_parser=input_parser,
+            output_parser=output_parser,
+            openai_iterable_fields=openai_iterable_fields,
+            responses_api=responses_api,
+            async_client=False,
+            streamed_response=False,
+        )
+        tracker.materialize_iterables()
+        tracker.start_request()
+        try:
+            response = fn(*args, **tracker.provider_kwargs)
+        except BaseException:
+            tracker.track_provider_error()
+            raise
+        finally:
+            tracker.end_request_scope()
+        return tracker.instrument(response)
+
+    sync_wrapper._lunary_deferred_response_wrapper = True
+    return sync_wrapper
+
+
+def _wrap_openai_streaming_response_method(
+    fn,
+    *,
+    input_parser,
+    output_parser,
+    openai_iterable_fields=(),
+    responses_api=False,
+    async_client=False,
+    stream_only=False,
+):
+    if getattr(fn, "_lunary_deferred_response_wrapper", False):
+        return fn
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if stream_only and kwargs.get("stream") is not True:
+            return fn(*args, **kwargs)
+        tracker = _OpenAIDeferredResponseTracker(
+            args,
+            kwargs,
+            input_parser=input_parser,
+            output_parser=output_parser,
+            openai_iterable_fields=openai_iterable_fields,
+            responses_api=responses_api,
+            async_client=async_client,
+            streamed_response=True,
+        )
+        manager = fn(*args, **tracker.provider_kwargs)
+
+        if async_client:
+            api_request = getattr(manager, "_api_request", None)
+            if api_request is None:
+                return manager
+            close_request = getattr(api_request, "close", None)
+            if callable(close_request):
+                close_request()
+
+            async def tracked_request():
+                tracker.materialize_iterables()
+                tracker.start_request()
+                try:
+                    request_manager = fn(
+                        *args, **tracker.provider_kwargs
+                    )
+                    request = getattr(
+                        request_manager, "_api_request", request_manager
+                    )
+                    response = await request
+                except BaseException:
+                    tracker.track_provider_error()
+                    raise
+                finally:
+                    tracker.end_request_scope()
+                return tracker.instrument(response)
+
+            manager._api_request = tracked_request()
+            return manager
+
+        request_func = getattr(manager, "_request_func", None)
+        if not callable(request_func):
+            return manager
+
+        @wraps(request_func)
+        def tracked_request():
+            tracker.materialize_iterables(request_func)
+            tracker.start_request()
+            try:
+                response = request_func()
+            except BaseException:
+                tracker.track_provider_error()
+                raise
+            finally:
+                tracker.end_request_scope()
+            return tracker.instrument(response)
+
+        manager._request_func = tracked_request
+        return manager
+
+    wrapper._lunary_deferred_response_wrapper = True
+    return wrapper
+
+
+def _monitor_openai_raw_response_surfaces(
+    resource,
+    *,
+    input_parser,
+    output_parser,
+    openai_iterable_fields=(),
+    responses_api=False,
+    async_client=False,
+    method_names=("create", "parse"),
+    method_input_parsers=None,
+    stream_only_method_names=(),
+):
+    try:
+        raw_resource = getattr(resource, "with_raw_response", None)
+    except Exception:
+        raw_resource = None
+    try:
+        streaming_resource = getattr(
+            resource, "with_streaming_response", None
+        )
+    except Exception:
+        streaming_resource = None
+
+    for method_name in method_names:
+        method_input_parser = (
+            (method_input_parsers or {}).get(method_name, input_parser)
+        )
+        stream_only = method_name in stream_only_method_names
+        raw_method = getattr(raw_resource, method_name, None)
+        if callable(raw_method):
+            try:
+                setattr(
+                    raw_resource,
+                    method_name,
+                    _wrap_openai_raw_response_method(
+                        raw_method,
+                        input_parser=method_input_parser,
+                        output_parser=output_parser,
+                        openai_iterable_fields=openai_iterable_fields,
+                        responses_api=responses_api,
+                        async_client=async_client,
+                        stream_only=stream_only,
+                    ),
+                )
+            except Exception as error:
+                logger.exception(error)
+
+        streaming_method = getattr(
+            streaming_resource, method_name, None
+        )
+        if callable(streaming_method):
+            try:
+                setattr(
+                    streaming_resource,
+                    method_name,
+                    _wrap_openai_streaming_response_method(
+                        streaming_method,
+                        input_parser=method_input_parser,
+                        output_parser=output_parser,
+                        openai_iterable_fields=openai_iterable_fields,
+                        responses_api=responses_api,
+                        async_client=async_client,
+                        stream_only=stream_only,
+                    ),
+                )
+            except Exception as error:
+                logger.exception(error)
+
+
 def wrap(
     fn,
     type=None,
@@ -1472,25 +2855,34 @@ def wrap(
     preserve_metadata: bool = False,
     stream_passthrough: bool = False,
     stream_handler=default_stream_handler, # TODO: this is not the default, it's only used for OpenAI, so pass it directly in monitor()
+    openai_metadata: bool = False,
+    openai_iterable_fields=(),
 ):
     def sync_wrapper(*args, **kwargs):
+        _restore_openai_stream_lunary_controls(kwargs)
+        if openai_iterable_fields:
+            _materialize_openai_iterables(kwargs, openai_iterable_fields)
         output = None
         should_stream = stream or kwargs.get("stream", False)
         parsed_input = {"name": name, "input": None}
 
-        parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
+        parent_run_id = kwargs.pop("parent", run_manager.current_run_id)
+        explicit_user_id = kwargs.pop("user_id", None)
+        explicit_user_props = kwargs.pop("user_props", None)
+        explicit_tags = kwargs.pop("tags", None)
         run = run_manager.start_run(run_id, parent_run_id)
         stream_run_managed = False
 
         try:
             try:
-                params = filter_params(kwargs)
-                metadata = (
-                    kwargs.get("metadata")
-                    if preserve_metadata
-                    else kwargs.pop("metadata", None)
+                metadata = _extract_call_metadata(
+                    kwargs,
+                    preserve_metadata=preserve_metadata,
+                    openai_metadata=openai_metadata,
                 )
+                params = filter_params(kwargs)
                 parsed_input = input_parser(*args, **kwargs)
+                params = _merge_parsed_input_params(params, parsed_input)
 
                 track_event(
                     type,
@@ -1499,18 +2891,14 @@ def wrap(
                     parent_run_id=parent_run_id,
                     input=parsed_input["input"],
                     name=name or parsed_input["name"],
-                    user_id=kwargs.pop("user_id", None)
-                    or user_ctx.get()
-                    or user_id,
-                    user_props=kwargs.pop("user_props", None)
+                    user_id=explicit_user_id or user_ctx.get() or user_id,
+                    user_props=explicit_user_props
                     or user_props
                     or user_props_ctx.get(),
                     params=params,
                     metadata=metadata,
-                    tags=kwargs.pop("tags", None) or tags or tags_ctx.get(),
-                    template_id=kwargs.get("extra_headers", {}).get(
-                        "Template-Id", None
-                    ),
+                    tags=explicit_tags or tags or tags_ctx.get(),
+                    template_id=_extract_template_version_id(kwargs),
                     app_id=app_id,
                 )
             except Exception as e:
@@ -1527,13 +2915,28 @@ def wrap(
                         type,
                         "error",
                         run.id,
-                        error={"message": str(e), "stack": traceback.format_exc()},
+                        error=_stream_entry_error_payload(
+                            e,
+                            stream_handler=stream_handler,
+                            openai_metadata=openai_metadata,
+                        ),
                         app_id=app_id,
                     )
                     raise e
 
                 if stream_passthrough:
                     return stream_obj
+
+                if isinstance(stream_obj, _TrackedOpenAISyncStream):
+                    managed_stream = _ManagedOpenAISyncStream(
+                        stream_obj,
+                        run.id,
+                        type,
+                        name or parsed_input["name"],
+                        app_id,
+                    )
+                    run_manager.end_run(run.id)
+                    return managed_stream
 
                 def tracked_stream():
                     try:
@@ -1549,7 +2952,12 @@ def wrap(
                         )
                         raise e
                     finally:
-                        run_manager.end_run(run.id)
+                        try:
+                            close = getattr(stream_obj, "close", None)
+                            if callable(close):
+                                close()
+                        finally:
+                            run_manager.end_run(run.id)
 
                 return tracked_stream()
 
@@ -1610,25 +3018,35 @@ def async_wrap(
     preserve_metadata: bool = False,
     stream_passthrough: bool = False,
     stream_handler=async_stream_handler,
+    openai_metadata: bool = False,
+    openai_iterable_fields=(),
 ):
     async def wrapper(*args, **kwargs):
+        _restore_openai_stream_lunary_controls(kwargs)
+        if openai_iterable_fields:
+            _materialize_openai_iterables(kwargs, openai_iterable_fields)
+
         async def async_wrapper(*args, **kwargs):
             output = None
             parsed_input = {"name": name, "input": None}
 
-            parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
+            parent_run_id = kwargs.pop("parent", run_manager.current_run_id)
+            explicit_user_id = kwargs.pop("user_id", None)
+            explicit_user_props = kwargs.pop("user_props", None)
+            explicit_tags = kwargs.pop("tags", None)
             run = run_manager.start_run(parent_run_id=parent_run_id)
 
 
             try:
                 try:
-                    params = filter_params(kwargs)
-                    metadata = (
-                        kwargs.get("metadata")
-                        if preserve_metadata
-                        else kwargs.pop("metadata", None)
+                    metadata = _extract_call_metadata(
+                        kwargs,
+                        preserve_metadata=preserve_metadata,
+                        openai_metadata=openai_metadata,
                     )
+                    params = filter_params(kwargs)
                     parsed_input = input_parser(*args, **kwargs)
+                    params = _merge_parsed_input_params(params, parsed_input)
 
                     track_event(
                         type,
@@ -1637,18 +3055,14 @@ def async_wrap(
                         parent_run_id=parent_run_id,
                         input=parsed_input["input"],
                         name=name or parsed_input["name"],
-                        user_id=kwargs.pop("user_id", None)
-                        or user_ctx.get()
-                        or user_id,
-                        user_props=kwargs.pop("user_props", None)
+                        user_id=explicit_user_id or user_ctx.get() or user_id,
+                        user_props=explicit_user_props
                         or user_props
                         or user_props_ctx.get(),
                         params=params,
                         metadata=metadata,
-                        tags=kwargs.pop("tags", None) or tags or tags_ctx.get(),
-                        template_id=kwargs.get("extra_headers", {}).get(
-                            "Template-Id", None
-                        ),
+                        tags=explicit_tags or tags or tags_ctx.get(),
+                        template_id=_extract_template_version_id(kwargs),
                         app_id=app_id,
                     )
                 except Exception as e:
@@ -1694,20 +3108,24 @@ def async_wrap(
                 run_manager.end_run(run.id)
 
         async def async_stream_wrapper(*args, **kwargs):
-            parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
+            parent_run_id = kwargs.pop("parent", run_manager.current_run_id)
+            explicit_user_id = kwargs.pop("user_id", None)
+            explicit_user_props = kwargs.pop("user_props", None)
+            explicit_tags = kwargs.pop("tags", None)
             run = run_manager.start_run(parent_run_id=parent_run_id)
             parsed_input = {"name": name, "input": None}
             stream_run_managed = False
 
             try:
                 try:
-                    params = filter_params(kwargs)
-                    metadata = (
-                        kwargs.get("metadata")
-                        if preserve_metadata
-                        else kwargs.pop("metadata", None)
+                    metadata = _extract_call_metadata(
+                        kwargs,
+                        preserve_metadata=preserve_metadata,
+                        openai_metadata=openai_metadata,
                     )
+                    params = filter_params(kwargs)
                     parsed_input = input_parser(*args, **kwargs)
+                    params = _merge_parsed_input_params(params, parsed_input)
 
                     track_event(
                         type,
@@ -1716,18 +3134,14 @@ def async_wrap(
                         parent_run_id=parent_run_id,
                         input=parsed_input["input"],
                         name=name or parsed_input["name"],
-                        user_id=kwargs.pop("user_id", None)
-                        or user_ctx.get()
-                        or user_id,
-                        user_props=kwargs.pop("user_props", None)
+                        user_id=explicit_user_id or user_ctx.get() or user_id,
+                        user_props=explicit_user_props
                         or user_props
                         or user_props_ctx.get(),
-                        tags=kwargs.pop("tags", None) or tags or tags_ctx.get(),
+                        tags=explicit_tags or tags or tags_ctx.get(),
                         params=params,
                         metadata=metadata,
-                        template_id=kwargs.get("extra_headers", {}).get(
-                            "Template-Id", None
-                        ),
+                        template_id=_extract_template_version_id(kwargs),
                         app_id=app_id
                     )
                 except Exception as e:
@@ -1745,13 +3159,28 @@ def async_wrap(
                         type,
                         "error",
                         run.id,
-                        error={"message": str(e), "stack": traceback.format_exc()},
+                        error=_stream_entry_error_payload(
+                            e,
+                            stream_handler=stream_handler,
+                            openai_metadata=openai_metadata,
+                        ),
                         app_id=app_id,
                     )
                     raise e
 
                 if stream_passthrough:
                     return stream_obj
+
+                if isinstance(stream_obj, _TrackedOpenAIAsyncStream):
+                    managed_stream = _ManagedOpenAIAsyncStream(
+                        stream_obj,
+                        run.id,
+                        type,
+                        name or parsed_input["name"],
+                        app_id,
+                    )
+                    run_manager.end_run(run.id)
+                    return managed_stream
 
                 async def tracked_stream():
                     try:
@@ -1767,7 +3196,16 @@ def async_wrap(
                         )
                         raise e
                     finally:
-                        run_manager.end_run(run.id)
+                        try:
+                            close = getattr(stream_obj, "aclose", None)
+                            if not callable(close):
+                                close = getattr(stream_obj, "close", None)
+                            if callable(close):
+                                close_result = close()
+                                if isawaitable(close_result):
+                                    await close_result
+                        finally:
+                            run_manager.end_run(run.id)
 
                 return tracked_stream()
             finally:
@@ -1779,6 +3217,42 @@ def async_wrap(
             return await async_stream_wrapper(*args, **kwargs)
         else:
             return await async_wrapper(*args, **kwargs)
+
+    return wrapper
+
+
+def _wrap_openai_responses_retrieve(fn):
+    tracked = wrap(
+        fn,
+        "llm",
+        input_parser=OpenAIResponsesUtils.parse_retrieve_input,
+        output_parser=OpenAIResponsesUtils.parse_output,
+        stream_handler=openai_responses_stream_handler,
+    )
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if kwargs.get("stream") is True:
+            return tracked(*args, **kwargs)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def _wrap_async_openai_responses_retrieve(fn):
+    tracked = async_wrap(
+        fn,
+        "llm",
+        input_parser=OpenAIResponsesUtils.parse_retrieve_input,
+        output_parser=OpenAIResponsesUtils.parse_output,
+        stream_handler=async_openai_responses_stream_handler,
+    )
+
+    @wraps(fn)
+    async def wrapper(*args, **kwargs):
+        if kwargs.get("stream") is True:
+            return await tracked(*args, **kwargs)
+        return await fn(*args, **kwargs)
 
     return wrapper
 
@@ -1824,23 +3298,199 @@ def monitor(object):
                 client_name = getattr(type(object), "__name__", None)
                 if client_name == "openai" or client_name == "OpenAI" or client_name == "AzureOpenAI":
                     try:
+                        _monitor_openai_raw_response_surfaces(
+                            object.chat.completions,
+                            input_parser=OpenAIUtils.parse_input,
+                            output_parser=OpenAIUtils.parse_output,
+                            openai_iterable_fields=(
+                                "messages",
+                                "tools",
+                                "functions",
+                            ),
+                        )
                         object.chat.completions.create = wrap(
                             object.chat.completions.create,
                             "llm",
                             input_parser=OpenAIUtils.parse_input,
                             output_parser=OpenAIUtils.parse_output,
+                            openai_metadata=True,
+                            openai_iterable_fields=(
+                                "messages",
+                                "tools",
+                                "functions",
+                            ),
                         )
+                        chat_parse = getattr(
+                            object.chat.completions, "parse", None
+                        )
+                        if callable(chat_parse):
+                            object.chat.completions.parse = wrap(
+                                chat_parse,
+                                "llm",
+                                input_parser=OpenAIUtils.parse_input,
+                                output_parser=OpenAIUtils.parse_output,
+                                openai_metadata=True,
+                                openai_iterable_fields=(
+                                    "messages",
+                                    "tools",
+                                    "functions",
+                                ),
+                            )
+                        chat_stream = getattr(
+                            object.chat.completions, "stream", None
+                        )
+                        if callable(chat_stream):
+                            object.chat.completions.stream = (
+                                _wrap_openai_stream_metadata(chat_stream)
+                            )
                     except Exception as e:
                         logger.warning(
                             "Please use `lunary.monitor(openai)` or `lunary.monitor(client)` after setting the OpenAI api key"
                         )
+
+                    responses_api = getattr(object, "responses", None)
+                    if callable(getattr(responses_api, "create", None)):
+                        _monitor_openai_raw_response_surfaces(
+                            responses_api,
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_iterable_fields=("tools",),
+                            responses_api=True,
+                            method_names=("create", "parse", "retrieve"),
+                            method_input_parsers={
+                                "retrieve": OpenAIResponsesUtils.parse_retrieve_input
+                            },
+                            stream_only_method_names=("retrieve",),
+                        )
+                        object.responses.create = wrap(
+                            object.responses.create,
+                            "llm",
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_metadata=True,
+                            stream_handler=openai_responses_stream_handler,
+                            openai_iterable_fields=("tools",),
+                        )
+                    responses_parse = getattr(responses_api, "parse", None)
+                    if callable(responses_parse):
+                        object.responses.parse = wrap(
+                            responses_parse,
+                            "llm",
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_metadata=True,
+                            openai_iterable_fields=("tools",),
+                        )
+                    responses_retrieve = getattr(
+                        responses_api, "retrieve", None
+                    )
+                    if callable(responses_retrieve):
+                        object.responses.retrieve = (
+                            _wrap_openai_responses_retrieve(
+                                responses_retrieve
+                            )
+                        )
+                    responses_stream = getattr(responses_api, "stream", None)
+                    if callable(responses_stream):
+                        object.responses.stream = (
+                            _wrap_openai_stream_metadata(responses_stream)
+                        )
                 elif client_name == "AsyncOpenAI" or client_name == "AsyncAzureOpenAI":
+                    _monitor_openai_raw_response_surfaces(
+                        object.chat.completions,
+                        input_parser=OpenAIUtils.parse_input,
+                        output_parser=OpenAIUtils.parse_output,
+                        openai_iterable_fields=(
+                            "messages",
+                            "tools",
+                            "functions",
+                        ),
+                        async_client=True,
+                    )
                     object.chat.completions.create = async_wrap(
                         object.chat.completions.create,
                         "llm",
                         input_parser=OpenAIUtils.parse_input,
                         output_parser=OpenAIUtils.parse_output,
+                        openai_metadata=True,
+                        openai_iterable_fields=(
+                            "messages",
+                            "tools",
+                            "functions",
+                        ),
                     )
+                    chat_parse = getattr(
+                        object.chat.completions, "parse", None
+                    )
+                    if callable(chat_parse):
+                        object.chat.completions.parse = async_wrap(
+                            chat_parse,
+                            "llm",
+                            input_parser=OpenAIUtils.parse_input,
+                            output_parser=OpenAIUtils.parse_output,
+                            openai_metadata=True,
+                            openai_iterable_fields=(
+                                "messages",
+                                "tools",
+                                "functions",
+                            ),
+                        )
+                    chat_stream = getattr(
+                        object.chat.completions, "stream", None
+                    )
+                    if callable(chat_stream):
+                        object.chat.completions.stream = (
+                            _wrap_openai_stream_metadata(chat_stream)
+                        )
+
+                    responses_api = getattr(object, "responses", None)
+                    if callable(getattr(responses_api, "create", None)):
+                        _monitor_openai_raw_response_surfaces(
+                            responses_api,
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_iterable_fields=("tools",),
+                            responses_api=True,
+                            async_client=True,
+                            method_names=("create", "parse", "retrieve"),
+                            method_input_parsers={
+                                "retrieve": OpenAIResponsesUtils.parse_retrieve_input
+                            },
+                            stream_only_method_names=("retrieve",),
+                        )
+                        object.responses.create = async_wrap(
+                            object.responses.create,
+                            "llm",
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_metadata=True,
+                            stream_handler=async_openai_responses_stream_handler,
+                            openai_iterable_fields=("tools",),
+                        )
+                    responses_parse = getattr(responses_api, "parse", None)
+                    if callable(responses_parse):
+                        object.responses.parse = async_wrap(
+                            responses_parse,
+                            "llm",
+                            input_parser=OpenAIResponsesUtils.parse_input,
+                            output_parser=OpenAIResponsesUtils.parse_output,
+                            openai_metadata=True,
+                            openai_iterable_fields=("tools",),
+                        )
+                    responses_retrieve = getattr(
+                        responses_api, "retrieve", None
+                    )
+                    if callable(responses_retrieve):
+                        object.responses.retrieve = (
+                            _wrap_async_openai_responses_retrieve(
+                                responses_retrieve
+                            )
+                        )
+                    responses_stream = getattr(responses_api, "stream", None)
+                    if callable(responses_stream):
+                        object.responses.stream = (
+                            _wrap_openai_stream_metadata(responses_stream)
+                        )
                 return
 
         if package_name == "anthropic":
@@ -2203,6 +3853,22 @@ try:
 
         return _parse_input(kwargs.get("inputs"))
 
+    def _merge_langchain_invocation_params(
+        invocation_params: Any, serialized: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Detach callback params and use serialized kwargs only as defaults."""
+        params = (
+            copy.deepcopy(invocation_params)
+            if isinstance(invocation_params, dict)
+            else {}
+        )
+        serialized_kwargs = serialized.get("kwargs", {})
+        if not isinstance(serialized_kwargs, dict):
+            return params
+        for key, value in serialized_kwargs.items():
+            params.setdefault(key, copy.deepcopy(value))
+        return params
+
     def _parse_lc_role(
         role: str,
     ) -> str:
@@ -2229,12 +3895,21 @@ try:
         return metadata.get("user_props", None)
 
     def _parse_tool_call(tool_call: Dict[str, Any]):
+        arguments = tool_call.get("args")
+        if not isinstance(arguments, str):
+            arguments = json.dumps(
+                arguments,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            )
         tool_call = {
             "id": tool_call.get("id"),
             "type": "function",
             "function": {
                 "name": tool_call.get("name"),
-                "arguments": str(tool_call.get("args")),
+                "arguments": arguments,
             },
         }
         return tool_call
@@ -2448,10 +4123,9 @@ try:
                 user_id = _get_user_id(metadata)
                 user_props = _get_user_props(metadata)
 
-                params = kwargs.get("invocation_params", {})
-                params.update(
-                    serialized.get("kwargs", {})
-                )  # Sometimes, for example with ChatAnthropic, `invocation_params` is empty
+                params = _merge_langchain_invocation_params(
+                    kwargs.get("invocation_params"), serialized
+                )
 
                 name = (
                     metadata.get("model_name") # custom model name 
@@ -2524,10 +4198,9 @@ try:
                 user_id = _get_user_id(metadata)
                 user_props = _get_user_props(metadata)
 
-                params = kwargs.get("invocation_params", {})
-                params.update(
-                    serialized.get("kwargs", {})
-                )  # Sometimes, for example with ChatAnthropic, `invocation_params` is empty
+                params = _merge_langchain_invocation_params(
+                    kwargs.get("invocation_params"), serialized
+                )
 
                 name = (
                     metadata.get("model_name") # custom model name

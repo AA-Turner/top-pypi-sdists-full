@@ -146,6 +146,25 @@ _NETWORK_CARDS = frozenset({"TL", "NT"})
 # is the safe direction (a refusal, never a silent divergence).
 _NETWORK_TRANSPARENT = frozenset({"PT", "PQ", "MP"})
 
+# The cards an ``LD`` may follow without NEC DISCARDING every load read before
+# them (momwire#1812).  Loads have the same contiguity rule as networks: NEC
+# reads a run of consecutive LD cards as the deck's loading, and the first LD
+# after any other card starts a new run that throws the old one away -- every
+# type, the lumped 0/1/4, the distributed 2/3 and type 5's conductivity alike,
+# a zero-valued card included, on segments the new run never names too.
+#
+# Measured 2026-11-05 on licensed NEC-4.2 (release build, black box) and nec2c
+# 1.3, on an 11-segment free-space dipole: 10 ohm on segment 8, X, 20 ohm on
+# segment 3 answers as "20 ohm alone" for X = FR, GN, GD, EX, XQ, RP, NE, NH,
+# TL, NT (and IS on NEC-4.2), and as the two loads together for X = PT, PQ.  A
+# comment between two LD cards keeps the run on NEC-4.2 (nec2c refuses a CM
+# after CE), and MP is this engine's advisory card, which neither oracle
+# reads; both stay transparent here, as they are for networks.  IS is never
+# discarded: it is its own card, not a load.  The nec4 dialect adds EK, which
+# NEC-4.2 reads past (an EK between two LD cards keeps the run there, while
+# on nec2c it breaks it).
+_LD_RUN_TRANSPARENT = frozenset({"PT", "PQ", "MP", "CM", "CE"})
+
 # Far-field modes this engine computes.  1 is the surface wave (nothing here
 # computes one); 4-6 fold a radial-wire screen into the reflection
 # coefficient, and momwire has no screen model at all — running the deck as
@@ -293,8 +312,9 @@ class _Nec2Parser:
 
         # LD / IS (spec ``#ld--loading`` / ``#is--insulated-sheath``).
         # `_load_log` / `_live` (below) are the per-segment port loads (types
-        # 0, 1, 4); `_loaded` is their (model wire, element) dedup set, so a
-        # second load on one segment refuses rather than merges.  `LD -1`
+        # 0, 1, 4); `_loaded` is their (model wire, element) set, which holds
+        # the CURRENT run of LD cards only (`_ld_run_open`, momwire#1812), so
+        # a second load on one of its segments stacks (momwire#1807).  `LD -1`
         # clears `_live` and `_loaded`, and also the LD-family conductivity
         # state (type 5 is read under the LD mnemonic too) — but never
         # `_wire_insulation`, which is IS's own card and a wire property, not
@@ -319,8 +339,19 @@ class _Nec2Parser:
         # test (momwire#471). `_loaded` answers "is this taken", which the
         # double-load refusal needs; this answers "taken by WHAT", which
         # deciding whether a copy-addressed card is a redundant restatement
-        # or a genuine disagreement needs. Same keys, cleared together.
+        # or a genuine disagreement needs. Same keys, cleared together,
+        # except that an element carrying a stacked pair (momwire#1807) has
+        # no single spec and is absent here.
         self._load_spec_at: dict[tuple[int, int], LoadSpec] = {}
+        # Whether the card just read leaves a run of LD cards open
+        # (momwire#1812, `_LD_RUN_TRANSPARENT`).  An LD read while it is
+        # closed first discards every LD-borne load, as NEC does, so the
+        # loads in force are always one run's: a second lumped load on a
+        # segment that run already loaded is served, because NEC-4.2 and
+        # nec2c both add the two impedances (10 and 20 ohm answer as 30, to
+        # every printed digit) and print the "LOADED TWICE - IMPEDANCES
+        # ADDED" note (momwire#1807).
+        self._ld_run_open = False
         self._global_conductivity: float | None = None
         self._wire_conductivity: dict[int, float] = {}
         self._wire_insulation: dict[int, tuple[float, float]] = {}
@@ -562,16 +593,7 @@ class _Nec2Parser:
     def _ld(self, card: Card) -> None:
         ldtyp = card.i(0)
         if ldtyp == -1:
-            # Nullify every load read so far — and only loads: type 5's
-            # conductivity is read under this same mnemonic, so it clears
-            # too, but IS's insulation (a different card) never does.
-            self._live = []
-            self._loaded = set()
-            self._load_spec_at = {}
-            self._global_conductivity = None
-            self._wire_conductivity = {}
-            self._global_distributed = None
-            self._wire_distributed = {}
+            self._discard_loads()
             return
         if ldtyp not in (0, 1, 2, 3, 4, 5):
             # 6/7 (4nec2 extensions) refuse by name, same as any type this
@@ -609,17 +631,32 @@ class _Nec2Parser:
         # byte-identical to omitting the card is not refused for a rule it
         # cannot trip — and after the expansion limit, which counts the card
         # AS WRITTEN (see `_LD_EXPAND_MAX`).
+        this_card: set[tuple[int, int]] = set()
         for wire, seg in self._cell_rule(pairs, spec):
             piece_index, elem = self.structure.element_of(wire, seg)
             key = (piece_index, elem)
-            if key in self._loaded:
+            if key in this_card:
+                # One card reaching one element twice (a range whose
+                # addresses resolve onto the same segment, such as a
+                # negative FROM) is not a stack: NEC-4.2 prints ONE load
+                # row and a different antenna for such a card (momwire#1807,
+                # the momwire#1300 junction decks), so it keeps the refusal
+                # it always had.
                 raise DeckError(
                     "LD on a segment that already carries a load is not "
                     "supported by this engine — a second load on one "
                     "segment is not merged"
                 )
-            self._loaded.add(key)
-            self._load_spec_at[key] = spec
+            this_card.add(key)
+            if key in self._loaded:
+                # Stacked in one run of LD cards (momwire#1807): both loads
+                # stay in force and the port algebra adds them.  The element
+                # no longer carries ONE spec, so no copy-addressed card can
+                # be a restatement of it (`_restates_the_replication`).
+                self._load_spec_at.pop(key, None)
+            else:
+                self._loaded.add(key)
+                self._load_spec_at[key] = spec
             _, arclength = self.structure.resolve_of(wire, seg)
             entry = (piece_index, arclength, spec)
             if entry in self._load_log:
@@ -628,6 +665,19 @@ class _Nec2Parser:
                 index = len(self._load_log)
                 self._load_log.append(entry)
             self._live.append(index)
+
+    def _discard_loads(self) -> None:
+        """Every LD-borne load out of force: ``LD -1``'s reading, and what
+        NEC does at the first LD card of a new run (momwire#1812).  Type 5's
+        conductivity and types 2/3 are read under the same mnemonic, so they
+        go too; IS's insulation (a different card) never does."""
+        self._live = []
+        self._loaded = set()
+        self._load_spec_at = {}
+        self._global_conductivity = None
+        self._wire_conductivity = {}
+        self._global_distributed = None
+        self._wire_distributed = {}
 
     def _ld23(self, ldtyp: int, tag: int, first: int, last: int, card: Card) -> None:
         """``LD 2`` / ``LD 3`` — a DISTRIBUTED series or parallel RLC per unit
@@ -1122,7 +1172,19 @@ class _Nec2Parser:
         # (or a data card) still gets its geometry refusals.
         _ = self.structure
 
+    # The cards an LD run survives (`_LD_RUN_TRANSPARENT`); the nec4 dialect
+    # adds EK.
+    _ld_run_transparent = _LD_RUN_TRANSPARENT
+
     def card(self, card: Card) -> None:
+        if card.mnemonic == "LD":
+            if not self._ld_run_open:
+                # The first LD of a new run: NEC discards every load the
+                # earlier runs put in force (momwire#1812).
+                self._discard_loads()
+            self._ld_run_open = True
+        elif card.mnemonic not in self._ld_run_transparent:
+            self._ld_run_open = False
         if card.mnemonic in ("CM", "CE"):
             text = card.text
             self.comments.append(text)

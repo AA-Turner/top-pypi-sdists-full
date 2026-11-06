@@ -7,6 +7,7 @@ __all__ = [
     "AmfiError",
     "ArbitrationError",
     "ArgumentError",
+    "AutomationSessionUnavailableError",
     "BackupFilterPasswordRequiredError",
     "BadCommandError",
     "BadDevError",
@@ -80,6 +81,7 @@ __all__ = [
     "UnsupportedCommandError",
     "UserDeniedPairingError",
     "UserspaceTunnelUnavailableError",
+    "WallpaperImageUnavailableError",
     "WdaError",
     "WebInspectorNotEnabledError",
     "WirError",
@@ -175,7 +177,7 @@ class StartServiceError(PyMobileDevice3Exception):
                 "Full discussion is available in: https://github.com/doronz88/pymobiledevice3/issues/1515"
             )
         else:
-            description = f"Failed to start: {service_name} with. Received error: {message}."
+            description = f"Failed to start {service_name}. Received error: {message}."
         super().__init__(description)
         self.service_name = service_name
         self.message = message
@@ -215,7 +217,7 @@ class DeviceNotFoundError(PyMobileDevice3Exception):
 
 
 class TunneldConnectionError(PyMobileDevice3Exception):
-    """Unable to connect to tunneld. Start one with `sudo python3 -m pymobiledevice3 remote tunneld`."""
+    """Unable to connect to tunneld. Start one with `sudo pymobiledevice3 remote tunneld`."""
 
 
 class MuxException(PyMobileDevice3Exception):
@@ -354,6 +356,10 @@ class ConnectionTerminatedError(PyMobileDevice3Exception):
     """Connection was terminated abruptly."""
 
 
+class WallpaperImageUnavailableError(PyMobileDevice3Exception):
+    """SpringBoard has no image of the home screen wallpaper to export (e.g. a poster-based wallpaper)."""
+
+
 class StreamClosedError(ConnectionTerminatedError):
     """The device closed the stream."""
 
@@ -368,6 +374,10 @@ class ScreencastUnavailableError(PyMobileDevice3Exception):
 
 class RemoteAutomationNotEnabledError(PyMobileDevice3Exception):
     """Remote Automation is disabled. Enable it in Settings > Apps > Safari > Advanced > Remote Automation."""
+
+
+class AutomationSessionUnavailableError(PyMobileDevice3Exception):
+    """The application did not start a Web Inspector automation session in time."""
 
 
 class WirError(PyMobileDevice3Exception):
@@ -409,7 +419,7 @@ class DeviceAlreadyInUseError(ArbitrationError):
 
 
 class DeveloperModeIsNotEnabledError(PyMobileDevice3Exception):
-    """Developer Mode is disabled. You can try to enable it using: python3 -m pymobiledevice3 amfi
+    """Developer Mode is disabled. You can try to enable it using: pymobiledevice3 amfi
     enable-developer-mode
     """
 

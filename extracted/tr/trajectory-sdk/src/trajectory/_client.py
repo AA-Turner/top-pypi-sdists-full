@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from functools import cached_property
 from typing import TYPE_CHECKING, Self
 
 import httpx2
 
-from trajectory._base_client import DEFAULT_MAX_RETRIES, APIClient, _merge_headers
+from trajectory._base_client import (
+  _AUTH_ORIGIN_EXTENSION,
+  DEFAULT_MAX_RETRIES,
+  APIClient,
+  _merge_headers,
+  _origin,
+)
 from trajectory._types import NotGiven, not_given
 
 if TYPE_CHECKING:
@@ -44,12 +49,17 @@ class Client(APIClient):
     default_headers: Mapping[str, str] | None = None,
     default_query: Mapping[str, object] | None = None,
     _strict_response_validation: bool = False,
+    profile: str | None = None,
   ) -> None:
-    if api_key is None:
-      api_key = os.environ.get("TRAJECTORY_API_KEY")
-    if base_url is None:
-      base_url = os.environ.get("TRAJECTORY_BASE_URL", "https://api.trajectory.ai")
-    self.api_key = api_key
+    from trajectory.lib.auth.credentials import CredentialStore
+
+    credential = CredentialStore.resolve(api_key, base_url, profile)
+    base_url = credential.base_url
+    self.api_key = credential.api_key
+    self.credential_source = credential.source
+    self.profile = credential.profile
+    self._credential_origin = _origin(httpx2.URL(base_url))
+    self._discard_transport_auth = False
     self._custom_headers = dict(default_headers or {})
     self._custom_query = dict(default_query or {})
     super().__init__(
@@ -63,7 +73,7 @@ class Client(APIClient):
 
   @property
   def auth_headers(self) -> dict[str, str]:
-    if self.api_key is not None:
+    if self.api_key:
       return {"X-API-Key": self.api_key}
     return {}
 
@@ -89,6 +99,8 @@ class Client(APIClient):
     set_default_query: Mapping[str, object] | None = None,
     _strict_response_validation: bool | None = None,
   ) -> Self:
+    from trajectory.lib.auth.credentials import CredentialStore
+
     if default_headers is not None and set_default_headers is not None:
       raise ValueError("default_headers and set_default_headers are mutually exclusive")
     if default_query is not None and set_default_query is not None:
@@ -104,9 +116,18 @@ class Client(APIClient):
     elif set_default_query is not None:
       query = dict(set_default_query)
     copied_api_key = self.api_key
+    if base_url is not None and CredentialStore.origin(base_url) != CredentialStore.origin(
+      self.base_url
+    ):
+      copied_api_key = ""
+      headers = {
+        name: value
+        for name, value in headers.items()
+        if name.lower() not in {"x-api-key", "authorization", "x-model-endpoint-access-token"}
+      }
     if api_key is not None:
       copied_api_key = api_key
-    return self.__class__(
+    copied = self.__class__(
       api_key=copied_api_key,
       base_url=base_url or self.base_url,
       timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
@@ -120,6 +141,22 @@ class Client(APIClient):
         else _strict_response_validation
       ),
     )
+    if api_key is None:
+      copied._credential_origin = self._credential_origin
+    copied._discard_transport_auth = self._discard_transport_auth or (
+      _origin(copied.base_url) != _origin(self.base_url)
+    )
+    return copied
+
+  def _send_request(self, request: httpx2.Request, stream: bool = False) -> httpx2.Response:
+    request.extensions[_AUTH_ORIGIN_EXTENSION] = self._credential_origin
+    if self._discard_transport_auth:
+      for header in ("Authorization", "X-API-Key", "X-Model-Endpoint-Access-Token", "Cookie"):
+        request.headers.pop(header, None)
+      if self.api_key:
+        request.headers["X-API-Key"] = self.api_key
+      return self._client.send(request, stream=stream, auth=None)
+    return super()._send_request(request, stream)
 
   with_options = copy
 

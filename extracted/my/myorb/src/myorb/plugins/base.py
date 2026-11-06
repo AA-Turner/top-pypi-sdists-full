@@ -113,6 +113,8 @@ class Row:
     search: str = ""
     # Its status by day, oldest first, shown as green and red bars (e.g. a monitor's 30 days).
     history: tuple[HistoryDay, ...] = ()
+    # A picture before the title, e.g. a video's thumbnail: the address of an image.
+    image: str = ""
 
 
 @dataclass(frozen=True)

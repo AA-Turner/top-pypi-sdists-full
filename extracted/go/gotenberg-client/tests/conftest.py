@@ -41,6 +41,7 @@ from gotenberg_client._merge.routes import SyncMergePdfsRoute
 from gotenberg_client._others.routes import AsyncEmbedRoute
 from gotenberg_client._others.routes import AsyncEncryptRoute
 from gotenberg_client._others.routes import AsyncFlattenRoute
+from gotenberg_client._others.routes import AsyncOptimizeRoute
 from gotenberg_client._others.routes import AsyncRotateRoute
 from gotenberg_client._others.routes import AsyncSplitRoute
 from gotenberg_client._others.routes import AsyncStampRoute
@@ -48,6 +49,7 @@ from gotenberg_client._others.routes import AsyncWatermarkRoute
 from gotenberg_client._others.routes import SyncEmbedRoute
 from gotenberg_client._others.routes import SyncEncryptRoute
 from gotenberg_client._others.routes import SyncFlattenRoute
+from gotenberg_client._others.routes import SyncOptimizeRoute
 from gotenberg_client._others.routes import SyncRotateRoute
 from gotenberg_client._others.routes import SyncSplitRoute
 from gotenberg_client._others.routes import SyncStampRoute
@@ -60,6 +62,7 @@ from gotenberg_client._pdfmetadata.routes import SyncReadPdfMetadataRoute
 from gotenberg_client._pdfmetadata.routes import SyncWritePdfMetadataRoute
 from gotenberg_client._version import AsyncVersionApi
 from gotenberg_client._version import SyncVersionApi
+from tests.utils import ensure_gotenberg_healthy
 
 logger = logging.getLogger("gotenberg-client.tests")
 
@@ -542,6 +545,11 @@ async def async_convert_pdfs_route(
 
 
 @pytest.fixture
+def gotenberg_healthy(gotenberg_host: str) -> None:
+    ensure_gotenberg_healthy(gotenberg_host)
+
+
+@pytest.fixture
 def sync_health_api(sync_client: SyncGotenbergClient) -> Generator[SyncHealthCheckApi, None, None]:
     with sync_client.health as api:
         yield api
@@ -634,6 +642,18 @@ def sync_flatten_route(sync_client: SyncGotenbergClient) -> Generator[SyncFlatte
 @pytest.fixture
 async def async_flatten_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncFlattenRoute, None]:
     async with async_client.flatten.flatten() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_optimize_route(sync_client: SyncGotenbergClient) -> Generator[SyncOptimizeRoute, None, None]:
+    with sync_client.optimize.optimize() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_optimize_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncOptimizeRoute, None]:
+    async with async_client.optimize.optimize() as route:
         yield route
 
 

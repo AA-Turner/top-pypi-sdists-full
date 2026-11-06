@@ -1,0 +1,1454 @@
+//! This module extends the library to support Redis Cluster.
+//!
+//! Note that this module does not currently provide pubsub
+//! functionality.
+//!
+//! # Example
+//! ```rust,no_run
+//! use redis::Commands;
+//! use redis::cluster::ClusterClient;
+//!
+//! let nodes = vec!["redis://127.0.0.1:6379/", "redis://127.0.0.1:6378/", "redis://127.0.0.1:6377/"];
+//! let client = ClusterClient::new(nodes).unwrap();
+//! let mut connection = client.get_connection(None).unwrap();
+//!
+//! let _: () = connection.set("test", "test_data").unwrap();
+//! let rv: String = connection.get("test").unwrap();
+//!
+//! assert_eq!(rv, "test_data");
+//! ```
+//!
+//! # Pipelining
+//! ```rust,no_run
+//! use redis::Commands;
+//! use redis::cluster::{cluster_pipe, ClusterClient};
+//!
+//! let nodes = vec!["redis://127.0.0.1:6379/", "redis://127.0.0.1:6378/", "redis://127.0.0.1:6377/"];
+//! let client = ClusterClient::new(nodes).unwrap();
+//! let mut connection = client.get_connection(None).unwrap();
+//!
+//! let key = "test";
+//!
+//! let _: () = cluster_pipe()
+//!     .rpush(key, "123").ignore()
+//!     .ltrim(key, -10, -1).ignore()
+//!     .expire(key, 60).ignore()
+//!     .query(&mut connection).unwrap();
+//! ```
+pub use crate::cluster_client::{ClusterClient, ClusterClientBuilder};
+use crate::cluster_pipeline::UNROUTABLE_ERROR;
+pub use crate::cluster_pipeline::{cluster_pipe, ClusterPipeline};
+use crate::cluster_routing::{
+    MultipleNodeRoutingInfo, ResponsePolicy, Routable, SingleNodeRoutingInfo,
+};
+use crate::cluster_slotmap::SlotMap;
+use crate::cluster_topology::{parse_and_count_slots, ParsedSlotsResult};
+use crate::cmd::{cmd, Cmd};
+use crate::connection::{
+    connect, Connection, ConnectionAddr, ConnectionInfo, ConnectionLike, RedisConnectionInfo,
+};
+use crate::parser::parse_redis_value;
+use crate::types::{
+    AddressResolver, ErrorKind, HashMap, RedisError, RedisResult, RetryMethod, Value,
+};
+pub use crate::TlsMode; // Pub for backwards compatibility
+use crate::{
+    cluster_client::ClusterParams,
+    cluster_routing::{Redirect, Route, RoutingInfo},
+    IntoConnectionInfo, PushInfo,
+};
+use rand::seq::IteratorRandom;
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+
+use tokio::sync::mpsc;
+use tracing::warn;
+
+use crate::tls::TlsConnParams;
+
+#[derive(Clone)]
+enum Input<'a> {
+    Slice {
+        cmd: &'a [u8],
+        routable: Value,
+    },
+    Cmd(&'a Cmd),
+    Commands {
+        cmd: &'a [u8],
+        route: SingleNodeRoutingInfo,
+        offset: usize,
+        count: usize,
+    },
+}
+
+impl<'a> Input<'a> {
+    fn send(&'a self, connection: &mut impl ConnectionLike) -> RedisResult<Output> {
+        match self {
+            Input::Slice { cmd, routable: _ } => {
+                connection.req_packed_command(cmd).map(Output::Single)
+            }
+            Input::Cmd(cmd) => connection.req_command(cmd).map(Output::Single),
+            Input::Commands {
+                cmd,
+                route: _,
+                offset,
+                count,
+            } => connection
+                .req_packed_commands(cmd, *offset, *count)
+                .map(Output::Multi),
+        }
+    }
+}
+
+impl Routable for Input<'_> {
+    fn arg_idx(&self, idx: usize) -> Option<&[u8]> {
+        match self {
+            Input::Slice { cmd: _, routable } => routable.arg_idx(idx),
+            Input::Cmd(cmd) => cmd.arg_idx(idx),
+            Input::Commands { .. } => None,
+        }
+    }
+
+    fn position(&self, candidate: &[u8]) -> Option<usize> {
+        match self {
+            Input::Slice { cmd: _, routable } => routable.position(candidate),
+            Input::Cmd(cmd) => cmd.position(candidate),
+            Input::Commands { .. } => None,
+        }
+    }
+}
+
+enum Output {
+    Single(Value),
+    Multi(Vec<Value>),
+}
+
+impl From<Output> for Value {
+    fn from(value: Output) -> Self {
+        match value {
+            Output::Single(value) => value,
+            Output::Multi(values) => Value::Array(values),
+        }
+    }
+}
+
+impl From<Output> for Vec<Value> {
+    fn from(value: Output) -> Self {
+        match value {
+            Output::Single(value) => vec![value],
+            Output::Multi(values) => values,
+        }
+    }
+}
+
+/// Implements the process of connecting to a Redis server
+/// and obtaining and configuring a connection handle.
+pub trait Connect: Sized {
+    /// Connect to a node, returning handle for command execution.
+    fn connect<T>(info: T, timeout: Option<Duration>) -> RedisResult<Self>
+    where
+        T: IntoConnectionInfo;
+
+    /// Sends an already encoded (packed) command into the TCP socket and
+    /// does not read a response.  This is useful for commands like
+    /// `MONITOR` which yield multiple items.  This needs to be used with
+    /// care because it changes the state of the connection.
+    fn send_packed_command(&mut self, cmd: &[u8]) -> RedisResult<()>;
+
+    /// Sets the write timeout for the connection.
+    ///
+    /// If the provided value is `None`, then `send_packed_command` call will
+    /// block indefinitely. It is an error to pass the zero `Duration` to this
+    /// method.
+    fn set_write_timeout(&self, dur: Option<Duration>) -> RedisResult<()>;
+
+    /// Sets the read timeout for the connection.
+    ///
+    /// If the provided value is `None`, then `recv_response` call will
+    /// block indefinitely. It is an error to pass the zero `Duration` to this
+    /// method.
+    fn set_read_timeout(&self, dur: Option<Duration>) -> RedisResult<()>;
+
+    /// Fetches a single response from the connection.  This is useful
+    /// if used in combination with `send_packed_command`.
+    fn recv_response(&mut self) -> RedisResult<Value>;
+}
+
+impl Connect for Connection {
+    fn connect<T>(info: T, timeout: Option<Duration>) -> RedisResult<Self>
+    where
+        T: IntoConnectionInfo,
+    {
+        connect(&info.into_connection_info()?, timeout)
+    }
+
+    fn send_packed_command(&mut self, cmd: &[u8]) -> RedisResult<()> {
+        Self::send_packed_command(self, cmd)
+    }
+
+    fn set_write_timeout(&self, dur: Option<Duration>) -> RedisResult<()> {
+        Self::set_write_timeout(self, dur)
+    }
+
+    fn set_read_timeout(&self, dur: Option<Duration>) -> RedisResult<()> {
+        Self::set_read_timeout(self, dur)
+    }
+
+    fn recv_response(&mut self) -> RedisResult<Value> {
+        Self::recv_response(self)
+    }
+}
+
+/// This represents a Redis Cluster connection. It stores the
+/// underlying connections maintained for each node in the cluster, as well
+/// as common parameters for connecting to nodes and executing commands.
+pub struct ClusterConnection<C = Connection> {
+    initial_nodes: Vec<ConnectionInfo>,
+    connections: RefCell<HashMap<String, C>>,
+    slots: RefCell<SlotMap>,
+    auto_reconnect: RefCell<bool>,
+    read_timeout: RefCell<Option<Duration>>,
+    write_timeout: RefCell<Option<Duration>>,
+    cluster_params: ClusterParams,
+}
+
+impl<C> ClusterConnection<C>
+where
+    C: ConnectionLike + Connect,
+{
+    pub(crate) fn new(
+        cluster_params: ClusterParams,
+        initial_nodes: Vec<ConnectionInfo>,
+        _push_sender: Option<mpsc::UnboundedSender<PushInfo>>,
+    ) -> RedisResult<Self> {
+        let connection = Self {
+            connections: RefCell::new(HashMap::new()),
+            slots: RefCell::new(SlotMap::new(
+                vec![],
+                HashMap::new(),
+                cluster_params.read_from_replicas.clone(),
+            )),
+            auto_reconnect: RefCell::new(true),
+            cluster_params,
+            read_timeout: RefCell::new(None),
+            write_timeout: RefCell::new(None),
+            initial_nodes: initial_nodes.to_vec(),
+        };
+        connection.create_initial_connections()?;
+
+        Ok(connection)
+    }
+
+    /// Set an auto reconnect attribute.
+    /// Default value is true;
+    pub fn set_auto_reconnect(&self, value: bool) {
+        let mut auto_reconnect = self.auto_reconnect.borrow_mut();
+        *auto_reconnect = value;
+    }
+
+    /// Sets the write timeout for the connection.
+    ///
+    /// If the provided value is `None`, then `send_packed_command` call will
+    /// block indefinitely. It is an error to pass the zero `Duration` to this
+    /// method.
+    pub fn set_write_timeout(&self, dur: Option<Duration>) -> RedisResult<()> {
+        // Check if duration is valid before updating local value.
+        if dur.is_some() && dur.unwrap().is_zero() {
+            return Err(RedisError::from((
+                ErrorKind::InvalidClientConfig,
+                "Duration should be None or non-zero.",
+            )));
+        }
+
+        let mut t = self.write_timeout.borrow_mut();
+        *t = dur;
+        let connections = self.connections.borrow();
+        for conn in connections.values() {
+            conn.set_write_timeout(dur)?;
+        }
+        Ok(())
+    }
+
+    /// Sets the read timeout for the connection.
+    ///
+    /// If the provided value is `None`, then `recv_response` call will
+    /// block indefinitely. It is an error to pass the zero `Duration` to this
+    /// method.
+    pub fn set_read_timeout(&self, dur: Option<Duration>) -> RedisResult<()> {
+        // Check if duration is valid before updating local value.
+        if dur.is_some() && dur.unwrap().is_zero() {
+            return Err(RedisError::from((
+                ErrorKind::InvalidClientConfig,
+                "Duration should be None or non-zero.",
+            )));
+        }
+
+        let mut t = self.read_timeout.borrow_mut();
+        *t = dur;
+        let connections = self.connections.borrow();
+        for conn in connections.values() {
+            conn.set_read_timeout(dur)?;
+        }
+        Ok(())
+    }
+
+    /// Check that all connections it has are available (`PING` internally).
+    #[doc(hidden)]
+    pub fn check_connection(&mut self) -> bool {
+        <Self as ConnectionLike>::check_connection(self)
+    }
+
+    pub(crate) fn execute_pipeline(&mut self, pipe: &ClusterPipeline) -> RedisResult<Vec<Value>> {
+        self.send_recv_and_retry_cmds(pipe.commands())
+    }
+
+    /// Returns the connection status.
+    ///
+    /// The connection is open until any `read_response` call received an
+    /// invalid response from the server (most likely a closed or dropped
+    /// connection, otherwise a Redis protocol error). When using unix
+    /// sockets the connection is open until writing a command failed with a
+    /// `BrokenPipe` error.
+    fn create_initial_connections(&self) -> RedisResult<()> {
+        let mut connections = HashMap::with_capacity(self.initial_nodes.len());
+
+        for info in self.initial_nodes.iter() {
+            let addr = info.addr.to_string();
+
+            if let Ok(mut conn) = self.connect(&addr) {
+                if conn.check_connection() {
+                    connections.insert(addr, conn);
+                    break;
+                }
+            }
+        }
+
+        if connections.is_empty() {
+            return Err(RedisError::from((
+                ErrorKind::IoError,
+                "It failed to check startup nodes.",
+            )));
+        }
+
+        *self.connections.borrow_mut() = connections;
+        self.refresh_slots()?;
+        Ok(())
+    }
+
+    // Query a node to discover slot-> master mappings.
+    fn refresh_slots(&self) -> RedisResult<()> {
+        let mut slots = self.slots.borrow_mut();
+        *slots = self.create_new_slots()?;
+
+        let nodes = slots.all_node_addresses();
+        let mut connections = self.connections.borrow_mut();
+        *connections = nodes
+            .into_iter()
+            .filter_map(|addr| {
+                let addr = addr.to_string();
+                if connections.contains_key(&addr) {
+                    let mut conn = connections.remove(&addr).unwrap();
+                    if conn.check_connection() {
+                        return Some((addr.to_string(), conn));
+                    }
+                }
+
+                if let Ok(mut conn) = self.connect_to_resolved_address(&addr) {
+                    if conn.check_connection() {
+                        return Some((addr.to_string(), conn));
+                    }
+                }
+
+                None
+            })
+            .collect();
+
+        Ok(())
+    }
+
+    fn create_new_slots(&self) -> RedisResult<SlotMap> {
+        let mut connections = self.connections.borrow_mut();
+        let mut rng = rand::rng();
+        let len = connections.len();
+        let samples = connections.iter_mut().choose_multiple(&mut rng, len);
+        let mut result = Err(RedisError::from((
+            ErrorKind::ResponseError,
+            "Slot refresh error.",
+            "didn't get any slots from server".to_string(),
+        )));
+        for (addr, conn) in samples {
+            let value = conn.req_command(&slot_cmd())?;
+            let addr = addr.split(':').next().ok_or(RedisError::from((
+                ErrorKind::ClientError,
+                "can't parse node address",
+            )))?;
+            match parse_and_count_slots(
+                &value,
+                self.cluster_params.tls,
+                addr,
+                self.cluster_params
+                    .address_resolver
+                    .as_ref()
+                    .map(Arc::as_ref),
+            )
+            .map(
+                |ParsedSlotsResult {
+                     slots,
+                     address_to_ip_map,
+                     ..
+                 }| {
+                    SlotMap::new(
+                        slots,
+                        address_to_ip_map,
+                        self.cluster_params.read_from_replicas.clone(),
+                    )
+                },
+            ) {
+                Ok(new_slots) => {
+                    result = Ok(new_slots);
+                    break;
+                }
+                Err(err) => result = Err(err),
+            }
+        }
+        result
+    }
+
+    fn connect(&self, node: &str) -> RedisResult<C> {
+        self.connect_with_resolver(node, self.cluster_params.address_resolver.as_deref())
+    }
+
+    fn connect_to_resolved_address(&self, node: &str) -> RedisResult<C> {
+        self.connect_with_resolver(node, None)
+    }
+
+    fn connect_with_resolver(
+        &self,
+        node: &str,
+        address_resolver: Option<&dyn AddressResolver>,
+    ) -> RedisResult<C> {
+        let info =
+            get_connection_info_with_resolver(node, self.cluster_params.clone(), address_resolver)?;
+
+        let mut conn = C::connect(info, Some(self.cluster_params.connection_timeout))?;
+        if self.cluster_params.read_from_replicas
+            != crate::cluster_slotmap::ReadFromReplicaStrategy::AlwaysFromPrimary
+        {
+            // If READONLY is sent to primary nodes, it will have no effect
+            cmd("READONLY").query::<()>(&mut conn)?;
+        }
+        conn.set_read_timeout(*self.read_timeout.borrow())?;
+        conn.set_write_timeout(*self.write_timeout.borrow())?;
+        Ok(conn)
+    }
+
+    fn get_connection<'a>(
+        &self,
+        connections: &'a mut HashMap<String, C>,
+        route: &Route,
+    ) -> RedisResult<(String, &'a mut C)> {
+        let slots = self.slots.borrow();
+        if let Some(addr) = slots.slot_addr_for_route(route) {
+            Ok((
+                addr.to_string(),
+                self.get_connection_by_canonical_addr(connections, &addr)?,
+            ))
+        } else {
+            // try a random node next.  This is safe if slots are involved
+            // as a wrong node would reject the request.
+            Ok(get_random_connection(connections))
+        }
+    }
+
+    fn get_connection_by_canonical_addr<'a>(
+        &self,
+        connections: &'a mut HashMap<String, C>,
+        addr: &str,
+    ) -> RedisResult<&'a mut C> {
+        if connections.contains_key(addr) {
+            Ok(connections.get_mut(addr).unwrap())
+        } else {
+            // Create new connection.
+            // TODO: error handling
+            let conn = self.connect_to_resolved_address(addr)?;
+            Ok(connections.entry(addr.to_string()).or_insert(conn))
+        }
+    }
+
+    fn get_addr_for_cmd(&self, cmd: &Cmd) -> RedisResult<String> {
+        let slots = self.slots.borrow();
+
+        let addr_for_slot = |route: Route| -> RedisResult<String> {
+            let slot_addr = slots
+                .slot_addr_for_route(&route)
+                .ok_or((ErrorKind::ClusterDown, "Missing slot coverage"))?;
+            Ok(slot_addr.to_string())
+        };
+
+        match RoutingInfo::for_routable(cmd) {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::Random))
+            | Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::RandomPrimary)) => {
+                Ok(addr_for_slot(Route::new_random_primary())?)
+            }
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                Ok(addr_for_slot(route)?)
+            }
+            _ => fail!(UNROUTABLE_ERROR),
+        }
+    }
+
+    fn map_cmds_to_nodes(&self, cmds: &[Arc<Cmd>]) -> RedisResult<Vec<NodeCmd>> {
+        let mut cmd_map: HashMap<String, NodeCmd> = HashMap::new();
+
+        for (idx, cmd) in cmds.iter().enumerate() {
+            let addr = self.get_addr_for_cmd(cmd)?;
+            let nc = cmd_map
+                .entry(addr.clone())
+                .or_insert_with(|| NodeCmd::new(addr));
+            nc.indexes.push(idx);
+            cmd.write_packed_command(&mut nc.pipe);
+        }
+
+        let mut result = Vec::new();
+        for (_, v) in cmd_map.drain() {
+            result.push(v);
+        }
+        Ok(result)
+    }
+
+    fn execute_on_all<'a>(
+        &'a self,
+        input: Input,
+        addresses: HashSet<Arc<String>>,
+        connections: &'a mut HashMap<String, C>,
+    ) -> Vec<RedisResult<(Arc<String>, Value)>> {
+        addresses
+            .into_iter()
+            .map(|addr| {
+                let connection = self.get_connection_by_canonical_addr(connections, &addr)?;
+                match input {
+                    Input::Slice { cmd, routable: _ } => connection.req_packed_command(cmd),
+                    Input::Cmd(cmd) => connection.req_command(cmd),
+                    Input::Commands {
+                        cmd: _,
+                        route: _,
+                        offset: _,
+                        count: _,
+                    } => Err((
+                        ErrorKind::ClientError,
+                        "req_packed_commands isn't supported with multiple nodes",
+                    )
+                        .into()),
+                }
+                .map(|res| (addr, res))
+            })
+            .collect()
+    }
+
+    fn execute_on_all_nodes<'a>(
+        &'a self,
+        input: Input,
+        slots: &'a mut SlotMap,
+        connections: &'a mut HashMap<String, C>,
+    ) -> Vec<RedisResult<(Arc<String>, Value)>> {
+        self.execute_on_all(input, slots.all_node_addresses(), connections)
+    }
+
+    fn execute_on_all_primaries<'a>(
+        &'a self,
+        input: Input,
+        slots: &'a mut SlotMap,
+        connections: &'a mut HashMap<String, C>,
+    ) -> Vec<RedisResult<(Arc<String>, Value)>> {
+        self.execute_on_all(input, slots.addresses_for_all_primaries(), connections)
+    }
+
+    fn execute_multi_slot<'a, 'b>(
+        &'a self,
+        input: Input,
+        slots: &'a mut SlotMap,
+        connections: &'a mut HashMap<String, C>,
+        routes: &'b [(Route, Vec<usize>)],
+    ) -> Vec<RedisResult<(Arc<String>, Value)>>
+    where
+        'b: 'a,
+    {
+        slots
+            .addresses_for_multi_slot(routes)
+            .enumerate()
+            .map(|(index, addr)| {
+                let addr = addr.ok_or(RedisError::from((
+                    ErrorKind::IoError,
+                    "Couldn't find connection",
+                )))?;
+                let connection = self.get_connection_by_canonical_addr(connections, &addr)?;
+                let (_, indices) = routes.get(index).unwrap();
+                let cmd =
+                    crate::cluster_routing::command_for_multi_slot_indices(&input, indices.iter());
+                connection.req_command(&cmd).map(|res| (addr, res))
+            })
+            .collect()
+    }
+
+    fn execute_on_multiple_nodes(
+        &self,
+        input: Input,
+        routing: MultipleNodeRoutingInfo,
+        response_policy: Option<ResponsePolicy>,
+    ) -> RedisResult<Value> {
+        let mut connections = self.connections.borrow_mut();
+        let mut slots = self.slots.borrow_mut();
+
+        let results = match &routing {
+            MultipleNodeRoutingInfo::MultiSlot((routes, _)) => {
+                self.execute_multi_slot(input, &mut slots, &mut connections, routes)
+            }
+            MultipleNodeRoutingInfo::AllMasters => {
+                self.execute_on_all_primaries(input, &mut slots, &mut connections)
+            }
+            MultipleNodeRoutingInfo::AllNodes => {
+                self.execute_on_all_nodes(input, &mut slots, &mut connections)
+            }
+        };
+
+        match response_policy {
+            Some(ResponsePolicy::AllSucceeded) => {
+                for result in results {
+                    result?;
+                }
+
+                Ok(Value::Okay)
+            }
+            Some(ResponsePolicy::OneSucceeded) => {
+                let mut last_failure = None;
+
+                for result in results {
+                    match result {
+                        Ok((_, val)) => return Ok(val),
+                        Err(err) => last_failure = Some(err),
+                    }
+                }
+
+                Err(last_failure
+                    .unwrap_or_else(|| (ErrorKind::IoError, "Couldn't find a connection").into()))
+            }
+            Some(ResponsePolicy::FirstSucceededNonEmptyOrAllEmpty) => {
+                // Attempt to return the first result that isn't `Nil` or an error.
+                // If no such response is found and all servers returned `Nil`, it indicates that all shards are empty, so return `Nil`.
+                // If we received only errors, return the last received error.
+                // If we received a mix of errors and `Nil`s, we can't determine if all shards are empty,
+                // thus we return the last received error instead of `Nil`.
+                let mut last_failure = None;
+                let num_of_results = results.len();
+                let mut nil_counter = 0;
+                for result in results {
+                    match result.map(|(_, res)| res) {
+                        Ok(Value::Nil) => nil_counter += 1,
+                        Ok(val) => return Ok(val),
+                        Err(err) => last_failure = Some(err),
+                    }
+                }
+                if nil_counter == num_of_results {
+                    Ok(Value::Nil)
+                } else {
+                    Err(last_failure.unwrap_or_else(|| {
+                        (ErrorKind::IoError, "Couldn't find a connection").into()
+                    }))
+                }
+            }
+            Some(ResponsePolicy::Aggregate(op)) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                crate::cluster_routing::aggregate(results, op)
+            }
+            Some(ResponsePolicy::AggregateArray(op)) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                crate::cluster_routing::aggregate_array(results, op)
+            }
+            Some(ResponsePolicy::AggregateLogical(op)) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                crate::cluster_routing::logical_aggregate(results, op)
+            }
+            Some(ResponsePolicy::CombineArrays) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                match routing {
+                    MultipleNodeRoutingInfo::MultiSlot((vec, args_pattern)) => {
+                        crate::cluster_routing::combine_and_sort_array_results(
+                            results,
+                            &vec,
+                            &args_pattern,
+                        )
+                    }
+                    _ => crate::cluster_routing::combine_array_results(results),
+                }
+            }
+            Some(ResponsePolicy::CombineMaps) => {
+                let results = results
+                    .into_iter()
+                    .map(|res| res.map(|(_, val)| val))
+                    .collect::<RedisResult<Vec<_>>>()?;
+                crate::cluster_routing::combine_map_results(results)
+            }
+            Some(ResponsePolicy::Special) | None => {
+                // This is our assumption - if there's no coherent way to aggregate the responses, we just map each response to the sender, and pass it to the user.
+                // TODO - once Value::Error is merged, we can use join_all and report separate errors and also pass successes.
+                let results = results
+                    .into_iter()
+                    .map(|result| {
+                        result.map(|(addr, val)| {
+                            (Value::BulkString(addr.as_bytes().to_vec().into()), val)
+                        })
+                    })
+                    .collect::<RedisResult<Vec<_>>>()?;
+                Ok(Value::Map(results))
+            }
+        }
+    }
+
+    #[allow(clippy::unnecessary_unwrap)]
+    fn request(&self, input: Input) -> RedisResult<Output> {
+        let route_option = match &input {
+            Input::Slice { cmd: _, routable } => RoutingInfo::for_routable(routable),
+            Input::Cmd(cmd) => RoutingInfo::for_routable(*cmd),
+            Input::Commands {
+                cmd: _,
+                route,
+                offset: _,
+                count: _,
+            } => Some(RoutingInfo::SingleNode(route.clone())),
+        };
+        let single_node_routing = match route_option {
+            Some(RoutingInfo::SingleNode(single_node_routing)) => single_node_routing,
+            Some(RoutingInfo::MultiNode((multi_node_routing, response_policy))) => {
+                return self
+                    .execute_on_multiple_nodes(input, multi_node_routing, response_policy)
+                    .map(Output::Single);
+            }
+            None => fail!(UNROUTABLE_ERROR),
+        };
+
+        let mut retries = 0;
+        let mut redirected = None::<Redirect>;
+        let by_address = resolve_by_address(
+            &single_node_routing,
+            self.cluster_params.address_resolver.as_deref(),
+        );
+
+        loop {
+            // Get target address and response.
+            let (addr, rv) = {
+                let mut connections = self.connections.borrow_mut();
+                let (addr, conn) = if let Some(redirected) = redirected.as_ref() {
+                    let (addr, is_asking) = match redirected {
+                        Redirect::Moved(addr) => (addr.clone(), false),
+                        Redirect::Ask(addr, should_exec_asking) => {
+                            (addr.clone(), *should_exec_asking)
+                        }
+                    };
+                    let conn = self.get_connection_by_canonical_addr(&mut connections, &addr)?;
+                    if is_asking {
+                        // if we are in asking mode we want to feed a single
+                        // ASKING command into the connection before what we
+                        // actually want to execute.
+                        conn.req_packed_command(&b"*1\r\n$6\r\nASKING\r\n"[..])?;
+                    }
+                    (addr.to_string(), conn)
+                } else {
+                    match &single_node_routing {
+                        SingleNodeRoutingInfo::Random => get_random_connection(&mut connections),
+                        SingleNodeRoutingInfo::SpecificNode(route) => {
+                            self.get_connection(&mut connections, route)?
+                        }
+                        SingleNodeRoutingInfo::RandomPrimary => {
+                            self.get_connection(&mut connections, &Route::new_random_primary())?
+                        }
+                        SingleNodeRoutingInfo::ByAddress { .. } => {
+                            let address = by_address
+                                .as_ref()
+                                .expect("ByAddress must have a resolved address");
+                            let conn =
+                                self.get_connection_by_canonical_addr(&mut connections, address)?;
+                            (address.clone(), conn)
+                        }
+                    }
+                };
+                (addr, input.send(conn))
+            };
+
+            match rv {
+                Ok(rv) => return Ok(rv),
+                Err(err) => {
+                    if retries == self.cluster_params.retry_params.number_of_retries {
+                        return Err(err);
+                    }
+                    retries += 1;
+
+                    match err.retry_method() {
+                        RetryMethod::AskRedirect => {
+                            redirected = err.redirect_node().map(|(node, _slot)| {
+                                Redirect::Ask(
+                                    resolve_address(
+                                        node,
+                                        self.cluster_params.address_resolver.as_deref(),
+                                    ),
+                                    true,
+                                )
+                            });
+                        }
+                        RetryMethod::MovedRedirect => {
+                            // Refresh slots.
+                            self.refresh_slots()?;
+                            // Request again.
+                            redirected = err.redirect_node().map(|(node, _slot)| {
+                                Redirect::Moved(resolve_address(
+                                    node,
+                                    self.cluster_params.address_resolver.as_deref(),
+                                ))
+                            });
+                        }
+                        RetryMethod::WaitAndRetryOnPrimaryRedirectOnReplica
+                        | RetryMethod::WaitAndRetry => {
+                            // Sleep and retry.
+                            let sleep_time = self
+                                .cluster_params
+                                .retry_params
+                                .wait_time_for_retry(retries);
+                            thread::sleep(sleep_time);
+                        }
+                        RetryMethod::Reconnect | RetryMethod::ReconnectAndRetry => {
+                            if *self.auto_reconnect.borrow() {
+                                if let Ok(mut conn) = self.connect_to_resolved_address(&addr) {
+                                    if conn.check_connection() {
+                                        self.connections.borrow_mut().insert(addr, conn);
+                                    }
+                                }
+                            }
+                        }
+                        RetryMethod::RefreshSlotsAndRetry => {
+                            self.refresh_slots()?;
+                            redirected = None;
+                        }
+                        RetryMethod::NoRetry => {
+                            return Err(err);
+                        }
+                        RetryMethod::RetryImmediately => {}
+                    }
+                }
+            }
+        }
+    }
+
+    fn send_recv_and_retry_cmds(&self, cmds: &[Arc<Cmd>]) -> RedisResult<Vec<Value>> {
+        // Vector to hold the results, pre-populated with `Nil` values. This allows the original
+        // cmd ordering to be re-established by inserting the response directly into the result
+        // vector (e.g., results[10] = response).
+        let mut results = vec![Value::Nil; cmds.len()];
+
+        let to_retry = self
+            .send_all_commands(cmds)
+            .and_then(|node_cmds| self.recv_all_commands(&mut results, &node_cmds))?;
+
+        if to_retry.is_empty() {
+            return Ok(results);
+        }
+
+        // Refresh the slots to ensure that we have a clean slate for the retry attempts.
+        self.refresh_slots()?;
+
+        // Given that there are commands that need to be retried, it means something in the cluster
+        // topology changed. Execute each command separately to take advantage of the existing
+        // retry logic that handles these cases.
+        for retry_idx in to_retry {
+            let cmd = &cmds[retry_idx];
+            results[retry_idx] = self.request(Input::Cmd(cmd))?.into();
+        }
+        Ok(results)
+    }
+
+    // Build up a pipeline per node, then send it
+    fn send_all_commands(&self, cmds: &[Arc<Cmd>]) -> RedisResult<Vec<NodeCmd>> {
+        let mut connections = self.connections.borrow_mut();
+
+        let node_cmds = self.map_cmds_to_nodes(cmds)?;
+        for nc in &node_cmds {
+            self.get_connection_by_canonical_addr(&mut connections, &nc.addr)?
+                .send_packed_command(&nc.pipe)?;
+        }
+        Ok(node_cmds)
+    }
+
+    // Receive from each node, keeping track of which commands need to be retried.
+    fn recv_all_commands(
+        &self,
+        results: &mut [Value],
+        node_cmds: &[NodeCmd],
+    ) -> RedisResult<Vec<usize>> {
+        let mut to_retry = Vec::new();
+        let mut connections = self.connections.borrow_mut();
+        let mut first_err = None;
+
+        for nc in node_cmds {
+            for cmd_idx in &nc.indexes {
+                match self
+                    .get_connection_by_canonical_addr(&mut connections, &nc.addr)?
+                    .recv_response()
+                {
+                    Ok(item) => results[*cmd_idx] = item,
+                    Err(err) if err.is_cluster_error() => to_retry.push(*cmd_idx),
+                    Err(err) => first_err = first_err.or(Some(err)),
+                }
+            }
+        }
+        match first_err {
+            Some(err) => Err(err),
+            None => Ok(to_retry),
+        }
+    }
+}
+
+const MULTI: &[u8] = "*1\r\n$5\r\nMULTI\r\n".as_bytes();
+impl<C: Connect + ConnectionLike> ConnectionLike for ClusterConnection<C> {
+    fn supports_pipelining(&self) -> bool {
+        false
+    }
+
+    fn req_command(&mut self, cmd: &Cmd) -> RedisResult<Value> {
+        self.request(Input::Cmd(cmd)).map(|res| res.into())
+    }
+
+    fn req_packed_command(&mut self, cmd: &[u8]) -> RedisResult<Value> {
+        let actual_cmd = if cmd.starts_with(MULTI) {
+            &cmd[MULTI.len()..]
+        } else {
+            cmd
+        };
+        let value = parse_redis_value(actual_cmd).and_then(|v| v.extract_error())?;
+        self.request(Input::Slice {
+            cmd,
+            routable: value,
+        })
+        .map(|res| res.into())
+    }
+
+    fn req_packed_commands(
+        &mut self,
+        cmd: &[u8],
+        offset: usize,
+        count: usize,
+    ) -> RedisResult<Vec<Value>> {
+        let actual_cmd = if cmd.starts_with(MULTI) {
+            &cmd[MULTI.len()..]
+        } else {
+            cmd
+        };
+        let value = parse_redis_value(actual_cmd)?;
+        let route = match RoutingInfo::for_routable(&value) {
+            Some(RoutingInfo::MultiNode(_)) => None,
+            Some(RoutingInfo::SingleNode(route)) => Some(route),
+            None => None,
+        }
+        .unwrap_or(SingleNodeRoutingInfo::Random);
+        self.request(Input::Commands {
+            cmd,
+            offset,
+            count,
+            route,
+        })
+        .map(|res| res.into())
+    }
+
+    fn get_db(&self) -> i64 {
+        0
+    }
+
+    fn is_open(&self) -> bool {
+        let connections = self.connections.borrow();
+        for conn in connections.values() {
+            if !conn.is_open() {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn check_connection(&mut self) -> bool {
+        let mut connections = self.connections.borrow_mut();
+        for conn in connections.values_mut() {
+            if !conn.check_connection() {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+#[derive(Debug)]
+struct NodeCmd {
+    // The original command indexes
+    indexes: Vec<usize>,
+    pipe: Vec<u8>,
+    addr: String,
+}
+
+impl NodeCmd {
+    fn new(a: String) -> NodeCmd {
+        NodeCmd {
+            indexes: vec![],
+            pipe: vec![],
+            addr: a,
+        }
+    }
+}
+
+// TODO: This function can panic and should probably
+// return an Option instead:
+fn get_random_connection<C: ConnectionLike + Connect + Sized>(
+    connections: &mut HashMap<String, C>,
+) -> (String, &mut C) {
+    let addr = connections
+        .keys()
+        .choose(&mut rand::rng())
+        .expect("Connections is empty")
+        .to_string();
+    let con = connections.get_mut(&addr).expect("Connections is empty");
+    (addr, con)
+}
+
+// The node string passed to this function will always be in the format host:port as it is either:
+// - Created by calling ConnectionAddr::to_string (unix connections are not supported in cluster mode)
+// - Returned from redis via the ASK/MOVED response
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[doc(hidden)]
+pub struct ReadyToDialAddress(String);
+impl ReadyToDialAddress {
+    #[doc(hidden)]
+    pub fn new(address: String) -> Self {
+        Self(address)
+    }
+    #[doc(hidden)]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ClusterAddress {
+    Raw(String),
+    ReadyToDial(String),
+}
+impl ClusterAddress {
+    pub(crate) fn prepare(self, resolver: Option<&dyn AddressResolver>) -> ReadyToDialAddress {
+        match self {
+            Self::Raw(a) => ReadyToDialAddress(resolve_address(&a, resolver)),
+            Self::ReadyToDial(a) => ReadyToDialAddress(a),
+        }
+    }
+}
+pub(crate) fn parse_cluster_address(address: &str) -> Option<(&str, u16)> {
+    let (host, port) = address.rsplit_once(':')?;
+    let bracketed = host.starts_with('[') && host.ends_with(']');
+    if host.starts_with('[') != host.ends_with(']') {
+        return None;
+    }
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    if host.contains('[') || host.contains(']') {
+        return None;
+    }
+    if host.is_empty() || host.chars().any(char::is_whitespace) {
+        return None;
+    }
+    if bracketed || host.contains(':') {
+        let (ipv6, scope) = host.split_once('%').unwrap_or((host, ""));
+        if (scope.is_empty() || scope.contains('%')) && host.contains('%') {
+            return None;
+        }
+        ipv6.parse::<std::net::Ipv6Addr>().ok()?;
+    }
+    Some((host, port.parse().ok()?))
+}
+pub(crate) fn format_cluster_address(host: &str, port: u16) -> String {
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    if host.contains(':') {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn get_connection_info(
+    node: &str,
+    cluster_params: ClusterParams,
+) -> RedisResult<ConnectionInfo> {
+    let address_resolver = cluster_params.address_resolver.clone();
+    get_connection_info_with_resolver(node, cluster_params, address_resolver.as_deref())
+}
+
+pub(crate) fn get_connection_info_for_resolved_address(
+    node: &str,
+    cluster_params: ClusterParams,
+) -> RedisResult<ConnectionInfo> {
+    get_connection_info_with_resolver(node, cluster_params, None)
+}
+
+fn get_connection_info_with_resolver(
+    node: &str,
+    cluster_params: ClusterParams,
+    address_resolver: Option<&dyn AddressResolver>,
+) -> RedisResult<ConnectionInfo> {
+    let invalid_error = || (ErrorKind::InvalidClientConfig, "Invalid node string");
+
+    let (host, port) = parse_cluster_address(node).ok_or_else(invalid_error)?;
+
+    Ok(ConnectionInfo {
+        addr: get_connection_addr(
+            host.to_string(),
+            port,
+            cluster_params.tls,
+            cluster_params.tls_params.clone(),
+            address_resolver,
+        ),
+        redis: RedisConnectionInfo {
+            password: cluster_params.password,
+            username: cluster_params.username,
+            client_name: cluster_params.client_name,
+            lib_name: cluster_params.lib_name,
+            lib_ver: cluster_params.lib_ver,
+            protocol: cluster_params.protocol,
+            db: cluster_params.database_id,
+            cache: cluster_params.cache,
+            server_assisted_cache: cluster_params.server_assisted_cache,
+        },
+    })
+}
+
+/// Resolves a raw `"host:port"` address string through the given address resolver.
+/// If no resolver is provided, or the address cannot be parsed, returns the original
+/// address unchanged.
+pub(crate) fn resolve_address(address: &str, resolver: Option<&dyn AddressResolver>) -> String {
+    let resolver = match resolver {
+        Some(resolver) => resolver,
+        None => return address.to_string(),
+    };
+    let Some((host, port)) = parse_cluster_address(address) else {
+        warn!(address, "Unable to parse cluster address for resolution");
+        return address.to_string();
+    };
+    let (resolved_host, resolved_port) = resolver.resolve(host, port);
+    format_cluster_address(&resolved_host, resolved_port)
+}
+
+fn resolve_by_address(
+    routing: &SingleNodeRoutingInfo,
+    resolver: Option<&dyn AddressResolver>,
+) -> Option<String> {
+    match routing {
+        SingleNodeRoutingInfo::ByAddress { host, port } => {
+            Some(resolve_address(&format!("{host}:{port}"), resolver))
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn get_connection_addr(
+    host: String,
+    port: u16,
+    tls: Option<TlsMode>,
+    tls_params: Option<TlsConnParams>,
+    address_resolver: Option<&dyn AddressResolver>,
+) -> ConnectionAddr {
+    // Resolve the address if a resolver is provided
+    let (resolved_host, resolved_port) = if let Some(resolver) = address_resolver {
+        resolver.resolve(&host, port)
+    } else {
+        (host, port)
+    };
+
+    match tls {
+        Some(TlsMode::Secure) => ConnectionAddr::TcpTls {
+            host: resolved_host,
+            port: resolved_port,
+            insecure: false,
+            tls_params,
+        },
+        Some(TlsMode::Insecure) => ConnectionAddr::TcpTls {
+            host: resolved_host,
+            port: resolved_port,
+            insecure: true,
+            tls_params,
+        },
+        _ => ConnectionAddr::Tcp(resolved_host, resolved_port),
+    }
+}
+
+pub(crate) fn slot_cmd() -> Cmd {
+    let mut cmd = Cmd::new();
+    cmd.arg("CLUSTER").arg("SLOTS");
+    cmd
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct NonIdempotentResolver(std::sync::atomic::AtomicU32);
+    impl AddressResolver for NonIdempotentResolver {
+        fn resolve(&self, host: &str, port: u16) -> (String, u16) {
+            let n = self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            (format!("{host}-{n}"), port)
+        }
+    }
+
+    #[test]
+    fn cluster_address_prepares_once_and_ready_bypasses_resolver() {
+        let resolver = NonIdempotentResolver(std::sync::atomic::AtomicU32::new(0));
+        let ready = ClusterAddress::Raw("node:6379".into()).prepare(Some(&resolver));
+        assert_eq!(ready.as_str(), "node-1:6379");
+        let ready = ClusterAddress::ReadyToDial(ready.as_str().to_owned()).prepare(Some(&resolver));
+        assert_eq!(ready.as_str(), "node-1:6379");
+        assert_eq!(resolver.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn cluster_address_parser_and_formatter_handle_ipv6_without_broad_trimming() {
+        assert_eq!(
+            parse_cluster_address("[2001:db8::1]:6379"),
+            Some(("2001:db8::1", 6379))
+        );
+        assert_eq!(parse_cluster_address("[not-an-ip]:6379"), None);
+        assert_eq!(
+            parse_cluster_address("[fe80::cafe:beef%en1]:30001"),
+            Some(("fe80::cafe:beef%en1", 30001))
+        );
+        assert_eq!(parse_cluster_address("[fe80::1%]:6379"), None);
+        assert_eq!(parse_cluster_address("[fe80::1%a%b]:6379"), None);
+        assert_eq!(
+            format_cluster_address("2001:db8::1", 6379),
+            "[2001:db8::1]:6379"
+        );
+        assert_eq!(
+            format_cluster_address("[2001:db8::1]", 6379),
+            "[2001:db8::1]:6379"
+        );
+        assert_eq!(parse_cluster_address("[node:6379"), None);
+        assert_eq!(parse_cluster_address("node]:6379"), None);
+        assert_eq!(parse_cluster_address("[[2001:db8::1]]:6379"), None);
+        assert_eq!(parse_cluster_address("2001:db8::1]:6379"), None);
+        assert_eq!(parse_cluster_address(" node:6379 "), None);
+        let resolver = BracketlessIpv6Resolver;
+        assert_eq!(
+            ClusterAddress::Raw("[node:6379".into())
+                .prepare(Some(&resolver))
+                .as_str(),
+            "[node:6379"
+        );
+    }
+
+    #[test]
+    fn cluster_address_parser_rejects_leading_whitespace_in_host() {
+        assert_eq!(parse_cluster_address(" node:6379"), None);
+    }
+
+    #[test]
+    fn cluster_address_parser_rejects_embedded_whitespace_in_host() {
+        assert_eq!(parse_cluster_address("no de:6379"), None);
+    }
+
+    #[derive(Debug)]
+    struct BracketlessIpv6Resolver;
+
+    impl AddressResolver for BracketlessIpv6Resolver {
+        fn resolve(&self, host: &str, port: u16) -> (String, u16) {
+            assert_eq!(host, "2001:db8::1");
+            ("canonical-node".to_owned(), port + 1)
+        }
+    }
+
+    #[test]
+    fn resolve_address_strips_ipv6_brackets_before_custom_resolution() {
+        assert_eq!(
+            resolve_address("[2001:db8::1]:6379", Some(&BracketlessIpv6Resolver)),
+            "canonical-node:6380"
+        );
+    }
+
+    #[test]
+    fn parse_cluster_node_host_port() {
+        let cases = vec![
+            (
+                "127.0.0.1:6379",
+                ConnectionAddr::Tcp("127.0.0.1".to_string(), 6379u16),
+            ),
+            (
+                "localhost.localdomain:6379",
+                ConnectionAddr::Tcp("localhost.localdomain".to_string(), 6379u16),
+            ),
+            (
+                "dead::cafe:beef:30001",
+                ConnectionAddr::Tcp("dead::cafe:beef".to_string(), 30001u16),
+            ),
+            (
+                "[fe80::cafe:beef%en1]:30001",
+                ConnectionAddr::Tcp("fe80::cafe:beef%en1".to_string(), 30001u16),
+            ),
+        ];
+
+        for (input, expected) in cases {
+            let res = get_connection_info(input, ClusterParams::default());
+            assert_eq!(res.unwrap().addr, expected);
+        }
+
+        let cases = vec![":0", "[]:6379"];
+        for input in cases {
+            let res = get_connection_info(input, ClusterParams::default());
+            assert_eq!(
+                res.err(),
+                Some(RedisError::from((
+                    ErrorKind::InvalidClientConfig,
+                    "Invalid node string",
+                ))),
+            );
+        }
+    }
+
+    #[derive(Debug)]
+    struct ByAddressResolver {
+        calls: AtomicUsize,
+    }
+
+    impl AddressResolver for ByAddressResolver {
+        fn resolve(&self, host: &str, port: u16) -> (String, u16) {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            (format!("{host}-1"), port)
+        }
+    }
+
+    #[derive(Debug)]
+    struct ByAddressConnection {
+        sends: Arc<AtomicUsize>,
+    }
+
+    impl ConnectionLike for ByAddressConnection {
+        fn req_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<Value> {
+            unreachable!("the ByAddress pipeline test uses req_packed_commands")
+        }
+
+        fn req_packed_commands(
+            &mut self,
+            _cmd: &[u8],
+            _offset: usize,
+            _count: usize,
+        ) -> RedisResult<Vec<Value>> {
+            let attempt = self.sends.fetch_add(1, Ordering::SeqCst);
+            if attempt == 0 {
+                Err(RedisError::from((ErrorKind::TryAgain, "retry")))
+            } else {
+                Ok(vec![Value::SimpleString("OK".to_owned())])
+            }
+        }
+
+        fn get_db(&self) -> i64 {
+            0
+        }
+
+        fn check_connection(&mut self) -> bool {
+            true
+        }
+
+        fn is_open(&self) -> bool {
+            true
+        }
+    }
+
+    impl Connect for ByAddressConnection {
+        fn connect<T>(_info: T, _timeout: Option<Duration>) -> RedisResult<Self>
+        where
+            T: IntoConnectionInfo,
+        {
+            unreachable!("the canonical test connection is inserted before request")
+        }
+
+        fn send_packed_command(&mut self, _cmd: &[u8]) -> RedisResult<()> {
+            Ok(())
+        }
+
+        fn set_write_timeout(&self, _dur: Option<Duration>) -> RedisResult<()> {
+            Ok(())
+        }
+
+        fn set_read_timeout(&self, _dur: Option<Duration>) -> RedisResult<()> {
+            Ok(())
+        }
+
+        fn recv_response(&mut self) -> RedisResult<Value> {
+            Ok(Value::SimpleString("OK".to_owned()))
+        }
+    }
+
+    #[test]
+    fn by_address_resolves_once_across_tryagain_retry() {
+        let resolver = Arc::new(ByAddressResolver {
+            calls: AtomicUsize::new(0),
+        });
+        let sends = Arc::new(AtomicUsize::new(0));
+        let mut connections = HashMap::new();
+        connections.insert(
+            "node-1:6379".to_owned(),
+            ByAddressConnection {
+                sends: sends.clone(),
+            },
+        );
+        let mut params = ClusterParams::default_for_test(None);
+        params.address_resolver = Some(resolver.clone());
+        params.retry_params.number_of_retries = 1;
+        let cluster = ClusterConnection {
+            initial_nodes: vec![],
+            connections: RefCell::new(connections),
+            slots: RefCell::new(SlotMap::new(
+                vec![],
+                HashMap::new(),
+                params.read_from_replicas.clone(),
+            )),
+            auto_reconnect: RefCell::new(true),
+            read_timeout: RefCell::new(None),
+            write_timeout: RefCell::new(None),
+            cluster_params: params,
+        };
+        let cmd = b"*1\r\n$4\r\nPING\r\n";
+        let result = cluster.request(Input::Commands {
+            cmd,
+            route: SingleNodeRoutingInfo::ByAddress {
+                host: "node".to_owned(),
+                port: 6379,
+            },
+            offset: 0,
+            count: 1,
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(sends.load(Ordering::SeqCst), 2);
+        assert_eq!(resolver.calls.load(Ordering::SeqCst), 1);
+        assert!(cluster.connections.borrow().contains_key("node-1:6379"));
+    }
+}

@@ -214,7 +214,7 @@ impl StatsigGrpcSpecsAdapter {
                 is_retrying: false.into(),
             },
             init_timeout: Duration::from_millis(config.init_timeout_ms),
-            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
+            ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, options),
             http_specs_adapter: Arc::new(fallback_adapter),
             hydration_source_url,
             cancel_poll_notify: Arc::new(Notify::new()),

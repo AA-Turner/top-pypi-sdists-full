@@ -1117,6 +1117,350 @@ class AnnualCertificationAuditResponse(TeaModel):
         return self
 
 
+class BatchAddActingManagerRelationsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchAddActingManagerRelationsRequestItemsVOrgsVisibleConfig(TeaModel):
+    def __init__(
+        self,
+        allow_dept_ids: List[int] = None,
+        allow_staff_ids: List[str] = None,
+        self_visible: bool = None,
+    ):
+        self.allow_dept_ids = allow_dept_ids
+        self.allow_staff_ids = allow_staff_ids
+        self.self_visible = self_visible
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.allow_dept_ids is not None:
+            result['allowDeptIds'] = self.allow_dept_ids
+        if self.allow_staff_ids is not None:
+            result['allowStaffIds'] = self.allow_staff_ids
+        if self.self_visible is not None:
+            result['selfVisible'] = self.self_visible
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('allowDeptIds') is not None:
+            self.allow_dept_ids = m.get('allowDeptIds')
+        if m.get('allowStaffIds') is not None:
+            self.allow_staff_ids = m.get('allowStaffIds')
+        if m.get('selfVisible') is not None:
+            self.self_visible = m.get('selfVisible')
+        return self
+
+
+class BatchAddActingManagerRelationsRequestItemsVOrgs(TeaModel):
+    def __init__(
+        self,
+        full_chain: bool = None,
+        full_dept_name: str = None,
+        manager_staff_ids: List[str] = None,
+        v_org_no: str = None,
+        visible_config: BatchAddActingManagerRelationsRequestItemsVOrgsVisibleConfig = None,
+    ):
+        self.full_chain = full_chain
+        self.full_dept_name = full_dept_name
+        self.manager_staff_ids = manager_staff_ids
+        # This parameter is required.
+        self.v_org_no = v_org_no
+        self.visible_config = visible_config
+
+    def validate(self):
+        if self.visible_config:
+            self.visible_config.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.full_chain is not None:
+            result['fullChain'] = self.full_chain
+        if self.full_dept_name is not None:
+            result['fullDeptName'] = self.full_dept_name
+        if self.manager_staff_ids is not None:
+            result['managerStaffIds'] = self.manager_staff_ids
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        if self.visible_config is not None:
+            result['visibleConfig'] = self.visible_config.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fullChain') is not None:
+            self.full_chain = m.get('fullChain')
+        if m.get('fullDeptName') is not None:
+            self.full_dept_name = m.get('fullDeptName')
+        if m.get('managerStaffIds') is not None:
+            self.manager_staff_ids = m.get('managerStaffIds')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        if m.get('visibleConfig') is not None:
+            temp_model = BatchAddActingManagerRelationsRequestItemsVOrgsVisibleConfig()
+            self.visible_config = temp_model.from_map(m['visibleConfig'])
+        return self
+
+
+class BatchAddActingManagerRelationsRequestItems(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        to_staff_id: str = None,
+        v_orgs: List[BatchAddActingManagerRelationsRequestItemsVOrgs] = None,
+    ):
+        # This parameter is required.
+        self.from_staff_id = from_staff_id
+        # This parameter is required.
+        self.to_staff_id = to_staff_id
+        self.v_orgs = v_orgs
+
+    def validate(self):
+        if self.v_orgs:
+            for k in self.v_orgs:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        result['vOrgs'] = []
+        if self.v_orgs is not None:
+            for k in self.v_orgs:
+                result['vOrgs'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        self.v_orgs = []
+        if m.get('vOrgs') is not None:
+            for k in m.get('vOrgs'):
+                temp_model = BatchAddActingManagerRelationsRequestItemsVOrgs()
+                self.v_orgs.append(temp_model.from_map(k))
+        return self
+
+
+class BatchAddActingManagerRelationsRequest(TeaModel):
+    def __init__(
+        self,
+        items: List[BatchAddActingManagerRelationsRequestItems] = None,
+    ):
+        # This parameter is required.
+        self.items = items
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = BatchAddActingManagerRelationsRequestItems()
+                self.items.append(temp_model.from_map(k))
+        return self
+
+
+class BatchAddActingManagerRelationsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        from_staff_id: str = None,
+        success: bool = None,
+        to_staff_id: str = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.from_staff_id = from_staff_id
+        self.success = success
+        self.to_staff_id = to_staff_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        return self
+
+
+class BatchAddActingManagerRelationsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchAddActingManagerRelationsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchAddActingManagerRelationsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchAddActingManagerRelationsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchAddActingManagerRelationsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchAddActingManagerRelationsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class BatchApproveUnionApplyHeaders(TeaModel):
     def __init__(
         self,
@@ -1288,6 +1632,778 @@ class BatchApproveUnionApplyResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = BatchApproveUnionApplyResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchDelActingManagerRelationsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchDelActingManagerRelationsRequestItems(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        to_staff_id: str = None,
+    ):
+        # This parameter is required.
+        self.from_staff_id = from_staff_id
+        # This parameter is required.
+        self.to_staff_id = to_staff_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        return self
+
+
+class BatchDelActingManagerRelationsRequest(TeaModel):
+    def __init__(
+        self,
+        items: List[BatchDelActingManagerRelationsRequestItems] = None,
+    ):
+        # This parameter is required.
+        self.items = items
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = BatchDelActingManagerRelationsRequestItems()
+                self.items.append(temp_model.from_map(k))
+        return self
+
+
+class BatchDelActingManagerRelationsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        from_staff_id: str = None,
+        success: bool = None,
+        to_staff_id: str = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.from_staff_id = from_staff_id
+        self.success = success
+        self.to_staff_id = to_staff_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        return self
+
+
+class BatchDelActingManagerRelationsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchDelActingManagerRelationsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchDelActingManagerRelationsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchDelActingManagerRelationsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchDelActingManagerRelationsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchDelActingManagerRelationsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchGetActingManagerRelationsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchGetActingManagerRelationsRequest(TeaModel):
+    def __init__(
+        self,
+        staff_ids: List[str] = None,
+    ):
+        # This parameter is required.
+        self.staff_ids = staff_ids
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.staff_ids is not None:
+            result['staffIds'] = self.staff_ids
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('staffIds') is not None:
+            self.staff_ids = m.get('staffIds')
+        return self
+
+
+class BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgsVisibleConfig(TeaModel):
+    def __init__(
+        self,
+        allow_dept_ids: List[int] = None,
+        allow_staff_ids: List[str] = None,
+        self_visible: bool = None,
+    ):
+        self.allow_dept_ids = allow_dept_ids
+        self.allow_staff_ids = allow_staff_ids
+        self.self_visible = self_visible
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.allow_dept_ids is not None:
+            result['allowDeptIds'] = self.allow_dept_ids
+        if self.allow_staff_ids is not None:
+            result['allowStaffIds'] = self.allow_staff_ids
+        if self.self_visible is not None:
+            result['selfVisible'] = self.self_visible
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('allowDeptIds') is not None:
+            self.allow_dept_ids = m.get('allowDeptIds')
+        if m.get('allowStaffIds') is not None:
+            self.allow_staff_ids = m.get('allowStaffIds')
+        if m.get('selfVisible') is not None:
+            self.self_visible = m.get('selfVisible')
+        return self
+
+
+class BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgs(TeaModel):
+    def __init__(
+        self,
+        full_chain: bool = None,
+        full_dept_name: str = None,
+        manager_staff_ids: List[str] = None,
+        v_org_no: str = None,
+        visible_config: BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgsVisibleConfig = None,
+    ):
+        self.full_chain = full_chain
+        self.full_dept_name = full_dept_name
+        self.manager_staff_ids = manager_staff_ids
+        self.v_org_no = v_org_no
+        self.visible_config = visible_config
+
+    def validate(self):
+        if self.visible_config:
+            self.visible_config.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.full_chain is not None:
+            result['fullChain'] = self.full_chain
+        if self.full_dept_name is not None:
+            result['fullDeptName'] = self.full_dept_name
+        if self.manager_staff_ids is not None:
+            result['managerStaffIds'] = self.manager_staff_ids
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        if self.visible_config is not None:
+            result['visibleConfig'] = self.visible_config.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fullChain') is not None:
+            self.full_chain = m.get('fullChain')
+        if m.get('fullDeptName') is not None:
+            self.full_dept_name = m.get('fullDeptName')
+        if m.get('managerStaffIds') is not None:
+            self.manager_staff_ids = m.get('managerStaffIds')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        if m.get('visibleConfig') is not None:
+            temp_model = BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgsVisibleConfig()
+            self.visible_config = temp_model.from_map(m['visibleConfig'])
+        return self
+
+
+class BatchGetActingManagerRelationsResponseBodyDataRelations(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        v_orgs: List[BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgs] = None,
+    ):
+        self.from_staff_id = from_staff_id
+        self.v_orgs = v_orgs
+
+    def validate(self):
+        if self.v_orgs:
+            for k in self.v_orgs:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        result['vOrgs'] = []
+        if self.v_orgs is not None:
+            for k in self.v_orgs:
+                result['vOrgs'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        self.v_orgs = []
+        if m.get('vOrgs') is not None:
+            for k in m.get('vOrgs'):
+                temp_model = BatchGetActingManagerRelationsResponseBodyDataRelationsVOrgs()
+                self.v_orgs.append(temp_model.from_map(k))
+        return self
+
+
+class BatchGetActingManagerRelationsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        relations: List[BatchGetActingManagerRelationsResponseBodyDataRelations] = None,
+        staff_id: str = None,
+        success: bool = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.relations = relations
+        self.staff_id = staff_id
+        self.success = success
+
+    def validate(self):
+        if self.relations:
+            for k in self.relations:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        result['relations'] = []
+        if self.relations is not None:
+            for k in self.relations:
+                result['relations'].append(k.to_map() if k else None)
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        self.relations = []
+        if m.get('relations') is not None:
+            for k in m.get('relations'):
+                temp_model = BatchGetActingManagerRelationsResponseBodyDataRelations()
+                self.relations.append(temp_model.from_map(k))
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class BatchGetActingManagerRelationsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchGetActingManagerRelationsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchGetActingManagerRelationsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchGetActingManagerRelationsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchGetActingManagerRelationsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchGetActingManagerRelationsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchGetCustomReportLinesHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchGetCustomReportLinesRequest(TeaModel):
+    def __init__(
+        self,
+        staff_ids: List[str] = None,
+    ):
+        # This parameter is required.
+        self.staff_ids = staff_ids
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.staff_ids is not None:
+            result['staffIds'] = self.staff_ids
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('staffIds') is not None:
+            self.staff_ids = m.get('staffIds')
+        return self
+
+
+class BatchGetCustomReportLinesResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        manager_staff_id: str = None,
+        manager_staff_ids: List[str] = None,
+        staff_id: str = None,
+        success: bool = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.manager_staff_id = manager_staff_id
+        self.manager_staff_ids = manager_staff_ids
+        self.staff_id = staff_id
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.manager_staff_id is not None:
+            result['managerStaffId'] = self.manager_staff_id
+        if self.manager_staff_ids is not None:
+            result['managerStaffIds'] = self.manager_staff_ids
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('managerStaffId') is not None:
+            self.manager_staff_id = m.get('managerStaffId')
+        if m.get('managerStaffIds') is not None:
+            self.manager_staff_ids = m.get('managerStaffIds')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class BatchGetCustomReportLinesResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchGetCustomReportLinesResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchGetCustomReportLinesResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchGetCustomReportLinesResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchGetCustomReportLinesResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchGetCustomReportLinesResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -1552,6 +2668,1172 @@ class BatchGetUserResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = BatchGetUserResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchGetVOrgVisibleConfigsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchGetVOrgVisibleConfigsRequest(TeaModel):
+    def __init__(
+        self,
+        staff_ids: List[str] = None,
+    ):
+        # This parameter is required.
+        self.staff_ids = staff_ids
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.staff_ids is not None:
+            result['staffIds'] = self.staff_ids
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('staffIds') is not None:
+            self.staff_ids = m.get('staffIds')
+        return self
+
+
+class BatchGetVOrgVisibleConfigsResponseBodyDataConfigsVisibleConfig(TeaModel):
+    def __init__(
+        self,
+        allow_dept_ids: List[int] = None,
+        allow_staff_ids: List[str] = None,
+        self_visible: bool = None,
+    ):
+        self.allow_dept_ids = allow_dept_ids
+        self.allow_staff_ids = allow_staff_ids
+        self.self_visible = self_visible
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.allow_dept_ids is not None:
+            result['allowDeptIds'] = self.allow_dept_ids
+        if self.allow_staff_ids is not None:
+            result['allowStaffIds'] = self.allow_staff_ids
+        if self.self_visible is not None:
+            result['selfVisible'] = self.self_visible
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('allowDeptIds') is not None:
+            self.allow_dept_ids = m.get('allowDeptIds')
+        if m.get('allowStaffIds') is not None:
+            self.allow_staff_ids = m.get('allowStaffIds')
+        if m.get('selfVisible') is not None:
+            self.self_visible = m.get('selfVisible')
+        return self
+
+
+class BatchGetVOrgVisibleConfigsResponseBodyDataConfigs(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        v_org_no: str = None,
+        visible_config: BatchGetVOrgVisibleConfigsResponseBodyDataConfigsVisibleConfig = None,
+    ):
+        self.from_staff_id = from_staff_id
+        self.v_org_no = v_org_no
+        self.visible_config = visible_config
+
+    def validate(self):
+        if self.visible_config:
+            self.visible_config.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        if self.visible_config is not None:
+            result['visibleConfig'] = self.visible_config.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        if m.get('visibleConfig') is not None:
+            temp_model = BatchGetVOrgVisibleConfigsResponseBodyDataConfigsVisibleConfig()
+            self.visible_config = temp_model.from_map(m['visibleConfig'])
+        return self
+
+
+class BatchGetVOrgVisibleConfigsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        configs: List[BatchGetVOrgVisibleConfigsResponseBodyDataConfigs] = None,
+        error_code: str = None,
+        error_msg: str = None,
+        staff_id: str = None,
+        success: bool = None,
+    ):
+        self.configs = configs
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.staff_id = staff_id
+        self.success = success
+
+    def validate(self):
+        if self.configs:
+            for k in self.configs:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['configs'] = []
+        if self.configs is not None:
+            for k in self.configs:
+                result['configs'].append(k.to_map() if k else None)
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.configs = []
+        if m.get('configs') is not None:
+            for k in m.get('configs'):
+                temp_model = BatchGetVOrgVisibleConfigsResponseBodyDataConfigs()
+                self.configs.append(temp_model.from_map(k))
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class BatchGetVOrgVisibleConfigsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchGetVOrgVisibleConfigsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchGetVOrgVisibleConfigsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchGetVOrgVisibleConfigsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchGetVOrgVisibleConfigsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchGetVOrgVisibleConfigsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsRequestItemsVOrgsVisibleConfig(TeaModel):
+    def __init__(
+        self,
+        allow_dept_ids: List[int] = None,
+        allow_staff_ids: List[str] = None,
+        self_visible: bool = None,
+    ):
+        self.allow_dept_ids = allow_dept_ids
+        self.allow_staff_ids = allow_staff_ids
+        self.self_visible = self_visible
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.allow_dept_ids is not None:
+            result['allowDeptIds'] = self.allow_dept_ids
+        if self.allow_staff_ids is not None:
+            result['allowStaffIds'] = self.allow_staff_ids
+        if self.self_visible is not None:
+            result['selfVisible'] = self.self_visible
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('allowDeptIds') is not None:
+            self.allow_dept_ids = m.get('allowDeptIds')
+        if m.get('allowStaffIds') is not None:
+            self.allow_staff_ids = m.get('allowStaffIds')
+        if m.get('selfVisible') is not None:
+            self.self_visible = m.get('selfVisible')
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsRequestItemsVOrgs(TeaModel):
+    def __init__(
+        self,
+        full_chain: bool = None,
+        full_dept_name: str = None,
+        manager_staff_ids: List[str] = None,
+        v_org_no: str = None,
+        visible_config: BatchSetActingManagerRelationVOrgsRequestItemsVOrgsVisibleConfig = None,
+    ):
+        self.full_chain = full_chain
+        self.full_dept_name = full_dept_name
+        self.manager_staff_ids = manager_staff_ids
+        # This parameter is required.
+        self.v_org_no = v_org_no
+        self.visible_config = visible_config
+
+    def validate(self):
+        if self.visible_config:
+            self.visible_config.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.full_chain is not None:
+            result['fullChain'] = self.full_chain
+        if self.full_dept_name is not None:
+            result['fullDeptName'] = self.full_dept_name
+        if self.manager_staff_ids is not None:
+            result['managerStaffIds'] = self.manager_staff_ids
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        if self.visible_config is not None:
+            result['visibleConfig'] = self.visible_config.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fullChain') is not None:
+            self.full_chain = m.get('fullChain')
+        if m.get('fullDeptName') is not None:
+            self.full_dept_name = m.get('fullDeptName')
+        if m.get('managerStaffIds') is not None:
+            self.manager_staff_ids = m.get('managerStaffIds')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        if m.get('visibleConfig') is not None:
+            temp_model = BatchSetActingManagerRelationVOrgsRequestItemsVOrgsVisibleConfig()
+            self.visible_config = temp_model.from_map(m['visibleConfig'])
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsRequestItems(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        to_staff_id: str = None,
+        v_orgs: List[BatchSetActingManagerRelationVOrgsRequestItemsVOrgs] = None,
+    ):
+        # This parameter is required.
+        self.from_staff_id = from_staff_id
+        # This parameter is required.
+        self.to_staff_id = to_staff_id
+        self.v_orgs = v_orgs
+
+    def validate(self):
+        if self.v_orgs:
+            for k in self.v_orgs:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        result['vOrgs'] = []
+        if self.v_orgs is not None:
+            for k in self.v_orgs:
+                result['vOrgs'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        self.v_orgs = []
+        if m.get('vOrgs') is not None:
+            for k in m.get('vOrgs'):
+                temp_model = BatchSetActingManagerRelationVOrgsRequestItemsVOrgs()
+                self.v_orgs.append(temp_model.from_map(k))
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsRequest(TeaModel):
+    def __init__(
+        self,
+        items: List[BatchSetActingManagerRelationVOrgsRequestItems] = None,
+    ):
+        # This parameter is required.
+        self.items = items
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = BatchSetActingManagerRelationVOrgsRequestItems()
+                self.items.append(temp_model.from_map(k))
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        from_staff_id: str = None,
+        success: bool = None,
+        to_staff_id: str = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.from_staff_id = from_staff_id
+        self.success = success
+        self.to_staff_id = to_staff_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        if self.to_staff_id is not None:
+            result['toStaffId'] = self.to_staff_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        if m.get('toStaffId') is not None:
+            self.to_staff_id = m.get('toStaffId')
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchSetActingManagerRelationVOrgsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchSetActingManagerRelationVOrgsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchSetActingManagerRelationVOrgsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchSetActingManagerRelationVOrgsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchSetActingManagerRelationVOrgsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchSetCustomReportLinesHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchSetCustomReportLinesRequestItems(TeaModel):
+    def __init__(
+        self,
+        manager_staff_id: str = None,
+        manager_staff_ids: List[str] = None,
+        staff_id: str = None,
+    ):
+        # This parameter is required.
+        self.manager_staff_id = manager_staff_id
+        self.manager_staff_ids = manager_staff_ids
+        # This parameter is required.
+        self.staff_id = staff_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.manager_staff_id is not None:
+            result['managerStaffId'] = self.manager_staff_id
+        if self.manager_staff_ids is not None:
+            result['managerStaffIds'] = self.manager_staff_ids
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('managerStaffId') is not None:
+            self.manager_staff_id = m.get('managerStaffId')
+        if m.get('managerStaffIds') is not None:
+            self.manager_staff_ids = m.get('managerStaffIds')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        return self
+
+
+class BatchSetCustomReportLinesRequest(TeaModel):
+    def __init__(
+        self,
+        items: List[BatchSetCustomReportLinesRequestItems] = None,
+    ):
+        # This parameter is required.
+        self.items = items
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = BatchSetCustomReportLinesRequestItems()
+                self.items.append(temp_model.from_map(k))
+        return self
+
+
+class BatchSetCustomReportLinesResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        manager_staff_id: str = None,
+        staff_id: str = None,
+        success: bool = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.manager_staff_id = manager_staff_id
+        self.staff_id = staff_id
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.manager_staff_id is not None:
+            result['managerStaffId'] = self.manager_staff_id
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('managerStaffId') is not None:
+            self.manager_staff_id = m.get('managerStaffId')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class BatchSetCustomReportLinesResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchSetCustomReportLinesResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchSetCustomReportLinesResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchSetCustomReportLinesResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchSetCustomReportLinesResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchSetCustomReportLinesResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class BatchSetVOrgVisibleConfigsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchSetVOrgVisibleConfigsRequestItemsVisibleConfig(TeaModel):
+    def __init__(
+        self,
+        allow_dept_ids: List[int] = None,
+        allow_staff_ids: List[str] = None,
+        self_visible: bool = None,
+    ):
+        self.allow_dept_ids = allow_dept_ids
+        self.allow_staff_ids = allow_staff_ids
+        self.self_visible = self_visible
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.allow_dept_ids is not None:
+            result['allowDeptIds'] = self.allow_dept_ids
+        if self.allow_staff_ids is not None:
+            result['allowStaffIds'] = self.allow_staff_ids
+        if self.self_visible is not None:
+            result['selfVisible'] = self.self_visible
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('allowDeptIds') is not None:
+            self.allow_dept_ids = m.get('allowDeptIds')
+        if m.get('allowStaffIds') is not None:
+            self.allow_staff_ids = m.get('allowStaffIds')
+        if m.get('selfVisible') is not None:
+            self.self_visible = m.get('selfVisible')
+        return self
+
+
+class BatchSetVOrgVisibleConfigsRequestItems(TeaModel):
+    def __init__(
+        self,
+        from_staff_id: str = None,
+        staff_id: str = None,
+        v_org_no: str = None,
+        visible_config: BatchSetVOrgVisibleConfigsRequestItemsVisibleConfig = None,
+    ):
+        # This parameter is required.
+        self.from_staff_id = from_staff_id
+        # This parameter is required.
+        self.staff_id = staff_id
+        # This parameter is required.
+        self.v_org_no = v_org_no
+        self.visible_config = visible_config
+
+    def validate(self):
+        if self.visible_config:
+            self.visible_config.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        if self.visible_config is not None:
+            result['visibleConfig'] = self.visible_config.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        if m.get('visibleConfig') is not None:
+            temp_model = BatchSetVOrgVisibleConfigsRequestItemsVisibleConfig()
+            self.visible_config = temp_model.from_map(m['visibleConfig'])
+        return self
+
+
+class BatchSetVOrgVisibleConfigsRequest(TeaModel):
+    def __init__(
+        self,
+        items: List[BatchSetVOrgVisibleConfigsRequestItems] = None,
+    ):
+        # This parameter is required.
+        self.items = items
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = BatchSetVOrgVisibleConfigsRequestItems()
+                self.items.append(temp_model.from_map(k))
+        return self
+
+
+class BatchSetVOrgVisibleConfigsResponseBodyData(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_msg: str = None,
+        from_staff_id: str = None,
+        staff_id: str = None,
+        success: bool = None,
+        v_org_no: str = None,
+    ):
+        self.error_code = error_code
+        self.error_msg = error_msg
+        self.from_staff_id = from_staff_id
+        self.staff_id = staff_id
+        self.success = success
+        self.v_org_no = v_org_no
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_msg is not None:
+            result['errorMsg'] = self.error_msg
+        if self.from_staff_id is not None:
+            result['fromStaffId'] = self.from_staff_id
+        if self.staff_id is not None:
+            result['staffId'] = self.staff_id
+        if self.success is not None:
+            result['success'] = self.success
+        if self.v_org_no is not None:
+            result['vOrgNo'] = self.v_org_no
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMsg') is not None:
+            self.error_msg = m.get('errorMsg')
+        if m.get('fromStaffId') is not None:
+            self.from_staff_id = m.get('fromStaffId')
+        if m.get('staffId') is not None:
+            self.staff_id = m.get('staffId')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        if m.get('vOrgNo') is not None:
+            self.v_org_no = m.get('vOrgNo')
+        return self
+
+
+class BatchSetVOrgVisibleConfigsResponseBody(TeaModel):
+    def __init__(
+        self,
+        data: List[BatchSetVOrgVisibleConfigsResponseBodyData] = None,
+        result: bool = None,
+    ):
+        self.data = data
+        self.result = result
+
+    def validate(self):
+        if self.data:
+            for k in self.data:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['data'] = []
+        if self.data is not None:
+            for k in self.data:
+                result['data'].append(k.to_map() if k else None)
+        if self.result is not None:
+            result['result'] = self.result
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.data = []
+        if m.get('data') is not None:
+            for k in m.get('data'):
+                temp_model = BatchSetVOrgVisibleConfigsResponseBodyData()
+                self.data.append(temp_model.from_map(k))
+        if m.get('result') is not None:
+            self.result = m.get('result')
+        return self
+
+
+class BatchSetVOrgVisibleConfigsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchSetVOrgVisibleConfigsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchSetVOrgVisibleConfigsResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 
@@ -10419,6 +12701,311 @@ class ListSeniorSettingsResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = ListSeniorSettingsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class ListSimpleByRoleBatchHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListSimpleByRoleBatchRequest(TeaModel):
+    def __init__(
+        self,
+        offset: int = None,
+        permission_code: str = None,
+        role_ids: List[int] = None,
+        size: int = None,
+    ):
+        self.offset = offset
+        self.permission_code = permission_code
+        # This parameter is required.
+        self.role_ids = role_ids
+        self.size = size
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.offset is not None:
+            result['offset'] = self.offset
+        if self.permission_code is not None:
+            result['permissionCode'] = self.permission_code
+        if self.role_ids is not None:
+            result['roleIds'] = self.role_ids
+        if self.size is not None:
+            result['size'] = self.size
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('offset') is not None:
+            self.offset = m.get('offset')
+        if m.get('permissionCode') is not None:
+            self.permission_code = m.get('permissionCode')
+        if m.get('roleIds') is not None:
+            self.role_ids = m.get('roleIds')
+        if m.get('size') is not None:
+            self.size = m.get('size')
+        return self
+
+
+class ListSimpleByRoleBatchResponseBodyResultRoleUserListEmpManageScopes(TeaModel):
+    def __init__(
+        self,
+        dept_id: int = None,
+        name: str = None,
+    ):
+        self.dept_id = dept_id
+        self.name = name
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.dept_id is not None:
+            result['deptId'] = self.dept_id
+        if self.name is not None:
+            result['name'] = self.name
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('deptId') is not None:
+            self.dept_id = m.get('deptId')
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        return self
+
+
+class ListSimpleByRoleBatchResponseBodyResultRoleUserListEmp(TeaModel):
+    def __init__(
+        self,
+        manage_scopes: List[ListSimpleByRoleBatchResponseBodyResultRoleUserListEmpManageScopes] = None,
+        name: str = None,
+        user_id: str = None,
+    ):
+        self.manage_scopes = manage_scopes
+        self.name = name
+        self.user_id = user_id
+
+    def validate(self):
+        if self.manage_scopes:
+            for k in self.manage_scopes:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['manageScopes'] = []
+        if self.manage_scopes is not None:
+            for k in self.manage_scopes:
+                result['manageScopes'].append(k.to_map() if k else None)
+        if self.name is not None:
+            result['name'] = self.name
+        if self.user_id is not None:
+            result['userId'] = self.user_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.manage_scopes = []
+        if m.get('manageScopes') is not None:
+            for k in m.get('manageScopes'):
+                temp_model = ListSimpleByRoleBatchResponseBodyResultRoleUserListEmpManageScopes()
+                self.manage_scopes.append(temp_model.from_map(k))
+        if m.get('name') is not None:
+            self.name = m.get('name')
+        if m.get('userId') is not None:
+            self.user_id = m.get('userId')
+        return self
+
+
+class ListSimpleByRoleBatchResponseBodyResultRoleUserList(TeaModel):
+    def __init__(
+        self,
+        emp: ListSimpleByRoleBatchResponseBodyResultRoleUserListEmp = None,
+        role_id: int = None,
+    ):
+        self.emp = emp
+        self.role_id = role_id
+
+    def validate(self):
+        if self.emp:
+            self.emp.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.emp is not None:
+            result['emp'] = self.emp.to_map()
+        if self.role_id is not None:
+            result['roleId'] = self.role_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('emp') is not None:
+            temp_model = ListSimpleByRoleBatchResponseBodyResultRoleUserListEmp()
+            self.emp = temp_model.from_map(m['emp'])
+        if m.get('roleId') is not None:
+            self.role_id = m.get('roleId')
+        return self
+
+
+class ListSimpleByRoleBatchResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        has_more: bool = None,
+        role_user_list: List[ListSimpleByRoleBatchResponseBodyResultRoleUserList] = None,
+    ):
+        self.has_more = has_more
+        self.role_user_list = role_user_list
+
+    def validate(self):
+        if self.role_user_list:
+            for k in self.role_user_list:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        result['roleUserList'] = []
+        if self.role_user_list is not None:
+            for k in self.role_user_list:
+                result['roleUserList'].append(k.to_map() if k else None)
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        self.role_user_list = []
+        if m.get('roleUserList') is not None:
+            for k in m.get('roleUserList'):
+                temp_model = ListSimpleByRoleBatchResponseBodyResultRoleUserList()
+                self.role_user_list.append(temp_model.from_map(k))
+        return self
+
+
+class ListSimpleByRoleBatchResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: ListSimpleByRoleBatchResponseBodyResult = None,
+    ):
+        self.result = result
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = ListSimpleByRoleBatchResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        return self
+
+
+class ListSimpleByRoleBatchResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListSimpleByRoleBatchResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListSimpleByRoleBatchResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 

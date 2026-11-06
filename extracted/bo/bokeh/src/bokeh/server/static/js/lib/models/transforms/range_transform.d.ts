@@ -14,6 +14,7 @@ export interface RangeTransform extends RangeTransform.Attrs {
 export declare abstract class RangeTransform extends Transform {
     properties: RangeTransform.Props;
     constructor(attrs?: Partial<RangeTransform.Attrs>);
+    get materialize_dates_before(): boolean;
     v_compute(xs0: Arrayable<number | Factor>): Arrayable<number>;
     compute(x: number | Factor): number;
     protected abstract _compute(x: number): number;

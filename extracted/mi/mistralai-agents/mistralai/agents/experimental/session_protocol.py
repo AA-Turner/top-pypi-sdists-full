@@ -336,12 +336,12 @@ class SessionClient:
 
     @property
     def session_id(self) -> str:
-        """The session's id."""
+        """The session's ID."""
         return self._session_id
 
     @property
     def last_event_id(self) -> EventId:
-        """The id of the last event ``events()`` yielded, or of the state ``read_session()`` read.
+        """The ID of the last event ``events()`` yielded, or of the state ``read_session()`` read.
 
         Pass it as ``events(after=...)`` to read on from there.
 

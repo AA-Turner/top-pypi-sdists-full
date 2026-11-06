@@ -31,6 +31,9 @@ from __future__ import annotations
 import os
 import tempfile
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")

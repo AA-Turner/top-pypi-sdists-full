@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lunary
-Version: 1.4.41
+Version: 1.4.42
 Summary: Python SDK for Lunary, the open-source platform where GenAI teams manage and improve LLM chatbots.
 Keywords: Lunary,lunary.ai,Langchain,AI,Analytics,Monitoring,LLM,GenAI,SDK
 Author: lunary
@@ -74,6 +74,35 @@ with client.messages.stream(
     for event in stream:
         pass
 ```
+
+## Diagnosing event delivery errors
+
+Keep `LUNARY_VERBOSE` unset or `false` in production and capture ERROR logs from `lunary.consumer`. Each failed send produces one line explaining what happened and whether the SDK will retry. It includes the exception type, HTTP status when available, and the number of events in the batch.
+
+```text
+Error sending events. Invalid API key. Batch will not be retried. error_type=HTTPError http_status=401 batch_size=3.
+Error sending events. The endpoint rate-limited the request. Batch will not be retried. error_type=HTTPError http_status=429 batch_size=3.
+Error sending events. The ingestion service or gateway is unavailable. Batch will not be retried. error_type=HTTPError http_status=503 batch_size=3.
+Error sending events. The endpoint did not respond in time. Batch will not be retried. error_type=ReadTimeout http_status=n/a batch_size=3.
+```
+
+| Diagnostic | First checks |
+| --- | --- |
+| HTTP 401 / 403 | Project API key and access configuration. |
+| HTTP 402 | Project ID format or account billing/access status; the ingestion API also uses this status for a malformed project ID. |
+| HTTP 400 / 422 | Event format and SDK version. |
+| HTTP 404 | Configured API endpoint or proxy routing. |
+| HTTP 413 | Event payload size and proxy request limits. |
+| HTTP 429 | Rate limits at the service or gateway. |
+| HTTP 5xx | Ingestion service or gateway failure; correlate timestamps with service logs. |
+| `ConnectionError` | DNS, connectivity, firewall, proxy, or remote connection failure. |
+| `SSLError` / `ProxyError` | Certificate trust or proxy configuration and availability. |
+| `Timeout` / `ConnectTimeout` / `ReadTimeout` | Connection or response delay; these do not identify which side caused it. |
+| Other exception types | SDK/runtime or serialization failure; provide the type and SDK version when reporting it. |
+
+For recognized API key, project and billing failures, the SDK uses the API's fixed explanation. For other responses it describes the HTTP status or exception type. Normal logs omit arbitrary server text, request URLs, credentials, event payloads and tracebacks. Verbose mode retains full tracebacks and can log event contents. Share the timestamp, SDK version and diagnostic line with support.
+
+The consumer removes a batch from its in-memory queue before sending and does not automatically retry a failed send. An error therefore does not mean the batch will eventually be delivered; after a connection failure, server acceptance may also be uncertain. This diagnostic change does not add retries, a timeout, persistence, or recovery of missing traces.
 
 ## 📖 Documentation
 

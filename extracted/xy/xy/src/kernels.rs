@@ -2502,7 +2502,7 @@ pub fn m4_indices(x: &[f64], y: &[f64], x0: f64, x1: f64, n_buckets: usize) -> V
         n_buckets,
         start,
         end,
-        par_threads(end - start),
+        par_threads_above(end - start, PAR_THRESHOLD_COMPUTE).min(n_buckets),
     )
 }
 
@@ -2523,11 +2523,42 @@ pub(crate) fn m4_flush(first: u32, min_i: u32, max_i: u32, last: u32, out: &mut 
 
 /// Serial M4 over rows `[lo, hi)` — the shared building block: the serial path
 /// runs it once over the whole window; the parallel path runs it per bucket-
-/// aligned segment and concatenates. Stays scalar deliberately: a two-phase
-/// SIMD restructure (precomputed bucket ids) measured *slower* (472 vs
-/// 915 Mpt/s at 1M) — the sequential bucket state machine dominates, and the
-/// extra block store/load pass outweighs vectorizing the cheap float math.
+/// aligned segment and concatenates. Windows whose buckets average at least
+/// `M4_BUCKET_WALK_MIN_ROWS` rows walk bucket by bucket; sparser ones (deep
+/// zooms) keep the per-row loop, which is faster there. Both emit the same rows.
 fn m4_range(
+    x: &[f64],
+    y: &[f64],
+    x0: f64,
+    inv_bucket_w: f64,
+    n_buckets: usize,
+    lo: usize,
+    hi: usize,
+) -> Vec<u32> {
+    let bucket_of = |v: f64| (((v - x0) * inv_bucket_w) as usize).min(n_buckets - 1);
+    let spanned = bucket_of(x[hi - 1]) - bucket_of(x[lo]) + 1;
+    if hi - lo < M4_BUCKET_WALK_MIN_ROWS * spanned {
+        m4_range_rows(x, y, x0, inv_bucket_w, n_buckets, lo, hi)
+    } else {
+        m4_range_buckets(x, y, x0, inv_bucket_w, n_buckets, lo, hi)
+    }
+}
+
+/// Average rows per bucket from which the bucket walk beats the per-row loop.
+/// At 4–5 rows its per-bucket search and call made it up to 1.3× slower on
+/// Tiger Lake (Zen 3 gained); at 8 rows it is 1.1–1.4× faster on both (1M
+/// rows, 2048 buckets, one core).
+const M4_BUCKET_WALK_MIN_ROWS: usize = 8;
+
+/// Per-row M4 state machine over rows `[lo, hi)`: one pass, one bucket id per
+/// row. Stays scalar deliberately: a two-phase SIMD restructure (precomputed
+/// bucket ids) measured *slower* (472 vs 915 Mpt/s at 1M) — the sequential
+/// bucket state machine dominates, and the extra block store/load pass
+/// outweighs vectorizing the cheap float math. Kept out of line: inlined next
+/// to the bucket walk, its loop lost registers to stack reloads (+8% on
+/// Tiger Lake for deep zooms).
+#[inline(never)]
+fn m4_range_rows(
     x: &[f64],
     y: &[f64],
     x0: f64,
@@ -2583,12 +2614,124 @@ fn m4_range(
     out
 }
 
+/// Bucket-at-a-time M4 over rows `[lo, hi)`. x is ascending, so every
+/// bucket's rows are contiguous: `m4_bucket_end` probes x for where a bucket
+/// stops and `m4_bucket` scans its y, so x is only probed and y is read once.
+fn m4_range_buckets(
+    x: &[f64],
+    y: &[f64],
+    x0: f64,
+    inv_bucket_w: f64,
+    n_buckets: usize,
+    lo: usize,
+    hi: usize,
+) -> Vec<u32> {
+    let bucket_of = |v: f64| (((v - x0) * inv_bucket_w) as usize).min(n_buckets - 1);
+    let mut out: Vec<u32> = Vec::with_capacity((n_buckets * 4).min((hi - lo) * 4));
+    let (mut start, mut len) = (lo, 1);
+    while start < hi {
+        let b = bucket_of(x[start]);
+        let end = m4_bucket_end(x, start, hi, len, |v| bucket_of(v) <= b);
+        m4_bucket(y, start, end, &mut out);
+        (start, len) = (end, end - start);
+    }
+    out
+}
+
+/// End of the bucket that starts at row `start`: the first row in
+/// `(start, hi]` that fails `in_bucket` (monotone, as x is ascending). Probes
+/// around `start + guess` (the previous bucket's length) first, so
+/// equal-width buckets cost two probes; otherwise gallops, then bisects.
+fn m4_bucket_end(
+    x: &[f64],
+    start: usize,
+    hi: usize,
+    guess: usize,
+    in_bucket: impl Fn(f64) -> bool,
+) -> usize {
+    let g = start + guess;
+    // Rows [start, lo) are in the bucket; the end lies in [lo, end].
+    let (mut lo, mut end) = (start + 1, hi);
+    if g < hi {
+        if !in_bucket(x[g]) {
+            if in_bucket(x[g - 1]) {
+                return g;
+            }
+            end = g - 1;
+        } else {
+            lo = g + 1;
+            let mut step = 1;
+            while lo + step <= hi {
+                let p = lo + step - 1;
+                if !in_bucket(x[p]) {
+                    end = p;
+                    break;
+                }
+                lo = p + 1;
+                step *= 2;
+            }
+        }
+    }
+    lo + x[lo..end].partition_point(|&v| in_bucket(v))
+}
+
+/// Buckets shorter than this skip argminmax (uneven x leaves some in a dense
+/// window): its per-call cost outweighs the SIMD scan.
+const M4_SIMD_MIN_ROWS: usize = 32;
+
+/// Emit the {first, min, max, last} rows of bucket `[start, end)` over its
+/// finite y (NaN and ±∞ are non-plottable, §19). Ties keep the first row.
+/// `simd::try_argminmax` skips NaN but not ±∞, so a bucket with a ±∞ extreme
+/// takes the scalar scan too (as does `XY_SIMD=0`); both give the same rows.
+fn m4_bucket(y: &[f64], start: usize, end: usize, out: &mut Vec<u32>) {
+    if end - start >= M4_SIMD_MIN_ROWS {
+        let bucket = &y[start..end];
+        let Some(first) = bucket.iter().position(|v| v.is_finite()) else {
+            return;
+        };
+        let last = bucket
+            .iter()
+            .rposition(|v| v.is_finite())
+            .expect("first is finite");
+        let ys = &bucket[first..=last];
+        if let Some((min_i, max_i)) = crate::simd::try_argminmax(ys) {
+            if ys[min_i].is_finite() && ys[max_i].is_finite() {
+                let row = |i: usize| (start + first + i) as u32;
+                m4_flush(row(0), row(min_i), row(max_i), row(ys.len() - 1), out);
+                return;
+            }
+        }
+    }
+    let mut rows = (start..end).filter(|&i| y[i].is_finite());
+    let Some(first) = rows.next() else {
+        return;
+    };
+    let (mut min_i, mut max_i, mut last) = (first, first, first);
+    for i in rows {
+        if y[i] < y[min_i] {
+            min_i = i;
+        }
+        if y[i] > y[max_i] {
+            max_i = i;
+        }
+        last = i;
+    }
+    m4_flush(first as u32, min_i as u32, max_i as u32, last as u32, out);
+}
+
+fn m4_partition_bucket_end<F>(values: &[f64], bucket: usize, bucket_of: &F) -> usize
+where
+    F: Fn(f64) -> usize,
+{
+    values.partition_point(|&value| bucket_of(value) == bucket)
+}
+
 /// Buckets are monotone non-decreasing in sorted x, so every bucket's rows are
-/// contiguous. Split the window at bucket boundaries (nudging each split
-/// forward until it starts a new bucket), scan each segment with the same
-/// serial routine, and concatenate in order — bitwise identical to the serial
-/// pass for any thread count. Degenerate case: one giant bucket collapses to
-/// a single segment (serial speed, still correct).
+/// contiguous. Split the window at bucket boundaries (finding each boundary
+/// with a binary search), scan each segment with the same serial routine, and
+/// concatenate in order — bitwise identical to the serial pass for any thread
+/// count. Degenerate case: one giant bucket collapses to a single segment
+/// without repeatedly scanning that bucket.
 #[allow(clippy::too_many_arguments)]
 fn m4_indices_impl(
     x: &[f64],
@@ -2604,14 +2747,17 @@ fn m4_indices_impl(
     if threads <= 1 {
         return m4_range(x, y, x0, inv_bucket_w, n_buckets, start, end);
     }
-    let bucket_of = |i: usize| (((x[i] - x0) * inv_bucket_w) as usize).min(n_buckets - 1);
+    let bucket_of = |value: f64| {
+        (((value - x0) * inv_bucket_w) as usize).min(n_buckets - 1)
+    };
     let span = end - start;
     let chunk = span.div_ceil(threads);
     let mut bounds: Vec<usize> = vec![start];
     for t in 1..threads {
         let mut j = (start + t * chunk).min(end);
-        while j < end && j > 0 && bucket_of(j) == bucket_of(j - 1) {
-            j += 1;
+        if j < end {
+            let bucket = bucket_of(x[j - 1]);
+            j += m4_partition_bucket_end(&x[j..end], bucket, &bucket_of);
         }
         let prev = *bounds.last().expect("bounds never empty");
         if j > prev && j < end {
@@ -3174,22 +3320,29 @@ fn bin_2d_count_f32_scalar(
     }
 }
 
-/// Row-scan kernels fan out across cores only past this size, where thread
+/// Row-scan kernels fan out across cores only past these sizes, where thread
 /// spawn + merge cost is well amortized. Threading stays inside the call —
-/// the ABI remains synchronous (engine doc E5).
+/// the ABI remains synchronous (engine doc E5). Compute-bound scans cross over
+/// earlier: at ~2.5–3 ns/row serial, M4 and uniform histogram amortize a
+/// fan-out from ~128k rows, the same crossover zone maps use.
 const PAR_THRESHOLD: usize = 1 << 19;
+const PAR_THRESHOLD_COMPUTE: usize = 1 << 17;
 
 fn par_threads(n: usize) -> usize {
+    par_threads_above(n, PAR_THRESHOLD)
+}
+
+fn par_threads_above(n: usize, threshold: usize) -> usize {
     static CODSPEED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     if *CODSPEED.get_or_init(|| std::env::var_os("CODSPEED_ENV").is_some()) {
         return 1;
     }
     let cores = std::thread::available_parallelism().map_or(1, |p| p.get());
-    par_threads_for(n, cores)
+    par_threads_above_for(n, threshold, cores)
 }
 
-fn par_threads_for(n: usize, cores: usize) -> usize {
-    if n >= PAR_THRESHOLD {
+fn par_threads_above_for(n: usize, threshold: usize, cores: usize) -> usize {
+    if n >= threshold {
         cores.clamp(1, MAX_ROW_THREADS)
     } else {
         1
@@ -4596,7 +4749,14 @@ pub fn stratified_sample_mask<T: Copy + Sync + Into<u64>>(
 pub fn histogram_uniform(data: &[f64], lo: f64, hi: f64, out: &mut [f64]) -> u64 {
     assert!(x1_gt_x0(lo, hi));
     assert!(!out.is_empty());
-    histogram_uniform_impl(data, lo, hi, par_threads(data.len()), out)
+    histogram_uniform_impl(data, lo, hi, histogram_threads(data.len(), out.len()), out)
+}
+
+/// Workers for a uniform histogram. Each owns a full bin vector and the merge
+/// is `threads * n_bins`, so points per bin caps the row gate — same rule as
+/// `bin_2d_threads`, whose per-thread grids are this kernel's per-thread bins.
+fn histogram_threads(n: usize, n_bins: usize) -> usize {
+    (n / n_bins.max(1)).clamp(1, par_threads_above(n, PAR_THRESHOLD_COMPUTE))
 }
 
 /// Per-bin u64 counting shared by the serial and parallel paths. Stays scalar
@@ -6785,6 +6945,34 @@ mod tests {
     }
 
     #[test]
+    fn m4_clustered_split_search_is_logarithmic() {
+        use std::cell::Cell;
+
+        let x: Vec<f64> = (0..200_000)
+            .map(|i| if i < 194_000 { 0.5 } else { 1.5 })
+            .collect();
+        let y: Vec<f64> = (0..x.len()).map(|i| (i as f64 * 0.01).sin()).collect();
+        let serial = m4_indices_impl(&x, &y, 0.0, 2.0, 1_000, 0, x.len(), 1);
+        let dispatched = m4_indices_impl(&x, &y, 0.0, 2.0, 1_000, 0, x.len(), 18);
+        assert_eq!(serial, dispatched);
+
+        let probes = Cell::new(0usize);
+        let bucket_of = |value: f64| {
+            probes.set(probes.get() + 1);
+            value as usize
+        };
+
+        let offset = m4_partition_bucket_end(&x[10_000..], 0, &bucket_of);
+
+        assert_eq!(offset, 184_000);
+        assert!(
+            probes.get() <= 20,
+            "dominant-bucket split used {} probes",
+            probes.get()
+        );
+    }
+
+    #[test]
     fn min_max_skips_non_finite() {
         assert_eq!(min_max(&[f64::NAN, 2.0, -1.0]), Some((-1.0, 2.0)));
         assert_eq!(
@@ -6854,9 +7042,70 @@ mod tests {
         // shape): per-thread grids + merge dwarf the scan — stay serial.
         assert_eq!(bin_2d_threads(1 << 20, 1 << 20), 1);
         assert_eq!(bin_2d_threads(2_100_000, 2048 * 2048), 1);
-        assert_eq!(par_threads_for(PAR_THRESHOLD - 1, 64), 1);
-        assert_eq!(par_threads_for(PAR_THRESHOLD, 64), MAX_ROW_THREADS);
-        assert_eq!(par_threads_for(PAR_THRESHOLD, 1), 1);
+        assert_eq!(
+            par_threads_above_for(PAR_THRESHOLD - 1, PAR_THRESHOLD, 64),
+            1
+        );
+        assert_eq!(
+            par_threads_above_for(PAR_THRESHOLD, PAR_THRESHOLD, 64),
+            MAX_ROW_THREADS
+        );
+        assert_eq!(par_threads_above_for(PAR_THRESHOLD, PAR_THRESHOLD, 1), 1);
+    }
+
+    #[test]
+    fn histogram_threads_bin_aware() {
+        let n = PAR_THRESHOLD_COMPUTE;
+        let cap = par_threads_above(n, PAR_THRESHOLD_COMPUTE);
+        // Below the compute gate: serial regardless of bin count.
+        assert_eq!(histogram_threads(PAR_THRESHOLD_COMPUTE - 1, 8), 1);
+        // Chart-sized bin counts (512 is the benchmark config): pure row gate.
+        assert_eq!(histogram_threads(n, 512), cap);
+        assert_eq!(histogram_threads(n, 8), cap);
+        // Bins as numerous as the rows: merge dwarfs the scan — stay serial.
+        assert_eq!(histogram_threads(n, n), 1);
+        assert_eq!(histogram_threads(200_000, 1_000_000), 1);
+        // In between, workers track points per bin.
+        assert_eq!(histogram_threads(1 << 18, 1 << 15), 8.min(cap));
+    }
+
+    #[test]
+    fn histogram_high_bin_count_matches_serial() {
+        // 128k-512k band: high bin counts route serial, and the public path
+        // stays bit-identical to the serial impl either way.
+        let n = PAR_THRESHOLD_COMPUTE + 1_000;
+        let bins = 300_000;
+        let data: Vec<f64> = (0..n).map(|i| (i % 977) as f64 * 0.25).collect();
+        assert_eq!(histogram_threads(n, bins), 1);
+        let mut serial = vec![0f64; bins];
+        let ts = histogram_uniform_impl(&data, 0.0, 244.0, 1, &mut serial);
+        let mut routed = vec![0f64; bins];
+        let tr = histogram_uniform(&data, 0.0, 244.0, &mut routed);
+        assert_eq!(ts, tr);
+        assert_eq!(serial, routed);
+        // Same rows, ordinary bin count: still fans out.
+        let cap = par_threads_above(n, PAR_THRESHOLD_COMPUTE);
+        assert_eq!(histogram_threads(n, 512), cap);
+        let mut small_serial = vec![0f64; 512];
+        let ss = histogram_uniform_impl(&data, 0.0, 244.0, 1, &mut small_serial);
+        let mut small_routed = vec![0f64; 512];
+        let sr = histogram_uniform(&data, 0.0, 244.0, &mut small_routed);
+        assert_eq!(ss, sr);
+        assert_eq!(small_serial, small_routed);
+    }
+
+    #[test]
+    fn par_thread_gates_route_by_cost_class() {
+        const { assert!(PAR_THRESHOLD_COMPUTE < PAR_THRESHOLD) }
+        let t_c = PAR_THRESHOLD_COMPUTE;
+        for cores in [1, 4, 20, 64] {
+            let cap = cores.clamp(1, MAX_ROW_THREADS);
+            // Compute-bound kernels fan out from 128k rows.
+            assert_eq!(par_threads_above_for(t_c - 1, t_c, cores), 1);
+            assert_eq!(par_threads_above_for(t_c, t_c, cores), cap);
+            // ...and stay serial in the band the general gate still reserves.
+            assert_eq!(par_threads_above_for(t_c, PAR_THRESHOLD, cores), 1);
+        }
     }
 
     #[test]
@@ -7218,6 +7467,40 @@ mod fuzz {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn fuzz_m4_bucket_walk_matches_per_row_loop() {
+        let mut rng = Rng(0x5EED_00A4);
+        for it in 0..2000 {
+            let n = 1 + (rng.next() % 3000) as usize;
+            // Ascending x: uniform, duplicate-heavy, or irregular.
+            let mut x: Vec<f64> = match it % 3 {
+                0 => (0..n).map(|i| i as f64).collect(),
+                1 => (0..n).map(|i| (i / (1 + it % 7)) as f64).collect(),
+                _ => (0..n).map(|_| rng.f01() * n as f64).collect(),
+            };
+            x.sort_by(f64::total_cmp);
+            let mut y = rng.hostile_vec(n, -1.0, 1.0);
+            for v in y.iter_mut() {
+                // Every other case drops ±∞ so long buckets reach argminmax;
+                // repeated values exercise first-row tie-breaking.
+                if it % 2 == 0 && v.is_infinite() {
+                    *v = 0.25;
+                }
+                if rng.next().is_multiple_of(8) {
+                    *v = 0.5;
+                }
+            }
+            let buckets = 1 + (rng.next() % 300) as usize;
+            let (x0, x1) = (-1.0, n as f64 + 1.0);
+            let inv = buckets as f64 / (x1 - x0);
+            assert_eq!(
+                m4_range_buckets(&x, &y, x0, inv, buckets, 0, n),
+                m4_range_rows(&x, &y, x0, inv, buckets, 0, n),
+                "it={it} n={n} buckets={buckets}"
+            );
         }
     }
 

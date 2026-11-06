@@ -1514,14 +1514,25 @@ def test_ld_over_eight_segments_is_refused():
     )
 
 
-def test_ld_refuses_a_second_load_on_the_same_segment():
-    """§#ld--loading."""
-    with pytest.raises(DeckError) as exc:
-        parse(BODY + "LD 0 1 2 2 50. 0. 0.\nLD 4 1 2 2 10. 5.\nXQ\nNX\n")
-    assert str(exc.value) == (
-        "LD on a segment that already carries a load is not supported by "
-        "this engine — a second load on one segment is not merged"
-    )
+def test_ld_stacks_consecutive_loads_on_the_same_segment():
+    """§#ld--loading (momwire#1807): both stay in force, one entry each, and
+    the port algebra adds them."""
+    model = parse(BODY + "LD 0 1 2 2 50. 0. 0.\nLD 4 1 2 2 10. 5.\nXQ\nNX\n")
+    assert [spec.kind for _w, _a, spec in model.loads] == ["series", "fixed"]
+    assert model.loads[0][:2] == model.loads[1][:2]
+    assert model.groups[0].loads == (0, 1)
+
+
+def test_a_second_load_on_the_same_segment_after_another_card_replaces_it():
+    """§#ld--loading (momwire#1812): NEC discards the earlier run's loads
+    when another card separates two LD cards, so the second card is the
+    segment's only load.  nec2c's EK ends a run; NEC-4.2's does not, so the
+    nec4 dialect stacks the same deck."""
+    text = BODY + "LD 0 1 2 2 50. 0. 0.\nEK\nLD 4 1 2 2 10. 5.\nXQ\nNX\n"
+    assert [spec for _w, _a, spec in parse(text).loads] == [
+        LoadSpec(kind="fixed", r=10.0, x=5.0)
+    ]
+    assert len(parse(text, dialect="nec4").loads) == 2
 
 
 _K9AY_DECK = K9AY + "GE 0\nEX 0 4 1 0 1. 0.\nFR 0 1 0 0 14.\n{ld}XQ\nNX\n"
@@ -1715,16 +1726,23 @@ def test_replication_does_not_trip_the_doubled_load_refusal():
     assert len(model.loads) == 4
 
 
-def test_two_cell_cards_on_one_segment_still_refuse():
-    """§#ld--loading: replication widens the dedup set, it does not weaken
-    it — a deck that genuinely double-loads a cell segment refuses as it
-    always did."""
-    with pytest.raises(DeckError) as exc:
-        parse(_CELL_PAIR.format(ld="LD 4 1 1 1 50. 0.\nLD 0 1 1 1 10. 0. 0.\n"))
-    assert str(exc.value) == (
-        "LD on a segment that already carries a load is not supported by "
-        "this engine — a second load on one segment is not merged"
+def test_two_cell_cards_on_one_segment_stack_on_every_copy():
+    """§#ld--loading (momwire#1807): two consecutive cell cards on one
+    segment stack, and replication stacks them on every copy (nec2c and
+    NEC-4.2 print a GR 1 4 deck with LD 4 50 + LD 0 10 on the cell's
+    segment 2 exactly as the deck with one LD 4 60)."""
+    model = parse(_CELL_PAIR.format(ld="LD 4 1 1 1 50. 0.\nLD 0 1 1 1 10. 0. 0.\n"))
+    assert [wire for wire, _, _ in model.loads] == [0, 1, 0, 1]
+
+
+def test_two_cell_cards_on_one_segment_separated_by_a_card_keep_the_second():
+    """§#ld--loading (momwire#1812): the second run discards the first on
+    every copy, so the deck reads as the second card alone."""
+    broken = parse(
+        _CELL_PAIR.format(ld="LD 4 1 1 1 50. 0.\nEK\nLD 0 1 1 1 10. 0. 0.\n")
     )
+    alone = parse(_CELL_PAIR.format(ld="EK\nLD 0 1 1 1 10. 0. 0.\n"))
+    assert broken.loads == alone.loads and len(alone.loads) == 2
 
 
 def test_the_expansion_limit_counts_the_card_as_written_not_the_replicas():

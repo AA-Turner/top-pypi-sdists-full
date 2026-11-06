@@ -25,6 +25,7 @@ import sys
 
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import Costas
 
 
@@ -58,6 +59,7 @@ def _disc_var(snr_db, n=120000, seed=1):
 
 
 def main(out_path="costas_theory_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

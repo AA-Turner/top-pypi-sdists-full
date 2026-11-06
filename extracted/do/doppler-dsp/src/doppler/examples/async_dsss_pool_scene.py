@@ -41,6 +41,7 @@ import sys
 # --8<-- [start:signal]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.impairment import DopplerChannel
 from doppler.source import AWGN
 from doppler.wfm import Gold, Synth, wfm_awgn_amplitude
@@ -139,7 +140,7 @@ def truth(k: int, epochs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 # --8<-- [end:signal]
 
-from doppler.dsss import AsyncDsssPool  # noqa: E402
+from doppler.dsss import AsyncDsssPool
 
 
 # --8<-- [start:pool]
@@ -308,6 +309,7 @@ COLORS = [
 
 
 def main(out_path: str = "async_dsss_pool_scene.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

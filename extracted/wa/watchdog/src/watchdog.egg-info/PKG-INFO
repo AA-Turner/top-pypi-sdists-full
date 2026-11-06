@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: watchdog
-Version: 7.0.0
+Version: 7.1.0
 Summary: Filesystem events monitoring
 Home-page: https://github.com/gorakhargosh/watchdog
 Author: Mickaël Schoentgen
@@ -422,6 +422,24 @@ to do:
 Changelog
 ---------
 
+7.1.0
+~~~~~
+
+2026-11-04 • `full history <https://github.com/gorakhargosh/watchdog/compare/v7.0.0...v7.1.0>`__
+
+**Other Changes**
+
+- [fsevents] Fix building the extension on PyPy 3.12 by updating the bundled ``pythoncapi_compat.h``. (`#1397 <https://github.com/gorakhargosh/watchdog/issues/1397>`__)
+- [inotify] Create the inotify instance lazily so observer and polling imports succeed when the inotify instance limit is reached. (`#1389 <https://github.com/gorakhargosh/watchdog/issues/1389>`__)
+- [inotify] Reconcile recursively watched directories renamed before their source watch was registered, and simulate existing descendants so their initial changes are reported. (`#1383 <https://github.com/gorakhargosh/watchdog/pull/1383>`__)
+- [inotify] Reconcile recursive watches after the kernel reports an inotify queue overflow so subsequent filesystem changes are observed. (`#654 <https://github.com/gorakhargosh/watchdog/pull/654>`__)
+- [inotify] Watch directories moved into a recursively watched directory from outside of it, so that changes inside them are reported. (`#1094 <https://github.com/gorakhargosh/watchdog/issues/1094>`__)
+- [inotify] Fix the inotify thread dying with a ``KeyError`` when a directory tree is copied or extracted into a recursively watched directory, which stopped all inotify observers in the process. (`#1388 <https://github.com/gorakhargosh/watchdog/pull/1388>`__)
+- [observers] Align ``BaseObserver`` with ``BaseThread`` by using ``on_thread_start()`` instead of overriding ``start()``. (`#286 <https://github.com/gorakhargosh/watchdog/issues/286>`__)
+- [watchmedo] Fix ``watchmedo generate-tricks-yaml`` output so that ``watchmedo tricks`` can load it: trick options are now nested under the trick name instead of under unsupported ``args``/``kwargs`` keys. (`#1403 <https://github.com/gorakhargosh/watchdog/pull/1403>`__)
+
+- Thanks to our beloved contributors: @BoboTiG, @prateek-dagar, @monosans, @taltal-beep, @Aschenbath, @yangfan-yf-yf, @alexruperez, @PDGGK, @Skeletor-Pirate
+
 7.0.0
 ~~~~~
 
@@ -459,7 +477,6 @@ Changelog
 - [inotify] Keep watching newly created subdirectories when recursive watches filter out creation events. (`#990 <https://github.com/gorakhargosh/watchdog/issues/990>`__)
 - [inotify] Reduce number of created inotify instance. (`#1099 <https://github.com/gorakhargosh/watchdog/pull/1099>`__)
 - [inotify] Snapshot the watch group before the blocking read in ``InotifyEmitter.queue_events()`` so stopping the emitter cannot raise ``AttributeError`` on a cleared ``self._inotify``.
-- [inotify] Do not suppress registration errors for the requested root path. A missing root now raises ``FileNotFoundError`` from ``observer.start()``, or from ``observer.schedule()`` when already running. Recursive descendant failures remain tolerated. (`#1157 <https://github.com/gorakhargosh/watchdog/issues/1157>`__)
 - [fsevents] Added the ``latency`` keyword argument to ``FSEventsEmitter`` and ``FSEventsObserver`` (defaulting to ``watchdog.observers.fsevents.DEFAULT_FSEVENTS_LATENCY``), exposing the FSEvents stream latency previously hard-coded at 10 ms. Raising it coalesces duplicate events. (`#835 <https://github.com/gorakhargosh/watchdog/issues/835>`__)
 - [fsevents] Add support for the ``follow_symlink`` keyword argument. (`#1086 <https://github.com/gorakhargosh/watchdog/pull/1086>`__)
 - [fsevents] Support free-threading and give each emitter its own stream and run loop to prevent shutdown leaks. (`#1140 <https://github.com/gorakhargosh/watchdog/issues/1140>`__)
@@ -484,8 +501,6 @@ Changelog
 - [utils] Make ``SkipRepeatsQueue.put()`` and ``put_nowait()`` reject duplicate items after ``shutdown()`` on Python 3.13+.
 - [utils] Serialize ``SkipRepeatsQueue`` producers to prevent consecutive duplicates, respecting blocking and timeout limits while acquiring the producer lock. (`#1338 <https://github.com/gorakhargosh/watchdog/pull/1338>`__)
 - [utils] Use a monotonic clock for ``DelayedQueue`` delays so system clock adjustments do not stall or prematurely release events. (`#1296 <https://github.com/gorakhargosh/watchdog/pull/1296>`__)
-- [utils] Make ``SkipRepeatsQueue.put()`` and ``put_nowait()`` reject duplicate items after ``shutdown()`` on Python 3.13+.
-- [utils] Fix ``EventDebouncer`` starvation on high frequency events and ensure pending events are delivered upon stop. (`#998 <https://github.com/gorakhargosh/watchdog/pull/998>`__)
 - [tricks] Allow configuring ``shell_executable`` and ``cwd`` for ``ShellCommandTrick`` and ``watchmedo shell-command``. (`#921 <https://github.com/gorakhargosh/watchdog/issues/921>`__)
 - [watchmedo] Support running watchmedo via ``python -m watchdog``. (`#1162 <https://github.com/gorakhargosh/watchdog/pull/1162>`__)
 - [watchmedo] The ``AutoRestartTrick`` stop signal is now actually delivered on Windows. The subprocess is started in its own process group and signalled with ``CTRL_BREAK_EVENT``, so it can run cleanup handlers and its descendants are no longer orphaned on every restart. (`#1221 <https://github.com/gorakhargosh/watchdog/issues/1221>`__)

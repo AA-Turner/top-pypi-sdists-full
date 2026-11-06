@@ -1218,6 +1218,11 @@ class _AgentsSdkLocalRuntime:
             )
             if process_handler is not None:
                 handlers = {**handlers, **build_background_process_tool_handlers(process_handler)}
+        affinity_id = definition.session_id if root is None else root.definition.session_id
+        if affinity_id is not None:
+            definition = definition.model_copy(
+                update={"agent_config": assemble.with_completion_affinity(definition.agent_config, affinity_id)}
+            )
         mcp_host = McpHttpCapabilityHost()
         connector_resource = None
         try:

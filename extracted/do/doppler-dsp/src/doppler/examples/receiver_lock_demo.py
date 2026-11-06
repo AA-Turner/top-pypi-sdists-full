@@ -27,6 +27,7 @@ import sys
 # --8<-- [start:chain]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.telemetry import Telemetry
 from doppler.track import Costas, Dll, SymbolSync
 from doppler.wfm import PN, Composer, Segment
@@ -104,6 +105,7 @@ def run_chain(code, rx, tlm=None, block=2 * TE):
 
 
 def main(out_path="receiver_lock_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

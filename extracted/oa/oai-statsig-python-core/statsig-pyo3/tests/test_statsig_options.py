@@ -1,5 +1,12 @@
-from statsig_python_core import EvaluationCache, StatsigOptions
+import json
+import time
+
+import pytest
+
+from statsig_python_core import EvaluationCache, Statsig, StatsigOptions
 from test_observability_client import MockObservabilityClient
+from mock_scrapi import MockScrapi
+from utils import get_test_data_resource
 
 
 def test_default_statsig_options():
@@ -9,7 +16,9 @@ def test_default_statsig_options():
     assert options.runtime_thread_start_callback is None
     assert options.evaluation_cache is None
     assert options.prefer_http2 is None
+    assert options.disable_remote_telemetry is None
     assert options.shared_id_lists_dir is None
+    assert options.id_list_init_build_concurrency is None
 
 
 def test_shared_id_lists_directory_option():
@@ -98,3 +107,43 @@ def test_full_statsig_options():
     assert options.specs_sync_interval_ms == 1000
     assert options.output_log_level == "debug"
     assert options.service_name == "statsig-python-service"
+
+
+@pytest.mark.parametrize("disabled", [True, False, None])
+def test_remote_telemetry_option_reaches_core(httpserver, disabled):
+    scrapi = MockScrapi(httpserver)
+    specs = json.loads(get_test_data_resource("eval_proj_dcs.json"))
+    specs.pop("checksum", None)
+    scrapi.stub("/v2/download_config_specs", json.dumps(specs))
+    scrapi.stub("/v1/log_event", '{"success": true}', method="POST")
+    statsig = Statsig("secret-option-fixture", StatsigOptions(
+        specs_url=scrapi.url_for_endpoint("/v2/download_config_specs"),
+        log_event_url=scrapi.url_for_endpoint("/v1/log_event"),
+        **({"disable_remote_telemetry": disabled} if disabled is not None else {}),
+    ))
+    try:
+        statsig.initialize().wait()
+        deadline = time.monotonic() + 1
+        # Diagnostic delivery is asynchronous; bound both presence and absence checks.
+        while True:
+            statsig.flush_events().wait()
+            diagnostics = [
+                e for e in scrapi.get_logged_events(include_diagnostics=True)
+                if e["eventName"] == "statsig::diagnostics"
+            ]
+            if diagnostics or time.monotonic() >= deadline:
+                break
+            time.sleep(0.01)
+        assert bool(diagnostics) is (disabled is not True)
+    finally:
+        statsig.shutdown().wait()
+
+
+def test_appended_statsig_options_preserve_existing_positions():
+    options = StatsigOptions(*([None] * 39), True, 3, "/tmp/shared-id-lists", False, True, 8)
+    assert options.prefer_http2 is True
+    assert options.state_read_primary_attempts == 3
+    assert options.shared_id_lists_dir == "/tmp/shared-id-lists"
+    assert options.enable_id_list_elias_fano is False
+    assert options.disable_remote_telemetry is True
+    assert options.id_list_init_build_concurrency == 8

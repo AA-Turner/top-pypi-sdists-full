@@ -12,7 +12,7 @@ import re
 import warnings
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
-from enum import Enum
+from enum import Enum, IntEnum, StrEnum
 from pathlib import Path
 from types import MappingProxyType, UnionType
 from typing import (
@@ -25,14 +25,6 @@ from typing import (
     get_args,
     get_origin,
 )
-
-from ._compat import PY_311
-
-
-if PY_311:
-    from enum import IntEnum, StrEnum
-else:
-    IntEnum = StrEnum = None  # type: ignore
 
 from .types import ET, Secret, T
 
@@ -96,14 +88,8 @@ class TSConverter:
 
         self.scalar_converters: dict[Any, Callable[[Any, type], Any]] = {
             Any: to_any,
-            **(
-                {
-                    IntEnum: to_enum_by_value,
-                    StrEnum: to_enum_by_value,
-                }
-                if PY_311
-                else {}
-            ),
+            IntEnum: to_enum_by_value,
+            StrEnum: to_enum_by_value,
             Enum: to_enum_by_name,
             bool: to_bool,
             int: to_type,
@@ -321,14 +307,8 @@ def get_default_structure_hooks(
         :meth:`cattrs.BaseConverter.register_structure_hook()`.
     """
     hooks: list[tuple[type, Callable[[Any, type], Any]]] = [
-        *(
-            [
-                (IntEnum, to_enum_by_value),
-                (StrEnum, to_enum_by_value),
-            ]
-            if PY_311
-            else []
-        ),
+        (IntEnum, to_enum_by_value),
+        (StrEnum, to_enum_by_value),
         (Enum, to_enum_by_name),
         (bool, to_bool),
         (datetime, to_datetime),
@@ -668,8 +648,6 @@ def to_datetime(value: datetime | str, cls: type[datetime] = datetime) -> dateti
             f"Invalid type {type(value).__name__!r}; expected 'datetime' or 'str'."
         )
     if isinstance(value, str):
-        if not PY_311 and value[-1] == "Z":
-            value = value.replace("Z", "+00:00")
         return cls.fromisoformat(value)
     return value
 
@@ -858,7 +836,7 @@ def to_enum_by_value(value: Any, cls: type[ET]) -> ET:
     if isinstance(value, cls):
         return value
 
-    if PY_311 and issubclass(cls, IntEnum):
+    if issubclass(cls, IntEnum):
         value = int(value)
     return cls(value)
 

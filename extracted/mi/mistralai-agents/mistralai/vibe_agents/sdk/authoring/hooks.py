@@ -26,13 +26,15 @@ type HookDecisionKind = Literal["skip", "retry", "reject"]
 
 @dataclass(frozen=True, slots=True)
 class HookDecision:
-    """A Hook's decision, turned into the result of the point that returns it.
+    """A hook's decision, turned into the result of the point that returns it.
 
     Build it with ``agents.skip``, ``agents.retry`` or ``agents.reject``.
     """
 
     kind: HookDecisionKind
+    """``"skip"``, ``"retry"`` or ``"reject"``: the function that built it."""
     message: str
+    """The reason or feedback the function took."""
 
 
 def skip(reason: str) -> HookDecision:
@@ -41,19 +43,30 @@ def skip(reason: str) -> HookDecision:
     From ``pre_tool_call``, ``reason`` is what the model sees in place of the tool
     result. From ``pre_agent_turn`` or ``pre_llm_call``, the turn ends with
     ``stop_reason="skipped"`` and ``reason`` as its text.
+
+    Args:
+        reason: What the model sees in place of the tool result, or the text of the ended turn.
     """
 
     return HookDecision("skip", reason)
 
 
 def retry(feedback: str) -> HookDecision:
-    """Discard the model's response and call the model again with ``feedback``."""
+    """Discard the model's response and call the model again with ``feedback``.
+
+    Args:
+        feedback: What the model reads before it answers again.
+    """
 
     return HookDecision("retry", feedback)
 
 
 def reject(reason: str) -> HookDecision:
-    """Reject the model's response and end the turn with ``reason``."""
+    """Reject the model's response and end the turn with ``reason``.
+
+    Args:
+        reason: The text the turn ends with.
+    """
 
     return HookDecision("reject", reason)
 
@@ -72,18 +85,18 @@ class _HookView(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     turn_id: str
-    """The Turn's ID."""
+    """The turn's ID."""
 
 
 class PreAgentTurn(_HookView):
-    """The Turn a ``pre_agent_turn`` Hook receives."""
+    """The turn a ``pre_agent_turn`` hook receives."""
 
     user_content: list[ContentBlock]
-    """The user's content for the Turn. Blocks handed back unchanged reach the model as they came."""
+    """The user's content for the turn. Blocks handed back unchanged reach the model as they came."""
 
 
 class PreLlmCall(_HookView):
-    """The model call a ``pre_llm_call`` Hook receives."""
+    """The model call a ``pre_llm_call`` hook receives."""
 
 
 type FinishReason = Literal["stop", "tool_call", "length", "content_filter", "other"]
@@ -105,15 +118,15 @@ class _ModelReply(_HookView):
 
 
 class PostLlmCall(_ModelReply):
-    """The model reply a ``post_llm_call`` Hook receives."""
+    """The model reply a ``post_llm_call`` hook receives."""
 
 
 class PostAgentTurn(_ModelReply):
-    """The final answer of the Turn a ``post_agent_turn`` Hook receives."""
+    """The final answer of the turn a ``post_agent_turn`` hook receives."""
 
 
 class PreToolCall(_HookView):
-    """The tool call a ``pre_tool_call`` Hook receives."""
+    """The tool call a ``pre_tool_call`` hook receives."""
 
     tool_name: str
     """The authored tool's name, or the built-in's, such as ``file_system.bash``."""
@@ -126,10 +139,10 @@ class PreToolCall(_HookView):
 
 
 class PostToolCall(PreToolCall):
-    """The tool call and result a ``post_tool_call`` Hook receives."""
+    """The tool call and result a ``post_tool_call`` hook receives."""
 
     arguments: dict[str, JsonValue]
-    """The arguments the tool ran with, after any ``pre_tool_call`` Hook changed them."""
+    """The arguments the tool ran with, after any ``pre_tool_call`` hook changed them."""
     tool_result: ToolResult
     """The call's result. Return it, or a copy, in ``hook.PostToolCallHookContinue``: blocks handed
     back unchanged reach the model as they came, and a failed call kept ``is_error=True`` keeps its
@@ -143,6 +156,7 @@ class PostToolCallHookContinue(BaseModel):
 
     type: Literal["post_tool_call_continue"] = "post_tool_call_continue"
     tool_result: ToolResult
+    """The result the model gets for the call."""
 
 
 def pre_agent_turn_view(invocation: PreAgentTurnHookInvocation) -> PreAgentTurn:

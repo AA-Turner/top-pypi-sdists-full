@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: zensical
-Version: 0.0.74
-Classifier: Development Status :: 3 - Alpha
+Version: 0.1.0
+Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Rust
@@ -10,12 +10,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Requires-Dist: click>=8.1.8
-Requires-Dist: deepmerge>=2.0
 Requires-Dist: jinja2>=3.1
 Requires-Dist: markdown>=3.7
 Requires-Dist: pathspec>=1.0.4

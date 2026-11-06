@@ -32,25 +32,30 @@ class HostTypeHardwareRequirementsWrapper(object):
     """
     swagger_types = {
         'worker': 'HostTypeHardwareRequirements',
-        'master': 'HostTypeHardwareRequirements'
+        'master': 'HostTypeHardwareRequirements',
+        'arbiter': 'HostTypeHardwareRequirements'
     }
 
     attribute_map = {
         'worker': 'worker',
-        'master': 'master'
+        'master': 'master',
+        'arbiter': 'arbiter'
     }
 
-    def __init__(self, worker=None, master=None):  # noqa: E501
+    def __init__(self, worker=None, master=None, arbiter=None):  # noqa: E501
         """HostTypeHardwareRequirementsWrapper - a model defined in Swagger"""  # noqa: E501
 
         self._worker = None
         self._master = None
+        self._arbiter = None
         self.discriminator = None
 
         if worker is not None:
             self.worker = worker
         if master is not None:
             self.master = master
+        if arbiter is not None:
+            self.arbiter = arbiter
 
     @property
     def worker(self):
@@ -97,6 +102,29 @@ class HostTypeHardwareRequirementsWrapper(object):
         """
 
         self._master = master
+
+    @property
+    def arbiter(self):
+        """Gets the arbiter of this HostTypeHardwareRequirementsWrapper.  # noqa: E501
+
+        Requirements towards an arbiter node  # noqa: E501
+
+        :return: The arbiter of this HostTypeHardwareRequirementsWrapper.  # noqa: E501
+        :rtype: HostTypeHardwareRequirements
+        """
+        return self._arbiter
+
+    @arbiter.setter
+    def arbiter(self, arbiter):
+        """Sets the arbiter of this HostTypeHardwareRequirementsWrapper.
+
+        Requirements towards an arbiter node  # noqa: E501
+
+        :param arbiter: The arbiter of this HostTypeHardwareRequirementsWrapper.  # noqa: E501
+        :type: HostTypeHardwareRequirements
+        """
+
+        self._arbiter = arbiter
 
     def to_dict(self):
         """Returns the model properties as a dict"""

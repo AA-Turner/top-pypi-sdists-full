@@ -7,6 +7,8 @@ from typing import TypedDict
 
 from boltons.iterutils import bucketize
 
+from scripts.output import write_json
+
 
 class EntryV1(TypedDict, total=False):
     name: str
@@ -15,6 +17,10 @@ class EntryV1(TypedDict, total=False):
     bank_code: str
     primary: bool
     checksum_algo: str
+    status: str
+    successor_bank_code: str
+    legacy_name: str
+    legacy_bic: str
 
 
 def convert_to_v2(
@@ -25,8 +31,17 @@ def convert_to_v2(
 ) -> dict[str, Any]:
     groupby = groupby or ["bic", "name"]
 
+    # Entries are only grouped if they agree on ``primary`` and the status fields, because the
+    # group keeps the values of its first entry for all of its bank codes.
     def make_key(e: EntryV1) -> str:
-        return "::".join(str(e[group]) for group in groupby) + "::" + e.get("checksum_algo", "")
+        key = "::".join(str(e[group]) for group in groupby)
+        status = (
+            e.get("status", "active"),
+            e.get("successor_bank_code"),
+            e.get("legacy_name"),
+            e.get("legacy_bic"),
+        )
+        return f"{key}::{e.get('checksum_algo', '')}::{e.get('primary', False)}::{status}"
 
     buckets = bucketize(data, make_key)
 
@@ -48,4 +63,4 @@ if __name__ == "__main__":
     result = convert_to_v2(json.loads(infile.read_text()))
 
     outfile = infile.with_suffix(".v2.json")
-    outfile.write_text(json.dumps(result))
+    write_json(outfile, result)

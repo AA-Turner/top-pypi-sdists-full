@@ -1001,6 +1001,8 @@ class CreateMinutesByUploadFileRequest(TeaModel):
         hidden_minutes: bool = None,
         media_file_url: str = None,
         media_type: str = None,
+        summary_template_id: str = None,
+        summary_template_type: str = None,
         title: str = None,
         union_id: str = None,
     ):
@@ -1015,6 +1017,8 @@ class CreateMinutesByUploadFileRequest(TeaModel):
         self.media_file_url = media_file_url
         # This parameter is required.
         self.media_type = media_type
+        self.summary_template_id = summary_template_id
+        self.summary_template_type = summary_template_type
         # This parameter is required.
         self.title = title
         # This parameter is required.
@@ -1043,6 +1047,10 @@ class CreateMinutesByUploadFileRequest(TeaModel):
             result['mediaFileUrl'] = self.media_file_url
         if self.media_type is not None:
             result['mediaType'] = self.media_type
+        if self.summary_template_id is not None:
+            result['summaryTemplateId'] = self.summary_template_id
+        if self.summary_template_type is not None:
+            result['summaryTemplateType'] = self.summary_template_type
         if self.title is not None:
             result['title'] = self.title
         if self.union_id is not None:
@@ -1065,6 +1073,10 @@ class CreateMinutesByUploadFileRequest(TeaModel):
             self.media_file_url = m.get('mediaFileUrl')
         if m.get('mediaType') is not None:
             self.media_type = m.get('mediaType')
+        if m.get('summaryTemplateId') is not None:
+            self.summary_template_id = m.get('summaryTemplateId')
+        if m.get('summaryTemplateType') is not None:
+            self.summary_template_type = m.get('summaryTemplateType')
         if m.get('title') is not None:
             self.title = m.get('title')
         if m.get('unionId') is not None:
@@ -2366,12 +2378,14 @@ class OpenQueryMinutesSummaryRequest(TeaModel):
         return self
 
 
-class OpenQueryMinutesSummaryResponseBody(TeaModel):
+class OpenQueryMinutesSummaryResponseBodyCurrentTemplate(TeaModel):
     def __init__(
         self,
-        full_summary: str = None,
+        summary_template_id: str = None,
+        summary_template_type: str = None,
     ):
-        self.full_summary = full_summary
+        self.summary_template_id = summary_template_id
+        self.summary_template_type = summary_template_type
 
     def validate(self):
         pass
@@ -2382,14 +2396,155 @@ class OpenQueryMinutesSummaryResponseBody(TeaModel):
             return _map
 
         result = dict()
-        if self.full_summary is not None:
-            result['fullSummary'] = self.full_summary
+        if self.summary_template_id is not None:
+            result['summaryTemplateId'] = self.summary_template_id
+        if self.summary_template_type is not None:
+            result['summaryTemplateType'] = self.summary_template_type
         return result
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('summaryTemplateId') is not None:
+            self.summary_template_id = m.get('summaryTemplateId')
+        if m.get('summaryTemplateType') is not None:
+            self.summary_template_type = m.get('summaryTemplateType')
+        return self
+
+
+class OpenQueryMinutesSummaryResponseBodyTextGenerationInfo(TeaModel):
+    def __init__(
+        self,
+        reason: str = None,
+        state: str = None,
+        terminal: bool = None,
+    ):
+        self.reason = reason
+        self.state = state
+        self.terminal = terminal
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.reason is not None:
+            result['reason'] = self.reason
+        if self.state is not None:
+            result['state'] = self.state
+        if self.terminal is not None:
+            result['terminal'] = self.terminal
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('reason') is not None:
+            self.reason = m.get('reason')
+        if m.get('state') is not None:
+            self.state = m.get('state')
+        if m.get('terminal') is not None:
+            self.terminal = m.get('terminal')
+        return self
+
+
+class OpenQueryMinutesSummaryResponseBodyVisualGenerationInfo(TeaModel):
+    def __init__(
+        self,
+        reason: str = None,
+        state: str = None,
+        terminal: bool = None,
+    ):
+        self.reason = reason
+        self.state = state
+        self.terminal = terminal
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.reason is not None:
+            result['reason'] = self.reason
+        if self.state is not None:
+            result['state'] = self.state
+        if self.terminal is not None:
+            result['terminal'] = self.terminal
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('reason') is not None:
+            self.reason = m.get('reason')
+        if m.get('state') is not None:
+            self.state = m.get('state')
+        if m.get('terminal') is not None:
+            self.terminal = m.get('terminal')
+        return self
+
+
+class OpenQueryMinutesSummaryResponseBody(TeaModel):
+    def __init__(
+        self,
+        current_template: OpenQueryMinutesSummaryResponseBodyCurrentTemplate = None,
+        full_summary: str = None,
+        generating_status: str = None,
+        text_generation_info: OpenQueryMinutesSummaryResponseBodyTextGenerationInfo = None,
+        visual_generation_info: OpenQueryMinutesSummaryResponseBodyVisualGenerationInfo = None,
+    ):
+        self.current_template = current_template
+        self.full_summary = full_summary
+        self.generating_status = generating_status
+        self.text_generation_info = text_generation_info
+        self.visual_generation_info = visual_generation_info
+
+    def validate(self):
+        if self.current_template:
+            self.current_template.validate()
+        if self.text_generation_info:
+            self.text_generation_info.validate()
+        if self.visual_generation_info:
+            self.visual_generation_info.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.current_template is not None:
+            result['currentTemplate'] = self.current_template.to_map()
+        if self.full_summary is not None:
+            result['fullSummary'] = self.full_summary
+        if self.generating_status is not None:
+            result['generatingStatus'] = self.generating_status
+        if self.text_generation_info is not None:
+            result['textGenerationInfo'] = self.text_generation_info.to_map()
+        if self.visual_generation_info is not None:
+            result['visualGenerationInfo'] = self.visual_generation_info.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('currentTemplate') is not None:
+            temp_model = OpenQueryMinutesSummaryResponseBodyCurrentTemplate()
+            self.current_template = temp_model.from_map(m['currentTemplate'])
         if m.get('fullSummary') is not None:
             self.full_summary = m.get('fullSummary')
+        if m.get('generatingStatus') is not None:
+            self.generating_status = m.get('generatingStatus')
+        if m.get('textGenerationInfo') is not None:
+            temp_model = OpenQueryMinutesSummaryResponseBodyTextGenerationInfo()
+            self.text_generation_info = temp_model.from_map(m['textGenerationInfo'])
+        if m.get('visualGenerationInfo') is not None:
+            temp_model = OpenQueryMinutesSummaryResponseBodyVisualGenerationInfo()
+            self.visual_generation_info = temp_model.from_map(m['visualGenerationInfo'])
         return self
 
 
@@ -4573,20 +4728,63 @@ class QueryMinutesTodoResponseBodyDingtalkTodoList(TeaModel):
         return self
 
 
+class QueryMinutesTodoResponseBodyTodoGenerationInfo(TeaModel):
+    def __init__(
+        self,
+        reason: str = None,
+        state: str = None,
+        terminal: bool = None,
+    ):
+        self.reason = reason
+        self.state = state
+        self.terminal = terminal
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.reason is not None:
+            result['reason'] = self.reason
+        if self.state is not None:
+            result['state'] = self.state
+        if self.terminal is not None:
+            result['terminal'] = self.terminal
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('reason') is not None:
+            self.reason = m.get('reason')
+        if m.get('state') is not None:
+            self.state = m.get('state')
+        if m.get('terminal') is not None:
+            self.terminal = m.get('terminal')
+        return self
+
+
 class QueryMinutesTodoResponseBody(TeaModel):
     def __init__(
         self,
         actions: List[str] = None,
         dingtalk_todo_list: List[QueryMinutesTodoResponseBodyDingtalkTodoList] = None,
+        todo_generation_info: QueryMinutesTodoResponseBodyTodoGenerationInfo = None,
     ):
         self.actions = actions
         self.dingtalk_todo_list = dingtalk_todo_list
+        self.todo_generation_info = todo_generation_info
 
     def validate(self):
         if self.dingtalk_todo_list:
             for k in self.dingtalk_todo_list:
                 if k:
                     k.validate()
+        if self.todo_generation_info:
+            self.todo_generation_info.validate()
 
     def to_map(self):
         _map = super().to_map()
@@ -4600,6 +4798,8 @@ class QueryMinutesTodoResponseBody(TeaModel):
         if self.dingtalk_todo_list is not None:
             for k in self.dingtalk_todo_list:
                 result['dingtalkTodoList'].append(k.to_map() if k else None)
+        if self.todo_generation_info is not None:
+            result['todoGenerationInfo'] = self.todo_generation_info.to_map()
         return result
 
     def from_map(self, m: dict = None):
@@ -4611,6 +4811,9 @@ class QueryMinutesTodoResponseBody(TeaModel):
             for k in m.get('dingtalkTodoList'):
                 temp_model = QueryMinutesTodoResponseBodyDingtalkTodoList()
                 self.dingtalk_todo_list.append(temp_model.from_map(k))
+        if m.get('todoGenerationInfo') is not None:
+            temp_model = QueryMinutesTodoResponseBodyTodoGenerationInfo()
+            self.todo_generation_info = temp_model.from_map(m['todoGenerationInfo'])
         return self
 
 
@@ -6388,19 +6591,104 @@ class QuerySummaryWithTemplateRequest(TeaModel):
         return self
 
 
+class QuerySummaryWithTemplateResponseBodyTextGenerationInfo(TeaModel):
+    def __init__(
+        self,
+        reason: str = None,
+        state: str = None,
+        terminal: bool = None,
+    ):
+        self.reason = reason
+        self.state = state
+        self.terminal = terminal
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.reason is not None:
+            result['reason'] = self.reason
+        if self.state is not None:
+            result['state'] = self.state
+        if self.terminal is not None:
+            result['terminal'] = self.terminal
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('reason') is not None:
+            self.reason = m.get('reason')
+        if m.get('state') is not None:
+            self.state = m.get('state')
+        if m.get('terminal') is not None:
+            self.terminal = m.get('terminal')
+        return self
+
+
+class QuerySummaryWithTemplateResponseBodyVisualGenerationInfo(TeaModel):
+    def __init__(
+        self,
+        reason: str = None,
+        state: str = None,
+        terminal: bool = None,
+    ):
+        self.reason = reason
+        self.state = state
+        self.terminal = terminal
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.reason is not None:
+            result['reason'] = self.reason
+        if self.state is not None:
+            result['state'] = self.state
+        if self.terminal is not None:
+            result['terminal'] = self.terminal
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('reason') is not None:
+            self.reason = m.get('reason')
+        if m.get('state') is not None:
+            self.state = m.get('state')
+        if m.get('terminal') is not None:
+            self.terminal = m.get('terminal')
+        return self
+
+
 class QuerySummaryWithTemplateResponseBody(TeaModel):
     def __init__(
         self,
         generating_status: str = None,
         summary_text: str = None,
+        text_generation_info: QuerySummaryWithTemplateResponseBodyTextGenerationInfo = None,
         visual_generating_status: str = None,
+        visual_generation_info: QuerySummaryWithTemplateResponseBodyVisualGenerationInfo = None,
     ):
         self.generating_status = generating_status
         self.summary_text = summary_text
+        self.text_generation_info = text_generation_info
         self.visual_generating_status = visual_generating_status
+        self.visual_generation_info = visual_generation_info
 
     def validate(self):
-        pass
+        if self.text_generation_info:
+            self.text_generation_info.validate()
+        if self.visual_generation_info:
+            self.visual_generation_info.validate()
 
     def to_map(self):
         _map = super().to_map()
@@ -6412,8 +6700,12 @@ class QuerySummaryWithTemplateResponseBody(TeaModel):
             result['generatingStatus'] = self.generating_status
         if self.summary_text is not None:
             result['summaryText'] = self.summary_text
+        if self.text_generation_info is not None:
+            result['textGenerationInfo'] = self.text_generation_info.to_map()
         if self.visual_generating_status is not None:
             result['visualGeneratingStatus'] = self.visual_generating_status
+        if self.visual_generation_info is not None:
+            result['visualGenerationInfo'] = self.visual_generation_info.to_map()
         return result
 
     def from_map(self, m: dict = None):
@@ -6422,8 +6714,14 @@ class QuerySummaryWithTemplateResponseBody(TeaModel):
             self.generating_status = m.get('generatingStatus')
         if m.get('summaryText') is not None:
             self.summary_text = m.get('summaryText')
+        if m.get('textGenerationInfo') is not None:
+            temp_model = QuerySummaryWithTemplateResponseBodyTextGenerationInfo()
+            self.text_generation_info = temp_model.from_map(m['textGenerationInfo'])
         if m.get('visualGeneratingStatus') is not None:
             self.visual_generating_status = m.get('visualGeneratingStatus')
+        if m.get('visualGenerationInfo') is not None:
+            temp_model = QuerySummaryWithTemplateResponseBodyVisualGenerationInfo()
+            self.visual_generation_info = temp_model.from_map(m['visualGenerationInfo'])
         return self
 
 
@@ -8280,6 +8578,7 @@ class UpdatePermissionRequest(TeaModel):
         member_info_list: List[UpdatePermissionRequestMemberInfoList] = None,
         member_permission_operations: List[UpdatePermissionRequestMemberPermissionOperations] = None,
         op_type: int = None,
+        reset_mode: str = None,
         role_code: str = None,
         role_sub_resource_ids: List[str] = None,
         share_scope: int = None,
@@ -8289,6 +8588,7 @@ class UpdatePermissionRequest(TeaModel):
         self.member_info_list = member_info_list
         self.member_permission_operations = member_permission_operations
         self.op_type = op_type
+        self.reset_mode = reset_mode
         self.role_code = role_code
         self.role_sub_resource_ids = role_sub_resource_ids
         self.share_scope = share_scope
@@ -8324,6 +8624,8 @@ class UpdatePermissionRequest(TeaModel):
                 result['memberPermissionOperations'].append(k.to_map() if k else None)
         if self.op_type is not None:
             result['opType'] = self.op_type
+        if self.reset_mode is not None:
+            result['resetMode'] = self.reset_mode
         if self.role_code is not None:
             result['roleCode'] = self.role_code
         if self.role_sub_resource_ids is not None:
@@ -8350,6 +8652,8 @@ class UpdatePermissionRequest(TeaModel):
                 self.member_permission_operations.append(temp_model.from_map(k))
         if m.get('opType') is not None:
             self.op_type = m.get('opType')
+        if m.get('resetMode') is not None:
+            self.reset_mode = m.get('resetMode')
         if m.get('roleCode') is not None:
             self.role_code = m.get('roleCode')
         if m.get('roleSubResourceIds') is not None:
@@ -8472,6 +8776,51 @@ class UpdatePermissionResponseBodyMemberPermissionOperationResults(TeaModel):
         return self
 
 
+class UpdatePermissionResponseBodyResetResult(TeaModel):
+    def __init__(
+        self,
+        error_code: str = None,
+        error_message: str = None,
+        reset_mode: str = None,
+        success: bool = None,
+    ):
+        self.error_code = error_code
+        self.error_message = error_message
+        self.reset_mode = reset_mode
+        self.success = success
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.error_code is not None:
+            result['errorCode'] = self.error_code
+        if self.error_message is not None:
+            result['errorMessage'] = self.error_message
+        if self.reset_mode is not None:
+            result['resetMode'] = self.reset_mode
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('errorCode') is not None:
+            self.error_code = m.get('errorCode')
+        if m.get('errorMessage') is not None:
+            self.error_message = m.get('errorMessage')
+        if m.get('resetMode') is not None:
+            self.reset_mode = m.get('resetMode')
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
 class UpdatePermissionResponseBodyShareScopeResult(TeaModel):
     def __init__(
         self,
@@ -8519,6 +8868,7 @@ class UpdatePermissionResponseBody(TeaModel):
         member_permission_operation_results: List[UpdatePermissionResponseBodyMemberPermissionOperationResults] = None,
         model_version: str = None,
         partial_success: bool = None,
+        reset_result: UpdatePermissionResponseBodyResetResult = None,
         share_scope_result: UpdatePermissionResponseBodyShareScopeResult = None,
         share_scope_version: int = None,
     ):
@@ -8527,6 +8877,7 @@ class UpdatePermissionResponseBody(TeaModel):
         self.member_permission_operation_results = member_permission_operation_results
         self.model_version = model_version
         self.partial_success = partial_success
+        self.reset_result = reset_result
         self.share_scope_result = share_scope_result
         self.share_scope_version = share_scope_version
 
@@ -8539,6 +8890,8 @@ class UpdatePermissionResponseBody(TeaModel):
             for k in self.member_permission_operation_results:
                 if k:
                     k.validate()
+        if self.reset_result:
+            self.reset_result.validate()
         if self.share_scope_result:
             self.share_scope_result.validate()
 
@@ -8562,6 +8915,8 @@ class UpdatePermissionResponseBody(TeaModel):
             result['modelVersion'] = self.model_version
         if self.partial_success is not None:
             result['partialSuccess'] = self.partial_success
+        if self.reset_result is not None:
+            result['resetResult'] = self.reset_result.to_map()
         if self.share_scope_result is not None:
             result['shareScopeResult'] = self.share_scope_result.to_map()
         if self.share_scope_version is not None:
@@ -8586,6 +8941,9 @@ class UpdatePermissionResponseBody(TeaModel):
             self.model_version = m.get('modelVersion')
         if m.get('partialSuccess') is not None:
             self.partial_success = m.get('partialSuccess')
+        if m.get('resetResult') is not None:
+            temp_model = UpdatePermissionResponseBodyResetResult()
+            self.reset_result = temp_model.from_map(m['resetResult'])
         if m.get('shareScopeResult') is not None:
             temp_model = UpdatePermissionResponseBodyShareScopeResult()
             self.share_scope_result = temp_model.from_map(m['shareScopeResult'])

@@ -1,4 +1,4 @@
-"""Rich tool results: content blocks, structured output and host metadata.
+"""Rich tool results: content blocks, structured output and metadata for the client.
 
 A tool handler may return a ``ToolResult``, one content block, a list of content blocks, an
 MCP ``CallToolResult`` or MCP content blocks, a string, or any JSON value or Pydantic model.
@@ -62,7 +62,7 @@ _LegacyValueT = TypeVar("_LegacyValueT", default=Any)
 
 
 class ToolResult(BaseModel, Generic[_LegacyValueT]):
-    """What a tool returns: content for the model, structured output, and host metadata.
+    """What a tool returns: content for the model, structured output, and metadata for the client.
 
     A tool annotated ``-> ToolResult[T]`` gets ``T``'s JSON Schema as its output schema.
     ``ToolResult[T]`` does not type ``structured_content``: the tool's output schema checks it when
@@ -72,14 +72,14 @@ class ToolResult(BaseModel, Generic[_LegacyValueT]):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     content: list[ContentBlock] = Field(default_factory=list)
-    """Blocks the model sees. Blocks with ``audience=["user"]`` are for hosts and UIs only."""
+    """Blocks the model sees. Blocks with ``audience=["user"]`` are for the application's UI only."""
     structured_content: JsonValue = None
-    """Machine-readable output, validated against the tool's result schema. The model sees it
+    """Machine-readable output, validated against the tool's output schema. The model sees it
     only when ``content`` is empty."""
     is_error: bool = False
     """A tool execution error (MCP ``isError``): the model sees the content and can retry."""
     meta: dict[str, JsonValue] = Field(default_factory=dict)
-    """Host metadata (MCP/ACP ``_meta``). Never shown to the model."""
+    """Metadata for the client, as MCP's ``_meta``. Never shown to the model."""
     # The model class of a Pydantic ``structured_content`` and the dump it gave: an instance
     # of the tool's output schema needs no check against it (its dump can carry computed
     # fields the schema forbids). A copy with other ``structured_content`` holds another dump.
@@ -160,7 +160,13 @@ class ToolResult(BaseModel, Generic[_LegacyValueT]):
         structured_content: JsonValue | BaseModel = None,
         meta: Mapping[str, JsonValue] | None = None,
     ) -> Self:
-        """A tool execution error the model sees as ``message`` and can act on."""
+        """A tool execution error the model sees as ``message`` and can act on.
+
+        Args:
+            message: What the model sees.
+            structured_content: Machine-readable output that goes with the failed result.
+            meta: Metadata for the client, as MCP's ``_meta``. Never shown to the model.
+        """
         values: dict[str, Any] = {
             "content": [TextContentBlock(text=message)],
             "is_error": True,

@@ -7,6 +7,7 @@ from typing import Annotated, Any, ClassVar, Literal, Self, cast
 import numpy as np
 from albucore import median_blur, reduce_sum
 from albucore.filter3d import gaussian_blur3d
+from numpy.typing import NDArray
 from pydantic import (
     Field,
     ValidationInfo,
@@ -31,7 +32,7 @@ from albumentations.core.transforms_interface import (
     BaseTransformInitSchema,
     ImageOnlyTransform,
 )
-from albumentations.core.type_definitions import ImageType, VolumeType
+from albumentations.core.type_definitions import VolumeType
 
 from . import functional as fblur
 
@@ -92,7 +93,7 @@ class Blur(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Examples:
         >>> import numpy as np
@@ -156,7 +157,9 @@ class Blur(ImageOnlyTransform):
         super().__init__(p=p)
         self.blur_range = blur_range
 
-    def apply(self, img: ImageType, kernel: int, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel: int, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fblur.box_blur(img, kernel)
 
     def sample_parameters(
@@ -416,7 +419,12 @@ class MotionBlur(Blur):
         self.angle_range = angle_range
         self.direction_range = direction_range
 
-    def apply(self, img: ImageType, kernel: int | np.ndarray, **params: Any) -> ImageType:
+    def apply(
+        self,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+        kernel: int | np.ndarray,
+        **params: Any,
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if isinstance(kernel, int):
             return fblur.box_blur(img, kernel)
         return fpixel.convolve(img, kernel=kernel)
@@ -591,7 +599,9 @@ class MedianBlur(Blur):
     ):
         super().__init__(blur_range=blur_range, p=p)
 
-    def apply(self, img: ImageType, kernel: int, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel: int, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return median_blur(img, kernel)
 
 
@@ -604,8 +614,8 @@ class ModeFilter(ImageOnlyTransform):
     preserves and expands dominant flat regions while suppressing isolated outliers, making
     it well-suited for palette-like, synthetic, or segmentation-style imagery.
 
-    For float32 images the operation is performed in uint8 space (via @uint8_io); quantisation
-    is intentional — mode is meaningless for continuous-valued signals.
+    Float inputs are quantized to uint8 before filtering and restored to their original dtype afterward.
+    This quantization is intentional because mode filtering models discrete-valued signals.
 
     Tie-breaking: when multiple values share the highest frequency, the smallest is chosen
     (deterministic, scipy.stats.mode default). Border pixels use reflect padding.
@@ -620,7 +630,7 @@ class ModeFilter(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -671,7 +681,9 @@ class ModeFilter(ImageOnlyTransform):
         super().__init__(p=p)
         self.kernel_range = kernel_range
 
-    def apply(self, img: ImageType, kernel_size: int, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel_size: int, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fblur.mode_filter(img, kernel_size)
 
     def sample_parameters(
@@ -732,7 +744,7 @@ class GaussianBlur(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -740,7 +752,10 @@ class GaussianBlur(ImageOnlyTransform):
     Note:
         - For uint8 images, `blur_range=(0, 0)` matches Pillow's `GaussianBlur` pixel for
           pixel, including its fixed-point rounding and replicated border handling.
-        - Float32 images use the same extended-box approximation without uint8 quantization.
+        - Float16 and float32 images use the same extended-box approximation without uint8 quantization. Float16 is
+          computed in float32 and rounded to half on output.
+        - NumPy arrays with non-native float16 or float32 byte order use native working storage and return in the
+          original dtype. The input is not modified.
         - Positive `blur_range` values select a discrete Gaussian kernel independently of
           sigma, so some size and sigma combinations can truncate the blur substantially.
         - `volume_mode="3d"` uses `BORDER_REFLECT_101` along all spatial axes. It does not blur
@@ -913,11 +928,11 @@ class GaussianBlur(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         kernel: np.ndarray,
         pillow_mode: bool,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         if pillow_mode:
             return fblur.pillow_gaussian_blur(img, kernel)
         return fpixel.separable_convolve(img, kernel=kernel)
@@ -931,15 +946,17 @@ class GaussianBlur(ImageOnlyTransform):
         **params: Any,
     ) -> VolumeType:
         if self.volume_mode == "slice":
-            return super().apply_to_volume(volume, kernel=kernel, **params)
-        return cast(
-            "VolumeType",
-            gaussian_blur3d(
-                volume,
-                sigma=sigma,
-                kernel_size=kernel_size,
-            ),
-        )
+            return cast(
+                "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+                super().apply_to_volume(volume, kernel=kernel, **params),
+            )
+        if volume.dtype.isnative:
+            return gaussian_blur3d(volume, sigma=sigma, kernel_size=kernel_size)
+        input_dtype = volume.dtype
+        native_volume = cast("VolumeType", np.ascontiguousarray(volume, dtype=input_dtype.newbyteorder("=")))
+        result = gaussian_blur3d(native_volume, sigma=sigma, kernel_size=kernel_size)
+        result.byteswap(inplace=True)
+        return cast("VolumeType", result.view(input_dtype))
 
     def _sample_3d_kernel_size(self, blur_range: tuple[int, int], sampling: SamplingContext) -> int:
         lower_bound, upper_bound = blur_range
@@ -1036,7 +1053,7 @@ class GlassBlur(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Number of channels:
         Any
@@ -1168,10 +1185,10 @@ class GlassBlur(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         dxy: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fblur.glass_blur(
             img,
             self.sigma,
@@ -1463,7 +1480,9 @@ class AdvancedBlur(ImageOnlyTransform):
         self.beta_range = beta_range
         self.noise_range = noise_range
 
-    def apply(self, img: ImageType, kernel: np.ndarray, **params: Any) -> ImageType:
+    def apply(
+        self, img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], kernel: np.ndarray, **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fpixel.convolve(img, kernel=kernel)
 
     def sample_parameters(
@@ -1657,21 +1676,21 @@ class Defocus(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         radius: int,
         alias_blur: float,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fblur.defocus(img, radius, alias_blur)
 
     def apply_to_images(
         self,
-        images: ImageType,
+        images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         radius: int,
         alias_blur: float,
         *args: Any,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         kernel = fblur.create_defocus_kernel(radius, alias_blur)
         return self._apply_to_batch(images, lambda img: fpixel.convolve(img, kernel))
 
@@ -1707,7 +1726,7 @@ class ZoomBlur(ImageOnlyTransform):
         image, images, volume, volumes
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Examples:
         >>> import numpy as np
@@ -1799,13 +1818,15 @@ class ZoomBlur(ImageOnlyTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         zoom_factors: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return fblur.zoom_blur(img, zoom_factors)
 
-    def apply_to_images(self, images: ImageType, **params: Any) -> ImageType:
+    def apply_to_images(
+        self, images: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32], **params: Any
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return self._apply_to_batch_same_shape(images, lambda image: self.apply(image, **params))
 
     def sample_parameters(

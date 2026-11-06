@@ -4,19 +4,31 @@ build-backend = "uv_build"
 
 [project]
 name = "openai-codex"
-version = "0.163.0"
+version = "0.167.0"
 description = "Python SDK for Codex"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
-authors = [{ name = "OpenAI" }]
-keywords = ["codex", "sdk", "llm", "ai", "agents"]
-classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Intended Audience :: Developers",
-  "Topic :: Software Development :: Libraries :: Python Modules",
+keywords = [
+    "codex",
+    "sdk",
+    "llm",
+    "ai",
+    "agents",
 ]
-dependencies = ["pydantic>=2.12", "packaging>=26.2", "openai-codex-cli-bin==0.163.0"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.12",
+    "packaging>=26.2",
+    "openai-codex-cli-bin==0.167.0",
+]
+
+[[project.authors]]
+name = "OpenAI"
 
 [project.urls]
 Homepage = "https://github.com/openai/codex"
@@ -27,14 +39,16 @@ Documentation = "https://github.com/openai/codex/tree/main/sdk/python/docs"
 [dependency-groups]
 format = ["ruff>=0.15.8"]
 test = [
-  "pytest>=8.0",
-  "datamodel-code-generator==0.31.2",
-  { include-group = "format" },
+    "pytest>=8.0",
+    "datamodel-code-generator==0.64.0",
+    { include-group = "format" },
 ]
-dev = [
-  { include-group = "test" },
-  { include-group = "format" },
-]
+
+[[dependency-groups.dev]]
+include-group = "test"
+
+[[dependency-groups.dev]]
+include-group = "format"
 
 [tool.codex.codegen]
 schema-dir = "../../codex-rs/app-server-protocol/schema/json"
@@ -48,12 +62,18 @@ target-version = "py310"
 required-version = ">=0.15.8"
 line-length = 100
 extend-exclude = [
-  "notebooks/**",
-  "src/openai_codex/generated/**",
+    "notebooks/**",
+    "src/openai_codex/generated/**",
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "C4"]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "C4",
+]
 ignore = ["E501"]
 preview = true
 extend-safe-fixes = ["ALL"]
@@ -68,10 +88,14 @@ combine-as-imports = true
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = { openai-codex-cli-bin = "2026-09-09T06:06:45Z" }
 index-strategy = "first-index"
+
+[tool.uv.exclude-newer-package]
+openai-codex-cli-bin = "2026-09-09T06:06:45Z"
 
 [tool.uv.pip]
 exclude-newer = "7 days"
-exclude-newer-package = { openai-codex-cli-bin = "2026-09-09T06:06:45Z" }
 index-strategy = "first-index"
+
+[tool.uv.pip.exclude-newer-package]
+openai-codex-cli-bin = "2026-09-09T06:06:45Z"

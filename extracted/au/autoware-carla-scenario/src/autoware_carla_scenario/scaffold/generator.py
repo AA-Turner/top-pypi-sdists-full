@@ -17,15 +17,27 @@ from __future__ import annotations
 
 import argparse
 import ast
+import errno
 import functools
 import importlib.metadata
-import keyword
-import re
+import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
 from ..templating import code_environment
+from .names import (
+    _FRAMEWORK_DISTRIBUTION,
+    _default_scenario_name,
+    _is_framework_name,
+    _normalise_distribution,
+    _to_hyphen,
+    _to_pascal,
+    _to_snake,
+    _validate_identifier,
+)
 
 
 class ScaffoldResult(NamedTuple):
@@ -41,12 +53,12 @@ class PackageExistsError(FileExistsError):
     """The target directory of :func:`create_scenario_package` already exists.
 
     Its message names the Python API's ``force=True``; :attr:`root` lets a
-    caller with another way to overwrite (``scenario-new --force``) say so.
+    caller with another way to replace it (``scenario-new --force``) say so.
     """
 
     def __init__(self, root: Path) -> None:
         super().__init__(
-            f"Target directory already exists: {root} (pass force=True to overwrite)."
+            f"Target directory already exists: {root} (pass force=True to replace it)."
         )
         #: The package directory that already exists.
         self.root = root
@@ -180,9 +192,6 @@ def _reserved_scenario_names() -> frozenset[str]:
     return frozenset(name for name in reserved if name == name.lower())
 
 
-#: The framework's distribution name, which a scaffolded package depends on.
-_FRAMEWORK_DISTRIBUTION = "autoware-carla-scenario"
-
 #: Import names of the framework's direct run-time dependencies, kept as a
 #: floor under what :func:`_dependency_import_names` reads off the installed
 #: metadata (which is absent when the framework runs from a bare source tree).
@@ -216,11 +225,6 @@ _DEPENDENCY_IMPORT_NAMES: frozenset[str] = frozenset(
         "yaml",  # pyyaml
     }
 )
-
-
-def _normalise_distribution(name: str) -> str:
-    """Return *name* normalised as PEP 503 does (``A_b.c`` -> ``a-b-c``)."""
-    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 @functools.cache
@@ -267,9 +271,7 @@ def _check_package_name(package_name: str) -> None:
     module or a dependency of the framework shadows it (#1451).
     """
     framework_import = _FRAMEWORK_DISTRIBUTION.replace("-", "_")
-    if _normalise_distribution(package_name) == _normalise_distribution(
-        _FRAMEWORK_DISTRIBUTION
-    ):
+    if _is_framework_name(package_name):
         msg = (
             f"package name {package_name!r} is reserved: it is the framework's "
             f"own ({framework_import!r} / {_FRAMEWORK_DISTRIBUTION!r}), so the "
@@ -293,37 +295,8 @@ def _check_package_name(package_name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Name handling
+# Name handling (the naming rules themselves are scaffold.names')
 # ---------------------------------------------------------------------------
-
-
-def _to_snake(raw: str) -> str:
-    """Normalise *raw* to a ``snake_case`` Python identifier fragment."""
-    # Split camelCase / PascalCase boundaries, then unify separators.
-    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", raw)
-    snake = re.sub(r"[\s\-.]+", "_", spaced).strip("_").lower()
-    return re.sub(r"__+", "_", snake)
-
-
-def _to_pascal(snake: str) -> str:
-    """Convert a ``snake_case`` name to ``PascalCase``."""
-    return "".join(part.capitalize() for part in snake.split("_") if part)
-
-
-def _to_hyphen(snake: str) -> str:
-    """Convert a ``snake_case`` name to a ``hyphen-case`` distribution name."""
-    return snake.replace("_", "-")
-
-
-def _validate_identifier(name: str, *, kind: str) -> str:
-    """Return *name* if it is a valid, non-keyword Python identifier, else raise."""
-    if not name:
-        msg = f"{kind} is empty after normalisation; please pass an explicit value."
-        raise ValueError(msg)
-    if not name.isidentifier() or keyword.iskeyword(name):
-        msg = f"{kind} {name!r} is not a valid Python identifier."
-        raise ValueError(msg)
-    return name
 
 
 def resolve_names(
@@ -355,8 +328,7 @@ def resolve_names(
     if scenario_name is None:
         # Default: strip a trailing package-ish suffix so
         # ``my_scenario_package`` yields the scenario ``my_scenario``.
-        stripped = re.sub(r"_(package|pkg|scenarios?)$", "", package_name)
-        scenario = stripped or package_name
+        scenario = _default_scenario_name(package_name)
     else:
         scenario = _to_snake(scenario_name)
     scenario = _validate_identifier(scenario, kind="scenario name")
@@ -429,27 +401,116 @@ def create_scenario_package(
     description:
         Optional package description.
     force:
-        Overwrite existing files if the target directory already exists.
+        Replace the target directory if it already exists.  The whole
+        directory is replaced, as ``authoring.package_export.export_package``
+        replaces its target: nothing under it is kept, neither an earlier
+        scenario's files (which would still be registered through
+        ``register_conf_dir`` but no longer import) nor files added by hand.
 
     Returns
     -------
     ScaffoldResult
         The created package ``root`` and the resolved ``names``.
+
+    Raises
+    ------
+    PackageExistsError
+        *root* exists and *force* is not set.
+    FileExistsError
+        *root* exists and is not a directory (with *force*).
+    OSError
+        The package could not be written.  The package is rendered into a
+        temporary sibling of *root* and moved into place only once complete,
+        so nothing half-written is left behind, and with *force* the earlier
+        package is left as it was.
     """
     names = resolve_names(name, scenario_name, description)
-    root = Path(output_dir) / names["package_name"]
+    root = Path(output_dir).expanduser() / names["package_name"]
 
-    if root.exists() and not force:
-        raise PackageExistsError(root)
+    if _occupied(root):
+        if not force:
+            raise PackageExistsError(root)
+        if not root.is_dir():
+            raise FileExistsError(f"{root} exists and is not a directory.")
 
     env = code_environment(TEMPLATES_DIR)
-    for template_name, out_template in _FILE_MANIFEST.items():
-        out_path = root / out_template.format(**names)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        rendered = env.get_template(template_name).render(**names)
-        out_path.write_text(rendered, encoding="utf-8")
+    root.parent.mkdir(parents=True, exist_ok=True)
+    # Rendered into a *sibling* of the target and moved into place once
+    # complete, as authoring.package_export does: a failure part-way leaves
+    # nothing at *root* (which would make the next run refuse with "already
+    # exists"), and --force replaces the old tree rather than writing over it,
+    # so an earlier scenario's files do not survive next to the new one's.
+    # The package is a directory *inside* the temporary one, made with a plain
+    # mkdir: mkdtemp's own directory is mode 0700, and moving that into place
+    # would make the package unreadable to anyone but its owner.
+    holder = Path(
+        tempfile.mkdtemp(prefix=f".{names['package_name']}.new-", dir=root.parent)
+    )
+    try:
+        staging = holder / names["package_name"]
+        staging.mkdir()
+        for template_name, out_template in _FILE_MANIFEST.items():
+            out_path = staging / out_template.format(**names)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            rendered = env.get_template(template_name).render(**names)
+            out_path.write_text(rendered, encoding="utf-8")
+        _move_into_place(staging, root, force=force)
+    finally:
+        shutil.rmtree(holder, ignore_errors=True)
 
     return ScaffoldResult(root=root, names=names)
+
+
+def _occupied(root: Path) -> bool:
+    """Whether anything, a dangling symlink included, is at *root*."""
+    return root.exists() or root.is_symlink()
+
+
+#: What a rename onto an occupied *root* fails with: a non-empty directory
+#: (``ENOTEMPTY``, or ``EEXIST`` on some systems) or a non-directory.
+_RENAME_ONTO_OCCUPIED = frozenset({errno.EEXIST, errno.ENOTEMPTY, errno.ENOTDIR})
+
+
+def _move_into_place(staging: Path, root: Path, *, force: bool) -> None:
+    """Move the complete package *staging* to *root*.
+
+    Without *force*, whatever appeared at *root* while the package was being
+    rendered is left alone and :class:`PackageExistsError` raised: *root* is
+    checked again just before the move, and the move is a plain rename, which
+    refuses a non-empty directory or a file that appears after that check.
+
+    With *force*, an existing *root* is first renamed aside, beside it, and
+    removed only once *staging* is in place, so a failed move restores it
+    instead of leaving neither package behind.
+    """
+    if not force:
+        if _occupied(root):
+            raise PackageExistsError(root)
+        try:
+            os.rename(staging, root)
+        except OSError as exc:
+            if exc.errno in _RENAME_ONTO_OCCUPIED:
+                raise PackageExistsError(root) from exc
+            raise
+        return
+    if not _occupied(root):
+        os.replace(staging, root)
+        return
+    aside = Path(tempfile.mkdtemp(prefix=f".{root.name}.old-", dir=root.parent))
+    old = aside / root.name
+    try:
+        os.replace(root, old)
+    except BaseException:
+        # The old package was not moved: drop the empty holder and leave it.
+        shutil.rmtree(aside, ignore_errors=True)
+        raise
+    try:
+        os.replace(staging, root)
+    except BaseException:
+        os.replace(old, root)
+        shutil.rmtree(aside, ignore_errors=True)
+        raise
+    shutil.rmtree(aside, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -489,7 +550,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "-f",
         "--force",
         action="store_true",
-        help="Overwrite files if the target directory already exists.",
+        help=(
+            "Replace the target directory if it already exists. The whole "
+            "directory is replaced: files of an earlier scenario and files "
+            "added by hand are not kept."
+        ),
     )
     return parser
 
@@ -501,18 +566,18 @@ def main(argv: list[str] | None = None) -> int:
         root, names = create_scenario_package(
             args.name,
             scenario_name=args.scenario_name,
-            output_dir=args.output_dir,
+            output_dir=Path(args.output_dir).expanduser(),
             description=args.description,
             force=args.force,
         )
     except PackageExistsError as exc:
         print(  # noqa: T201
             f"Error: target directory already exists: {exc.root} "
-            "(use --force to overwrite).",
+            "(use --force to replace it).",
             file=sys.stderr,
         )
         return 1
-    except (ValueError, FileExistsError) as exc:
+    except (ValueError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
         return 1
 

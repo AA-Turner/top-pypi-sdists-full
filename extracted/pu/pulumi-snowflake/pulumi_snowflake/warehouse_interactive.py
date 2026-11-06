@@ -46,7 +46,7 @@ class WarehouseInteractiveArgs:
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the interactive warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the interactive warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the interactive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
@@ -182,7 +182,7 @@ class WarehouseInteractiveArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -284,7 +284,7 @@ class _WarehouseInteractiveState:
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the interactive warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the interactive warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input['WarehouseInteractiveParameterArgs']]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given interactive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the interactive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[Sequence[pulumi.Input['WarehouseInteractiveShowOutputArgs']]] show_outputs: Outputs the result of `SHOW WAREHOUSES` for the given interactive warehouse.
@@ -443,7 +443,7 @@ class _WarehouseInteractiveState:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -635,7 +635,7 @@ class WarehouseInteractive(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the interactive warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the interactive warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the interactive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
         :param pulumi.Input[_builtins.int] statement_timeout_in_seconds: Amount of time, in seconds, after which a running SQL statement (query, DDL, DML, etc.) is canceled by the system. For more information, check [STATEMENT*TIMEOUT*IN_SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-timeout-in-seconds).
@@ -804,7 +804,7 @@ class WarehouseInteractive(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] max_cluster_count: Specifies the maximum number of server clusters for the interactive warehouse.
         :param pulumi.Input[_builtins.int] max_concurrency_level: Specifies the concurrency level for SQL statements (that is, queries and DML) executed by a warehouse. For more information, check [MAX*CONCURRENCY*LEVEL docs](https://docs.snowflake.com/en/sql-reference/parameters#max-concurrency-level).
         :param pulumi.Input[_builtins.int] min_cluster_count: Specifies the minimum number of server clusters for the interactive warehouse (only applies to multi-cluster warehouses).
-        :param pulumi.Input[_builtins.str] name: Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WarehouseInteractiveParameterArgs', 'WarehouseInteractiveParameterArgsDict', 'outputs.WarehouseInteractiveParameter']]]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given interactive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the interactive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WarehouseInteractiveShowOutputArgs', 'WarehouseInteractiveShowOutputArgsDict', 'outputs.WarehouseInteractiveShowOutput']]]] show_outputs: Outputs the result of `SHOW WAREHOUSES` for the given interactive warehouse.
@@ -837,6 +837,48 @@ class WarehouseInteractive(pulumi.CustomResource):
         __props__.__dict__["warehouse_size"] = warehouse_size
         __props__.__dict__["warehouse_type"] = warehouse_type
         return WarehouseInteractive(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            auto_resume: pulumi.Input[Optional[_builtins.str]] = None,
+            auto_suspend: pulumi.Input[Optional[_builtins.int]] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            fallback_warehouse: pulumi.Input[Optional[_builtins.str]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            initially_suspended: pulumi.Input[Optional[_builtins.bool]] = None,
+            max_cluster_count: pulumi.Input[Optional[_builtins.int]] = None,
+            max_concurrency_level: pulumi.Input[Optional[_builtins.int]] = None,
+            min_cluster_count: pulumi.Input[Optional[_builtins.int]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parameters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseInteractiveParameterArgs', 'WarehouseInteractiveParameterArgsDict', 'outputs.WarehouseInteractiveParameter']]]]] = None,
+            resource_monitor: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseInteractiveShowOutputArgs', 'WarehouseInteractiveShowOutputArgsDict', 'outputs.WarehouseInteractiveShowOutput']]]]] = None,
+            statement_queued_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            statement_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            tables: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            warehouse_size: pulumi.Input[Optional[_builtins.str]] = None,
+            warehouse_type: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["autoResume"] = auto_resume
+        __props__["autoSuspend"] = auto_suspend
+        __props__["comment"] = comment
+        __props__["fallbackWarehouse"] = fallback_warehouse
+        __props__["fullyQualifiedName"] = fully_qualified_name
+        __props__["initiallySuspended"] = initially_suspended
+        __props__["maxClusterCount"] = max_cluster_count
+        __props__["maxConcurrencyLevel"] = max_concurrency_level
+        __props__["minClusterCount"] = min_cluster_count
+        __props__["name"] = name
+        __props__["parameters"] = parameters
+        __props__["resourceMonitor"] = resource_monitor
+        __props__["showOutputs"] = show_outputs
+        __props__["statementQueuedTimeoutInSeconds"] = statement_queued_timeout_in_seconds
+        __props__["statementTimeoutInSeconds"] = statement_timeout_in_seconds
+        __props__["tables"] = tables
+        __props__["warehouseSize"] = warehouse_size
+        __props__["warehouseType"] = warehouse_type
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/warehouseInteractive:WarehouseInteractive', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="autoResume")
@@ -914,7 +956,7 @@ class WarehouseInteractive(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier for the interactive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse interactive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 

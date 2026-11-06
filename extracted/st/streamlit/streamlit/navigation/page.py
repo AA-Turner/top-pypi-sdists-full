@@ -31,7 +31,7 @@ from streamlit.path_security import is_windows_unc_path
 from streamlit.runtime.metrics_util import gather_metrics
 from streamlit.runtime.scriptrunner_utils.script_run_context import get_script_run_ctx
 from streamlit.source_util import page_icon_and_name
-from streamlit.string_util import validate_icon_or_emoji
+from streamlit.string_util import to_help_str, validate_icon_or_emoji
 from streamlit.url_util import is_url
 from streamlit.util import calc_hash
 
@@ -86,6 +86,14 @@ def _raise_if_nested_url_path(url_path: str) -> None:
             "see GitHub issue [#8971](https://github.com/streamlit/streamlit/issues/8971).",
             error_id="page-nested-url-path",
         )
+
+
+def _normalize_page_help(help: str | None) -> str:
+    """Return ``help`` dedented, or ``""`` when it is ``None`` or only whitespace."""
+    if help is None:
+        return ""
+    dedented = to_help_str(help)
+    return dedented if dedented.strip() else ""
 
 
 if TYPE_CHECKING:
@@ -181,11 +189,16 @@ class Page:
         see `Overview of multipage apps
         <https://docs.streamlit.io/st.page.automatic-page-urls>`_.
 
+        Each page's URL pathname must be unique among all pages passed to
+        ``st.navigation``, including pages in different sections, hidden
+        pages, and external URL pages.
+
         The default page will have a pathname of ``""``, indicating the root
-        URL of the app. If you set ``default=True``, ``url_path`` is ignored.
-        ``url_path`` can't include forward slashes because Streamlit doesn't
-        support nested URL pathnames yet. To upvote support for nested
-        pathnames, see GitHub issue
+        URL of the app. If you set ``default=True``, the page is served at the
+        root URL instead of ``url_path``, but its ``url_path`` or inferred
+        pathname must still be unique. ``url_path`` can't include forward
+        slashes because Streamlit doesn't support nested URL pathnames yet.
+        To upvote support for nested pathnames, see GitHub issue
         `#8971 <https://github.com/streamlit/streamlit/issues/8971>`_.
 
     default : bool
@@ -193,8 +206,10 @@ class Page:
         loaded. If ``default`` is ``False`` (default), the page will have a
         nonempty URL pathname. However, if no default page is passed to
         ``st.navigation`` and this is the first page, this page will become the
-        default page. If ``default`` is ``True``, then the page will have
-        an empty pathname and ``url_path`` will be ignored.
+        default page. If ``default`` is ``True``, Streamlit serves the page at
+        the app's root URL, so its public pathname is ``""``. The ``url_path``
+        you pass, or the inferred pathname if you omit it, must still be
+        unique.
 
     visibility : "visible" or "hidden"
         Whether the page is shown in the navigation menu. If this is
@@ -212,8 +227,36 @@ class Page:
            ``st.navigation`` during the new session's initial script
            run. The page can be visible or hidden.
 
+    help : str or None
+        A short summary of the page, shown as a tooltip on the page's item in
+        the navigation menu. If this is ``None`` (default), no tooltip is
+        displayed.
+
+        Write it to help users and agents find the right page without
+        opening it. In one to three short sentences (about 200 characters),
+        say what the page shows, what users can do there, and what sets it
+        apart from similar pages. Describe the page itself, not its current
+        values or step-by-step instructions.
+
+        Streamlit shows the summary as soon as the page is passed to
+        ``st.navigation``, before the page runs. It's also the default
+        tooltip of ``st.page_link`` for this page. The agent API (see
+        ``server.enableAgentApi``) reports it as the page's ``help`` in its
+        snapshot, except for external-URL pages, which the snapshot doesn't
+        list. It isn't shown on the page and doesn't set the meta
+        description.
+
+        The summary can optionally contain GitHub-flavored Markdown,
+        including the Markdown directives described in the ``body``
+        parameter of ``st.markdown``.
+
     Attributes
     ----------
+    help : str
+        The help text of the page, as Markdown.
+
+        If no help was declared in ``st.Page``, this property returns ``""``.
+
     icon : str
         The icon of the page.
 
@@ -269,7 +312,15 @@ class Page:
             st.title("Second page")
 
         pg = st.navigation([
-            st.Page("page1.py", title="First page", icon="🔥"),
+            st.Page(
+                "page1.py",
+                title="First page",
+                icon="🔥",
+                help=(
+                    "Quarterly sales by region and product line. "
+                    "Filter by region and download the table as CSV."
+                ),
+            ),
             st.Page(page2, title="Second page", icon=":material/favorite:"),
             st.Page(
                 "https://docs.streamlit.io",
@@ -290,6 +341,7 @@ class Page:
         url_path: str | None = None,
         default: bool = False,
         visibility: Literal["visible", "hidden"] = "visible",
+        help: str | None = None,
     ) -> None:
         # Must appear before the return so all pages, even if running in bare Python,
         # have a _default property. This way we can always tell which script needs to run.
@@ -300,6 +352,7 @@ class Page:
         if visibility not in {"visible", "hidden"}:
             raise StreamlitValueError("visibility", ["visible", "hidden"])
         self._visibility: Literal["visible", "hidden"] = visibility
+        self._help: str = _normalize_page_help(help)
 
         ctx = get_script_run_ctx()
         if not ctx:
@@ -428,6 +481,16 @@ class Page:
         If no icon was declared in ``st.Page``, this property returns ``""``.
         """
         return self._icon
+
+    @property
+    def help(self) -> str:
+        """The page's summary from ``help``, as Markdown.
+
+        This is the tooltip on the page's item in the navigation menu and the
+        default tooltip of ``st.page_link`` for this page. If no help was
+        declared in ``st.Page``, this property returns ``""``.
+        """
+        return self._help
 
     @property
     def url_path(self) -> str:

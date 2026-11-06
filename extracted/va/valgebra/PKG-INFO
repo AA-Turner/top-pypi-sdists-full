@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: valgebra
-Version: 0.0.22
+Version: 0.0.23
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -21,7 +20,7 @@ License-File: LICENSE-APACHE
 Summary: Fast runtime validation via a closed Boolean algebra of schemas on a compiled Rust core.
 Keywords: validation,schema,typing,rust
 License-Expression: MIT OR Apache-2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/ppigazzini/valgebra/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://ppigazzini.github.io/valgebra/
@@ -369,7 +368,7 @@ apples-to-apples and is gated against regression in CI; see the
 ## Install
 
 valgebra ships prebuilt wheels to PyPI, so installing it needs no Rust toolchain
-(Python ≥ 3.10):
+(Python ≥ 3.11):
 
 ```bash
 pip install valgebra

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from .errors import SchemaError
 
 
-def _dataset_name_parts(value: object) -> tuple[str, str, tuple[str, ...], str]:
+def _dataset_name_parts(value: object) -> tuple[str, str, str, tuple[str, ...], str]:
     if not isinstance(value, str):
         raise SchemaError(f"dataset must be a string, got {type(value).__name__}")
     segments = tuple(value.split("/"))
@@ -34,17 +34,20 @@ def _dataset_name_parts(value: object) -> tuple[str, str, tuple[str, ...], str]:
         or any(unicodedata.category(char) == "Cc" for char in segment)
         for segment in segments
     )
-    if len(segments) not in (1, 2) or invalid_segment:
+    if not segments or invalid_segment:
         raise SchemaError(
-            f"dataset must contain one or two canonical segments, got {value!r}")
+            f"dataset must contain one or more canonical segments, got {value!r}")
     l1 = segments[0]
-    l2 = segments[1] if len(segments) == 2 else ""
-    return l1, l2, segments, segments[-1]
+    # 多段名（3+ 段）里 l2 是 l1 之下的完整后缀路径（含 "/"），保持
+    # "l2 为空 ⇔ 根(L1)" 的不变量与 {l1,l2} 家族索引语义不变。
+    l2 = "/".join(segments[1:])
+    namespace = "/".join(segments[:-1])
+    return l1, l2, namespace, segments, segments[-1]
 
 
 @dataclass(frozen=True)
 class DatasetName:
-    """Canonical one- or two-segment dataset name.
+    """Canonical dataset name: one segment (L1) or more (L1/L2/...).
 
     Direct construction is supported only when every derived field matches
     ``canonical``; otherwise construction raises :class:`SchemaError`.
@@ -53,24 +56,26 @@ class DatasetName:
     canonical: str
     l1: str
     l2: str
+    namespace: str
     segments: tuple[str, ...]
     leaf: str
 
     def __post_init__(self) -> None:
         expected = _dataset_name_parts(self.canonical)
-        actual = (self.l1, self.l2, self.segments, self.leaf)
+        actual = (self.l1, self.l2, self.namespace, self.segments, self.leaf)
         if actual != expected:
             raise SchemaError(
                 "DatasetName fields must match canonical: expected "
-                f"(l1, l2, segments, leaf)={expected!r}, got {actual!r}")
+                f"(l1, l2, namespace, segments, leaf)={expected!r}, got {actual!r}")
 
     @classmethod
     def parse(cls, value: str) -> DatasetName:
-        l1, l2, segments, leaf = _dataset_name_parts(value)
+        l1, l2, namespace, segments, leaf = _dataset_name_parts(value)
         return cls(
             canonical=value,
             l1=l1,
             l2=l2,
+            namespace=namespace,
             segments=segments,
             leaf=leaf,
         )
@@ -82,7 +87,11 @@ class DatasetName:
 
 
 def split_dataset(dataset: str) -> tuple[str, str]:
-    """Return ``(L1, L2)``; single-segment datasets use an empty L2."""
+    """Return ``(L1, L2)``; single-segment datasets use an empty L2.
+
+    For multi-level names (3+ segments) ``L2`` is the full suffix path under
+    ``L1`` (segments joined by ``/``), e.g. ``"A/B/C"`` → ``("A", "B/C")``.
+    """
     name = DatasetName.parse(dataset)
     return name.l1, name.l2
 

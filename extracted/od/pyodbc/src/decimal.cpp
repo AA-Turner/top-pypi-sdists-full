@@ -109,10 +109,9 @@ bool SetDecimalPoint(PyObject* pNew)
     return true;
 }
 
-
-PyObject* DecimalFromText(const TextEnc& enc, const byte* pb, Py_ssize_t cb)
+static PyObject* DecimalFromUnicode(PyObject* text)
 {
-    // Creates a Decimal object from a text buffer.
+    // Creates a Decimal object from a Unicode string.
 
     // The Decimal constructor requires the decimal point to be '.', so we need to convert the
     // locale's decimal to it.  We also need to remove non-decimal characters such as thousands
@@ -121,21 +120,82 @@ PyObject* DecimalFromText(const TextEnc& enc, const byte* pb, Py_ssize_t cb)
     // Remember that the thousands separate will often be '.', so have to do this carefully.
     // We'll create a regular expression with 0-9 and whatever the thousands separator is.
 
-    Object text(TextBufferToObject(enc, pb, cb));
-    if (!text)
-        return 0;
-
-    Object cleaned(PyObject_CallMethod(pRegExpRemove, "sub", "sO", "", text.Get()));
+    Object cleaned(PyObject_CallMethod(pRegExpRemove, "sub", "sO", "", text));
     if (!cleaned)
         return 0;
 
     if (pLocaleDecimalEscaped)
     {
-        Object c2(PyObject_CallFunctionObjArgs(re_sub, pLocaleDecimalEscaped, pDecimalPoint, 0));
+        Object c2(PyObject_CallFunctionObjArgs(re_sub, pLocaleDecimalEscaped, pDecimalPoint, cleaned.Get(), 0));
         if (!c2)
             return 0;
         cleaned.Attach(c2.Detach());
     }
 
     return PyObject_CallFunctionObjArgs(decimal, cleaned.Get(), 0);
+}
+
+PyObject* DecimalFromText(const TextEnc& enc, const byte* pb, Py_ssize_t cb)
+{
+    // Creates a Decimal object from a text buffer.
+
+    Object text(TextBufferToObject(enc, pb, cb));
+    if (!text)
+        return 0;
+
+    return DecimalFromUnicode(text.Get());
+}
+
+PyObject* DecimalFromAsciiText(const char* pch, Py_ssize_t cch)
+{
+    // Creates a Decimal object from text a driver wrote as SQL_C_CHAR, cleaned the same way as
+    // DecimalFromText.
+
+    Object text(PyUnicode_DecodeASCII(pch, cch, "strict"));
+    if (!text)
+        return 0;
+
+    return DecimalFromUnicode(text.Get());
+}
+
+PyObject* DecimalFromNumericStruct(const SQL_NUMERIC_STRUCT& num)
+{
+    // Avoid the problems introduced by locale-specific delimiters in numeric strings
+    // by having the driver provide the value using a well-defined binary structure.
+
+    // Convert the little-endian (1) unsigned (0) magnitude to a Python int.
+    PyObject* magnitude = _PyLong_FromByteArray(num.val, SQL_MAX_NUMERIC_LEN, 1, 0);
+    if (!magnitude)
+        return NULL;
+
+    // Convert magnitude to a tuple of decimal digits via str().
+    Object magStr(PyObject_Str(magnitude));
+    Py_DECREF(magnitude);
+    if (!magStr)
+        return NULL;
+
+    Py_ssize_t nDigits = PyUnicode_GET_LENGTH(magStr.Get());
+    Object digitTuple(PyTuple_New(nDigits));
+    if (!digitTuple)
+        return NULL;
+
+    for (Py_ssize_t i = 0; i < nDigits; i++)
+    {
+        Py_UCS4 ch = PyUnicode_READ_CHAR(magStr.Get(), i);
+        PyObject* digit = PyLong_FromLong((long)(ch - '0'));
+        if (!digit)
+            return NULL;
+        PyTuple_SET_ITEM(digitTuple.Get(), i, digit);
+    }
+
+    // Decimal sign: 0 = positive, 1 = negative (opposite of ODBC convention).
+    int decimalSign = (num.sign == 1) ? 0 : 1;
+    long exponent = -(long)num.scale;
+
+    // Decimal((sign, (d, d, ...), exponent))
+    Object args(Py_BuildValue("((iOl))", decimalSign, digitTuple.Get(), exponent));
+    if (!args)
+        return NULL;
+
+    return PyObject_CallObject(decimal, args.Get());
 }

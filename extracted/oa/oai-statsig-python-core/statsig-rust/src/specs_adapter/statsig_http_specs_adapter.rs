@@ -202,7 +202,7 @@ impl StatsigHttpSpecsAdapter {
                 .is_some_and(|flags| flags.contains(ENABLE_DCS_ZSTD_DATASTORE_FLAG));
 
         let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
-        let ops_stats = OPS_STATS.get_for_instance(sdk_instance_id);
+        let ops_stats = OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options_ref));
         let network = Arc::new(NetworkClient::new(
             sdk_key,
             Some(headers),
@@ -435,8 +435,10 @@ impl StatsigHttpSpecsAdapter {
                     None => SpecsInfo::error(),
                 };
 
-                self.ops_stats
-                    .set_diagnostics_context(ContextType::ConfigSync);
+                if !self.ops_stats.remote_telemetry_disabled() {
+                    self.ops_stats
+                        .set_diagnostics_context(ContextType::ConfigSync);
+                }
                 if let Err(e) = self
                     .manually_sync_specs(specs_info, SpecsSyncTrigger::Background)
                     .await
@@ -446,10 +448,12 @@ impl StatsigHttpSpecsAdapter {
                     }
                     log_e!(TAG, "Background specs sync failed: {}", e);
                 }
-                self.ops_stats.enqueue_diagnostics_event(
-                    Some(KeyType::DownloadConfigSpecs),
-                    Some(ContextType::ConfigSync),
-                );
+                if !self.ops_stats.remote_telemetry_disabled() {
+                    self.ops_stats.enqueue_diagnostics_event(
+                        Some(KeyType::DownloadConfigSpecs),
+                        Some(ContextType::ConfigSync),
+                    );
+                }
             })
             .await
     }
@@ -605,14 +609,16 @@ impl StatsigHttpSpecsAdapter {
                     has_updates: None,
                 };
 
-                self.ops_stats.add_marker(
-                    Marker::new(
-                        KeyType::DownloadConfigSpecs,
-                        ActionType::Start,
-                        Some(StepType::Process),
-                    ),
-                    None,
-                );
+                if !self.ops_stats.remote_telemetry_disabled() {
+                    self.ops_stats.add_marker(
+                        Marker::new(
+                            KeyType::DownloadConfigSpecs,
+                            ActionType::Start,
+                            Some(StepType::Process),
+                        ),
+                        None,
+                    );
+                }
 
                 let listener = match self
                     .listener
@@ -684,15 +690,17 @@ impl StatsigHttpSpecsAdapter {
                     }
                 }
 
-                self.ops_stats.add_marker(
-                    Marker::new(
-                        KeyType::DownloadConfigSpecs,
-                        ActionType::End,
-                        Some(StepType::Process),
-                    )
-                    .with_is_success(result.is_ok()),
-                    None,
-                );
+                if !self.ops_stats.remote_telemetry_disabled() {
+                    self.ops_stats.add_marker(
+                        Marker::new(
+                            KeyType::DownloadConfigSpecs,
+                            ActionType::End,
+                            Some(StepType::Process),
+                        )
+                        .with_is_success(result.is_ok()),
+                        None,
+                    );
+                }
 
                 result
             })

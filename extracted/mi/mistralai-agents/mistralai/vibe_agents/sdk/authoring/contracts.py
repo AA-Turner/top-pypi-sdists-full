@@ -147,10 +147,12 @@ def split_skills(
 
 @dataclass(frozen=True, slots=True)
 class CallbackSession:
-    """Session identity available while a Unified Harness Hook runs."""
+    """The session a callback runs in: its ID and the turn's."""
 
     id: str
+    """The session's ID."""
     turn_id: str
+    """The ID of the turn the callback runs in."""
 
     def __str__(self) -> str:
         return self.id
@@ -192,12 +194,15 @@ class SandboxExecutionResult:
     """Output of a command run in the current session sandbox."""
 
     exit_code: int
+    """The command's exit code: ``0`` on success."""
     stdout: str
+    """What the command wrote to standard output."""
     stderr: str
+    """What the command wrote to standard error."""
 
 
 class HookSandbox:
-    """Session sandbox operations available to an authored Hook."""
+    """The session's sandbox, as a hook or tool gets it in ``ctx.sandbox``."""
 
     def __init__(self) -> None:
         self._port: _HookSandboxPort | None = None
@@ -230,7 +235,7 @@ class HookSandbox:
         timeout_seconds: int | None = None,
         env: Mapping[str, str] | None = None,
     ) -> SandboxExecutionResult:
-        """Run a command in the session sandbox at most once."""
+        """Run a command in the session's sandbox, at most once, and return its exit code and output."""
 
         result = await self._execute(
             WorkflowSandboxExecuteRequest(
@@ -249,7 +254,7 @@ class HookSandbox:
         return await self._require_port().execute(request)
 
     async def read_file(self, path: str, *, max_bytes: int = 1024 * 1024) -> bytes:
-        """Read a whole file from the session sandbox.
+        """Read a whole file from the session's sandbox.
 
         A relative ``path`` is resolved against the sandbox workspace. A file larger than
         ``max_bytes`` is never cut: every sandbox raises an error instead. A missing file raises
@@ -267,10 +272,11 @@ class HookSandbox:
     async def write_file(self, name: str, content: bytes) -> str:
         """Write ``content`` to a file outside the workspace and return its path in the sandbox.
 
-        ``name`` is a relative path under the folder the sandbox keeps for Hook files. Writing the
-        same ``name`` again replaces the file. Raise ``ValueError`` if ``name`` is absolute or
-        leaves that folder. A served sandbox hook runs in Workflow code, where ``content`` must be
-        UTF-8 text and the JSON-encoded request, path included, must fit in 1 MiB.
+        ``name`` is a relative path under the folder the sandbox keeps for hook files. Writing the
+        same ``name`` again replaces the file. An absolute ``name``, or one that leaves that folder,
+        raises ``ValueError``. In a sandbox hook of an agent that ``agents serve`` or ``agents
+        deploy`` runs, ``content`` must be UTF-8 text and the request, path included, must fit in
+        1 MiB of JSON.
         """
 
         port = self._require_port()
@@ -304,9 +310,9 @@ class HookSandbox:
 
 
 class CallbackContext:
-    """What a callback gets as `ctx`: the Session it runs in and the Session sandbox.
+    """What a callback gets as `ctx`: the session it runs in and the session's sandbox.
 
-    The shared base: a Hook method gets a ``HookCallbackContext``, and a tool a ``ToolCallbackContext``.
+    The shared base: a hook method gets a ``HookCallbackContext``, and a tool a ``ToolCallbackContext``.
     """
 
     def __init__(
@@ -323,15 +329,30 @@ class CallbackContext:
 
     @property
     def session(self) -> CallbackSession:
+        """The session the callback runs in."""
         return self._session
 
     @property
     def sandbox(self) -> HookSandbox:
+        """The session's sandbox, to run commands and read and write files.
+
+        ``await ctx.sandbox.execute(command, cwd=None, timeout_seconds=None, env=None)`` runs a command
+        once and returns a :class:`SandboxExecutionResult`.
+        ``await ctx.sandbox.read_file(path, max_bytes=1048576)`` returns a file's bytes. A relative
+        ``path`` is under the workspace. A file larger than ``max_bytes`` raises an error, and a
+        missing one raises ``FileNotFoundError``.
+        ``await ctx.sandbox.write_file(name, content)`` writes bytes to a file in a folder the
+        sandbox keeps for hook files, outside the workspace, and returns its path. An absolute
+        ``name``, or one that leaves that folder, raises ``ValueError``. In a sandbox hook of an agent
+        that ``agents serve`` or ``agents deploy`` runs, ``content`` must be UTF-8 text and the
+        request, path included, must fit in 1 MiB of JSON.
+        Each method raises ``RuntimeError`` when the session has no sandbox that runs commands.
+        """
         return self._sandbox
 
 
 class HookCallbackContext(CallbackContext):
-    """What a Hook method gets as `ctx`: the Session it runs in and the Session sandbox."""
+    """What a hook method gets as `ctx`: the session it runs in and the session's sandbox."""
 
 
 # The ids of the context a direct call of a tool gets when it passes none.
@@ -339,11 +360,12 @@ _LOCAL = "local"
 
 
 class ToolCallbackContext(CallbackContext):
-    """What a tool gets as its first, positional-only parameter: the Session, its sandbox and the call.
+    """What a tool gets as its first, positional-only parameter: the session, its sandbox and the call.
 
     A tool takes it by type, under any name: ``def search(ctx: agents.ToolCallbackContext, /, query: str)``.
     The model never sees it. A direct call can pass ``ToolCallbackContext.local()``, or leave it out to
-    get that local context.
+    get that local context. A client tool's answer gets it too, with no sandbox, so the methods of
+    ``ctx.sandbox`` raise ``RuntimeError``.
     """
 
     def __init__(self, session: CallbackSession, sandbox: HookSandbox | None = None, *, tool_call_id: str) -> None:
@@ -352,12 +374,12 @@ class ToolCallbackContext(CallbackContext):
 
     @property
     def tool_call_id(self) -> str:
-        """The id of the model's call to the tool, as in the Session's tool call entry."""
+        """The ID of the model's call to the tool, as in the session's tool call entry."""
         return self._tool_call_id
 
     @classmethod
     def local(cls) -> "ToolCallbackContext":
-        """A context for a call outside any Session: every id is ``"local"`` and the sandbox is unbound."""
+        """A context for a call outside any session: every ID is ``"local"`` and the sandbox is unbound."""
         return cls(CallbackSession(id=_LOCAL, turn_id=_LOCAL), tool_call_id=_LOCAL)
 
 
@@ -368,8 +390,11 @@ class LocalSkillFile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     path: str = Field(min_length=1)
+    """The file's path in the skill folder, such as ``SKILL.md`` or ``scripts/run.sh``."""
     content_base64: str
+    """The file's bytes, base64-encoded."""
     executable: bool = False
+    """Whether the file is written executable, as a script is."""
 
     @field_validator("content_base64")
     @classmethod
@@ -397,10 +422,15 @@ class LocalSkillBundle(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     files: list[LocalSkillFile] = Field(default_factory=list)
+    """The skill's files, its ``SKILL.md`` among them."""
 
     @classmethod
     def from_directory(cls, path: str | Path) -> Self:
-        """Bundle a skill directory: its SKILL.md and every asset beside it."""
+        """Bundle a skill directory: its SKILL.md and every asset beside it.
+
+        Args:
+            path: The skill folder, which holds a ``SKILL.md``.
+        """
 
         root = Path(path)
         if not (root / SKILL_ENTRY_FILE).is_file():
@@ -425,14 +455,17 @@ type HarnessSkill = LocalSkillBundle | RegistrySkill
 
 
 class SerializedUnifiedObject(BaseModel):
-    """Type-tagged JSON state for Unified Harness SDK extension points."""
+    """The saved form of a hook or sandbox: its type, and the JSON data it keeps across turns."""
 
     # The outermost model being validated decides whether an error prints its input. Restored state
     # can carry a secret origin whose `ref` is a secret pasted by mistake, so this one must hide it.
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
     type: str
+    """The type that rebuilds the value, as ``module:QualifiedName``."""
     state: dict[str, JsonValue]
+    """The value's saved data: a hook's fields, or what a sandbox hook's
+    ``SandboxHook.to_unified_state()`` returns."""
     # A Sandbox's network and header binding travel beside its type-owned state, so no sandbox type,
     # built-in or custom, has to serialize them itself.
     sandbox_policy: SandboxPolicy | None = None
@@ -461,7 +494,11 @@ class UnifiedSerializable:
 
     @classmethod
     def from_unified_state(cls, state: dict[str, JsonValue]) -> Self:
-        """Rebuild a value from state emitted by ``to_unified_state``."""
+        """Rebuild a value from state emitted by ``to_unified_state``.
+
+        Args:
+            state: The state that ``to_unified_state()`` returned.
+        """
 
         if state:
             raise TypeError(f"{cls.__name__} must override from_unified_state for non-empty state")
@@ -572,10 +609,23 @@ def _same_attribute(authored: object, rebuilt: object) -> bool:
 class Hook(stateful.StatefulModel):
     """Code that runs at points of the agent loop: before and after each turn, model call and tool call.
 
-    Override the points you need; returning ``None`` continues unchanged. A Hook is a Pydantic
-    model. Its fields are its state: the Session keeps their values and every call starts from the
-    values the last successful call left. Anything else the Hook holds, such as a client, is a
-    ``PrivateAttr``, which is never saved.
+    Override the points you need; returning ``None`` continues unchanged. A hook is a Pydantic
+    model. Its fields are its state: the session keeps their values and every call starts from the
+    values the last successful call left. Anything else the hook holds, such as a client, is a
+    ``PrivateAttr``, which is never saved. ``__init__`` runs only when you build the hook: each call
+    starts from a copy.
+
+    A saved value records its class, and the SDK finds the class again among the modules already
+    loaded. Loading a value never imports a module. Define every hook class, and the class of every
+    hook kept in a field, at module level, in a module your agent's module imports. Otherwise,
+    creating a session fails. Keep hooks held in a field in a list or a tuple. A set raises
+    ``SdkError``.
+
+    A field with an alias, such as ``max_calls: int = Field(0, alias="maxCalls")``, takes its name
+    when you build the hook, ``Budget(max_calls=5)``, and its alias in the saved value. To build the
+    hook by alias too, set ``validate_by_alias=True`` in ``model_config``. Pydantic's own
+    ``model_validate`` reads a hook by field name, so it does not load the saved value of a hook
+    with an aliased field.
     """
 
     _tools: tuple[HarnessTool, ...] = PrivateAttr(default=())
@@ -623,6 +673,7 @@ class Hook(stateful.StatefulModel):
 
     @property
     def tools(self) -> Sequence[HarnessTool]:
+        """The tools that the hook adds to the agent's tools."""
         return tuple(self._tools)
 
     async def pre_agent_turn(
@@ -635,6 +686,10 @@ class Hook(stateful.StatefulModel):
         Return ``hook.PreAgentTurnHookContinue`` to send other content, such as
         ``[*request.user_content, agents.TextContentBlock(text="...")]``, or ``agents.skip`` or
         ``hook.PreAgentTurnHookSkip`` to skip the turn.
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            request: The turn about to run.
         """
         return PreAgentTurnHookContinue(user_content=request.user_content)
 
@@ -647,6 +702,10 @@ class Hook(stateful.StatefulModel):
 
         Return ``hook.PostAgentTurnHookAccept()`` to keep the answer, or replace its content with
         ``acceptance=hook.ReplaceAssistantContent(content=[agents.TextContentBlock(text="...")])``.
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            result: The turn that ran, with the model's final answer.
         """
         return PostAgentTurnHookAccept()
 
@@ -655,7 +714,13 @@ class Hook(stateful.StatefulModel):
         ctx: HookCallbackContext,
         invocation: hooks.PreLlmCall,
     ) -> PreLlmCallHookContinue | PreLlmCallHookSkip | hooks.HookDecision | None:
-        """Runs before each model call. Return ``agents.skip`` or ``hook.PreLlmCallHookSkip`` to skip the call."""
+        """Runs before each model call. Return ``agents.skip`` or ``hook.PreLlmCallHookSkip`` to end the turn
+        without calling the model (``stop_reason="skipped"``).
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            invocation: The model call about to run.
+        """
         return PreLlmCallHookContinue()
 
     async def post_llm_call(
@@ -669,6 +734,10 @@ class Hook(stateful.StatefulModel):
         Return ``hook.PostLlmCallHookAccept`` to keep the response or replace its content, as
         ``hook.PostAgentTurnHookAccept`` does, ``agents.retry`` to call the model again with feedback, or
         ``agents.reject`` to end the turn.
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            invocation: The model call that ran, with its response.
         """
         return PostLlmCallHookAccept()
 
@@ -681,6 +750,11 @@ class Hook(stateful.StatefulModel):
 
         Return ``hook.PreToolCallHookContinue`` to run the tool with other ``effective_arguments``, or
         ``agents.skip`` or ``hook.PreToolCallHookSkip`` to skip the call: the model sees the reason instead.
+        The history's tool call entry shows the arguments the hook set; a skipped call keeps the model's.
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            call: The tool call about to run.
         """
         return PreToolCallHookContinue(effective_arguments=call.arguments)
 
@@ -693,6 +767,10 @@ class Hook(stateful.StatefulModel):
 
         Return ``hook.PostToolCallHookContinue`` with another ``tool_result`` to change what the model gets,
         such as ``agents.ToolResult(content=[agents.TextContentBlock(text="...")])``.
+
+        Args:
+            ctx: The session the hook runs in and its sandbox.
+            result: The tool call that ran, with its result.
         """
         return hooks.PostToolCallHookContinue(tool_result=result.tool_result)
 
@@ -737,17 +815,21 @@ class SandboxCallbackContext:
 
     @property
     def sandbox(self) -> HookSandbox:
+        """The sandbox, to run commands and read and write files in it."""
         return self._sandbox
 
 
 class SandboxHook(UnifiedSerializable):
-    """Observe a Unified Harness sandbox's create and destroy lifecycle.
+    """Code that runs when the sandbox is created and when the session closes.
 
-    ``on_create`` and ``on_destroy`` may declare Session inputs with
+    ``on_create`` and ``on_destroy`` may declare session inputs with
     ``Annotated[T, agents.Depends()]`` parameters, like tools and hooks.
 
-    The arguments a subclass is constructed with are recorded, so a worker rebuilds the sandbox
-    hook with the same arguments. They must be JSON values. A subclass that writes its own
+    On a deployed agent, ``on_create`` and ``on_destroy`` run in the agent loop: use ``ctx.sandbox``
+    for commands and files, and ``agents.now()`` and ``agents.sleep()`` for time.
+
+    The arguments a subclass is constructed with are recorded, so a deployed agent rebuilds the
+    sandbox hook with the same arguments. They must be JSON values. A subclass that writes its own
     ``to_unified_state`` and ``from_unified_state`` replaces this contract.
     """
 
@@ -768,6 +850,7 @@ class SandboxHook(UnifiedSerializable):
         return value
 
     def to_unified_state(self) -> dict[str, JsonValue]:
+        """Return the arguments the sandbox hook was constructed with, which a deployed agent rebuilds it from."""
         args, kwargs = self._replayable_arguments()
         if not args and not kwargs:
             return {}
@@ -822,6 +905,11 @@ class SandboxHook(UnifiedSerializable):
 
     @classmethod
     def from_unified_state(cls, state: dict[str, JsonValue]) -> Self:
+        """Rebuild the sandbox hook by calling its constructor with the recorded arguments.
+
+        Args:
+            state: The state that ``to_unified_state()`` returned.
+        """
         # A subclass that writes its own state but keeps this rebuilder gets the base contract's error.
         if not replays_constructor_arguments(cls):
             return super().from_unified_state(state)
@@ -834,9 +922,19 @@ class SandboxHook(UnifiedSerializable):
         return cls(*args, **cast(dict[str, Any], kwargs))
 
     async def on_create(self, ctx: SandboxCallbackContext) -> None:
+        """Runs once when the sandbox is ready, before the agent starts. The default does nothing.
+
+        Args:
+            ctx: An ``agents.SandboxCallbackContext`` on the sandbox that was created.
+        """
         del ctx
 
     async def on_destroy(self, ctx: SandboxCallbackContext) -> None:
+        """Runs once when the session closes. The default does nothing.
+
+        Args:
+            ctx: An ``agents.SandboxCallbackContext`` on the session's sandbox, as the session closes.
+        """
         del ctx
 
 
@@ -851,7 +949,7 @@ def access_covers(supported: SandboxAccess, requested: SandboxAccess) -> bool:
 
 
 class Sandbox(UnifiedSerializable):
-    """Base class for SDK-owned Unified Harness sandbox authoring.
+    """The options every sandbox takes: network, secrets, hooks and the tools the model gets.
 
     ``access`` sets the sandbox tools the model gets: ``"files"`` gives the file tools,
     ``"full"`` adds bash, and ``"none"`` gives neither while tools, hooks and skills
@@ -862,13 +960,25 @@ class Sandbox(UnifiedSerializable):
     ``Network.none()``. ``header_bindings`` lists the secrets the sandbox gets on those connections. A
     sandbox type declares in ``supported_network`` and ``supported_header_bindings`` what it can
     enforce, and its constructor refuses the rest.
+
+    Args:
+        network: The outbound connections the sandbox can open. Defaults to ``Network.none()``.
+        header_bindings: The secrets the sandbox gets on those connections.
+        hooks: Sandbox hooks, which run when the sandbox is created and when the session closes.
+        access: The sandbox tools the model gets: ``"full"``, ``"files"`` or ``"none"``. ``None`` gives
+            every level the sandbox supports.
     """
 
     supported_network: ClassVar[tuple[NetworkMode, ...]] = ()
+    """The ``network`` modes that the sandbox type can enforce, such as ``("none", "all")``."""
     supported_header_bindings: ClassVar[tuple[type[BaseModel], ...]] = ()
+    """The ``header_bindings`` types that the sandbox type serves."""
     supported_access: ClassVar[SandboxAccess] = "full"
-    delete_on_cleanup = True
-    supports_background_processes = False
+    """The widest ``access`` level that the sandbox type serves."""
+    delete_on_cleanup: bool = True
+    """Whether the sandbox is deleted when the session closes."""
+    supports_background_processes: bool = False
+    """Whether the model can keep commands running in the background, through the built-in ``process`` tools."""
     _supports_python = True
     _hooks: Sequence[SandboxHook] = ()
     # The access level reaches the Harness through AgentConfig.sandbox_access, so the unified
@@ -956,6 +1066,7 @@ class Sandbox(UnifiedSerializable):
 
     @property
     def secret_origins(self) -> dict[str, SecretOrigin]:
+        """Where each secret that ``header_bindings`` names comes from, as the agent's ``secrets`` declare it."""
         return dict(self._policy.secret_origins)
 
     def _check_secret_origins(self, origins: Mapping[str, SecretOrigin]) -> None:
@@ -1020,8 +1131,8 @@ class Sandbox(UnifiedSerializable):
 class NoSandbox(Sandbox):
     """Run without a sandbox."""
 
-    supported_network = ("none",)
-    delete_on_cleanup = False
+    supported_network: ClassVar[tuple[NetworkMode, ...]] = ("none",)
+    delete_on_cleanup: bool = False
 
     def __init__(self, *, hooks: Sequence[SandboxHook] = ()) -> None:
         super().__init__(hooks=hooks)
@@ -1032,27 +1143,38 @@ class NoSandbox(Sandbox):
 
 
 class EgressPolicy(BaseModel):
-    """IP-level outbound policy of a `MistralSandbox`.
+    """The IP addresses a `MistralSandbox` can open connections to, on top of its `network`.
 
-    Authors pass only `EgressPolicy.custom(allow_cidrs=...)`, as `MistralSandbox(egress=...)`.
-    The other modes are how the Koyeb driver receives `Network.none()` and `Network.all()`.
+    Pass `EgressPolicy.custom(allow_cidrs=...)` as `MistralSandbox(egress=...)`, which takes only `custom()`.
+    `block_all()` and `allow_all()` describe `MistralSandbox.egress_policy` for `Network.none()` and
+    `Network.all()`.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     mode: Literal["block_all", "allow_all", "custom"] = "block_all"
+    """`"custom"` opens `allow_cidrs`; `"block_all"` and `"allow_all"` stand for `Network.none()` and
+    `Network.all()`."""
     allow_cidrs: tuple[str, ...] = ()
+    """The IP addresses or CIDR ranges to open, such as `"203.0.113.0/24"`."""
 
     @classmethod
     def block_all(cls) -> EgressPolicy:
+        """Block every outbound connection: the `egress_policy` of a `MistralSandbox` with `Network.none()`."""
         return cls(mode="block_all")
 
     @classmethod
     def allow_all(cls) -> EgressPolicy:
+        """Allow every outbound connection: the `egress_policy` of a `MistralSandbox` with `Network.all()`."""
         return cls(mode="allow_all")
 
     @classmethod
     def custom(cls, *, allow_cidrs: Sequence[str]) -> EgressPolicy:
+        """Open the listed addresses on top of `Network.none()`.
+
+        Args:
+            allow_cidrs: The IP addresses or CIDR ranges to open, such as `"203.0.113.0/24"`.
+        """
         return cls(mode="custom", allow_cidrs=tuple(allow_cidrs))
 
     @field_validator("allow_cidrs")
@@ -1079,15 +1201,60 @@ class EgressPolicy(BaseModel):
 
 
 class MistralSandbox(Sandbox):
-    """Managed Koyeb sandbox configuration for the Unified Harness runtime.
+    """A sandbox Mistral runs for each session, on Mistral Cloud.
 
-    Koyeb filters outbound traffic by IP address, so ``network`` takes ``Network.none()`` or
+    The API key's user needs the ``cloud_user`` role (Mistral Cloud User). Mistral Cloud filters
+    outbound traffic by IP address, so ``network`` takes ``Network.none()`` or
     ``Network.all()``. ``egress=EgressPolicy.custom(allow_cidrs=...)`` opens the listed addresses
     on top of ``Network.none()``. Sandbox Proxy serves ``header_bindings``.
+
+    An option you leave out, except ``supports_background_processes``, ``network``, ``egress``,
+    ``header_bindings``, ``hooks`` and ``access``, reads its default from the environment variable
+    ``AGENTS_SDK_KOYEB_SANDBOX_<OPTION>``, such as ``AGENTS_SDK_KOYEB_SANDBOX_INSTANCE_TYPE``.
+
+    Args:
+        image: The container image to run. Defaults to Mistral's public sandbox image.
+        supports_background_processes: Whether the model can keep commands running in the background.
+            Defaults to ``True`` when you leave out ``image`` and to ``False`` when you pass it.
+        instance_type: The instance size, such as ``"small"``, ``"medium"``, ``"large"`` or ``"2xlarge"``.
+            Defaults to ``"medium"``.
+        region: The region the sandbox runs in. Defaults to ``"nl-north-1"``, the only region that can
+            block traffic.
+        name_prefix: The start of the sandbox's name. Defaults to ``"unknown"``.
+        ttl_seconds: How long after its creation Mistral Cloud deletes the sandbox, whatever happens.
+            Defaults to 24 hours, the default session lifetime.
+        idle_timeout_seconds: The seconds idle before the sandbox sleeps. Defaults to ``0``, which
+            never sleeps.
+        default_exec_timeout_seconds: The time limit of a command that does not set its own.
+            Defaults to ``30``.
+        privileged: Whether the container runs privileged. Defaults to ``False``.
+        docker_daemon_enabled: Whether to start a Docker daemon in the sandbox, which also makes it
+            privileged. Defaults to ``False``.
+        docker_daemon_network_mode: The network mode passed to that Docker daemon. Defaults to ``"auto"``.
+        enable_light_sleep: Whether the sandbox uses light sleep, which wakes faster than deep sleep.
+            Defaults to ``True``.
+        setup_script: A shell command run once after the sandbox starts.
+        setup_script_timeout_seconds: The time limit of ``setup_script``. Defaults to ``300``.
+        readiness_max_retries: How many times the SDK probes the started sandbox before it gives up.
+            Defaults to ``10``.
+        readiness_interval_seconds: The seconds between two readiness probes. Defaults to ``2.0``.
+        readiness_probe_timeout_seconds: The time limit of one readiness probe. Defaults to ``5``.
+        wait_ready_timeout_seconds: How long the SDK waits for the sandbox to be ready.
+            Defaults to ``300``.
+        enable_mesh: Whether the Mistral Cloud service mesh is on for the sandbox. Defaults to ``False``.
+        network: ``Network.none()``, the default, or ``Network.all()``.
+        egress: ``EgressPolicy.custom(allow_cidrs=...)``, the IP addresses to open on top of ``Network.none()``.
+        header_bindings: ``GitHubBinding``, ``MistralApiBinding`` and ``WorkspaceHeaderBindings``, which
+            Sandbox Proxy serves.
+        pre_provisioned_sandbox_id: The ID of a running Mistral Cloud sandbox to use instead of creating one.
     """
 
-    supported_network = ("none", "all")
-    supported_header_bindings = (GitHubBinding, MistralApiBinding, WorkspaceHeaderBindings)
+    supported_network: ClassVar[tuple[NetworkMode, ...]] = ("none", "all")
+    supported_header_bindings: ClassVar[tuple[type[BaseModel], ...]] = (
+        GitHubBinding,
+        MistralApiBinding,
+        WorkspaceHeaderBindings,
+    )
 
     def __init__(
         self,
@@ -1162,6 +1329,7 @@ class MistralSandbox(Sandbox):
         self.authored_settings: Mapping[str, Any] = {
             name: value for name, value in authored.items() if value is not None
         }
+        """The options you passed, before this process's environment fills in the rest."""
         settings = MistralSandboxSettings()
         self.image = image if image is not None else settings.image
         self.supports_background_processes = (
@@ -1224,7 +1392,7 @@ class MistralSandbox(Sandbox):
 
     @property
     def egress_policy(self) -> EgressPolicy:
-        """The IP-level policy that enforces ``network`` and ``egress`` on Koyeb."""
+        """The IP-level policy that enforces ``network`` and ``egress`` on Mistral Cloud."""
 
         if self.egress is not None:
             return self.egress
@@ -1295,7 +1463,7 @@ class MistralSandbox(Sandbox):
 
 
 class LocalDockerSandbox(Sandbox):
-    """Local Docker sandbox configuration for Unified Harness development.
+    """A sandbox in a Docker container on your machine, for development.
 
     ``network`` defaults to ``Network.none()``: the container has no network but loopback, and
     neither has the setup script. ``Network.all()`` gives it Docker's default network.
@@ -1304,9 +1472,19 @@ class LocalDockerSandbox(Sandbox):
     its own, such as a sandbox hook's ``ctx.sandbox.execute(...)``: the command and its children
     get SIGTERM, then SIGKILL 5 seconds later, and it ends with exit code 124. The image needs a
     ``setsid`` command (util-linux or BusyBox).
+
+    Args:
+        image: The container image to run, which must provide ``shell``. Defaults to ``python:3.12-bookworm``.
+        supports_background_processes: Whether the model can keep commands running in the background.
+            Defaults to ``True`` when you leave out ``image`` and to ``False`` when you pass it.
+        shell: The shell that runs the agent's commands: ``"bash"``, the default, or ``"sh"``.
+        default_exec_timeout_seconds: The time limit of a command that does not set its own. Defaults to ``600``.
+        setup_script: A shell command run once after the container starts.
+        setup_script_timeout_seconds: The time limit of ``setup_script``. Defaults to ``300``.
+        network: ``Network.none()``, the default, or ``Network.all()``.
     """
 
-    supported_network = ("none", "all")
+    supported_network: ClassVar[tuple[NetworkMode, ...]] = ("none", "all")
 
     def __init__(
         self,
@@ -1364,27 +1542,35 @@ class LocalDockerSandbox(Sandbox):
 
 
 class DangerousLocalSandbox(Sandbox):
-    """Host-local executor: runs commands directly in the worker process.
+    """Runs commands directly in the process that runs the agent, with no isolation.
 
-    DANGER: no container, no isolation — model-generated commands run on the host as
-    the worker user. Dev/CI only; never enable in production.
+    There is no container: the model's commands run on your machine as the user of that process.
+    Use it only for local development and CI, never in production.
 
-    Commands reach every network the host reaches, so the sandbox's ``network`` is always
-    ``Network.all()``. Leave out the ``network`` argument: it warns.
+    Commands reach every network your machine reaches, so the sandbox's ``network`` is always
+    ``Network.all()``.
 
     ``workspace`` is the host folder where commands run and the agent reads and writes files.
     Without it, the sandbox creates a new folder under
     ``~/.cache/mistral-vibe-harness-local-host/``. A relative ``workspace`` is resolved
-    against the worker's working folder.
+    against the working folder of the process that runs the agent.
 
     ``delete_on_cleanup`` deletes the workspace when the session closes. It defaults to
     ``True`` without ``workspace`` and to ``False`` with one, so the sandbox never deletes
     your folder unless you ask. A workspace to delete must be absolute and must not contain
-    your home folder or the worker's working folder; the session fails at start otherwise.
+    your home folder or the process's working folder; the session fails at start otherwise.
+
+    Args:
+        shell: The shell that runs the agent's commands: ``"bash"``, the default, or ``"sh"``.
+        default_exec_timeout_seconds: The time limit of a command that does not set its own. Defaults to ``600``.
+        workspace: The host folder where commands run. Defaults to a new folder under
+            ``~/.cache/mistral-vibe-harness-local-host/``.
+        delete_on_cleanup: Whether the workspace is deleted when the session closes. Defaults to ``True``
+            without ``workspace`` and to ``False`` with one.
     """
 
-    supported_network = ("all",)
-    supports_background_processes = True
+    supported_network: ClassVar[tuple[NetworkMode, ...]] = ("all",)
+    supports_background_processes: bool = True
 
     def __init__(
         self,
@@ -1463,17 +1649,26 @@ class DangerousLocalSandbox(Sandbox):
 
 
 class BashkitSandbox(Sandbox):
-    """Bashkit sandbox configuration for the Unified Harness runtime.
+    """A sandbox that runs the model's shell commands in the agent's process, through the Bashkit bash
+    interpreter, with no container and no Python. Its network is none by default.
+
+    A command without ``timeout_seconds`` gets 300 seconds.
 
     Private and loopback addresses stay refused even when ``network`` allows them. Set
     ``block_private_ips=False`` to reach a service on your machine, for example in local tests.
 
-    ``instance_id`` names the sandbox's host folders, together with each Session's id. Without
-    it, the folders are named after the Session alone, so a new process that reopens the Session
-    finds them again.
+    ``instance_id`` names the sandbox's folders on your machine, under the system's temporary
+    folder, together with each session's ID. A session reopened with the same ``instance_id``, by
+    this process or a new one, finds its folders again. Without ``instance_id``, the folders are
+    named after the session alone.
+
+    Args:
+        instance_id: A name for the sandbox's folders, together with each session's ID.
+        network: ``Network.none()``, the default, ``Network.all()`` or ``Network.allow(hosts=...)``.
+        block_private_ips: Whether private and loopback addresses stay refused whatever ``network`` allows.
     """
 
-    supported_network = ("none", "all", "allow")
+    supported_network: ClassVar[tuple[NetworkMode, ...]] = ("none", "all", "allow")
     _supports_python = False
 
     def __init__(
@@ -1531,6 +1726,7 @@ class CustomSandbox(Sandbox):
 
     @property
     def workspace(self) -> str:
+        """The folder the agent works in: ``/workspace``."""
         return "/workspace"
 
     def _supports_files(self) -> bool:
@@ -1554,6 +1750,9 @@ class CustomSandbox(Sandbox):
         ``request.timeout_seconds``, and return its result.
 
         It runs in Workflow code: do the I/O in your own activity.
+
+        Args:
+            request: The command to run, its folder, environment and time limit.
         """
         raise NotImplementedError(f"{type(self).__name__}.execute() is not implemented")
 
@@ -1561,7 +1760,11 @@ class CustomSandbox(Sandbox):
         self,
         request: WorkflowSandboxReadFileRequest,
     ) -> WorkflowSandboxReadFileResult:
-        """Return the file that ``request`` names. Optional, as ``write_files()`` is."""
+        """Return the file that ``request`` names. Optional, as ``write_files()`` is.
+
+        Args:
+            request: The file to read.
+        """
         raise NotImplementedError(f"{type(self).__name__}.read_file() is not implemented")
 
     async def write_files(self, request: WorkflowSandboxWriteFilesRequest) -> WorkflowSandboxWriteFilesResult:
@@ -1571,6 +1774,9 @@ class CustomSandbox(Sandbox):
         ``execute()``, this method runs in Workflow code, so pass ``request.source`` to your own
         activity and call ``resolve_file_source(source)`` there: the source holds references, and
         only the activity sees the bytes. With ``request.replace``, delete what the root holds first.
+
+        Args:
+            request: The files to write and the folder to write them under.
         """
 
         del request
@@ -1792,9 +1998,13 @@ _HTTP_URL = TypeAdapter(AnyHttpUrl)
 class RemoteMCP(McpHttpSourceConfiguration):
     """An MCP server the agent reaches over HTTP, declared under a name in ``Agent(mcps=...)``.
 
-    The Harness model it extends ignores unknown fields so an older client keeps reading a newer
-    server's Session. An author's declaration is checked strictly instead: a misspelled keyword is
-    a ``TypeError``, and a bad value raises ``SdkError`` naming the argument.
+    Each of its tools has the ID ``<namespace>.<tool name>``, such as ``github.create_issue``:
+    permission rules, approvals and hooks name the tool by it. Two servers of one agent cannot
+    share a namespace or an ``id``, so give each its own key in ``mcps=``.
+
+    A misspelled keyword raises ``TypeError``, and a bad value raises ``SdkError`` naming the
+    argument. Defining the agent raises ``SdkError`` for two servers in one namespace, or for a
+    namespace that the built-in tools or the SDK's own tools hold.
     """
 
     def __init__(
@@ -1814,16 +2024,19 @@ class RemoteMCP(McpHttpSourceConfiguration):
 
         Args:
             url: The server's ``http://`` or ``https://`` endpoint.
-            auth_header_env_vars: Header name to the NAME of the environment variable holding that
-                header's complete value, read where the agent runs.
-            model_access: How the model reaches the server's tools. Unset, it is ``"direct"`` for an
-                agent without programs and ``"programmatic"`` otherwise.
+            auth_header_env_vars: Header name to the name of the environment variable that holds the
+                header's full value, read where the agent runs.
+            model_access: How the model reaches the server's tools, an ``agents.ToolModelAccess``:
+                ``"direct"``, ``"programmatic"`` or ``"both"``. Unset, it is ``"direct"`` for an agent without
+                programs and ``"programmatic"`` otherwise.
             disabled_tools: The server's own names of tools to leave out.
             startup_timeout_seconds: How long listing the server's tools may take. Defaults to 30.
             tool_timeout_seconds: How long one tool call may take. Defaults to 300.
             namespace: The namespace of the server's tools. Defaults to its key in ``mcps``.
-            id: The source's ID in the Session.
-            name: The source's display name in the Session.
+            id: The server's ID, which ``Notice.source`` and ``ContextMessage.source`` give for it.
+                Defaults to its key in ``mcps``.
+            name: The server's name in the messages the model gets about it, such as when its tools
+                cannot be used. Defaults to its key in ``mcps``.
         """
 
         # Only what the author passed, so an omitted argument stays out of ``model_fields_set``:

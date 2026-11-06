@@ -41,10 +41,13 @@ pub struct ErrorBoundaryEvent {
 const TAG: &str = stringify!(SDKErrorsObserver);
 const MAX_SEEN_ERRORS: usize = 1000;
 
-// Observer to post to scrapi when exception happened
-// If we never see the exception, log to sdk exception
-// TODO: By session end, we flush stats
+/// Reports SDK exceptions unless remote telemetry is suppressed.
+/// Suppression skips network-client setup, deduplication state, and options serialization.
 pub struct SDKErrorsObserver {
+    state: Option<SDKErrorsObserverState>,
+}
+
+struct SDKErrorsObserverState {
     output_policy: crate::output_policy::OutputPolicy,
     errors_aggregator: RwLock<HashMap<String, u32>>,
     network_client: NetworkClient,
@@ -53,6 +56,15 @@ pub struct SDKErrorsObserver {
 }
 
 impl SDKErrorsObserver {
+    pub fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
+        Self {
+            state: (options.disable_remote_telemetry != Some(true))
+                .then(|| SDKErrorsObserverState::new(sdk_key, options)),
+        }
+    }
+}
+
+impl SDKErrorsObserverState {
     pub fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
         let mut headers =
             StatsigMetadata::get_constant_request_headers(sdk_key, options.service_name.as_deref());
@@ -63,7 +75,7 @@ impl SDKErrorsObserver {
         } else {
             serde_json::to_string(options).unwrap_or_default()
         };
-        SDKErrorsObserver {
+        Self {
             output_policy,
             network_client: NetworkClient::new(sdk_key, Some(headers), Some(options))
                 .mute_network_error_log(),
@@ -133,11 +145,14 @@ impl SDKErrorsObserver {
 #[async_trait]
 impl OpsStatsEventObserver for SDKErrorsObserver {
     async fn handle_event(&self, event: OpsStatsEvent) {
-        if self.output_policy.is_silent() {
+        let Some(state) = &self.state else {
+            return;
+        };
+        if state.output_policy.is_silent() {
             return;
         }
         if let OpsStatsEvent::SDKError(e) = event {
-            self.handle_eb_event(e).await;
+            state.handle_eb_event(e).await;
         }
     }
 }
@@ -177,6 +192,9 @@ mod tests {
             .suppress_diagnostic_output(silent);
             let mut observer = SDKErrorsObserver::new("secret-FAKE_ONLY", &options);
             observer
+                .state
+                .as_mut()
+                .unwrap()
                 .network_client
                 .set_network_provider_for_test(Arc::downgrade(&network));
             observer
@@ -191,9 +209,14 @@ mod tests {
                 .await;
             assert_eq!(transport.0.load(Ordering::SeqCst), usize::from(!silent));
             if silent {
-                assert!(observer.statsig_options_logging_copy.is_empty());
-                assert!(observer.errors_aggregator.read().await.is_empty());
+                let state = observer.state.as_ref().unwrap();
+                assert!(state.statsig_options_logging_copy.is_empty());
+                assert!(state.errors_aggregator.read().await.is_empty());
             }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "sdk_errors_observer_tests.rs"]
+mod remote_telemetry_tests;

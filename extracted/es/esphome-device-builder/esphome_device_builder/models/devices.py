@@ -126,6 +126,9 @@ class DeviceRuntimeState(DashboardModel):
         return d
 
 
+# The cipher ESPHome firmware advertises in its ``api_encryption`` TXT.
+NOISE_CIPHER = "Noise_NNpsk0_25519_ChaChaPoly_SHA256"
+
 # Canonical name set for routing flat attr names onto ``runtime_state``.
 RUNTIME_STATE_FIELD_NAMES = frozenset(f.name for f in fields(DeviceRuntimeState))
 
@@ -161,6 +164,9 @@ class DeviceMqttExtract:
     # ``resolved_block``" from "deep parse ran and failed" — the
     # coordinator only requests a reload for the former.
     from_shallow_load: bool = False
+    # Top-level ``packages:`` in the main file, which may supply ``mqtt:``
+    # fields ``main_block`` lacks.
+    has_packages: bool = False
 
     @property
     def stamp(self) -> MqttFreshnessStamp:

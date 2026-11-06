@@ -37,8 +37,8 @@ fn cloned_list_copies_ids_only_when_updated() {
 fn update_modes_preserve_id_whitespace_and_consume_ignored_lines() {
     let body = "+  member  \r\n+member\n-member\n+\t\n-\u{2003}\n +ignored\nλignored\n+é \n";
     for mode in [
-        UpdateMode::PrivateHash,
-        UpdateMode::PrivateEliasFano,
+        UpdateMode::Private(IdListEncoding::Hash),
+        UpdateMode::Private(IdListEncoding::EliasFano),
         UpdateMode::SharedPublisher,
     ] {
         let mut list = IdList::new(metadata());

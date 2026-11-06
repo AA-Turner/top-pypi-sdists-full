@@ -35,6 +35,9 @@ class ActorNameGroupAggregate(object):
     openapi_types = {
         'name': 'str',
         'class_name': 'str',
+        'name_hash': 'str',
+        'class_name_hash': 'str',
+        'batch_id': 'str',
         'ray_session_name': 'str',
         'metrics': 'ActorGroupedAggregateMetrics'
     }
@@ -42,11 +45,14 @@ class ActorNameGroupAggregate(object):
     attribute_map = {
         'name': 'name',
         'class_name': 'class_name',
+        'name_hash': 'name_hash',
+        'class_name_hash': 'class_name_hash',
+        'batch_id': 'batch_id',
         'ray_session_name': 'ray_session_name',
         'metrics': 'metrics'
     }
 
-    def __init__(self, name=None, class_name=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, class_name=None, name_hash=None, class_name_hash=None, batch_id=None, ray_session_name=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """ActorNameGroupAggregate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -54,6 +60,9 @@ class ActorNameGroupAggregate(object):
 
         self._name = None
         self._class_name = None
+        self._name_hash = None
+        self._class_name_hash = None
+        self._batch_id = None
         self._ray_session_name = None
         self._metrics = None
         self.discriminator = None
@@ -62,6 +71,12 @@ class ActorNameGroupAggregate(object):
             self.name = name
         if class_name is not None:
             self.class_name = class_name
+        if name_hash is not None:
+            self.name_hash = name_hash
+        if class_name_hash is not None:
+            self.class_name_hash = class_name_hash
+        if batch_id is not None:
+            self.batch_id = batch_id
         self.ray_session_name = ray_session_name
         self.metrics = metrics
 
@@ -106,6 +121,69 @@ class ActorNameGroupAggregate(object):
         """
 
         self._class_name = class_name
+
+    @property
+    def name_hash(self):
+        """Gets the name_hash of this ActorNameGroupAggregate.  # noqa: E501
+
+
+        :return: The name_hash of this ActorNameGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._name_hash
+
+    @name_hash.setter
+    def name_hash(self, name_hash):
+        """Sets the name_hash of this ActorNameGroupAggregate.
+
+
+        :param name_hash: The name_hash of this ActorNameGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._name_hash = name_hash
+
+    @property
+    def class_name_hash(self):
+        """Gets the class_name_hash of this ActorNameGroupAggregate.  # noqa: E501
+
+
+        :return: The class_name_hash of this ActorNameGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._class_name_hash
+
+    @class_name_hash.setter
+    def class_name_hash(self, class_name_hash):
+        """Sets the class_name_hash of this ActorNameGroupAggregate.
+
+
+        :param class_name_hash: The class_name_hash of this ActorNameGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._class_name_hash = class_name_hash
+
+    @property
+    def batch_id(self):
+        """Gets the batch_id of this ActorNameGroupAggregate.  # noqa: E501
+
+
+        :return: The batch_id of this ActorNameGroupAggregate.  # noqa: E501
+        :rtype: str
+        """
+        return self._batch_id
+
+    @batch_id.setter
+    def batch_id(self, batch_id):
+        """Sets the batch_id of this ActorNameGroupAggregate.
+
+
+        :param batch_id: The batch_id of this ActorNameGroupAggregate.  # noqa: E501
+        :type: str
+        """
+
+        self._batch_id = batch_id
 
     @property
     def ray_session_name(self):

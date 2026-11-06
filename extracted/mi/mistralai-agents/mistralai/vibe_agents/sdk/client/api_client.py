@@ -26,14 +26,14 @@ _TIMEOUT_SECONDS = 30.0
 
 
 class Client:
-    """The Agents control plane for one API key. Every call is async.
+    """A connection to the Mistral API with one API key. Every call is async.
 
     ``api_key`` defaults to ``MISTRAL_API_KEY``; with no key from either, ``Client()`` raises
     ``SdkError``.
     ``server_url`` is the Mistral API root: ``MISTRAL_API_URL``, else ``https://api.mistral.ai``.
-    ``agents_url`` is the Agents control plane: ``AGENTS_SDK_DEPLOY_CONTROL_PLANE_URL`` when
-    ``server_url`` is not given, else ``server_url`` + ``/v2/agents``, so one URL is enough for
-    another cloud.
+    ``agents_url`` is the URL of the agents endpoints of the Mistral API, by default the API root +
+    ``/v2/agents``, so one URL is enough for another cloud. On an on-premises Mistral platform, its operator may set
+    ``AGENTS_SDK_DEPLOY_CONTROL_PLANE_URL`` instead, which applies when ``server_url`` is not given.
 
     ``async_client`` is your own ``httpx.AsyncClient`` for the requests, as in ``mistralai.Mistral``;
     its timeouts and connection limits apply, and the client never closes it. Without it, the client
@@ -45,6 +45,16 @@ class Client:
     loop that used the client last. An ``async_client`` also serves one event loop. Agents loaded
     with ``Agent.load_from(client=client)`` and their sessions send their requests through the
     client; once it is closed, they raise ``SdkError``.
+
+    Args:
+        api_key: The Mistral API key. ``None`` reads ``MISTRAL_API_KEY``.
+        server_url: The Mistral API root. ``None`` reads ``MISTRAL_API_URL``, else
+            ``https://api.mistral.ai``.
+        agents_url: The URL of the agents endpoints of the Mistral API. ``None`` uses the API root +
+            ``/v2/agents``, or ``AGENTS_SDK_DEPLOY_CONTROL_PLANE_URL`` when it is set and ``server_url`` is not
+            given.
+        async_client: Your own ``httpx.AsyncClient`` for the requests; the client never closes it.
+            ``None`` opens the client's own connection pool at its first call.
     """
 
     __slots__ = (
@@ -104,7 +114,7 @@ class Client:
 
     @property
     def agents_url(self) -> str:
-        """The Agents control plane URL."""
+        """The URL of the agents endpoints of the Mistral API."""
         return self._deployment.server_url
 
     def list_sessions(
@@ -120,6 +130,14 @@ class Client:
 
         The keywords are those of ``agents.list_sessions``. Pages are read through this client's
         connection pool as you iterate.
+
+        Args:
+            scope: ``"roots"`` for root sessions, ``"children"`` for the direct subagents of ``parent``, or
+                ``"tree"`` for ``root`` and all its subagents.
+            root: The root session of ``scope="tree"``.
+            parent: The session whose subagents ``scope="children"`` lists.
+            status: Keeps only the sessions in that status.
+            limit: Stops after that many sessions. ``None`` lists them all.
         """
         self._check_open()
         return listing._deployed_sessions(

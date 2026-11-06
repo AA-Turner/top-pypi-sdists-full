@@ -1609,6 +1609,7 @@ __all__ = (
     "ListProcessingJobsRequestPaginateTypeDef",
     "ListProcessingJobsRequestTypeDef",
     "ListProcessingJobsResponseTypeDef",
+    "ListProjectsInputPaginateTypeDef",
     "ListProjectsInputTypeDef",
     "ListProjectsOutputTypeDef",
     "ListResourceCatalogsRequestPaginateTypeDef",
@@ -8819,6 +8820,14 @@ class ListProcessingJobsRequestPaginateTypeDef(TypedDict):
     StatusEquals: NotRequired[ProcessingJobStatusType]
     SortBy: NotRequired[SortByType]
     SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListProjectsInputPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[ProjectSortByType]
+    SortOrder: NotRequired[ProjectSortOrderType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourceCatalogsRequestPaginateTypeDef(TypedDict):

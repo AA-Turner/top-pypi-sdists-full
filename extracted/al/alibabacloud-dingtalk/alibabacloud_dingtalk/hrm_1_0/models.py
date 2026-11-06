@@ -10255,6 +10255,7 @@ class HrmProcessTerminationAndHandoverRequest(TeaModel):
         dismission_reason: int = None,
         doc_note_handover_user_id: str = None,
         last_work_date: int = None,
+        minutes_handover_user_id: str = None,
         opt_user_id: str = None,
         permission_handover_user_id: str = None,
         termination_reason_passive: List[str] = None,
@@ -10270,6 +10271,7 @@ class HrmProcessTerminationAndHandoverRequest(TeaModel):
         self.doc_note_handover_user_id = doc_note_handover_user_id
         # This parameter is required.
         self.last_work_date = last_work_date
+        self.minutes_handover_user_id = minutes_handover_user_id
         # This parameter is required.
         self.opt_user_id = opt_user_id
         self.permission_handover_user_id = permission_handover_user_id
@@ -10301,6 +10303,8 @@ class HrmProcessTerminationAndHandoverRequest(TeaModel):
             result['docNoteHandoverUserId'] = self.doc_note_handover_user_id
         if self.last_work_date is not None:
             result['lastWorkDate'] = self.last_work_date
+        if self.minutes_handover_user_id is not None:
+            result['minutesHandoverUserId'] = self.minutes_handover_user_id
         if self.opt_user_id is not None:
             result['optUserId'] = self.opt_user_id
         if self.permission_handover_user_id is not None:
@@ -10329,6 +10333,8 @@ class HrmProcessTerminationAndHandoverRequest(TeaModel):
             self.doc_note_handover_user_id = m.get('docNoteHandoverUserId')
         if m.get('lastWorkDate') is not None:
             self.last_work_date = m.get('lastWorkDate')
+        if m.get('minutesHandoverUserId') is not None:
+            self.minutes_handover_user_id = m.get('minutesHandoverUserId')
         if m.get('optUserId') is not None:
             self.opt_user_id = m.get('optUserId')
         if m.get('permissionHandoverUserId') is not None:

@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: open_clip_torch
-Version: 3.3.0
-Summary: Open reproduction of consastive language-image pretraining (CLIP) and related.
+Version: 4.2.1
+Summary: Open reproduction of contrastive language-image pretraining (CLIP) and related.
 Keywords: pytorch,clip,image-text,language-image,multimodal
 Author: Gabriel Ilharco, Mitchell Wortsman, Romain Beaumont
 Author-Email: Ross Wightman <ross@huggingface.co>
@@ -14,6 +14,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
@@ -22,39 +25,51 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: homepage, https://github.com/mlfoundations/open_clip
 Project-URL: repository, https://github.com/mlfoundations/open_clip
 Requires-Python: >=3.9
-Requires-Dist: torch>=2.0
+Requires-Dist: torch>=2.6
 Requires-Dist: torchvision
 Requires-Dist: regex
 Requires-Dist: ftfy
 Requires-Dist: tqdm
 Requires-Dist: huggingface-hub
 Requires-Dist: safetensors
-Requires-Dist: timm>=1.0.17
+Requires-Dist: timm>=1.0.30
+Requires-Dist: tiktoken
 Provides-Extra: training
-Requires-Dist: torch>=2.0; extra == "training"
+Requires-Dist: torch>=2.6; extra == "training"
 Requires-Dist: webdataset<=0.2.86,>=0.2.5; extra == "training"
 Requires-Dist: pandas; extra == "training"
 Requires-Dist: transformers[sentencepiece]; extra == "training"
-Requires-Dist: timm>=1.0.17; extra == "training"
+Requires-Dist: timm>=1.0.30; extra == "training"
 Requires-Dist: fsspec; extra == "training"
+Provides-Extra: audio
+Requires-Dist: soundfile>=0.12; extra == "audio"
+Requires-Dist: torchlibrosa; extra == "audio"
+Requires-Dist: openai-whisper; extra == "audio"
 Provides-Extra: test
 Requires-Dist: pytest-split; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: open_clip_torch[training]; extra == "test"
+Requires-Dist: pytest>=9.0.3; extra == "test"
+Requires-Dist: open_clip_torch[audio,training]; extra == "test"
 Requires-Dist: requests; extra == "test"
 Description-Content-Type: text/markdown
 
 # OpenCLIP
 
-[[Paper]](https://arxiv.org/abs/2212.07143) [[Citations]](#citing) [[Clip Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/master/docs/Interacting_with_open_clip.ipynb) [[Coca Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/master/docs/Interacting_with_open_coca.ipynb)
+[[Paper]](https://arxiv.org/abs/2212.07143) [[Citations]](#citing) [[Clip Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/main/docs/Interacting_with_open_clip.ipynb) [[Coca Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/main/docs/Interacting_with_open_coca.ipynb)
 [![pypi](https://img.shields.io/pypi/v/open_clip_torch.svg)](https://pypi.python.org/pypi/open_clip_torch)
 
-Welcome to an open source implementation of OpenAI's [CLIP](https://arxiv.org/abs/2103.00020) (Contrastive Language-Image Pre-training).
+> **Versions**
+>
+> - **4.x** is the current release line, developed on `main`. 4.2.1 is the first 4.x release on PyPI; earlier 4.x version numbers were development versions only.
+> - **3.x** remains available on the [`v3` branch](https://github.com/mlfoundations/open_clip/tree/v3). To stay on it, run `pip install 'open_clip_torch<4'`. Further 3.3.x releases will only be made if needed.
+> - **Upgrading from 3.x:** pretrained image/text inference is intended to remain compatible, but training scripts and downstream integrations need review. See the [migration guide](https://github.com/mlfoundations/open_clip/blob/main/docs/MIGRATING_3_TO_4.md).
+
+Welcome to an open source implementation of OpenAI's [CLIP](https://arxiv.org/abs/2103.00020) (Contrastive Language-Image Pre-training). OpenCLIP also includes language-audio ([CLAP](https://arxiv.org/abs/2211.06687)) models and related generative models.
 
 Using this codebase, we have trained several models on a variety of data sources and compute budgets, ranging from [small-scale experiments](docs/LOW_ACC.md) to larger runs including models trained on datasets such as [LAION-400M](https://arxiv.org/abs/2111.02114), [LAION-2B](https://arxiv.org/abs/2210.08402) and [DataComp-1B](https://arxiv.org/abs/2304.14108).
 Many of our models and their scaling properties are studied in detail in the paper [reproducible scaling laws for contrastive language-image learning](https://arxiv.org/abs/2212.07143).
 Some of the best models we've trained and their zero-shot ImageNet-1k accuracy are shown below, along with the ViT-L model trained by OpenAI and other state-of-the-art open source alternatives (all can be loaded via OpenCLIP).
 We provide more details about our full collection of pretrained models [here](docs/PRETRAINED.md), and zero-shot results for 38 datasets [here](docs/openclip_results.csv).
+Experimental helper scripts for [multilabel zero-shot evaluation](docs/multilabel_zeroshot.md) (`scripts/multilabel_zeroshot.py`) and [linear probes](docs/linear_probe.md) (`scripts/linear_probe.py`) are also available.
 
 
 
@@ -89,6 +104,18 @@ We welcome anyone to submit an issue or send an email if you have any other requ
 
 Note that portions of `src/open_clip/` modelling and tokenizer code are adaptations of OpenAI's official [repository](https://github.com/openai/CLIP).
 
+## What's new in 4.x
+
+- **[NaFlex CLAP](#audio-text-models-naflex-clap)**: new pretrained audio-text models that take variable-length audio
+- **NaFlex CLIP**: variable-resolution/aspect image towers (timm `naflexvit`) with token-budget batching (`--use-naflex`, `naflex_*` configs)
+- **NaFlex GenLIP / GenLAP**: generative image/audio captioning with prefix-LM attention (`naflexgenlip_*`, `naflexgenlap_*` training configs, no pretrained weights yet)
+- **Modern text towers**: RoPE, SwiGLU/ReLU², and RMSNorm options (`moderntext-*` configs), per-batch variable-length text, and Hugging Face ModernBERT towers
+- **MaMMUT and CoCa v2**: MaMMUT (`mammut_*`, `mammut2_*`) with the released LAION weights, and corrected CoCa configs (`coca2_*`)
+- **Training stack**: `TrainingTask` wrappers, dict-based batches, FSDP2 (`--fsdp`), `torch.compile` strategies, and length bucketing
+- **Safer checkpoint loading**: PyTorch 2.6+ is required, all checkpoint loads use `weights_only=True`, and OpenAI weights now load from the Hugging Face Hub instead of JIT archives
+
+The [migration guide](https://github.com/mlfoundations/open_clip/blob/main/docs/MIGRATING_3_TO_4.md) has the full list of changes, including breaking changes and changed defaults such as `--precision`.
+
 ## Approach
 
 | ![CLIP](https://raw.githubusercontent.com/mlfoundations/open_clip/main/docs/CLIP.png) |
@@ -96,6 +123,8 @@ Note that portions of `src/open_clip/` modelling and tokenizer code are adaptati
 | Image Credit: https://github.com/openai/CLIP |
 
 ## Usage
+
+OpenCLIP requires Python 3.9+ and PyTorch 2.6+. Python 3.14 and 3.15 have been validated with PyTorch 2.15 for inference, zero-shot evaluation, and compiled training. Install matching PyTorch and torchvision builds for your Python version and hardware.
 
 ```
 pip install open_clip_torch
@@ -128,7 +157,7 @@ If model uses `timm` image encoders (convnext, siglip, eva, etc) ensure the late
 
 If model uses transformers tokenizers, ensure `transformers` is installed.
 
-See also this [[Clip Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/master/docs/Interacting_with_open_clip.ipynb).
+See also this [[Clip Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/main/docs/Interacting_with_open_clip.ipynb).
 
 To compute billions of embeddings efficiently, you can use [clip-retrieval](https://github.com/rom1504/clip-retrieval) which has openclip support.
 
@@ -159,6 +188,43 @@ You can also load checkpoints from huggingface this way. To do so, download the 
 # pretrained also accepts local paths
 model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k') 
 ```
+
+### Audio-text models (NaFlex CLAP)
+
+The NaFlex CLAP models (paper: arXiv TBD, see [Citing](#citing)) map variable-length audio and English text into a shared embedding space. All five use the pretrained tag `laion_audio_xl_s1b`. See the model cards for benchmarks, input notes, batching, and intended use. The weights are licensed CC BY-NC 4.0 (non-commercial use only).
+
+| Model | Model card | Params | Embedding dim |
+| ----- | ---------- | ------ | ------------- |
+| `naflexclap_xxs` | [laion/clap2-xxs-audioxl-s1B](https://huggingface.co/laion/clap2-xxs-audioxl-s1B) | 27.3M | 224 |
+| `naflexclap_xs` | [laion/clap2-xs-audioxl-s1B](https://huggingface.co/laion/clap2-xs-audioxl-s1B) | 48.3M | 320 |
+| `naflexclap_small` | [laion/clap2-small-audioxl-s1B](https://huggingface.co/laion/clap2-small-audioxl-s1B) | 103.9M | 512 |
+| `naflexclap_medium` | [laion/clap2-medium-audioxl-s1B](https://huggingface.co/laion/clap2-medium-audioxl-s1B) | 152.8M | 640 |
+| `naflexclap_large` | [laion/clap2-large-audioxl-s1B](https://huggingface.co/laion/clap2-large-audioxl-s1B) | 340.1M | 960 |
+
+```
+pip install open_clip_torch soundfile
+```
+
+```python
+import open_clip, soundfile, torch
+
+model, _, preprocess = open_clip.create_model_and_transforms('naflexclap_small', pretrained='laion_audio_xl_s1b')
+model.eval()
+tokenizer = open_clip.get_tokenizer('naflexclap_small')
+
+wav, sr = soundfile.read('applause.wav', dtype='float32', always_2d=True)  # (samples, channels), any sample rate
+patches = preprocess()((torch.from_numpy(wav.T), sr))  # mono mix, resample to 32 kHz, log-mel patches
+text = tokenizer(['people applauding', 'a door being slammed', 'a dog barking'])
+
+with torch.inference_mode():
+    audio_features = model.encode_audio({k: v[None] for k, v in patches.items()}, normalize=True)
+    text_features = model.encode_text(text, normalize=True)
+    text_probs = (model.logit_scale.exp() * audio_features @ text_features.T).softmax(dim=-1)
+
+print('Label probs:', text_probs)
+```
+
+Older CLAP models with HTSAT or Whisper audio towers need the optional audio dependencies: `pip install 'open_clip_torch[audio]'`.
 
 ## Fine-tuning on classification tasks
 
@@ -245,6 +311,10 @@ python -m open_clip_train.main \
 
 Note: `imagenet-val` is the path to the *validation* set of ImageNet for zero-shot evaluation, not the training set!
 You can remove this argument if you do not want to perform zero-shot evaluation on ImageNet throughout training. Note that the `val` folder should contain subfolders. If it does not, please use [this script](https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/valprep.sh).
+
+### torch.compile
+
+Training supports `torch.compile` via `--torchcompile`. Use `--torchcompile-strategy task` for the common case: it compiles the task train/eval forward callables while keeping the `TrainingTask` object itself unwrapped for checkpointing, batch preparation, eval, and zero-shot helpers. Use `--torchcompile-strategy model` when you want the lower-risk pre-DDP behavior of compiling only the underlying trainable module, especially for fp16 AMP runs that need a `GradScaler`. Use `--torchcompile-strategy step` for the most aggressive single-batch path: it compiles forward, loss, backward, optional grad clipping, optimizer step, and logit-scale clamp, but requires `--accum-freq 1` and a precision mode without `GradScaler` such as the default `amp_bf16` or `fp32`. `--torchcompile-backend` and `--torchcompile-mode` are passed through to `torch.compile`.
 
 ### Multi-GPU and Beyond
 
@@ -405,7 +475,7 @@ with torch.no_grad(), torch.cuda.amp.autocast():
 print(open_clip.decode(generated[0]).split("<end_of_text>")[0].replace("<start_of_text>", ""))
 ```
 
-See also this [[Coca Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/master/docs/Interacting_with_open_coca.ipynb)
+See also this [[Coca Colab]](https://colab.research.google.com/github/mlfoundations/open_clip/blob/main/docs/Interacting_with_open_coca.ipynb)
 
 ### Fine Tuning CoCa
 
@@ -524,6 +594,44 @@ python -m open_clip_train.main \
     --pretrained laion400m_e32
 ```
 
+### Evaluating CLAP audio models on zero-shot audio classification:
+
+Audio zero-shot evaluation uses Hugging Face audio classification datasets. Install the optional audio dependencies before running these examples (use `datasets[audio]` for local audio folders, which `datasets` encodes with TorchCodec).
+
+```bash
+pip install datasets soundfile torchlibrosa
+```
+
+ESC-50:
+
+```bash
+python -m open_clip_train.main \
+    --model CLAP-HTSAT-tiny-Roberta-base-fused \
+    --pretrained laion \
+    --audio-zeroshot-dataset ashraq/esc50 \
+    --audio-zeroshot-split train \
+    --batch-size 64 \
+    --workers 4 \
+    --device cuda \
+    --zeroshot-frequency 1
+```
+
+UrbanSound8K:
+
+```bash
+python -m open_clip_train.main \
+    --model CLAP-HTSAT-tiny-Roberta-base-fused \
+    --pretrained laion \
+    --audio-zeroshot-dataset mteb/urbansound8K \
+    --audio-zeroshot-split train \
+    --audio-zeroshot-target-key classID \
+    --audio-zeroshot-class-key class \
+    --batch-size 64 \
+    --workers 4 \
+    --device cuda \
+    --zeroshot-frequency 1
+```
+
 ### Model distillation
 
 You can distill from a pre-trained by using `--distill-model` and `--distill-pretrained` to specify the model you'd like to distill from.
@@ -545,13 +653,28 @@ For more information see Cui et al. (https://arxiv.org/abs/2112.09331) or Pham e
 
 ### Int8 Support
 
-We have beta support for int8 training and inference.
-You can enable int8 training with `--use-bnb-linear SwitchBackLinearGlobal` or `--use-bnb-linear SwitchBackLinearGlobalMemEfficient`.
-Please see the bitsandbytes library for definitions for these layers.
-For CLIP VIT-Huge this should currently correspond to a 10% training speedup with no accuracy loss.
-More speedups comin when the attention layer is refactored so that linear layers man be replaced there, too.
+We have beta support for int8 inference via bitsandbytes' `Linear8bitLt` (the LLM.int8() layer). Only the MLP linear layers (`c_fc`/`c_proj`) are quantized by default; attention's combined QKV projection isn't an `nn.Linear` submodule and isn't covered yet (see the TODO in `src/open_clip/utils.py`).
 
-See the tutorial https://github.com/mlfoundations/open_clip/blob/main/tutorials/int8_tutorial.ipynb or [paper](https://arxiv.org/abs/2304.13013).
+```python
+from functools import partial
+import bitsandbytes as bnb
+import open_clip
+
+model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+model = model.half()
+
+int8_linear_layer = partial(bnb.nn.Linear8bitLt, has_fp16_weights=False)
+int8_model = open_clip.utils.replace_linear(model, int8_linear_layer, include_modules=['c_fc', 'c_proj']).cuda()
+open_clip.utils.convert_int8_model_to_inference_mode(int8_model)  # stamps the dtype bookkeeping the model needs post-quantization
+```
+
+**Accuracy / speed, measured, not estimated:** on ViT-B-32-quickgelu (`openai` weights), zero-shot classification on CIFAR-10 was 88.76% (fp16) vs. 88.83% (int8) — a **+0.07 point** difference, i.e. no meaningful accuracy cost for quantizing just the MLP layers post-hoc (no fine-tuning). This is a single-template, single-dataset, single-model measurement, not a comprehensive benchmark, but it's real and reproducible (see the tutorial notebook). Speed was slightly *worse* for int8 (53.9ms vs. 56.9ms for a batch of 128, about 5.6% slower) — at this model scale, the extra kernel launches int8 quantization/dequantization requires per forward pass outweigh any raw int8 tensor-core throughput advantage, since `Linear8bitLt` was designed around much larger (billion-parameter) models than CLIP's transformer blocks. The practical benefit here is **memory** (roughly a 2x reduction on the quantized layers' weight tensors), not speed or accuracy.
+
+**Saving and loading a quantized model:** `replace_linear` swaps `nn.Linear` submodules for bitsandbytes layers in place, so a `state_dict` saved from the quantized model only loads back correctly into a model that already has the same layers swapped in — build the model, `replace_linear`, then `torch.save(int8_model.state_dict(), path)`; to load, rebuild the architecture, `replace_linear` + `convert_int8_model_to_inference_mode` again, then `load_state_dict`. The image transform and tokenizer aren't affected by quantization at all — they only depend on `model_name`, so just recreate them normally with `create_model_and_transforms`/`get_tokenizer`. See the tutorial notebook for a runnable example.
+
+**Older `SwitchBackLinear`/triton path (training):** the previous `--use-bnb-linear SwitchBackLinearGlobal` / `SwitchBackLinearGlobalMemEfficient` training path, and the triton-based classes in `bitsandbytes.nn.triton_based_modules` the earlier version of this tutorial used, are effectively unusable on a fresh install today: `triton==2.0.0.post1` (which those kernels were written against) has been removed from PyPI entirely, every installable triton version reorganized `triton.language.libdevice` away, and `bitsandbytes>=0.50` dropped `triton_based_modules` outright. If you hit `AttributeError: module 'triton.language' has no attribute 'libdevice'`, that's why — it's not fixable by pinning a version anymore. Use `Linear8bitLt` (above) for inference. There's currently no equivalent replacement documented for the *training*-time SwitchBack speedup path.
+
+See the tutorial https://github.com/mlfoundations/open_clip/blob/main/tutorials/int8_tutorial.ipynb, and the original SwitchBack [paper](https://arxiv.org/abs/2304.13013) for the training-time approach (0.1pt accuracy cost vs. bf16 on CLIP ViT-Huge, per the paper — a very different regime from the post-hoc inference-only quantization measured above).
 
 ### Support for remote loading/training
 
@@ -663,6 +786,16 @@ If you found this repository useful, please consider citing:
   booktitle={Thirty-sixth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
   year={2022},
   url={https://openreview.net/forum?id=M3Y74vmsMcY}
+}
+```
+
+```bibtex
+@misc{naflexclap_tbd,
+  title={LAION-Audio-XL: A Web-Scale Corpus and Scaling Studies for Contrastive Language-Audio Pretraining},
+  author={TBD},
+  year={TBD},
+  eprint={TBD},
+  archivePrefix={arXiv}
 }
 ```
 

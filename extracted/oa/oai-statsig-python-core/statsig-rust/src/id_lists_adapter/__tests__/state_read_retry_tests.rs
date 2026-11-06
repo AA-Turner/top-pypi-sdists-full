@@ -224,7 +224,12 @@ async fn configured_primary_budget_controls_manifests_and_each_file() {
             .set_network_provider_for_test(Arc::downgrade(&network_provider));
         adapter.set_listener(Arc::new(Listener::default()));
         let mut events = adapter.ops_stats.subscribe_for_test();
-        assert!(adapter.refresh(RefreshTrigger::Initialize).await.is_err());
+        assert!(
+            adapter
+                .refresh(RefreshTrigger::PrivateInitialize)
+                .await
+                .is_err()
+        );
         assert_eq!(provider.calls.lock().len(), manifests);
         let mut manifest_indices = Vec::new();
         while let Ok(event) = events.try_recv() {
@@ -244,7 +249,12 @@ async fn configured_primary_budget_controls_manifests_and_each_file() {
         provider.calls.lock().clear();
         provider.requests.lock().clear();
         provider.manifest_status.store(200, Ordering::SeqCst);
-        assert!(adapter.refresh(RefreshTrigger::Initialize).await.is_err());
+        assert!(
+            adapter
+                .refresh(RefreshTrigger::PrivateInitialize)
+                .await
+                .is_err()
+        );
         let calls = provider.calls.lock();
         for file in 0..12 {
             assert_eq!(

@@ -1,4 +1,4 @@
-"""One GraphQL snapshot of a PR: head, state, draft, review decision, mergeability, checks, and the review comments a lemon should answer.
+"""One GraphQL snapshot of a PR: head, state, draft, review decision, assignees and approving reviewers, the user's own verdict, mergeability, checks, unresolved threads, and the review comments a lemon should answer.
 
 Lemons post with their human's GitHub account, so authorship can't tell them apart. Each
 lemon signs right after the lemon marker (`🍋 StateJob (Reviewer): ...`), and a comment is
@@ -11,7 +11,7 @@ the watcher explicitly skips them.
 import typing as ty
 from collections import abc
 
-from . import github_api, pr_comments
+from . import github_api, pr_comments, pr_reviewers, pr_threads
 
 _ROLLUP = """
       statusCheckRollup { contexts(first: 100, after: $after) {
@@ -42,13 +42,14 @@ query($owner: String!, $name: String!, $number: Int!, $after: String) {
       state
       isDraft
       reviewDecision
-      mergeable
-      commits(last: 1) { nodes { commit { oid"""
+      mergeable"""
+    + pr_reviewers.QUERY
+    + """      commits(last: 1) { nodes { commit { oid"""
     + _ROLLUP
     + """} } }
       reviewThreads(last: 100) {
         nodes { isResolved isOutdated path line
-          comments(last: 50) { nodes { id body state authorAssociation author { login __typename } } } }
+          comments(last: 50) { nodes { id body state viewerDidAuthor authorAssociation author { login __typename } } } }
       }
       reviews(last: 50) { nodes { id body state authorAssociation author { login __typename } } }
       comments(last: 100) { nodes { id body authorAssociation author { login __typename } } }
@@ -78,6 +79,12 @@ class Snapshot(ty.NamedTuple):
     mergeable: str  # MERGEABLE, CONFLICTING, or UNKNOWN while GitHub computes it
     checks: list[Check]  # on the head commit
     visibility: str = ""  # PUBLIC, PRIVATE or INTERNAL
+    authored: bool = False  # by the GitHub account lemonaid reads as
+    assigned: tuple[str, ...] | None = ()  # people other than the author; None if not fetched
+    approved: tuple[str, ...] | None = ()  # by latest verdict; None if reviews were cut off
+    objecting: tuple[str, ...] | None = ()  # latest verdict requests changes; likewise
+    user_verdict: str | None = ""  # the user's account's latest review state; None if not read
+    unresolved: tuple[str, ...] | None = ()  # each unresolved thread's last word, see pr_threads
 
 
 _FAILED = frozenset(
@@ -190,6 +197,12 @@ def parse(
         pr["mergeable"],
         [_check(n) for n in _contexts(commit)["nodes"] if n],
         r.get("visibility") or "",
+        bool(pr.get("viewerDidAuthor")),
+        pr_reviewers.assigned(pr),
+        pr_reviewers.verdicts(pr, "APPROVED"),
+        pr_reviewers.verdicts(pr, "CHANGES_REQUESTED"),
+        pr_reviewers.user_verdict(pr),
+        pr_threads.unresolved(pr),
     )
 
 

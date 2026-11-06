@@ -33,6 +33,12 @@ For every example script:
     why it has no figure. That list is a decision, so it may grow; a
     reason is mandatory and an entry naming no script fails.
 
+The domain tree is held here too (``gen_domains.gate``): every module has a
+title and an area in ``docs/domains.toml``, every guide, gallery and design
+page names a ``domain:`` that exists, and a module with classes has a guide
+page filed under it (today's gaps in ``docs/.domain-guides-exempt``, which
+only shrinks).
+
 Today's gaps sit in ``docs/.user-docs-exempt``, one ``<key> <rule>: <why>``
 per line. It is a RATCHET: compared with the merge base, it may only
 shrink, and an entry whose gap has closed (or whose class is gone) fails
@@ -55,10 +61,14 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from _gitbase import BaseUnreadableError, added_since_base, in_git_repo
-from _pydocs import EXTRA_MODULES, discover
+from _pydocs import kinds
 from gen_related_pages import DIRECTIVE_RE, _mentioned_tokens
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 ROOT = Path(__file__).resolve().parent.parent
 EXEMPT = "docs/.user-docs-exempt"
@@ -68,7 +78,6 @@ SELF = "scripts/check_user_docs.py"
 
 CLASS_RULES = ("api", "guide", "example")
 RECORD_RULES = ("api",)
-RECORD_RE = re.compile(r'^\s*record_name\s*=\s*"(\w+)"', re.MULTILINE)
 ENTRY_RE = re.compile(r"^(\S+)\s+(api|guide|example|gallery):\s*(\S.*)$")
 
 FIX = {
@@ -82,46 +91,54 @@ FIX = {
 }
 
 
-def _class_names(paths: list[Path]) -> set[str]:
-    """Top-level ``class`` names across these sources and stubs."""
-    out: set[str] = set()
-    for p in paths:
-        try:
-            tree = ast.parse(p.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError):
-            continue
-        out.update(n.name for n in tree.body if isinstance(n, ast.ClassDef))
-    return out
-
-
 def public_classes(root: Path) -> dict[str, str]:
     """``{dotted name: bare name}`` for every exported class."""
-    pkg = root / "src" / "doppler"
-    extra = dict(EXTRA_MODULES)
-    out: dict[str, str] = {}
-    for mod, syms in discover(str(pkg)):
-        if mod in extra:
-            files = [pkg / extra[mod]]
-        else:
-            d = pkg / mod.split(".", 1)[1]
-            files = sorted(d.glob("*.py")) + sorted(d.glob("*.pyi"))
-        classes = _class_names(files)
-        for s in syms:
-            if s in classes and not s.startswith("_"):
-                out[f"{mod}.{s}"] = s
-    return out
+    return {
+        f"{mod}.{s}": s
+        for mod, ks in kinds(str(root / "src" / "doppler")).items()
+        for s, k in ks.items()
+        if k == "class" and not s.startswith("_")
+    }
+
+
+def _record_values(node: object) -> Iterator[str]:
+    """Every ``record_name`` value anywhere under a manifest table."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k == "record_name" and isinstance(v, str):
+                yield v
+            else:
+                yield from _record_values(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _record_values(v)
 
 
 def record_names(root: Path) -> set[str]:
-    """Every ``record_name`` the jm manifests declare."""
-    files = [
-        root / "just-makeit.toml",
-        *sorted((root / "objects").glob("*.toml")),
-    ]
-    out: set[str] = set()
-    for f in files:
-        if f.exists():
-            out.update(RECORD_RE.findall(f.read_text(encoding="utf-8")))
+    """Every ``record_name`` the jm manifest declares.
+
+    Read through jm's public ``load_manifest``: the root merged with every
+    fragment its ``include`` names (``objects/``, ``modules/``), so a new
+    fragment directory is read without an edit here, and a ``record_name``
+    in a comment is not one.
+
+    Refuses rather than returning an empty set: a missing or unusable
+    manifest, or one declaring no record at all, would otherwise check
+    every record type as a class and report a clean tree for the wrong
+    reason (doppler#2751).
+    """
+    from just_makeit import load_manifest
+
+    try:
+        manifest = load_manifest(root)
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"check_user_docs: the manifest: {e}") from e
+    out = set(_record_values(manifest))
+    if not out:
+        raise SystemExit(
+            f"check_user_docs: {root}'s manifest declares no record_name; "
+            "refusing to check every record type as a class"
+        )
     return out
 
 
@@ -206,6 +223,8 @@ def example_names(root: Path) -> dict[str, set[str]]:
     """``{script filename: identifiers its code uses}``."""
     out: dict[str, set[str]] = {}
     for p in sorted((root / EXAMPLES).glob("*.py")):
+        if p.name.startswith("_"):
+            continue  # a helper (_extra.py), not a script
         try:
             tree = ast.parse(p.read_text(encoding="utf-8"))
         except SyntaxError:
@@ -349,6 +368,10 @@ def main() -> int:
                 f"{EXEMPT}: '{key} {rule}' is new; the list only shrinks. "
                 f"Do the work instead: {FIX[rule].format(key=key)}"
             )
+
+    import gen_domains
+
+    errors += gen_domains.gate(root, a.base, not a.no_ratchet)
 
     if errors:
         print("user-docs-check: FAILED", file=sys.stderr)

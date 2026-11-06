@@ -19,7 +19,7 @@ use valgebra_core::{
 };
 
 use crate::errors::summarize;
-use crate::validator::{MAX_SCHEMA_NODES, Validator};
+use crate::validator::{MAX_SCHEMA_DEPTH, MAX_SCHEMA_NODES, Validator};
 
 /// The `build_schema` recursion running on this thread, read and written once on
 /// each side of a descent.
@@ -52,6 +52,74 @@ thread_local! {
 
     /// The PEP 695 aliases whose bodies are being built on this thread.
     static OPEN_ALIASES: RefCell<Vec<OpenAlias>> = const { RefCell::new(Vec::new()) };
+
+    /// The classes whose fields are being built on this thread.
+    static OPEN_CLASSES: RefCell<Vec<OpenClass>> = const { RefCell::new(Vec::new()) };
+}
+
+/// A class whose fields are being built, and the type arguments it is applied
+/// to, found the way an open alias is: by its address, and its arguments
+/// compared by Python equality.
+struct OpenClass {
+    address: usize,
+    arguments: Option<Py<PyTuple>>,
+}
+
+/// One class's fields being built, held open on [`OPEN_CLASSES`] until they
+/// are and given back as it was however the build ends.
+///
+/// A class reached again while its own fields are being built, applied to the
+/// same arguments, is built from the same hints again, so the build never
+/// bottoms out. It is refused where it is reached, as the form the frontend
+/// does not take that it is: an alias ties such a fixpoint, and a class is
+/// written with `recursive(...)` to tie one. Applied to other arguments it is
+/// another build, which may end, and the depth bound refuses it where it does
+/// not.
+pub(super) struct ClassScope;
+
+impl ClassScope {
+    pub(super) fn enter(
+        class: &Bound<'_, PyType>,
+        arguments: Option<&Bound<'_, PyTuple>>,
+    ) -> PyResult<ClassScope> {
+        let py = class.py();
+        let address = class.as_ptr() as usize;
+        // Compared outside the borrow, as an open alias is: an equality is
+        // Python code, and code that builds a validator would borrow the list.
+        let open: Vec<Option<Py<PyTuple>>> = OPEN_CLASSES.with_borrow(|open| {
+            open.iter()
+                .filter(|entry| entry.address == address)
+                .map(|entry| entry.arguments.as_ref().map(|held| held.clone_ref(py)))
+                .collect()
+        });
+        for held in open {
+            let same = match (held, arguments) {
+                (Some(held), Some(these)) => held.bind(py).eq(these)?,
+                (held, these) => held.is_none() && these.is_none(),
+            };
+            if same {
+                return Err(not_implemented(format!(
+                    "{} is reached again while its own fields are being built: a \
+                     class whose own type appears in its fields never bottoms out. \
+                     Write it with recursive(...), which ties the fixpoint explicitly.",
+                    summarize(class.as_any())?
+                )));
+            }
+        }
+        OPEN_CLASSES.with_borrow_mut(|open| {
+            open.push(OpenClass {
+                address,
+                arguments: arguments.map(|these| these.clone().unbind()),
+            });
+        });
+        Ok(ClassScope)
+    }
+}
+
+impl Drop for ClassScope {
+    fn drop(&mut self) {
+        OPEN_CLASSES.with_borrow_mut(Vec::pop);
+    }
 }
 
 /// One alias whose body is being built, and the token standing for it.
@@ -377,6 +445,14 @@ fn default_of<'py>(parameter: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, 
 /// own `__parameters__`, each replaced by its argument. A form naming none of
 /// them is left as written: a generic class has `__parameters__` of its own,
 /// and indexing it would turn the class into an application of it.
+///
+/// A string a parameter stands for is a forward reference, and is refused
+/// where it is substituted, whole or into a form. Only a default is one: an
+/// argument written as a string reaches here as the `ForwardRef` `typing`
+/// makes of it, which the build refuses, while a default is kept as written.
+/// Read as the value it is, `a: W` under `W = TypeVar("W", default="int")`
+/// would be the literal `'int'`, admitting the word and refusing every
+/// integer.
 fn substitute<'py>(
     value: &Bound<'py, PyAny>,
     parameters: &Bound<'py, PyTuple>,
@@ -389,6 +465,9 @@ fn substitute<'py>(
             .and_then(|at| arguments.get(at))
     };
     if let Some(argument) = argument_for(value) {
+        if argument.is_instance_of::<PyString>() {
+            return Err(forward_reference(argument)?);
+        }
         return Ok(argument.clone());
     }
     let Some(variables) = value.getattr_opt(intern!(value.py(), "__parameters__"))? else {
@@ -407,6 +486,16 @@ fn substitute<'py>(
         .iter()
         .map(|variable| argument_for(&variable).cloned().unwrap_or(variable))
         .collect();
+    // A string substituted is a forward reference, refused before `typing`
+    // reads it: it makes a `ForwardRef` of the text, and raises `SyntaxError`
+    // where the text is no expression, as `type A[T] = list[T]` does at
+    // `A[""]`.
+    if let Some(reference) = replaced
+        .iter()
+        .find(|argument| argument.is_instance_of::<PyString>())
+    {
+        return Err(forward_reference(reference)?);
+    }
     value.get_item(PyTuple::new(value.py(), replaced)?)
 }
 
@@ -482,9 +571,11 @@ fn names_a_parameter(
 ///
 /// One level above the published construction depth, so the frontend never
 /// rejects a schema the construction bounds would accept: below this,
-/// `Validator::checked` owns the verdict and reports which bound tripped. A
-/// self-referential class is the shape that reaches this one, because its field
-/// type names the class and the descent does not terminate.
+/// `Validator::checked` owns the verdict and reports which bound tripped, and
+/// past it this refuses with the same `ValueError`: one bound, one type. A
+/// self-referential class does not reach it, being refused where it is reached
+/// again ([`ClassScope`]); a generic one applied to arguments that grow at each
+/// level does, and is refused as the nesting it is.
 ///
 /// The margin is what makes the ownership hold rather than happen to hold. Each
 /// level the frontend descends builds at least one schema node, so the deepest
@@ -543,11 +634,11 @@ impl BuildGuard {
         });
         if depth > MAX_BUILD_DEPTH {
             BUILD.with(|build| build.depth.set(depth - 1));
-            return Err(not_implemented(format!(
-                "schema nesting is too deep to compile: the frontend descended \
-                 past {MAX_BUILD_DEPTH} levels, one more than a schema may nest. \
-                 A class whose own type appears in its fields never bottoms out; \
-                 write it with recursive(...), which ties the fixpoint explicitly."
+            return Err(PyValueError::new_err(format!(
+                "schema nesting is too deep: reading this annotation descends past \
+                 {MAX_BUILD_DEPTH} levels, one more than the limit of \
+                 {MAX_SCHEMA_DEPTH} a schema may nest. Express structural \
+                 recursion with recursive(...) instead of nesting schemas."
             )));
         }
         if before > MAX_SCHEMA_NODES {
@@ -614,12 +705,14 @@ impl Drop for BuildGuard {
 /// frontend compares schema descriptions against. Resolved once on first
 /// compile rather than re-fetched on every node, so a deep schema does not
 /// re-import a module and re-`getattr` the same singleton dozens of times. The
-/// handles are immutable interpreter singletons; the optional ones are absent on
-/// older Pythons (`Never`/`TypeAliasType`).
+/// handles are immutable interpreter singletons. A form a supported release
+/// may lack is an `Option`: `TypeAliasType` below 3.12, `ReadOnly` below 3.13,
+/// `frozendict` below 3.15, and the private `_get_protocol_attrs`, which a
+/// release may drop; so is `ForwardRef`, read from whichever module serves it.
 struct Forms {
     any: Py<PyAny>,
-    never: Option<Py<PyAny>>,
-    noreturn: Option<Py<PyAny>>,
+    never: Py<PyAny>,
+    noreturn: Py<PyAny>,
     type_alias_type: Option<Py<PyAny>>,
     union: Py<PyAny>,
     optional: Py<PyAny>,
@@ -644,21 +737,21 @@ struct Forms {
     get_origin: Py<PyAny>,
     get_args: Py<PyAny>,
     /// `typing.TypeVar`, the one kind of type parameter an alias's arguments
-    /// substitute, asked by exact type: `typing_extensions`' `TypeVarTuple` is
-    /// an instance of it below 3.11.
+    /// substitute, asked by exact type, which is one comparison and is what
+    /// every type variable either module builds is.
     type_var: Py<PyAny>,
     /// `typing.ForwardRef`, and the four classes a type variable or special
     /// form is an instance of, in the order they are asked.
     forward_ref: Option<Py<PyAny>>,
     type_variables: Vec<Py<PyAny>>,
     /// The `TypedDict` field qualifiers: `Required`, `NotRequired`,
-    /// `ReadOnly`. Absent where the runtime is older than the one that spells
-    /// them.
-    required: Option<Py<PyAny>>,
-    not_required: Option<Py<PyAny>>,
+    /// `ReadOnly`, the last absent below 3.13, where `typing` does not spell
+    /// it.
+    required: Py<PyAny>,
+    not_required: Py<PyAny>,
     read_only: Option<Py<PyAny>>,
     /// `typing.Unpack`, the origin of an unpacked tuple.
-    unpack: Option<Py<PyAny>>,
+    unpack: Py<PyAny>,
     /// `typing.get_type_hints`, which resolves a class's annotations.
     get_type_hints: Py<PyAny>,
     object: Py<PyAny>,
@@ -737,8 +830,8 @@ fn forms(py: Python<'_>) -> PyResult<&'static Forms> {
             };
         Ok(Forms {
             any: typing.getattr("Any")?.unbind(),
-            never: optional_form(&typing, "Never")?,
-            noreturn: optional_form(&typing, "NoReturn")?,
+            never: typing.getattr("Never")?.unbind(),
+            noreturn: typing.getattr("NoReturn")?.unbind(),
             type_alias_type: optional_form(&typing, "TypeAliasType")?,
             union: typing.getattr("Union")?.unbind(),
             optional: typing.getattr("Optional")?.unbind(),
@@ -757,18 +850,18 @@ fn forms(py: Python<'_>) -> PyResult<&'static Forms> {
             forward_ref: optional_form(annotationlib.as_ref().unwrap_or(&typing), "ForwardRef")?,
             type_variables: ["TypeVar", "ParamSpec", "TypeVarTuple", "_SpecialForm"]
                 .iter()
-                .filter_map(|name| optional_form(&typing, name).transpose())
+                .map(|name| Ok(typing.getattr(*name)?.unbind()))
                 .collect::<PyResult<_>>()?,
-            required: optional_form(&typing, "Required")?,
-            not_required: optional_form(&typing, "NotRequired")?,
+            required: typing.getattr("Required")?.unbind(),
+            not_required: typing.getattr("NotRequired")?.unbind(),
             read_only: optional_form(&typing, "ReadOnly")?,
-            unpack: optional_form(&typing, "Unpack")?,
+            unpack: typing.getattr("Unpack")?.unbind(),
             get_type_hints: typing.getattr("get_type_hints")?.unbind(),
             object: builtins.getattr("object")?.unbind(),
             frozendict: optional_form(&builtins, "frozendict")?,
             class_factories: ["TypedDict", "NamedTuple"]
                 .iter()
-                .filter_map(|name| optional_form(&typing, name).transpose())
+                .map(|name| Ok(typing.getattr(*name)?.unbind()))
                 .collect::<PyResult<_>>()?,
             enum_class: py.import("enum")?.getattr("Enum")?.unbind(),
             callable: py.import("collections.abc")?.getattr("Callable")?.unbind(),
@@ -788,24 +881,19 @@ fn forms(py: Python<'_>) -> PyResult<&'static Forms> {
 ///
 /// Before the release that adds a form to `typing`, `typing_extensions` defines
 /// it itself, so the name is a different object from anything [`Forms`] holds:
-/// `Any`, `Never`, `Self` and the `TypedDict` qualifiers on 3.10, and
-/// `TypeAliasType` before 3.15. Asked against `typing` alone, such a form reads
-/// as something it is not -- `Never` as a literal of the form object, `Any` as
-/// a class nothing is an instance of, `Required[int]` as an unsupported form.
+/// `Unpack` on 3.11, `ReadOnly` before 3.13 and `TypeAliasType` before 3.15.
+/// Asked against `typing` alone, such a form reads as something it is not --
+/// `ReadOnly[int]` as an unsupported form, an alias as a literal of itself.
 /// Where a release spells the form in `typing`, the two names are one object
 /// and nothing here changes a reading.
 ///
 /// Asked only where a form would otherwise be read as something else, so a
 /// schema that names none of them pays nothing for it.
 pub(crate) struct Extensions {
-    pub(crate) any: Option<Py<PyAny>>,
-    pub(crate) never: Option<Py<PyAny>>,
     type_alias_type: Option<Py<PyAny>>,
-    /// The class `Self`, `LiteralString` and `Never` are instances of below
-    /// 3.11, which is not `typing._SpecialForm`.
+    /// The class the special forms `typing_extensions` defines itself are
+    /// instances of, which is not `typing._SpecialForm`.
     special_form: Option<Py<PyAny>>,
-    pub(crate) required: Option<Py<PyAny>>,
-    pub(crate) not_required: Option<Py<PyAny>>,
     pub(crate) read_only: Option<Py<PyAny>>,
     pub(crate) unpack: Option<Py<PyAny>>,
     /// Its `Protocol`, which is its own below 3.14.
@@ -866,12 +954,8 @@ pub(crate) fn extensions(py: Python<'_>) -> PyResult<Option<&'static Extensions>
         Ok(module.getattr_opt(name)?.map(Bound::unbind))
     };
     let found = Extensions {
-        any: form("Any")?,
-        never: form("Never")?,
         type_alias_type: form("TypeAliasType")?,
         special_form: form("_SpecialForm")?,
-        required: form("Required")?,
-        not_required: form("NotRequired")?,
         read_only: form("ReadOnly")?,
         unpack: form("Unpack")?,
         protocol: form("Protocol")?,
@@ -896,8 +980,7 @@ pub(crate) fn is_extension(
 }
 
 /// What a `typing_extensions` form with no `typing` counterpart here reads as:
-/// `Never` is the bottom and a `TypeAliasType` its aliased type, as their
-/// `typing` spellings are.
+/// a `TypeAliasType` is its aliased type, as its `typing` spelling is.
 fn read_extension(
     obj: &Bound<'_, PyAny>,
     lits: &mut Pool,
@@ -907,13 +990,6 @@ fn read_extension(
     let Some(held) = extensions(py)? else {
         return Ok(None);
     };
-    if held
-        .never
-        .as_ref()
-        .is_some_and(|never| obj.is(never.bind(py)))
-    {
-        return Ok(Some(Schema::Nothing));
-    }
     if let Some(alias_type) = &held.type_alias_type
         && obj.is_instance(alias_type.bind(py))?
     {
@@ -925,7 +1001,8 @@ fn read_extension(
 /// The state a build in progress keeps on this thread, set aside while a build
 /// begun from the API runs and handed back when it ends.
 ///
-/// The guard's counts and the open aliases are the thread's, and a build can
+/// The guard's counts and the open aliases and classes are the thread's, and a
+/// build can
 /// begin inside another: an annotation the frontend evaluates may construct a
 /// `Validator` of its own. Without this the inner build would start at the
 /// outer one's depth and node count, and a schema within the bounds would be
@@ -935,6 +1012,7 @@ struct RootScope {
     descents: usize,
     held: usize,
     aliases: Vec<OpenAlias>,
+    classes: Vec<OpenClass>,
 }
 
 impl RootScope {
@@ -947,11 +1025,13 @@ impl RootScope {
             )
         });
         let aliases = OPEN_ALIASES.with_borrow_mut(std::mem::take);
+        let classes = OPEN_CLASSES.with_borrow_mut(std::mem::take);
         RootScope {
             depth,
             descents,
             held,
             aliases,
+            classes,
         }
     }
 }
@@ -964,6 +1044,7 @@ impl Drop for RootScope {
             build.held.set(self.held);
         });
         OPEN_ALIASES.with_borrow_mut(|open| *open = std::mem::take(&mut self.aliases));
+        OPEN_CLASSES.with_borrow_mut(|open| *open = std::mem::take(&mut self.classes));
     }
 }
 
@@ -1042,19 +1123,16 @@ fn read_annotation(
     let forms = forms(py)?;
 
     // `typing.Any` is a singleton special form: the gradual dynamic type. It is
-    // checked before the type-object dispatch below because on 3.11+ `Any` is
-    // itself a class and would otherwise be taken for an ordinary type.
+    // checked before the type-object dispatch below because `Any` is itself a
+    // class and would otherwise be taken for an ordinary type.
     if obj.is(forms.any.bind(py)) {
         return Ok(Schema::ANY);
     }
 
     // `typing.Never`/`NoReturn` are the empty type: the lattice bottom, the
     // typing-native spelling of `nothing`. (`object` maps to the top below.)
-    // `Never` is 3.11+, so it is absent (skipped) on older Pythons.
-    for form in [&forms.never, &forms.noreturn].into_iter().flatten() {
-        if obj.is(form.bind(py)) {
-            return Ok(Schema::Nothing);
-        }
+    if obj.is(forms.never.bind(py)) || obj.is(forms.noreturn.bind(py)) {
+        return Ok(Schema::Nothing);
     }
 
     // `Annotated` written bare annotates nothing. Below 3.13 it is a class,
@@ -1194,13 +1272,16 @@ fn read_annotation(
     // And the dict literal's frozen sibling. A `frozendict` is not a `dict`, so
     // the arm below does not see it, and past it the constant fallthrough would
     // intern `frozendict(a=int)` as a schema admitting that one mapping of a
-    // type object. It names a record, which the dict literal spells.
+    // type object. It names a record of frozen dicts, a set no node reaches,
+    // and the dict literal's record admits no frozen dict.
     if let Some(frozendict) = &forms.frozendict
         && obj.is_instance(frozendict.bind(py))?
     {
         return Err(not_implemented(
-            "a frozen dict literal is not a schema; write a record as a dict \
-             literal {\"key\": T}, or a mapping as dict[K, V]",
+            "a frozen dict literal is not a schema, and no schema reads a frozen \
+             dict's keys: collections.abc.Mapping or instance_of(frozendict) \
+             admits one whole, and a dict literal {\"key\": T} or dict[K, V] \
+             admits dicts alone",
         ));
     }
     if let Ok(dict) = obj.cast::<PyDict>() {
@@ -1290,12 +1371,7 @@ fn build_unrecognized(
     // matching nothing a caller has. The same refusal a type *argument* already
     // gives, reached at the top level too.
     if is_forward_reference(obj)? {
-        return Err(not_implemented(format!(
-            "{} is a forward reference, and a schema is built from the types \
-             themselves: resolve the annotation first with typing.get_type_hints(\
-             ..., include_extras=True), or write the type rather than its name",
-            summarize(obj)?
-        )));
+        return Err(forward_reference(obj)?);
     }
 
     if let Some(schema) = read_extension(obj, lits, defs)? {
@@ -1766,6 +1842,17 @@ pub(crate) fn not_implemented(message: impl Into<String>) -> PyErr {
     PyNotImplementedError::new_err(message.into())
 }
 
+/// The refusal of `reference`, a forward reference: it names a type rather
+/// than being one, and the namespace that resolves the name is the caller's.
+fn forward_reference(reference: &Bound<'_, PyAny>) -> PyResult<PyErr> {
+    Ok(not_implemented(format!(
+        "{} is a forward reference, and a schema is built from the types \
+         themselves: resolve the annotation first with typing.get_type_hints(\
+         ..., include_extras=True), or write the type rather than its name",
+        summarize(reference)?
+    )))
+}
+
 mod classes;
 mod dialect;
 mod generics;
@@ -1774,7 +1861,7 @@ mod refine;
 #[cfg(all(test, feature = "interpreter-tests"))]
 use classes::annotations_as_written;
 use classes::build_type_object;
-pub(crate) use classes::{build_instances, declares_fields};
+pub(crate) use classes::{build_instances, declares_fields, declares_of_kind};
 use generics::{build_dict, build_parametrized, build_sequence};
 use refine::build_refine;
 

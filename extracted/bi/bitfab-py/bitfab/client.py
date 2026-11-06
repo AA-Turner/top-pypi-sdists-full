@@ -5177,6 +5177,62 @@ class Bitfab:
             method="wrap_gemini",
         )
 
+    def wrap_gemini_embeddings(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends an ``embed_content`` request through the
+        ``google-genai`` client to record the call's input, model, token
+        usage, and duration. Bitfab works out the cost from the model and
+        token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the response unchanged. The request's ``contents`` become the
+        span's prompt, and one context entry holds ``provider``
+        (``"gemini"``), ``model``, ``inputTokens`` (the sum of each
+        embedding's ``statistics.token_count``), ``outputTokens`` (always 0),
+        and ``durationMs``. Only Vertex AI returns ``statistics``, so a call
+        to the Gemini Developer API records no token counts and no cost.
+
+        Beneath a ``trace`` root, ``models.embed_content`` calls on a
+        ``google-genai`` client are already recorded without this wrapper as
+        their own ``llm`` span named ``Models.embed_content``
+        (``AsyncModels`` for ``client.aio``). Wrapping such a call records
+        nothing more, and ``node`` on the wrapper configures that one span.
+
+        Example::
+
+            genai_client = genai.Client(
+                vertexai=True, project=project, location=location
+            )
+            embed = client.wrap_gemini_embeddings(genai_client.models.embed_content)
+            response = embed(model="text-embedding-005", contents=[text])
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the embedding response.
+            on_response: Called with each response after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            (provider_calls.GEMINI_EMBEDDINGS,),
+            fn,
+            on_response=on_response,
+            example="genai_client.models.embed_content",
+            method="wrap_gemini_embeddings",
+        )
+
     def _wrap_provider_call(
         self,
         calls: tuple[provider_calls.ProviderCall, ...],
@@ -6335,3 +6391,30 @@ class BitfabFunction:
             A wrapper with the same signature and name as ``fn``
         """
         return self._client.wrap_gemini(fn, on_response=on_response)
+
+    def wrap_gemini_embeddings(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends an ``embed_content`` request through the
+        ``google-genai`` client to record the call's input, model, token
+        usage, and duration.
+
+        Delegates to ``Bitfab.wrap_gemini_embeddings``. See that method for
+        details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the embedding response
+            on_response: Called with each response after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_gemini_embeddings(fn, on_response=on_response)

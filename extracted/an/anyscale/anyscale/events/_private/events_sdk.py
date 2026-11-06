@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 
 from anyscale._private.sdk.base_sdk import BaseSDK
 from anyscale.client.openapi_client.models import EntityType, UnifiedEvent
-from anyscale.events.models import Event, EventsFilter
+from anyscale.events.models import Event, EventsFilter, EventsPage, MAX_EVENTS_PER_PAGE
 
 
 # What the CLI/SDK calls a resource -> what the backend calls the same thing.
@@ -13,58 +13,61 @@ _ENTITY_TYPE_ON_THE_WIRE: Dict[str, str] = {
     "cluster": EntityType.SESSION,
 }
 
-# The backend caps every page at this many events.
-_MAX_PAGE_SIZE = 1000
-
-# Only service and workspace events page: their backend helpers forward `paging_token` to
-# the DB query (`get_service_events` / `get_workspace_events` in events_router.py). The job
-# helper hard-codes `paging_token=None` and the cluster helper passes only a limit, so for
-# those two a second request would return the first page again; we make one call instead.
-_ENTITIES_WITH_CURSOR_PAGING = frozenset({"service", "workspace"})
-
 
 class PrivateEventsSDK(BaseSDK):
     def list(self, events_filter: EventsFilter) -> List[Event]:
-        """Fetch the events matching `events_filter`, newest first unless asked otherwise."""
-        entity_type = events_filter.entity_type
-        if (
-            entity_type not in _ENTITIES_WITH_CURSOR_PAGING
-            and events_filter.max_items > _MAX_PAGE_SIZE
-        ):
-            self.logger.warning(
-                f"{entity_type} events are returned as a single batch of at most "
-                f"{_MAX_PAGE_SIZE}; max_items={events_filter.max_items} cannot be fully honoured."
-            )
-
+        """Fetch up to max_items events matching `events_filter`, page after page."""
         events: List[Event] = []
-        paging_token: Optional[str] = None
+        page_token: Optional[str] = None
         while len(events) < events_filter.max_items:
-            response = self.client.get_unified_events(
-                entity_type=_ENTITY_TYPE_ON_THE_WIRE[entity_type],
-                entity_id=events_filter.entity_id,
-                # None means "no filter". Never send an empty list: the backend reads it
-                # as "match nothing" and returns zero events.
-                origin=events_filter.source or None,
-                level=events_filter.level or None,
-                message=events_filter.message_contains,
-                start_time=events_filter.start_time,
-                end_time=events_filter.end_time,
-                ascending_order=events_filter.ascending,
-                include_verbose_events=events_filter.verbose,
-                instance_id=events_filter.instance_id,
-                instance_node_ip=events_filter.node_ip,
-                autoscaler_resource_bundles=events_filter.resource_bundles,
-                count=min(events_filter.max_items - len(events), _MAX_PAGE_SIZE),
-                paging_token=paging_token,
-            )
-            page = response.results or []
-            events.extend(_to_event(raw) for raw in page)
-
-            paging_token = response.metadata.next_paging_token if response.metadata else None
-            if not page or paging_token is None or entity_type not in _ENTITIES_WITH_CURSOR_PAGING:
+            count = min(events_filter.max_items - len(events), MAX_EVENTS_PER_PAGE)
+            page = self._fetch_page(events_filter, count, page_token)
+            events.extend(page.results)
+            # Stop when no page follows, or when the backend hands back the token it was
+            # given: asking again would return the same page forever. A page can be empty
+            # and still have a next one (cluster events skip rows without a message).
+            if page.next_page_token is None or page.next_page_token == page_token:
                 break
+            page_token = page.next_page_token
 
         return events[: events_filter.max_items]
+
+    def list_page(
+        self, events_filter: EventsFilter, page_token: Optional[str] = None
+    ) -> EventsPage:
+        """One page of at most max_items events, from `page_token` on."""
+        if events_filter.max_items > MAX_EVENTS_PER_PAGE:
+            raise ValueError(
+                f"max_items must be at most {MAX_EVENTS_PER_PAGE} for one page, "
+                f"got {events_filter.max_items}."
+            )
+        return self._fetch_page(events_filter, events_filter.max_items, page_token)
+
+    def _fetch_page(
+        self, events_filter: EventsFilter, count: int, page_token: Optional[str]
+    ) -> EventsPage:
+        response = self.client.get_unified_events(
+            entity_type=_ENTITY_TYPE_ON_THE_WIRE[events_filter.entity_type],
+            entity_id=events_filter.entity_id,
+            # None means "no filter". Never send an empty list: the backend reads it
+            # as "match nothing" and returns zero events.
+            origin=events_filter.source or None,
+            level=events_filter.level or None,
+            message=events_filter.message_contains,
+            start_time=events_filter.start_time,
+            end_time=events_filter.end_time,
+            ascending_order=events_filter.ascending,
+            include_verbose_events=events_filter.verbose,
+            instance_id=events_filter.instance_id,
+            instance_node_ip=events_filter.node_ip,
+            autoscaler_resource_bundles=events_filter.resource_bundles,
+            count=count,
+            paging_token=page_token,
+        )
+        return EventsPage(
+            results=[_to_event(raw) for raw in response.results or []],
+            next_page_token=response.metadata.next_paging_token if response.metadata else None,
+        )
 
 
 def _to_event(raw: UnifiedEvent) -> Event:

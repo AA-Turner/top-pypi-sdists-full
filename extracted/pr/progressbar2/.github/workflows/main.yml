@@ -2,7 +2,7 @@ name: tox
 
 on:
   push:
-    branches: [develop]
+    branches: [master, develop]
   pull_request:
   workflow_dispatch:
 
@@ -36,6 +36,12 @@ jobs:
     name: tox (${{ matrix.tox-env }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Job-level continue-on-error, not only step-level: a job that hits
+    # timeout-minutes is cancelled rather than failed, which a step-level
+    # continue-on-error cannot absorb -- an experimental env (e.g.
+    # docs-linkcheck waiting on slow external servers) would still mark
+    # the whole run cancelled.
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,6 +73,8 @@ jobs:
             tox-env: docs-linkcheck
             experimental: true
           - python-version: '3.14'
+            tox-env: readme
+          - python-version: '3.14'
             tox-env: ruff
           - python-version: '3.14'
             tox-env: codespell
@@ -81,12 +89,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip tox
+      - name: Apply Ruff fixes to pull requests
+        if: github.event_name == 'pull_request' && matrix.tox-env == 'ruff'
+        run: tox -e ruff-fix
       - name: Test with tox
+        env:
+          RUFF_OUTPUT_FORMAT: >-
+            ${{ github.event_name == 'pull_request' && 'github' || 'full' }}
         # Step-level continue-on-error keeps the job green for
         # experimental (pre-release Python) environments while still
         # showing the failing step in the logs
         continue-on-error: ${{ matrix.experimental || false }}
         run: tox -e ${{ matrix.tox-env }}
+      - name: Export coverage
+        if: matrix.tox-env == 'py313'
+        run: .tox/py313/bin/python -m coverage lcov -o coverage.lcov
+      - name: Upload coverage to Coveralls
+        if: matrix.tox-env == 'py313' && github.event_name != 'pull_request' && startsWith(github.ref, 'refs/heads/')
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
+        with:
+          file: coverage.lcov
+          format: lcov
+          fail-on-error: true
 
   windows:
     name: tox (windows / py312)

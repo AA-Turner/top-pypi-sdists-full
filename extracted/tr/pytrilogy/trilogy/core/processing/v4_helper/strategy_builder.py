@@ -2622,64 +2622,24 @@ def _join_key_concepts(
     return out
 
 
-def _unprojected_expression_mates(
-    parents: list[StrategyNode], environment: BuildEnvironment
-) -> set[str]:
-    """Scoped-join members that are expressions over a rowset handle, reachable
-    by two or more parents but projected by none. The boundary binding the
-    handle exposes such a member; a projection wrapper over that boundary can
-    render it but does not project it, so the merge has no pairing until it is
-    widened onto whichever parent renders it."""
-    projected = {o.address for parent in parents for o in parent.output_concepts}
-    reach = [
-        {o.address for o in parent.output_concepts} | renderable_addresses(parent)
-        for parent in parents
-    ]
-    mates: set[str] = set()
-    for group in environment.scoped_join_relations():
-        candidates: dict[str, BuildConcept] = {}
-        for address in group - projected:
-            mate = _concept_at(environment, address)
-            if (
-                mate is not None
-                and mate.derivation == Derivation.BASIC
-                and mate.lineage is not None
-                and any(
-                    arg.derivation == Derivation.ROWSET
-                    for arg in mate.lineage.concept_arguments
-                )
-            ):
-                candidates[address] = mate
-        if not candidates:
-            continue
-        reached = sum(
-            1
-            for available in reach
-            if group & available
-            or any(concept_satisfiable(m, available) for m in candidates.values())
+def _owed_keys(
+    parent: StrategyNode, keys: frozenset[str], environment: BuildEnvironment
+) -> frozenset[str]:
+    """The planned keys `parent` must be widened to: an alias of a column it
+    holds is the same column (`team_id` beside `game_tall_team_id`). Only a
+    rename: a merged or related name can differ in rows or NULLs."""
+    held = {o.address for o in parent.output_concepts}
+    return frozenset(
+        k
+        for k in keys
+        if k in held
+        or not (
+            (c := environment.concepts.get(k)) is not None
+            and isinstance(c.lineage, BuildFunction)
+            and c.lineage.operator == FunctionType.ALIAS
+            and {a.address for a in c.lineage.concept_arguments} <= held
         )
-        if reached >= 2:
-            mates |= candidates.keys()
-    return mates
-
-
-def _widen_merge_join_keys(
-    parents: list[StrategyNode],
-    environment: BuildEnvironment,
-    join_key_addresses: frozenset[str],
-) -> None:
-    if len(parents) <= 1 or not join_key_addresses:
-        return
-    _carry_join_keys(
-        parents,
-        _join_key_concepts(parents, environment, set(join_key_addresses)),
-        environment,
     )
-    mates = _unprojected_expression_mates(parents, environment)
-    if mates:
-        _carry_join_keys(
-            parents, _join_key_concepts(parents, environment, mates), environment
-        )
 
 
 def _carry_planned_keys(
@@ -2687,15 +2647,27 @@ def _carry_planned_keys(
     origin: dict[int, str],
     plan: JoinPlan,
     environment: BuildEnvironment,
+    sides: Sequence[frozenset[str]] | None = None,
 ) -> None:
-    """Widen each FINAL parent with the keys its own side of its planned
-    pairings holds. An expression relation member two parents pair on is a
-    planned key, so it is carried with them."""
+    """Widen each parent with the keys its own side of its planned pairings
+    holds and its consumer's contract asks it to carry. An expression relation member two parents pair on is a
+    planned key, so it is carried with them. `sides` are the groups each
+    parent holds; a side merged below owes what its groups pair on here."""
     if len(parents) <= 1:
         return
-    for parent in parents:
-        gid = _origin_group(parent, origin)
-        if gid is None or not (keys := plan.keys_for(gid)):
+    if sides is None:
+        sides = [
+            frozenset({gid}) if (gid := _origin_group(p, origin)) else frozenset()
+            for p in parents
+        ]
+    crossing = plan.across(sides)
+    for parent, members in zip(parents, sides):
+        owed = (
+            plan.owed_by(next(iter(members)))
+            if len(members) == 1
+            else frozenset().union(*(crossing.owed_by(gid) for gid in members))
+        )
+        if not (keys := _owed_keys(parent, owed, environment)):
             continue
         concepts = _join_key_concepts(parents, environment, set(keys))
         # a gate that hid the key it was joined on still holds the column
@@ -3444,8 +3416,14 @@ def _pre_merge_parents(
         join_key_addresses,
         environment,
     )
-    _widen_merge_join_keys(parents, environment, join_key_addresses)
     if plan is not None and origin is not None:
+        _carry_planned_keys(
+            parents,
+            origin,
+            plan,
+            environment,
+            [side_members(parent, origin) or frozenset() for parent in parents],
+        )
         parents = _project_planned_keys(
             parents,
             origin,
@@ -3473,7 +3451,9 @@ def _pre_merge_parents(
         # the feeder only where it holds a value-NULL key
         host_stitch=any(p.region_spans for p in parents),
         planned_keys=(
-            plan.over(side_groups(parents, origin)).permitted_keys
+            plan.across(
+                [side_members(parent, origin) or frozenset() for parent in parents]
+            ).permitted_keys
             if plan is not None and origin is not None
             else None
         ),
@@ -3492,14 +3472,18 @@ def _merge_plan(
     environment: BuildEnvironment,
 ) -> JoinPlan | None:
     """A consumer's join plan over the groups its row parents came from, with
-    the bridges it elects from `candidates` as extras. None when a side is no
-    group's (a merge assembled below the consumer): resolve discovers the
-    keys."""
+    the bridges it elects from `candidates` as extras. A side merged below the
+    consumer stands for the groups it joins; it elects no bridge, since its
+    own merge joined what pairs them. None when a side is no group's: resolve
+    discovers the keys."""
     if attrs is None or origin is None or group_graph is None:
         return None
-    sides = side_groups(parents, origin)
-    if len(sides) != len(parents):
+    member_sets = [side_members(parent, origin) for parent in parents]
+    if any(m is None for m in member_sets):
         return None
+    sides = [gid for m in member_sets if m is not None for gid in sorted(m)]
+    if len(sides) != len(parents):
+        candidates = ()
     wanted = needed or set()
     cover = {
         gid: [
@@ -5693,34 +5677,21 @@ def _apply_final_conditions(
         if ex_groups
         else []
     )
-    # A feeder that participates in a scoped relation must join back on
-    # the relation axis, not cross-join: widen the contributor (and the
-    # feeder) with the authored members each side can render: a leaf
-    # scan picks up the mate it binds, the boundary its member handle.
-    # Feeders with no relation stay hidden cross-join inputs.
     if arg_nodes:
-        # A gate keyed by a column the contributor never projects
-        # (`sum(amount) by status > 35 or ...` over `select oid`) pairs on
-        # that key; carried hidden, or the merge has nothing to join on.
-        gate_keys = _gate_grain_keys(arg_concepts) - avail
-        if gate_keys:
-            _widen_merge_join_keys([node, *arg_nodes], environment, gate_keys)
-        # A row-level atom over the facts (`undelivered`) beside a node
-        # holding a region joins it on the span: cross-joined, any fact
-        # row's value would pass for every member of the region.
-        if spans:
-            _widen_merge_join_keys([node, *arg_nodes], environment, spans)
-    if arg_nodes and environment.scoped_join_key_groups:
-        relation_keys: set[str] = set()
-        for feeder in set(producers.values()):
-            feeder_outs = carries(attrs[feeder], frozenset(), frozenset(), environment)
-            for relation in environment.scoped_join_relations():
-                if feeder_outs & relation:
-                    relation_keys |= relation
-        if relation_keys:
-            _widen_merge_join_keys(
-                [node, *arg_nodes], environment, frozenset(relation_keys)
-            )
+        feeders = list(dict.fromkeys(producers.values()))
+        _carry_asked_keys(
+            [node, *arg_nodes],
+            {id(built[f]): f for f in feeders} | {id(node): gid},
+            {gid: keep},
+            feeders,
+            _condition_join_asks(
+                attrs, producers, arg_concepts, avail, spans, environment
+            ),
+            keep,
+            group_graph,
+            attrs,
+            environment,
+        )
     sources = ConditionSources(
         row_concepts=row_concepts + arg_concepts,
         row_parents=arg_nodes,
@@ -5745,6 +5716,59 @@ def _apply_final_conditions(
         condition_on_merge=bool(arg_nodes),
         combine_existing=False,
     )
+
+
+def _condition_join_asks(
+    attrs: dict[str, GroupAttrs],
+    producers: dict[str, str],
+    arg_concepts: list[BuildConcept],
+    avail: set[str],
+    spans: frozenset[str],
+    environment: BuildEnvironment,
+) -> frozenset[str]:
+    """The keys a FINAL condition's feeders join its contributor on: a gate's
+    grain the contributor never projects (`sum(amount) by status > 35` over
+    `select oid`), the spans of a region it holds (cross-joined, any fact
+    row's value would pass for every member), and the scoped relations a
+    feeder takes part in."""
+    asks = (_gate_grain_keys(arg_concepts) - avail) | spans
+    for feeder in set(producers.values()):
+        feeder_outs = carries(attrs[feeder], frozenset(), frozenset(), environment)
+        for relation in environment.scoped_join_relations():
+            if feeder_outs & relation:
+                asks |= relation
+    return asks
+
+
+def _carry_asked_keys(
+    nodes: list[StrategyNode],
+    origin: dict[int, str],
+    cover: dict[str, list[BuildConcept]],
+    extras: Sequence[str],
+    asks: frozenset[str],
+    mandatory: Sequence[BuildConcept],
+    group_graph: nx.DiGraph,
+    attrs: dict[str, GroupAttrs],
+    environment: BuildEnvironment,
+) -> None:
+    """Widen `nodes` to the `asks` their join plan (`cover` beside `extras`)
+    finds each side can hold. Only the asks, not the pairing keys: a FINAL
+    side is deduped to the output grain, and its plan carries name the row
+    columns beneath that dedup (`order_id` under `select customer_id,
+    label`)."""
+    if not asks:
+        return
+    plan = plan_final_join(
+        group_graph,
+        attrs,
+        cover,
+        mandatory,
+        environment,
+        _required_final_contract(attrs).authored_axes,
+        contracted={side: asks for side in (*cover, *extras)},
+        extras=extras,
+    )
+    _carry_planned_keys(nodes, origin, dc_replace(plan, pairings=()), environment)
 
 
 def _gate_key_row_stream(
@@ -6143,7 +6167,17 @@ def _assemble_final_node(
     # genus derived from a scanned column) pairs on that key, as in
     # `_apply_final_conditions`: carried hidden, or the merge joins on nothing.
     if arg_nodes and (gate_keys := _gate_grain_keys(arg_concepts) - available):
-        _widen_merge_join_keys([*parents, *arg_nodes], environment, gate_keys)
+        _carry_asked_keys(
+            [*parents, *arg_nodes],
+            origin,
+            per_group,
+            [*bridges, *extras.groups],
+            gate_keys,
+            mandatory_list,
+            group_graph,
+            attrs,
+            environment,
+        )
         parents = _join_gate_hosts(parents, gate_keys, extras, built)
     parents = parents + arg_nodes
     sides = side_groups(parents, origin)
@@ -6287,6 +6321,23 @@ def _origin_group(node: StrategyNode, origin: dict[int, str]) -> str | None:
     while id(node) not in origin and len(node.parents) == 1:
         node = node.parents[0]
     return origin.get(id(node))
+
+
+def side_members(node: StrategyNode, origin: dict[int, str]) -> frozenset[str] | None:
+    """The planned groups whose rows `node` holds: its own group, or, for a
+    merge assembled below the consumer, the groups of every side it joins.
+    None when some rows are no group's."""
+    gid = _origin_group(node, origin)
+    if gid is not None:
+        return frozenset({gid})
+    if not isinstance(node, MergeNode):
+        return None
+    members: set[str] = set()
+    for parent in node.parents:
+        if (held := side_members(parent, origin)) is None:
+            return None
+        members |= held
+    return frozenset(members)
 
 
 def side_groups(parents: list[StrategyNode], origin: dict[int, str]) -> list[str]:
@@ -6702,23 +6753,27 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             outputs, named_arguments = _name_inline_arguments(
                 outputs, primary_addrs, domain_spans, environment
             )
-            parents = (
-                _project_basic_aggregate_inputs(
-                    outputs,
-                    primary_addrs,
-                    solid,
-                    ctx.folds.render(
-                        build.group_id
-                        for p, build in zip(parents, parent_builds)
-                        if p not in domains and p not in feeders
-                    ),
-                    environment,
-                    region_spans=domain_spans,
-                    named=named_arguments,
-                )
-                + domains
-                + feeders
+            projected = _project_basic_aggregate_inputs(
+                outputs,
+                primary_addrs,
+                solid,
+                ctx.folds.render(
+                    build.group_id
+                    for p, build in zip(parents, parent_builds)
+                    if p not in domains and p not in feeders
+                ),
+                environment,
+                region_spans=domain_spans,
+                named=named_arguments,
             )
+            # the projection is a copy of one planned group's rows: it is
+            # that group's side of the merge with the domain
+            if (
+                len(solid) == 1
+                and (solid_gid := _origin_group(solid[0], origin)) is not None
+            ):
+                origin.update((id(p), solid_gid) for p in projected)
+            parents = projected + domains + feeders
         if derivation == Derivation.UNNEST:
             element_filters = _element_filters(
                 parents, parent_builds, a, group_edges, gid

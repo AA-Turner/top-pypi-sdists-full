@@ -9,7 +9,7 @@ use crate::{
     data_store_base_py::DataStoreBasePy, observability_client_base_py::ObservabilityClientBasePy,
 };
 use pyo3::prelude::*;
-use pyo3::types::PyList;
+use pyo3::types::{PyInt, PyList};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::data_store_interface::DataStoreTrait;
 use statsig_rust::networking::proxy_config::ProxyConfig;
@@ -124,6 +124,12 @@ pub struct StatsigOptionsPy {
     pub log_event_url: Option<String>,
     #[pyo3(get, set)]
     pub disable_all_logging: Option<bool>,
+    /// Skip Statsig-side diagnostics and SDK exception uploads for this SDK instance.
+    /// True opts in; False or None preserves existing reporting. ObservabilityClient,
+    /// local output logs, exposures, and custom events remain enabled. Read when the
+    /// SDK is constructed; create a new SDK instance to change this setting.
+    #[pyo3(get, set)]
+    pub disable_remote_telemetry: Option<bool>,
     #[pyo3(get, set)]
     pub disable_network: Option<bool>,
     #[pyo3(get, set)]
@@ -142,6 +148,13 @@ pub struct StatsigOptionsPy {
     /// Use Elias–Fano for this instance’s private ID lists and shared ID-list files. False or unset selects the hash format.
     #[pyo3(get, set)]
     pub enable_id_list_elias_fano: Option<bool>,
+    /// Maximum simultaneous index builds during eager private ID-list initialization.
+    /// Use an integer from 1 to 32. Unset or out-of-range values use 1 (serial).
+    /// Create a new SDK instance to change this setting.
+    #[pyo3(get, set)]
+    pub id_list_init_build_concurrency: Option<Py<PyInt>>,
+    #[pyo3(get, set)]
+    pub enable_id_list_access_metrics: Option<bool>,
     #[pyo3(get, set)]
     pub enable_dcs_deltas: Option<bool>,
     #[pyo3(get, set)]
@@ -259,6 +272,9 @@ impl StatsigOptionsPy {
         state_read_primary_attempts=None,
         shared_id_lists_dir=None,
         enable_id_list_elias_fano=None,
+        disable_remote_telemetry=None,
+        id_list_init_build_concurrency=None,
+        enable_id_list_access_metrics=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -315,6 +331,9 @@ impl StatsigOptionsPy {
         state_read_primary_attempts: Option<i64>,
         shared_id_lists_dir: Option<String>,
         enable_id_list_elias_fano: Option<bool>,
+        disable_remote_telemetry: Option<bool>,
+        id_list_init_build_concurrency: Option<Py<PyInt>>,
+        enable_id_list_access_metrics: Option<bool>,
     ) -> Self {
         Self {
             specs_url,
@@ -322,6 +341,7 @@ impl StatsigOptionsPy {
             init_timeout_ms,
             log_event_url,
             disable_all_logging,
+            disable_remote_telemetry,
             log_event_connection_reuse,
             prefer_http2,
             state_read_primary_attempts,
@@ -330,6 +350,8 @@ impl StatsigOptionsPy {
             event_logging_max_pending_batch_queue_size,
             enable_id_lists,
             enable_id_list_elias_fano,
+            id_list_init_build_concurrency,
+            enable_id_list_access_metrics,
             enable_dcs_deltas,
             wait_for_user_agent_init,
             wait_for_country_lookup_init,
@@ -480,6 +502,7 @@ fn create_inner_statsig_options(
             .map(|v| v.as_str().into()),
         log_event_url: opts.log_event_url.clone(),
         disable_all_logging: opts.disable_all_logging,
+        disable_remote_telemetry: opts.disable_remote_telemetry,
         event_logging_adapter: opts.event_logging_adapter.and_then(|adapter| {
             match adapter.extract::<EventLoggingAdapterBasePy>(py) {
                 Ok(adapter) => {
@@ -497,6 +520,10 @@ fn create_inner_statsig_options(
         enable_id_lists: opts.enable_id_lists,
         lazy_load_id_lists: None,
         enable_id_list_elias_fano: opts.enable_id_list_elias_fano,
+        id_list_init_build_concurrency: opts
+            .id_list_init_build_concurrency
+            .and_then(|value| value.extract::<i32>(py).ok()),
+        enable_id_list_access_metrics: opts.enable_id_list_access_metrics,
         enable_dcs_deltas: opts.enable_dcs_deltas,
         id_lists_url: opts.id_lists_url.clone(),
         shared_id_lists_dir: opts.shared_id_lists_dir.clone(),

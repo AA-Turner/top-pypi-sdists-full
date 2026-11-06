@@ -196,13 +196,17 @@ class push(generic.FhemModule):
     # --- keys of this FHEM (VAPID) ---
 
     async def load_vapid(self):
-        from py_vapid import Vapid
         from .. import utils
+
+        # the first import takes long on a Raspberry Pi, not on the event loop
+        await certs.load()
+        await utils.import_module("py_vapid")
+        from py_vapid import Vapid
 
         stored = await fhem.ReadingsVal(self.hash["NAME"], ".vapid_key", "")
         if stored:
             try:
-                pem = utils.decrypt_string(stored, self._unique_id)
+                pem = await utils.async_decrypt_string(stored, self._unique_id)
                 self._vapid = Vapid.from_pem(pem.encode())
                 return
             except Exception:
@@ -214,7 +218,10 @@ class push(generic.FhemModule):
         vapid.generate_keys()
         pem = vapid.private_pem().decode()
         await fhem.readingsSingleUpdate(
-            self.hash, ".vapid_key", utils.encrypt_string(pem, self._unique_id), 0
+            self.hash,
+            ".vapid_key",
+            await utils.async_encrypt_string(pem, self._unique_id),
+            0,
         )
         self._vapid = vapid
         # old subscriptions belong to the old key
@@ -416,7 +423,9 @@ class push(generic.FhemModule):
         return str(result or "") or None
 
     async def http_session(self):
-        import aiohttp
+        from .. import utils
+
+        aiohttp = await utils.import_module("aiohttp")
 
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()
@@ -442,6 +451,10 @@ class push(generic.FhemModule):
 
     async def send_one(self, key, data):
         """True if delivered, None if the phone is gone, False on errors"""
+        from .. import utils
+
+        # imports aiohttp, takes seconds on a Raspberry Pi the first time
+        await utils.import_module("pywebpush")
         import aiohttp
         from pywebpush import WebPushException, webpush_async
 
@@ -685,12 +698,14 @@ class LocalHttps:
     async def load_ca(self):
         from .. import utils
 
+        await certs.load()
+
         key_text = await self.reading(".ca_key")
         cert_text = await self.reading(".ca_cert")
         if key_text and cert_text:
             try:
                 key = certs.load_key(
-                    utils.decrypt_string(key_text, self.module._unique_id)
+                    await utils.async_decrypt_string(key_text, self.module._unique_id)
                 )
                 return key, certs.load_cert(cert_text.replace("\\n", "\n"))
             except Exception:
@@ -699,7 +714,9 @@ class LocalHttps:
         await fhem.readingsSingleUpdate(
             self.hash,
             ".ca_key",
-            utils.encrypt_string(certs.key_pem(key), self.module._unique_id),
+            await utils.async_encrypt_string(
+                certs.key_pem(key), self.module._unique_id
+            ),
             0,
         )
         await fhem.readingsSingleUpdate(

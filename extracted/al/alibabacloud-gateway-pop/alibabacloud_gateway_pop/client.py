@@ -1,22 +1,17 @@
 # -*- coding: utf-8 -*-
 # This file is auto-generated, don't edit it. Thanks.
-from alibabacloud_darabonba_encode_util.encoder import Encoder
+import os
+import re
+
+from . import _codec as codec
+from . import _support as support
+from darabonba.utils.xml import XML
 from Tea.exceptions import TeaException
-from alibabacloud_darabonba_signature_util.signer import Signer
 from Tea.core import TeaCore
 from typing import Dict, Any, List
 
 from alibabacloud_gateway_spi.client import Client as SPIClient
 from alibabacloud_gateway_spi import models as spi_models
-from alibabacloud_tea_util.client import Client as UtilClient
-from alibabacloud_openapi_util.client import Client as OpenApiUtilClient
-from alibabacloud_darabonba_string.client import Client as StringClient
-from alibabacloud_tea_xml.client import Client as XMLClient
-from alibabacloud_endpoint_util.client import Client as EndpointUtilClient
-from alibabacloud_darabonba_array.client import Client as ArrayClient
-from alibabacloud_darabonba_map.client import Client as MapClient
-
-
 class Client(SPIClient):
     _endpoint_suffix: str = None
     _signature_type_prefix: str = None
@@ -41,14 +36,8 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         config = context.configuration
-        attributes = attribute_map.key
-        if not UtilClient.is_unset(attributes):
-            self._signature_type_prefix = attributes.get('signatureTypePrefix')
-            self._sign_prefix = attributes.get('signPrefix')
-            self._endpoint_suffix = attributes.get('endpointSuffix')
-            self._sha_256 = f'{self._signature_type_prefix}HMAC-SHA256'
-            self._sm_3 = f'{self._signature_type_prefix}HMAC-SM3'
-        config.endpoint = self.get_endpoint(request.product_id, config.region_id, config.endpoint_rule, config.network, config.suffix, config.endpoint_map, config.endpoint)
+        endpoint_suffix = self._resolve_endpoint_suffix(attribute_map.key)
+        config.endpoint = self._get_endpoint_with_suffix(request.product_id, config.region_id, config.endpoint_rule, config.network, config.suffix, config.endpoint_map, config.endpoint, endpoint_suffix)
 
     async def modify_configuration_async(
         self,
@@ -57,14 +46,64 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         config = context.configuration
-        attributes = attribute_map.key
-        if not UtilClient.is_unset(attributes):
-            self._signature_type_prefix = attributes.get('signatureTypePrefix')
-            self._sign_prefix = attributes.get('signPrefix')
-            self._endpoint_suffix = attributes.get('endpointSuffix')
-            self._sha_256 = f'{self._signature_type_prefix}HMAC-SHA256'
-            self._sm_3 = f'{self._signature_type_prefix}HMAC-SM3'
-        config.endpoint = self.get_endpoint(request.product_id, config.region_id, config.endpoint_rule, config.network, config.suffix, config.endpoint_map, config.endpoint)
+        endpoint_suffix = self._resolve_endpoint_suffix(attribute_map.key)
+        config.endpoint = self._get_endpoint_with_suffix(request.product_id, config.region_id, config.endpoint_rule, config.network, config.suffix, config.endpoint_map, config.endpoint, endpoint_suffix)
+
+    def _signature_names(self, attributes):
+        prefix = 'ACS4-'
+        sign_prefix = 'aliyun_v4'
+        if not support.is_unset(attributes):
+            requested = attributes.get('signatureTypePrefix')
+            if not support.empty(requested):
+                prefix = requested
+            requested_sign = attributes.get('signPrefix')
+            if not support.empty(requested_sign):
+                sign_prefix = requested_sign
+        return sign_prefix, f'{prefix}HMAC-SHA256', f'{prefix}HMAC-SM3'
+
+    def _checked_endpoint_suffix(self, suffix):
+        if suffix is None:
+            return ''
+        suffix = suffix.strip().lower()
+        if suffix == '':
+            return ''
+        if suffix not in ('aliyuncs.com', 'aliyuncs.alibaba') or re.match(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$', suffix) is None:
+            raise TeaException({
+                'code': 'InvalidEndpointSuffix',
+                'message': 'endpointSuffix must be aliyuncs.com or aliyuncs.alibaba',
+            })
+        return suffix
+
+    def _resolve_endpoint_suffix(self, attributes):
+        if not support.is_unset(attributes):
+            suffix = self._checked_endpoint_suffix(attributes.get('endpointSuffix'))
+            if not support.empty(suffix):
+                return suffix
+        env_suffix = self._checked_endpoint_suffix(os.environ.get('ALIBABA_CLOUD_ENDPOINT_SUFFIX'))
+        if env_suffix:
+            return env_suffix
+        return 'aliyuncs.com'
+
+    def _with_endpoint_suffix(self, endpoint, endpoint_suffix=None):
+        suffix = self._endpoint_suffix if endpoint_suffix is None else endpoint_suffix
+        suffix = self._checked_endpoint_suffix(suffix) or 'aliyuncs.com'
+        if not endpoint or suffix == 'aliyuncs.com':
+            return endpoint
+        old = '.aliyuncs.com'
+        if endpoint.endswith(old):
+            return endpoint[:-len(old)] + '.' + suffix
+        return endpoint
+
+    def _host_without_domain(self, host, suffix):
+        seen = set()
+        for domain in (suffix, 'aliyuncs.com', 'aliyuncs.alibaba'):
+            if support.empty(domain) or domain in seen:
+                continue
+            seen.add(domain)
+            needle = '.' + domain
+            if host.endswith(needle):
+                return host[:-len(needle)]
+        return host
 
     def modify_request(
         self,
@@ -73,76 +112,77 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         config = context.configuration
-        date = OpenApiUtilClient.get_timestamp()
+        date = support.get_timestamp()
         request.headers = TeaCore.merge({
             'host': config.endpoint,
             'x-acs-version': request.version,
             'user-agent': request.user_agent,
             'x-acs-date': date,
-            'x-acs-signature-nonce': UtilClient.get_nonce(),
+            'x-acs-signature-nonce': support.get_nonce(),
             'accept': 'application/json'
         }, request.headers)
-        if not UtilClient.empty(request.action):
+        if not support.empty(request.action):
             request.headers['x-acs-action'] = request.action
-        signature_algorithm = UtilClient.default_string(request.signature_algorithm, self._sha_256)
-        hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(''), signature_algorithm))
-        if not UtilClient.is_unset(request.stream):
-            tmp = UtilClient.read_as_bytes(request.stream)
-            hashed_request_payload = Encoder.hex_encode(Encoder.hash(tmp, signature_algorithm))
+        sign_prefix, sha256, sm3 = self._signature_names(attribute_map.key)
+        signature_algorithm = support.default_string(request.signature_algorithm, sha256)
+        hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(''), signature_algorithm))
+        if not support.is_unset(request.stream):
+            tmp = support.read_as_bytes(request.stream)
+            hashed_request_payload = codec.hex_encode(codec.hash_bytes(tmp, signature_algorithm))
             request.stream = tmp
             request.headers['content-type'] = 'application/octet-stream'
         else:
-            if not UtilClient.is_unset(request.body):
-                if UtilClient.equal_string(request.req_body_type, 'byte'):
-                    byte_obj = UtilClient.assert_as_bytes(request.body)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(byte_obj, signature_algorithm))
+            if not support.is_unset(request.body):
+                if support.equal_string(request.req_body_type, 'byte'):
+                    byte_obj = support.assert_as_bytes(request.body)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(byte_obj, signature_algorithm))
                     request.stream = byte_obj
-                elif UtilClient.equal_string(request.req_body_type, 'json'):
-                    json_obj = UtilClient.to_jsonstring(request.body)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(json_obj), signature_algorithm))
+                elif support.equal_string(request.req_body_type, 'json'):
+                    json_obj = support.to_jsonstring(request.body)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(json_obj), signature_algorithm))
                     request.stream = json_obj
                     request.headers['content-type'] = 'application/json; charset=utf-8'
                 else:
-                    m = UtilClient.assert_as_map(request.body)
-                    form_obj = OpenApiUtilClient.to_form(m)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(form_obj), signature_algorithm))
+                    m = support.assert_as_map(request.body)
+                    form_obj = support.to_form(m)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(form_obj), signature_algorithm))
                     request.stream = form_obj
                     request.headers['content-type'] = 'application/x-www-form-urlencoded'
-        if UtilClient.equal_string(signature_algorithm, self._sm_3):
+        if support.equal_string(signature_algorithm, sm3):
             request.headers['x-acs-content-sm3'] = hashed_request_payload
         else:
             request.headers['x-acs-content-sha256'] = hashed_request_payload
-        if not UtilClient.equal_string(request.auth_type, 'Anonymous'):
+        if not support.equal_string(request.auth_type, 'Anonymous'):
             credential = request.credential
-            if UtilClient.is_unset(credential):
+            if support.is_unset(credential):
                 raise TeaException({
                     'code': 'ParameterMissing',
                     'message': "'config.credential' can not be unset"
                 })
             credential_model = credential.get_credential()
-            if not UtilClient.empty(credential_model.provider_name):
+            if not support.empty(credential_model.provider_name):
                 request.headers['x-acs-credentials-provider'] = credential_model.provider_name
             auth_type = credential_model.type
-            if UtilClient.equal_string(auth_type, 'bearer'):
+            if support.equal_string(auth_type, 'bearer'):
                 bearer_token = credential_model.bearer_token
                 request.headers['x-acs-bearer-token'] = bearer_token
                 request.headers['x-acs-signature-type'] = 'BEARERTOKEN'
                 request.headers['Authorization'] = f'Bearer {bearer_token}'
-            elif UtilClient.equal_string(auth_type, 'id_token'):
+            elif support.equal_string(auth_type, 'id_token'):
                 id_token = credential_model.security_token
                 request.headers['x-acs-zero-trust-idtoken'] = id_token
             else:
                 access_key_id = credential_model.access_key_id
                 access_key_secret = credential_model.access_key_secret
                 security_token = credential_model.security_token
-                if not UtilClient.empty(security_token):
+                if not support.empty(security_token):
                     request.headers['x-acs-accesskey-id'] = access_key_id
                     request.headers['x-acs-security-token'] = security_token
-                date_new = StringClient.sub_string(date, 0, 10)
-                date_new = StringClient.replace(date_new, '-', '', None)
-                region = self.get_region(request.product_id, config.endpoint, config.region_id)
-                signingkey = self.get_signingkey(signature_algorithm, access_key_secret, request.product_id, region, date_new)
-                request.headers['Authorization'] = self.get_authorization(request.pathname, request.method, request.query, request.headers, signature_algorithm, hashed_request_payload, access_key_id, signingkey, request.product_id, region, date_new)
+                date_new = codec.sub_string(date, 0, 10)
+                date_new = codec.replace(date_new, '-', '', None)
+                region = self._get_region_with_suffix(request.product_id, config.endpoint, config.region_id, self._endpoint_suffix)
+                signingkey = self._signingkey(signature_algorithm, access_key_secret, request.product_id, region, date_new, sign_prefix, sha256, sm3)
+                request.headers['Authorization'] = self._authorization(request.pathname, request.method, request.query, request.headers, signature_algorithm, hashed_request_payload, access_key_id, signingkey, request.product_id, region, date_new, sign_prefix, sha256, sm3)
 
     async def modify_request_async(
         self,
@@ -151,76 +191,77 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         config = context.configuration
-        date = OpenApiUtilClient.get_timestamp()
+        date = support.get_timestamp()
         request.headers = TeaCore.merge({
             'host': config.endpoint,
             'x-acs-version': request.version,
             'user-agent': request.user_agent,
             'x-acs-date': date,
-            'x-acs-signature-nonce': UtilClient.get_nonce(),
+            'x-acs-signature-nonce': support.get_nonce(),
             'accept': 'application/json'
         }, request.headers)
-        if not UtilClient.empty(request.action):
+        if not support.empty(request.action):
             request.headers['x-acs-action'] = request.action
-        signature_algorithm = UtilClient.default_string(request.signature_algorithm, self._sha_256)
-        hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(''), signature_algorithm))
-        if not UtilClient.is_unset(request.stream):
-            tmp = await UtilClient.read_as_bytes_async(request.stream)
-            hashed_request_payload = Encoder.hex_encode(Encoder.hash(tmp, signature_algorithm))
+        sign_prefix, sha256, sm3 = self._signature_names(attribute_map.key)
+        signature_algorithm = support.default_string(request.signature_algorithm, sha256)
+        hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(''), signature_algorithm))
+        if not support.is_unset(request.stream):
+            tmp = await support.read_as_bytes_async(request.stream)
+            hashed_request_payload = codec.hex_encode(codec.hash_bytes(tmp, signature_algorithm))
             request.stream = tmp
             request.headers['content-type'] = 'application/octet-stream'
         else:
-            if not UtilClient.is_unset(request.body):
-                if UtilClient.equal_string(request.req_body_type, 'byte'):
-                    byte_obj = UtilClient.assert_as_bytes(request.body)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(byte_obj, signature_algorithm))
+            if not support.is_unset(request.body):
+                if support.equal_string(request.req_body_type, 'byte'):
+                    byte_obj = support.assert_as_bytes(request.body)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(byte_obj, signature_algorithm))
                     request.stream = byte_obj
-                elif UtilClient.equal_string(request.req_body_type, 'json'):
-                    json_obj = UtilClient.to_jsonstring(request.body)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(json_obj), signature_algorithm))
+                elif support.equal_string(request.req_body_type, 'json'):
+                    json_obj = support.to_jsonstring(request.body)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(json_obj), signature_algorithm))
                     request.stream = json_obj
                     request.headers['content-type'] = 'application/json; charset=utf-8'
                 else:
-                    m = UtilClient.assert_as_map(request.body)
-                    form_obj = OpenApiUtilClient.to_form(m)
-                    hashed_request_payload = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(form_obj), signature_algorithm))
+                    m = support.assert_as_map(request.body)
+                    form_obj = support.to_form(m)
+                    hashed_request_payload = codec.hex_encode(codec.hash_bytes(support.to_bytes(form_obj), signature_algorithm))
                     request.stream = form_obj
                     request.headers['content-type'] = 'application/x-www-form-urlencoded'
-        if UtilClient.equal_string(signature_algorithm, self._sm_3):
+        if support.equal_string(signature_algorithm, sm3):
             request.headers['x-acs-content-sm3'] = hashed_request_payload
         else:
             request.headers['x-acs-content-sha256'] = hashed_request_payload
-        if not UtilClient.equal_string(request.auth_type, 'Anonymous'):
+        if not support.equal_string(request.auth_type, 'Anonymous'):
             credential = request.credential
-            if UtilClient.is_unset(credential):
+            if support.is_unset(credential):
                 raise TeaException({
                     'code': 'ParameterMissing',
                     'message': "'config.credential' can not be unset"
                 })
             credential_model = await credential.get_credential_async()
-            if not UtilClient.empty(credential_model.provider_name):
+            if not support.empty(credential_model.provider_name):
                 request.headers['x-acs-credentials-provider'] = credential_model.provider_name
             auth_type = credential_model.type
-            if UtilClient.equal_string(auth_type, 'bearer'):
+            if support.equal_string(auth_type, 'bearer'):
                 bearer_token = credential_model.bearer_token
                 request.headers['x-acs-bearer-token'] = bearer_token
                 request.headers['x-acs-signature-type'] = 'BEARERTOKEN'
                 request.headers['Authorization'] = f'Bearer {bearer_token}'
-            elif UtilClient.equal_string(auth_type, 'id_token'):
+            elif support.equal_string(auth_type, 'id_token'):
                 id_token = credential_model.security_token
                 request.headers['x-acs-zero-trust-idtoken'] = id_token
             else:
                 access_key_id = credential_model.access_key_id
                 access_key_secret = credential_model.access_key_secret
                 security_token = credential_model.security_token
-                if not UtilClient.empty(security_token):
+                if not support.empty(security_token):
                     request.headers['x-acs-accesskey-id'] = access_key_id
                     request.headers['x-acs-security-token'] = security_token
-                date_new = StringClient.sub_string(date, 0, 10)
-                date_new = StringClient.replace(date_new, '-', '', None)
-                region = self.get_region(request.product_id, config.endpoint, config.region_id)
-                signingkey = self.get_signingkey(signature_algorithm, access_key_secret, request.product_id, region, date_new)
-                request.headers['Authorization'] = self.get_authorization(request.pathname, request.method, request.query, request.headers, signature_algorithm, hashed_request_payload, access_key_id, signingkey, request.product_id, region, date_new)
+                date_new = codec.sub_string(date, 0, 10)
+                date_new = codec.replace(date_new, '-', '', None)
+                region = self._get_region_with_suffix(request.product_id, config.endpoint, config.region_id, self._endpoint_suffix)
+                signingkey = self._signingkey(signature_algorithm, access_key_secret, request.product_id, region, date_new, sign_prefix, sha256, sm3)
+                request.headers['Authorization'] = self._authorization(request.pathname, request.method, request.query, request.headers, signature_algorithm, hashed_request_payload, access_key_id, signingkey, request.product_id, region, date_new, sign_prefix, sha256, sm3)
 
     def modify_response(
         self,
@@ -229,17 +270,17 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         response = context.response
-        if UtilClient.is_4xx(response.status_code) or UtilClient.is_5xx(response.status_code):
+        if support.is_4xx(response.status_code) or support.is_5xx(response.status_code):
             err = {}
-            if not UtilClient.is_unset(response.headers.get('content-type')) and StringClient.contains(response.headers.get('content-type'), 'text/xml'):
-                _str = UtilClient.read_as_string(response.body)
-                resp_map = XMLClient.parse_xml(_str, None)
-                err = UtilClient.assert_as_map(resp_map.get('Error'))
+            if not support.is_unset(response.headers.get('content-type')) and codec.contains(response.headers.get('content-type'), 'text/xml'):
+                _str = support.read_as_string(response.body)
+                resp_map = XML.parse_xml(_str, None)
+                err = support.assert_as_map(resp_map.get('Error'))
             else:
-                _res = UtilClient.read_as_json(response.body)
-                err = UtilClient.assert_as_map(_res)
+                _res = support.read_as_json(response.body)
+                err = support.assert_as_map(_res)
             request_id = self.default_any(err.get('RequestId'), err.get('requestId'))
-            if not UtilClient.is_unset(response.headers.get('x-acs-request-id')):
+            if not support.is_unset(response.headers.get('x-acs-request-id')):
                 request_id = response.headers.get('x-acs-request-id')
             err['statusCode'] = response.status_code
             raise TeaException({
@@ -249,25 +290,25 @@ class Client(SPIClient):
                 'description': f"{self.default_any(err.get('Description'), err.get('description'))}",
                 'accessDeniedDetail': self.default_any(err.get('AccessDeniedDetail'), err.get('accessDeniedDetail'))
             })
-        if UtilClient.equal_number(response.status_code, 204):
-            UtilClient.read_as_string(response.body)
-        elif UtilClient.equal_string(request.body_type, 'binary'):
+        if support.equal_number(response.status_code, 204):
+            support.read_as_string(response.body)
+        elif support.equal_string(request.body_type, 'binary'):
             response.deserialized_body = response.body
-        elif UtilClient.equal_string(request.body_type, 'byte'):
-            byt = UtilClient.read_as_bytes(response.body)
+        elif support.equal_string(request.body_type, 'byte'):
+            byt = support.read_as_bytes(response.body)
             response.deserialized_body = byt
-        elif UtilClient.equal_string(request.body_type, 'string'):
-            str = UtilClient.read_as_string(response.body)
+        elif support.equal_string(request.body_type, 'string'):
+            str = support.read_as_string(response.body)
             response.deserialized_body = str
-        elif UtilClient.equal_string(request.body_type, 'json'):
-            obj = UtilClient.read_as_json(response.body)
-            res = UtilClient.assert_as_map(obj)
+        elif support.equal_string(request.body_type, 'json'):
+            obj = support.read_as_json(response.body)
+            res = support.assert_as_map(obj)
             response.deserialized_body = res
-        elif UtilClient.equal_string(request.body_type, 'array'):
-            arr = UtilClient.read_as_json(response.body)
+        elif support.equal_string(request.body_type, 'array'):
+            arr = support.read_as_json(response.body)
             response.deserialized_body = arr
         else:
-            response.deserialized_body = UtilClient.read_as_string(response.body)
+            response.deserialized_body = support.read_as_string(response.body)
 
     async def modify_response_async(
         self,
@@ -276,17 +317,17 @@ class Client(SPIClient):
     ) -> None:
         request = context.request
         response = context.response
-        if UtilClient.is_4xx(response.status_code) or UtilClient.is_5xx(response.status_code):
+        if support.is_4xx(response.status_code) or support.is_5xx(response.status_code):
             err = {}
-            if not UtilClient.is_unset(response.headers.get('content-type')) and StringClient.contains(response.headers.get('content-type'), 'text/xml'):
-                _str = await UtilClient.read_as_string_async(response.body)
-                resp_map = XMLClient.parse_xml(_str, None)
-                err = UtilClient.assert_as_map(resp_map.get('Error'))
+            if not support.is_unset(response.headers.get('content-type')) and codec.contains(response.headers.get('content-type'), 'text/xml'):
+                _str = await support.read_as_string_async(response.body)
+                resp_map = XML.parse_xml(_str, None)
+                err = support.assert_as_map(resp_map.get('Error'))
             else:
-                _res = await UtilClient.read_as_json_async(response.body)
-                err = UtilClient.assert_as_map(_res)
+                _res = await support.read_as_json_async(response.body)
+                err = support.assert_as_map(_res)
             request_id = self.default_any(err.get('RequestId'), err.get('requestId'))
-            if not UtilClient.is_unset(response.headers.get('x-acs-request-id')):
+            if not support.is_unset(response.headers.get('x-acs-request-id')):
                 request_id = response.headers.get('x-acs-request-id')
             err['statusCode'] = response.status_code
             raise TeaException({
@@ -296,25 +337,25 @@ class Client(SPIClient):
                 'description': f"{self.default_any(err.get('Description'), err.get('description'))}",
                 'accessDeniedDetail': self.default_any(err.get('AccessDeniedDetail'), err.get('accessDeniedDetail'))
             })
-        if UtilClient.equal_number(response.status_code, 204):
-            await UtilClient.read_as_string_async(response.body)
-        elif UtilClient.equal_string(request.body_type, 'binary'):
+        if support.equal_number(response.status_code, 204):
+            await support.read_as_string_async(response.body)
+        elif support.equal_string(request.body_type, 'binary'):
             response.deserialized_body = response.body
-        elif UtilClient.equal_string(request.body_type, 'byte'):
-            byt = await UtilClient.read_as_bytes_async(response.body)
+        elif support.equal_string(request.body_type, 'byte'):
+            byt = await support.read_as_bytes_async(response.body)
             response.deserialized_body = byt
-        elif UtilClient.equal_string(request.body_type, 'string'):
-            str = await UtilClient.read_as_string_async(response.body)
+        elif support.equal_string(request.body_type, 'string'):
+            str = await support.read_as_string_async(response.body)
             response.deserialized_body = str
-        elif UtilClient.equal_string(request.body_type, 'json'):
-            obj = await UtilClient.read_as_json_async(response.body)
-            res = UtilClient.assert_as_map(obj)
+        elif support.equal_string(request.body_type, 'json'):
+            obj = await support.read_as_json_async(response.body)
+            res = support.assert_as_map(obj)
             response.deserialized_body = res
-        elif UtilClient.equal_string(request.body_type, 'array'):
-            arr = await UtilClient.read_as_json_async(response.body)
+        elif support.equal_string(request.body_type, 'array'):
+            arr = await support.read_as_json_async(response.body)
             response.deserialized_body = arr
         else:
-            response.deserialized_body = await UtilClient.read_as_string_async(response.body)
+            response.deserialized_body = await support.read_as_string_async(response.body)
 
     def get_endpoint(
         self,
@@ -326,18 +367,31 @@ class Client(SPIClient):
         endpoint_map: Dict[str, str],
         endpoint: str,
     ) -> str:
-        if not UtilClient.empty(endpoint):
-            return endpoint
-        if not UtilClient.is_unset(endpoint_map) and not UtilClient.empty(endpoint_map.get(region_id)):
-            return endpoint_map.get(region_id)
-        return EndpointUtilClient.get_endpoint_rules(product_id, region_id, endpoint_rule, network, suffix)
+        return self._get_endpoint_with_suffix(product_id, region_id, endpoint_rule, network, suffix, endpoint_map, endpoint, self._endpoint_suffix)
+
+    def _get_endpoint_with_suffix(
+        self,
+        product_id: str,
+        region_id: str,
+        endpoint_rule: str,
+        network: str,
+        suffix: str,
+        endpoint_map: Dict[str, str],
+        endpoint: str,
+        endpoint_suffix: str,
+    ) -> str:
+        if not support.empty(endpoint):
+            return self._with_endpoint_suffix(endpoint, endpoint_suffix)
+        if not support.is_unset(endpoint_map) and not support.empty(endpoint_map.get(region_id)):
+            return self._with_endpoint_suffix(endpoint_map.get(region_id), endpoint_suffix)
+        return self._with_endpoint_suffix(support.get_endpoint_rules(product_id, region_id, endpoint_rule, network, suffix), endpoint_suffix)
 
     def default_any(
         self,
         input_value: Any,
         default_value: Any,
     ) -> Any:
-        if UtilClient.is_unset(input_value):
+        if support.is_unset(input_value):
             return default_value
         return input_value
 
@@ -355,10 +409,29 @@ class Client(SPIClient):
         region: str,
         date: str,
     ) -> str:
-        signature = self.get_signature(pathname, method, query, headers, signature_algorithm, payload, signingkey)
+        return self._authorization(pathname, method, query, headers, signature_algorithm, payload, ak, signingkey, product, region, date, self._sign_prefix, self._sha_256, self._sm_3)
+
+    def _authorization(
+        self,
+        pathname: str,
+        method: str,
+        query: Dict[str, str],
+        headers: Dict[str, str],
+        signature_algorithm: str,
+        payload: str,
+        ak: str,
+        signingkey: bytes,
+        product: str,
+        region: str,
+        date: str,
+        sign_prefix: str,
+        sha256: str,
+        sm3: str,
+    ) -> str:
+        signature = self._signature(pathname, method, query, headers, signature_algorithm, payload, signingkey, sha256, sm3)
         signed_headers = self.get_signed_headers(headers)
-        signed_headers_str = ArrayClient.join(signed_headers, ';')
-        return f'{signature_algorithm} Credential={ak}/{date}/{region}/{product}/{self._sign_prefix}_request,SignedHeaders={signed_headers_str},Signature={signature}'
+        signed_headers_str = codec.join(signed_headers, ';')
+        return f'{signature_algorithm} Credential={ak}/{date}/{region}/{product}/{sign_prefix}_request,SignedHeaders={signed_headers_str},Signature={signature}'
 
     def get_signature(
         self,
@@ -370,23 +443,38 @@ class Client(SPIClient):
         payload: str,
         signingkey: bytes,
     ) -> str:
+        return self._signature(pathname, method, query, headers, signature_algorithm, payload, signingkey, self._sha_256, self._sm_3)
+
+    def _signature(
+        self,
+        pathname: str,
+        method: str,
+        query: Dict[str, str],
+        headers: Dict[str, str],
+        signature_algorithm: str,
+        payload: str,
+        signingkey: bytes,
+        sha256: str,
+        sm3: str,
+    ) -> str:
         canonical_uri = '/'
-        if not UtilClient.empty(pathname):
+        if not support.empty(pathname):
             canonical_uri = pathname
         string_to_sign = ''
         canonicalized_resource = self.build_canonicalized_resource(query)
         canonicalized_headers = self.build_canonicalized_headers(headers)
         signed_headers = self.get_signed_headers(headers)
-        signed_headers_str = ArrayClient.join(signed_headers, ';')
+        self.validate_signed_headers(signed_headers)
+        signed_headers_str = codec.join(signed_headers, ';')
         string_to_sign = f'{method}\n{canonical_uri}\n{canonicalized_resource}\n{canonicalized_headers}\n{signed_headers_str}\n{payload}'
-        hex = Encoder.hex_encode(Encoder.hash(UtilClient.to_bytes(string_to_sign), signature_algorithm))
+        hex = codec.hex_encode(codec.hash_bytes(support.to_bytes(string_to_sign), signature_algorithm))
         string_to_sign = f'{signature_algorithm}\n{hex}'
-        signature = UtilClient.to_bytes('')
-        if UtilClient.equal_string(signature_algorithm, self._sha_256):
-            signature = Signer.hmac_sha256sign_by_bytes(string_to_sign, signingkey)
-        elif UtilClient.equal_string(signature_algorithm, self._sm_3):
-            signature = Signer.hmac_sm3sign_by_bytes(string_to_sign, signingkey)
-        return Encoder.hex_encode(signature)
+        signature = support.to_bytes('')
+        if support.equal_string(signature_algorithm, sha256):
+            signature = codec.hmac_sha256_by_bytes(string_to_sign, signingkey)
+        elif support.equal_string(signature_algorithm, sm3):
+            signature = codec.hmac_sm3_by_bytes(string_to_sign, signingkey)
+        return codec.hex_encode(signature)
 
     def get_signingkey(
         self,
@@ -396,27 +484,40 @@ class Client(SPIClient):
         region: str,
         date: str,
     ) -> bytes:
-        sc_1 = f'{self._sign_prefix}{secret}'
-        sc_2 = UtilClient.to_bytes('')
-        if UtilClient.equal_string(signature_algorithm, self._sha_256):
-            sc_2 = Signer.hmac_sha256sign(date, sc_1)
-        elif UtilClient.equal_string(signature_algorithm, self._sm_3):
-            sc_2 = Signer.hmac_sm3sign(date, sc_1)
-        sc_3 = UtilClient.to_bytes('')
-        if UtilClient.equal_string(signature_algorithm, self._sha_256):
-            sc_3 = Signer.hmac_sha256sign_by_bytes(region, sc_2)
-        elif UtilClient.equal_string(signature_algorithm, self._sm_3):
-            sc_3 = Signer.hmac_sm3sign_by_bytes(region, sc_2)
-        sc_4 = UtilClient.to_bytes('')
-        if UtilClient.equal_string(signature_algorithm, self._sha_256):
-            sc_4 = Signer.hmac_sha256sign_by_bytes(product, sc_3)
-        elif UtilClient.equal_string(signature_algorithm, self._sm_3):
-            sc_4 = Signer.hmac_sm3sign_by_bytes(product, sc_3)
-        hmac = UtilClient.to_bytes('')
-        if UtilClient.equal_string(signature_algorithm, self._sha_256):
-            hmac = Signer.hmac_sha256sign_by_bytes(f'{self._sign_prefix}_request', sc_4)
-        elif UtilClient.equal_string(signature_algorithm, self._sm_3):
-            hmac = Signer.hmac_sm3sign_by_bytes(f'{self._sign_prefix}_request', sc_4)
+        return self._signingkey(signature_algorithm, secret, product, region, date, self._sign_prefix, self._sha_256, self._sm_3)
+
+    def _signingkey(
+        self,
+        signature_algorithm: str,
+        secret: str,
+        product: str,
+        region: str,
+        date: str,
+        sign_prefix: str,
+        sha256: str,
+        sm3: str,
+    ) -> bytes:
+        sc_1 = f'{sign_prefix}{secret}'
+        sc_2 = support.to_bytes('')
+        if support.equal_string(signature_algorithm, sha256):
+            sc_2 = codec.hmac_sha256(date, sc_1)
+        elif support.equal_string(signature_algorithm, sm3):
+            sc_2 = codec.hmac_sm3(date, sc_1)
+        sc_3 = support.to_bytes('')
+        if support.equal_string(signature_algorithm, sha256):
+            sc_3 = codec.hmac_sha256_by_bytes(region, sc_2)
+        elif support.equal_string(signature_algorithm, sm3):
+            sc_3 = codec.hmac_sm3_by_bytes(region, sc_2)
+        sc_4 = support.to_bytes('')
+        if support.equal_string(signature_algorithm, sha256):
+            sc_4 = codec.hmac_sha256_by_bytes(product, sc_3)
+        elif support.equal_string(signature_algorithm, sm3):
+            sc_4 = codec.hmac_sm3_by_bytes(product, sc_3)
+        hmac = support.to_bytes('')
+        if support.equal_string(signature_algorithm, sha256):
+            hmac = codec.hmac_sha256_by_bytes(f'{sign_prefix}_request', sc_4)
+        elif support.equal_string(signature_algorithm, sm3):
+            hmac = codec.hmac_sm3_by_bytes(f'{sign_prefix}_request', sc_4)
         return hmac
 
     def get_region(
@@ -425,16 +526,25 @@ class Client(SPIClient):
         endpoint: str,
         region_id: str,
     ) -> str:
-        if not UtilClient.empty(region_id):
+        return self._get_region_with_suffix(product, endpoint, region_id, self._endpoint_suffix)
+
+    def _get_region_with_suffix(
+        self,
+        product: str,
+        endpoint: str,
+        region_id: str,
+        endpoint_suffix: str,
+    ) -> str:
+        if not support.empty(region_id):
             return region_id
         region = 'center'
-        if UtilClient.empty(product) or UtilClient.empty(endpoint):
+        if support.empty(product) or support.empty(endpoint):
             return region
-        strs = StringClient.split(endpoint, ':', None)
+        strs = codec.split(endpoint, ':', None)
         without_port = strs[0]
-        pre_region = StringClient.replace(without_port, f'.{self._endpoint_suffix}', '', None)
-        nodes = StringClient.split(pre_region, '.', None)
-        if UtilClient.equal_number(ArrayClient.size(nodes), 2):
+        pre_region = self._host_without_domain(without_port, endpoint_suffix)
+        nodes = codec.split(pre_region, '.', None)
+        if support.equal_number(codec.size(nodes), 2):
             region = nodes[1]
         return region
 
@@ -443,14 +553,14 @@ class Client(SPIClient):
         query: Dict[str, str],
     ) -> str:
         canonicalized_resource = ''
-        if not UtilClient.is_unset(query):
-            query_array = MapClient.key_set(query)
-            sorted_query_array = ArrayClient.asc_sort(query_array)
+        if not support.is_unset(query):
+            query_array = codec.key_set(query)
+            sorted_query_array = codec.asc_sort(query_array)
             separator = ''
             for key in sorted_query_array:
-                canonicalized_resource = f'{canonicalized_resource}{separator}{Encoder.percent_encode(key)}='
-                if not UtilClient.empty(query.get(key)):
-                    canonicalized_resource = f'{canonicalized_resource}{Encoder.percent_encode(query.get(key))}'
+                canonicalized_resource = f'{canonicalized_resource}{separator}{codec.percent_encode(key)}='
+                if not support.empty(query.get(key)):
+                    canonicalized_resource = f'{canonicalized_resource}{codec.percent_encode(query.get(key))}'
                 separator = '&'
         return canonicalized_resource
 
@@ -459,41 +569,47 @@ class Client(SPIClient):
         headers: Dict[str, str],
     ) -> str:
         # lower header key
-        headers_array = MapClient.key_set(headers)
+        headers_array = codec.key_set(headers)
         new_headers = {}
-        tmp = ''
         for key in headers_array:
-            lower_key = StringClient.to_lower(key)
+            lower_key = codec.to_lower(key)
             value = headers.get(key)
-            if not UtilClient.is_unset(value):
-                if not StringClient.contains(tmp, lower_key) or StringClient.equals(lower_key, 'host'):
-                    tmp = f'{tmp},{lower_key}'
-                    new_headers[lower_key] = StringClient.trim(value)
+            if not support.is_unset(value):
+                if support.is_unset(new_headers.get(lower_key)) or codec.equals(lower_key, 'host'):
+                    new_headers[lower_key] = codec.trim(value)
                 else:
-                    new_headers[lower_key] = f'{new_headers.get(lower_key)},{StringClient.trim(value)}'
+                    new_headers[lower_key] = f'{new_headers.get(lower_key)},{codec.trim(value)}'
         canonicalized_headers = ''
         sorted_headers = self.get_signed_headers(headers)
         for header in sorted_headers:
             canonicalized_headers = f'{canonicalized_headers}{header}:{new_headers.get(header)}\n'
         return canonicalized_headers
 
+    def validate_signed_headers(
+        self,
+        signed_headers: List[str],
+    ) -> None:
+        if not codec.list_contains(signed_headers, 'host') or not codec.list_contains(signed_headers, 'x-acs-date'):
+            raise TeaException({
+                'code': 'InvalidSignedHeaders',
+                'message': 'signed headers must include host and x-acs-date'
+            })
+
     def get_signed_headers(
         self,
         headers: Dict[str, str],
     ) -> List[str]:
-        headers_array = MapClient.key_set(headers)
+        headers_array = codec.key_set(headers)
         new_headers_array = []
         for key in headers_array:
-            lower_key = StringClient.to_lower(key)
+            lower_key = codec.to_lower(key)
             value = headers.get(key)
-            if not UtilClient.is_unset(value):
+            if not support.is_unset(value):
                 new_headers_array.append(lower_key)
-        sorted_headers_array = ArrayClient.asc_sort(new_headers_array)
-        tmp = ''
-        separator = ''
+        sorted_headers_array = codec.asc_sort(new_headers_array)
+        result = []
         for key in sorted_headers_array:
-            if StringClient.has_prefix(key, 'x-acs-') or StringClient.equals(key, 'host') or StringClient.equals(key, 'content-type'):
-                if not StringClient.contains(tmp, key):
-                    tmp = f'{tmp}{separator}{key}'
-                    separator = ';'
-        return StringClient.split(tmp, ';', None)
+            if codec.has_prefix(key, 'x-acs-') or codec.equals(key, 'host') or codec.equals(key, 'content-type'):
+                if not codec.list_contains(result, key):
+                    codec.append(result, key)
+        return result

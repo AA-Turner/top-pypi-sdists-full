@@ -3,10 +3,9 @@ Tests for "typed_settings.types".
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_type
 
 import pytest
-from typing_extensions import assert_type
 
 from typed_settings import types
 

@@ -23,14 +23,12 @@ from trackers.utils.state_representations import (
 
 
 class SORTTracker(BaseTracker):
-    """In SORT, object tracking begins with high-confidence detections fed into a
-    Kalman filter framework assuming uniform motion for state prediction across frames.
-    Association occurs via IoU-based costs in the Hungarian algorithm, enforcing a
-    threshold to filter weak matches and initialize new identities. Tracks persist only
-    with consistent associations, terminating quickly to avoid erroneous propagation.
-    This detection-driven approach underscores the importance of upstream detector
-    performance in achieving competitive multi-object tracking results. Over time, SORT
-    has become a cornerstone for evaluating motion-based improvements in the field.
+    """In SORT, object tracking begins with high-confidence detections fed into a Kalman filter framework assuming
+    uniform motion for state prediction across frames. Association occurs via IoU-based costs in the Hungarian
+    algorithm, enforcing a threshold to filter weak matches and initialize new identities. Tracks persist only with
+    consistent associations, terminating quickly to avoid erroneous propagation. This detection-driven approach
+    underscores the importance of upstream detector performance in achieving competitive multi-object tracking results.
+    Over time, SORT has become a cornerstone for evaluating motion-based improvements in the field.
 
     SORT's standout strength is its real-time capability, processing hundreds of frames
     per second while maintaining accuracy comparable to more complex offline methods. It
@@ -119,8 +117,7 @@ class SORTTracker(BaseTracker):
     def _get_associated_indices(
         self, iou_matrix: np.ndarray, detection_boxes: np.ndarray
     ) -> tuple[list[tuple[int, int]], list[int], list[int]]:
-        """
-        Associate detections to tracks based on IOU
+        """Associate detections to tracks based on IOU.
 
         Args:
             iou_matrix: IOU cost matrix.
@@ -193,19 +190,23 @@ class SORTTracker(BaseTracker):
             sv.Detections with tracker_id assigned for each detection.
             Unmatched or immature tracks have tracker_id of -1.
 
+        Raises:
+            ValueError: If ``detections.xyxy`` contains NaN or inf. The check runs
+                before any tracker state is advanced, so a failed call leaves the
+                tracker unchanged.
+
         Warns:
             UserWarning: If ``frame`` is passed but SORT does not perform
                 camera motion compensation (CMC), the frame is ignored.
         """
+        self._validate_detections(detections)
         self._warn_if_frame_unused(frame)
         timing = self._predict_timing(timestamp)
         if timing.skip_update:
             return self._detections_for_skipped_update(detections)
 
         if len(self.tracks) == 0 and len(detections) == 0:
-            result = sv.Detections.empty()
-            result.tracker_id = np.array([], dtype=int)
-            return result
+            return self._empty_result(detections)
 
         detection_boxes = detections.xyxy if len(detections) > 0 else np.array([]).reshape(0, 4)
 
@@ -251,12 +252,13 @@ class SORTTracker(BaseTracker):
 
         # Return a fresh sv.Detections rather than mutating the caller's object,
         # matching the aliasing semantics of ByteTrack and OC-SORT.
-        result = sv.Detections.empty() if len(detections) == 0 else detections[np.arange(len(detections))]
+        result = self._empty_result(detections) if len(detections) == 0 else detections[np.arange(len(detections))]
         result.tracker_id = tracker_ids
         return result
 
     def reset(self) -> None:
         """Reset tracker state by clearing all tracks and resetting ID counter.
+
         Call this method when switching to a new video or scene.
         """
         self.tracks = []

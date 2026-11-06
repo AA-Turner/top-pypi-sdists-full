@@ -128,6 +128,10 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
         return self._current_columns
 
     @property
+    def query_id(self) -> Optional[str]:
+        return self._current_query_id
+
+    @property
     def statistics(self) -> Optional[Statistics]:
         """
         Get query execution statistics for the current result set.
@@ -143,7 +147,8 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
 
         A response may carry several result sets one after another. Those are
         visited first, then the following responses. The remaining rows of the
-        current result set are read and discarded on the way.
+        current result set are read on the way, and kept readable if there is
+        no next result set.
 
         Returns:
             bool: True if there is a next result set, False otherwise
@@ -177,7 +182,8 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
     async def _next_result_set_in_response(self) -> bool:
         """
         Skip the remaining rows of the current result set and start the next
-        result set of the same response, if there is one.
+        result set of the same response, if there is one. Otherwise the
+        skipped rows stay readable.
 
         Returns:
             bool: True if a new result set was started, False if the response
@@ -188,9 +194,10 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
         """
         if self._response_failed:
             return False
-        self._discard_current_record()
-        while not self._response_consumed:
-            self._count_skipped_record(await self._pop_data_record())
+        if not self._response_consumed:
+            self._count_unread_rows_of_current_record()
+            while not self._response_consumed:
+                self._skip_record(await self._pop_data_record())
         return self._start_result_set_from_record(await self._next_json_lines_record())
 
     @close_on_op_error
@@ -219,13 +226,18 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
             StopAsyncIteration: If there are no more rows
             OperationalError: If an error occurs while reading the row
         """
-        if self._current_response is None or self._response_consumed:
+        if self._current_response is None:
             raise StopAsyncIteration
 
         while self._current_record is None or self._current_record_row_idx >= len(
             self._current_record.data
         ):
-            self._current_record = await self._pop_data_record()
+            if self._skipped_records:
+                self._current_record = self._skipped_records.popleft()
+            elif self._response_consumed:
+                raise StopAsyncIteration
+            else:
+                self._current_record = await self._pop_data_record()
             self._current_record_row_idx = 0
             if self._current_record is None:
                 break
@@ -250,8 +262,12 @@ class StreamingAsyncRowSet(BaseAsyncRowSet, StreamingRowSetCommonBase):
                 except HTTPError as err:
                     errors.append(err)
 
+        query_id = self._current_query_id
         self._reset()
         self._responses = []
+        # A read error closes the row set; the id is what the user needs to
+        # look the failed query up
+        self._current_query_id = query_id
 
         # Propagate any errors that occurred during closing
         if errors:

@@ -26,7 +26,9 @@ __all__ = (
     "AdditionalOptionKeysType",
     "AggFunctionType",
     "AllowFullTableExternalDataAccessEnumType",
+    "AnalysisTypeType",
     "AuthenticationTypeType",
+    "AutoUpgradeStatusType",
     "BackfillErrorCodeType",
     "BlueprintRunStateType",
     "BlueprintStatusType",
@@ -193,6 +195,7 @@ __all__ = (
     "StartingPositionType",
     "StatementStateType",
     "StatisticEvaluationLevelType",
+    "StatusType",
     "SubObjectSourceTypeType",
     "TableAttributesType",
     "TableOptimizerEventTypeType",
@@ -211,6 +214,7 @@ __all__ = (
     "UnnestSpecType",
     "UpdateBehaviorType",
     "UpdateCatalogBehaviorType",
+    "UpgradeConsentType",
     "ViewDialectType",
     "ViewUpdateActionType",
     "WorkerTypeType",
@@ -239,7 +243,16 @@ AggFunctionType = Literal[
     "var_samp",
 ]
 AllowFullTableExternalDataAccessEnumType = Literal["False", "True"]
+AnalysisTypeType = Literal["AUTO_UPGRADE"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "IAM", "OAUTH2"]
+AutoUpgradeStatusType = Literal[
+    "OBSERVING",
+    "STOPPED",
+    "UPGRADE_FAILED",
+    "UPGRADE_SUCCEEDED",
+    "UPGRADING",
+    "WAITING_FOR_CONSENT",
+]
 BackfillErrorCodeType = Literal[
     "ENCRYPTED_PARTITION_ERROR",
     "INTERNAL_ERROR",
@@ -680,6 +693,9 @@ SourceControlProviderType = Literal["AWS_CODE_COMMIT", "BITBUCKET", "GITHUB", "G
 StartingPositionType = Literal["earliest", "latest", "timestamp", "trim_horizon"]
 StatementStateType = Literal["AVAILABLE", "CANCELLED", "CANCELLING", "ERROR", "RUNNING", "WAITING"]
 StatisticEvaluationLevelType = Literal["Column", "Dataset", "Multicolumn"]
+StatusType = Literal[
+    "FAILED", "OBSERVING", "STOPPED", "SUCCEEDED", "TIMEOUT", "UPGRADING", "WAITING_FOR_CONSENT"
+]
 SubObjectSourceTypeType = Literal[
     "HIVE_CSV", "HIVE_JSON", "HIVE_ORC", "HIVE_PARQUET", "ICEBERG", "PLAIN_PARQUET"
 ]
@@ -717,6 +733,7 @@ UnionTypeType = Literal["ALL", "DISTINCT"]
 UnnestSpecType = Literal["FULL", "NOUNNEST", "TOPLEVEL"]
 UpdateBehaviorType = Literal["LOG", "UPDATE_IN_DATABASE"]
 UpdateCatalogBehaviorType = Literal["LOG", "UPDATE_IN_DATABASE"]
+UpgradeConsentType = Literal["APPROVE", "DECLINE"]
 ViewDialectType = Literal["ATHENA", "REDSHIFT", "SPARK"]
 ViewUpdateActionType = Literal["ADD", "ADD_OR_REPLACE", "DROP", "REPLACE"]
 WorkerTypeType = Literal[
@@ -740,6 +757,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

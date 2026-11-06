@@ -30,6 +30,8 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("1000000060", "DE:11"),
         # Remainder 1 would be check digit 10; method 11 maps that to 9.
         ("0000000069", "DE:11"),
+        ("0123456600", "DE:13"),
+        ("0001234566", "DE:13"),
         ("0446786040", "DE:17"),
         ("0240334000", "DE:19"),
         ("0200520016", "DE:19"),
@@ -41,6 +43,17 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("0520309001", "DE:26"),
         ("1111118111", "DE:26"),
         ("0005501024", "DE:26"),
+        # Method 31 test account numbers. Positions 1 to 9 are weighted 1 to 9 from left to
+        # right and the remainder of the sum divided by 11 is the check digit at position 10.
+        ("1000000524", "DE:31"),
+        ("1000000583", "DE:31"),
+        # The example from the document: 0*1 + 2*2 + 6*3 + 3*4 + 1*5 + 6*6 + 0*7 + 1*8 + 6*9
+        # = 137, 137 % 11 = 5.
+        ("0263160165", "DE:31"),
+        # Remainder 1 is check digit 1, nothing is subtracted from 11 like in method 06.
+        ("1000000001", "DE:31"),
+        # 1*2 + 1*9 = 11, remainder 0 gives check digit 0.
+        ("0100000010", "DE:31"),
         ("0009141405", "DE:32"),
         ("1709107983", "DE:32"),
         ("0122116979", "DE:32"),
@@ -51,6 +64,86 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("9914001000", "DE:34"),
         ("0000191919", "DE:38"),
         ("0001100660", "DE:38"),
+        # Method 40 test account numbers. Positions 1 to 9 are weighted 6, 3, 7, 9, 10, 5, 8,
+        # 4, 2 and the check digit is at position 10.
+        ("0001258345", "DE:40"),
+        ("0003231963", "DE:40"),
+        # 1*6 + 2*3 + 3*7 + 4*9 + 5*10 + 6*5 + 7*8 + 8*4 + 9*2 = 255, 255 % 11 = 2, 11 - 2 = 9.
+        ("1234567899", "DE:40"),
+        # Method 41 test account numbers. They are computed like method 00.
+        ("4013410024", "DE:41"),
+        ("4016660195", "DE:41"),
+        ("0166805317", "DE:41"),
+        ("4019310079", "DE:41"),
+        ("4019340829", "DE:41"),
+        ("4019151002", "DE:41"),
+        # If position 4 is a 9, positions 1 to 3 are not part of the calculation. This is
+        # the example from the document: 9*1 + 1*2 + 1*1 = 12, 10 - 2 = 8.
+        ("4019110008", "DE:41"),
+        # Method 00 would expect check digit 1 here.
+        ("9999110008", "DE:41"),
+        # Method 42 test account numbers. Positions 2 to 9 are weighted 9, 8, 7, 6, 5, 4, 3,
+        # 2 and the check digit is at position 10.
+        ("0000059498", "DE:42"),
+        # 1*2 + 5*3 + 9*4 + 5*5 = 78, remainder 1 gives check digit 0 as in method 06.
+        ("0000059510", "DE:42"),
+        # 2*9 + 3*8 + 4*7 + 5*6 + 6*5 + 7*4 + 8*3 + 9*2 = 200, 200 % 11 = 2, 11 - 2 = 9.
+        ("1234567899", "DE:42"),
+        # Position 1 is not part of the calculation.
+        ("9000059498", "DE:42"),
+        # Method 43 test account numbers. Positions 1 to 9 are weighted 9, 8, 7, 6, 5, 4, 3,
+        # 2, 1 and the check digit is 10 minus the remainder of the sum divided by 10.
+        ("0006135244", "DE:43"),
+        ("9516893476", "DE:43"),
+        # 9*9 + 5*8 + 1*7 + 6*6 + 8*5 + 9*4 + 3*3 + 4*2 + 3*1 = 260, a difference of 10 gives
+        # check digit 0.
+        ("9516893430", "DE:43"),
+        # Method 44 test account numbers. Only positions 5 to 9 are weighted, with 10, 5, 8,
+        # 4, 2, and the check digit is at position 10.
+        ("0000889006", "DE:44"),
+        ("2618040504", "DE:44"),
+        # Positions 1 to 4 are not part of the calculation.
+        ("9999889006", "DE:44"),
+        # The Bundesbank document has no test account numbers for method 48. Positions
+        # 3 to 8 are weighted 7, 6, 5, 4, 3, 2 and the check digit is at position 9:
+        # 3*7 + 4*6 + 5*5 + 6*4 + 7*3 + 8*2 = 131, 131 % 11 = 10, 11 - 10 = 1.
+        ("1234567810", "DE:48"),
+        # Positions 1, 2 and 10 are not part of the calculation.
+        ("9934567817", "DE:48"),
+        # 2*5 + 5*4 + 4*3 + 1*2 = 44, remainder 0 gives check digit 0.
+        ("0000254100", "DE:48"),
+        # 9*7 + 9*6 + 9*5 + 9*4 + 9*3 + 9*2 = 243, remainder 1 gives check digit 0 too.
+        ("0099999900", "DE:48"),
+        # Method 46 test account numbers. Only positions 3 to 7 are weighted and the check
+        # digit is at position 8.
+        ("0235468612", "DE:46"),
+        ("0837890901", "DE:46"),
+        ("1041447600", "DE:46"),
+        # Positions 1, 2, 9 and 10 are not part of the calculation.
+        ("9935468699", "DE:46"),
+        # Method 47 test account numbers. Only positions 4 to 8 are weighted and the check
+        # digit is at position 9.
+        ("0001018000", "DE:47"),
+        ("1003554450", "DE:47"),
+        # Positions 1 to 3 and 10 are not part of the calculation.
+        ("9993554459", "DE:47"),
+        # The Bundesbank document has no test account numbers for method 49. It checks with
+        # method 00 first, so the method 00 test account numbers are valid, also those that
+        # method 01 rejects.
+        ("0009290701", "DE:49"),
+        ("0539290858", "DE:49"),
+        ("0001501824", "DE:49"),
+        # Method 00 expects check digit 7 here, but method 01 accepts it:
+        # 9*3 + 8*7 + 7*1 + 6*3 + 5*7 + 4*1 + 3*3 + 2*7 + 1*1 = 171, 10 - 1 = 9.
+        ("1234567899", "DE:49"),
+        # Method 50 test account numbers. The sub-account at positions 8 to 10 is not part
+        # of the calculation.
+        ("4000005001", "DE:50"),
+        ("4444442001", "DE:50"),
+        ("4000005999", "DE:50"),
+        # Without the sub-account "000" the account code is shifted three positions left.
+        ("0004000005", "DE:50"),
+        ("0004444442", "DE:50"),
         ("2063099200", "DE:61"),
         ("0260760481", "DE:61"),
         ("0123456600", "DE:63"),
@@ -64,9 +157,13 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("0987654328", "DE:68"),
         # Accounts in [400000000, 499999999] skip the check digit.
         ("0400000000", "DE:68"),
+        ("0012345600", "DE:76"),
         ("0006543200", "DE:76"),
         ("9012345600", "DE:76"),
         ("7876543100", "DE:76"),
+        # A remainder of 10 leaves no check digit at position 8, but the sub-account
+        # may still be omitted, with check digit 9 at position 10.
+        ("0000005009", "DE:76"),
         ("0002525259", "DE:88"),
         ("0001000500", "DE:88"),
         ("0090013000", "DE:88"),
@@ -113,6 +210,15 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("9876543210", "DE:A3"),
         ("1234567890", "DE:A3"),
         ("0123456789", "DE:A3"),
+        # Method A7 test account numbers. Variant 1 is method 00, and the account codes it
+        # rejects are checked with method 03, which adds the products without their digit
+        # sums. For 0019010660, method 00 counts 6*2 = 12 as 1 + 2 and expects check digit 9,
+        # method 03 adds 12 and expects 0.
+        ("0019010008", "DE:A7"),
+        ("0019010438", "DE:A7"),
+        ("0019010660", "DE:A7"),
+        ("0019010876", "DE:A7"),
+        ("0209010892", "DE:A7"),
         # Method C1, variant 1 (method 17) for account codes not starting with 5.
         ("0446786040", "DE:C1"),
         ("0478046940", "DE:C1"),
@@ -158,17 +264,58 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         ("0000000010", "DE:02"),
         # Remainder 1 and a second digit outside {8, 9} is rejected.
         ("0000000060", "DE:25"),
+        ("0001234567", "DE:13"),
         # Method 63 only accepts a leading zero.
         ("1123456600", "DE:63"),
         # Without the sub-account the check digit at position 10 still has to match.
         ("0001234567", "DE:63"),
+        # Method 48 with a wrong check digit at position 9.
+        ("1234567890", "DE:48"),
+        ("0099999910", "DE:48"),
+        # Valid for method 06, but method 48 expects check digit 7 at position 9.
+        ("0094012341", "DE:48"),
+        # Method 31 with a wrong check digit.
+        ("1000000525", "DE:31"),
+        # Method 40 with a wrong check digit.
+        ("0001258346", "DE:40"),
+        # Method 41 with a wrong check digit.
+        ("4013410025", "DE:41"),
+        # Valid for method 00, but position 4 is a 9, so method 41 expects check digit 8.
+        ("9999110001", "DE:41"),
+        # Method 42 with a wrong check digit.
+        ("0000059499", "DE:42"),
+        # Method 43 with a wrong check digit.
+        ("9516893475", "DE:43"),
+        # Method 44 with a wrong check digit.
+        ("2618040505", "DE:44"),
+        # Valid for method 33, but method 44 expects check digit 6.
+        ("0000889008", "DE:44"),
+        # Method 46 with a wrong check digit at position 8.
+        ("0235468712", "DE:46"),
+        # Method 47 with a wrong check digit at position 9.
+        ("1003554460", "DE:47"),
+        # Neither method 00 (check digit 7) nor method 01 (check digit 9) accepts it.
+        ("1234567890", "DE:49"),
+        # Method 50 with a wrong check digit at position 7, with and without sub-account.
+        ("4000006001", "DE:50"),
+        ("0004000006", "DE:50"),
+        # Shifting only applies to three leading zeros, it would drop the 1 here.
+        ("0014444442", "DE:50"),
         # Method 76 only accepts leading digits 0, 4, 6, 7, 8 and 9.
         ("1234567890", "DE:76"),
         ("0000123457", "DE:76"),
+        # Method 76 test account numbers with a wrong check digit.
+        ("0006543300", "DE:76"),
+        ("9012345700", "DE:76"),
+        # A remainder of 10 leaves no check digit at position 8, so 0 is not accepted.
+        ("9012347000", "DE:76"),
+        ("0000005000", "DE:76"),
         ("1234567890", "DE:A2"),
         ("0123456789", "DE:A2"),
         ("6543217890", "DE:A3"),
         ("0543216789", "DE:A3"),
+        # Method A7 test account number that neither method 00 nor method 03 accepts.
+        ("0209010893", "DE:A7"),
         # Just outside the exception range of method 99 the check digit applies again.
         ("0395999999", "DE:99"),
         ("0500000000", "DE:99"),
@@ -247,6 +394,24 @@ def test_german_checksum_02_invalid_remainder() -> None:
         algorithms["DE:02"].validate(["0000000060"], "")
 
 
+def test_german_checksum_31_invalid_remainder() -> None:
+    # 1*1 + 1*9 = 10, and a remainder of 10 makes the account code invalid whatever the
+    # check digit is.
+    algo = algorithms["DE:31"]
+    with pytest.raises(InvalidBBANChecksum, match="Invalid remainder"):
+        algo.validate(["1000000010"], "")
+    assert algo.solve(["1000000010"]) is None
+
+
+def test_german_checksum_76_invalid_remainder() -> None:
+    # 1*6 + 2*5 + 3*4 + 4*3 + 7*2 = 54 leaves a remainder of 10 for the Stammnummer
+    # 012347, so there is no check digit for it, whether the sub-account is left out or not.
+    algo = algorithms["DE:76"]
+    with pytest.raises(InvalidBBANChecksum, match="Invalid remainder"):
+        algo.validate(["0000123470"], "")
+    assert algo.solve(["9012347000"]) is None
+
+
 def test_german_checksum_08_skips_small_account() -> None:
     assert algorithms["DE:08"].compute(["0000001000"]) == ""
 
@@ -269,12 +434,72 @@ def test_german_checksum_91_compute_and_solve() -> None:
     assert algo.solve(["2974118000"]) == ["2974118000"]
 
 
-@pytest.mark.parametrize("algorithm_name", ["DE:A2", "DE:A3"])
+@pytest.mark.parametrize("algorithm_name", ["DE:49", "DE:A2", "DE:A3", "DE:A7"])
 def test_german_checksum_fallback_variants_compute_and_solve(algorithm_name: str) -> None:
-    # Variant 1 (method 00) can always place a check digit, so it is used for both.
+    # Variant 1 (method 00) can always place a check digit, so it is used for all of them.
     algo = algorithms[algorithm_name]
     assert algo.compute(["3456789010"]) == "9"
     assert algo.solve(["3456789010"]) == ["3456789019"]
+
+
+def test_german_checksum_48_compute_and_solve() -> None:
+    algo = algorithms["DE:48"]
+    assert algo.compute(["1234567890"]) == "1"
+    assert algo.solve(["1234567890"]) == ["1234567810"]
+
+
+def test_german_checksum_31_compute_and_solve() -> None:
+    algo = algorithms["DE:31"]
+    assert algo.compute(["0263160160"]) == "5"
+    assert algo.solve(["0263160160"]) == ["0263160165"]
+
+
+def test_german_checksum_40_compute_and_solve() -> None:
+    algo = algorithms["DE:40"]
+    assert algo.compute(["0003231960"]) == "3"
+    assert algo.solve(["0003231960"]) == ["0003231963"]
+
+
+def test_german_checksum_41_compute_and_solve() -> None:
+    algo = algorithms["DE:41"]
+    assert algo.compute(["4019110000"]) == "8"
+    assert algo.solve(["4019110000"]) == ["4019110008"]
+
+
+def test_german_checksum_42_compute_and_solve() -> None:
+    algo = algorithms["DE:42"]
+    assert algo.compute(["0000059490"]) == "8"
+    assert algo.solve(["0000059490"]) == ["0000059498"]
+
+
+def test_german_checksum_43_compute_and_solve() -> None:
+    algo = algorithms["DE:43"]
+    assert algo.compute(["9516893470"]) == "6"
+    assert algo.solve(["9516893470"]) == ["9516893476"]
+
+
+def test_german_checksum_44_compute_and_solve() -> None:
+    algo = algorithms["DE:44"]
+    assert algo.compute(["2618040500"]) == "4"
+    assert algo.solve(["2618040500"]) == ["2618040504"]
+
+
+def test_german_checksum_46_compute_and_solve() -> None:
+    algo = algorithms["DE:46"]
+    assert algo.compute(["0235468012"]) == "6"
+    assert algo.solve(["0235468012"]) == ["0235468612"]
+
+
+def test_german_checksum_47_compute_and_solve() -> None:
+    algo = algorithms["DE:47"]
+    assert algo.compute(["1003554400"]) == "5"
+    assert algo.solve(["1003554400"]) == ["1003554450"]
+
+
+def test_german_checksum_50_compute_and_solve() -> None:
+    algo = algorithms["DE:50"]
+    assert algo.compute(["4444440001"]) == "2"
+    assert algo.solve(["4444440001"]) == ["4444442001"]
 
 
 @pytest.mark.parametrize(

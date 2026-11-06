@@ -33,7 +33,7 @@ dependencies = [
 dynamic = ["version"]
 license = { file = "LICENSE" }
 readme = "README.rst"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
@@ -61,6 +61,7 @@ dev = [
     "ophyd-async",
     "build",
     "twine",
+    "redis_json_dict",
 ]
 
 [project.scripts]
@@ -90,7 +91,6 @@ ignore_missing_imports = true # Ignore missing stubs in imported modules
 # Don't collect the interactive directory which is intended for manual execution
 addopts = """
     --tb=native -vv 
-    --doctest-modules 
     --doctest-glob="*.rst" 
     --ignore src/bluesky_queueserver/profile_collection_sim
     """
@@ -117,6 +117,7 @@ source = ["src", "**/site-packages/"]
 [tool.ruff]
 src = ["src", "tests"]
 line-length = 115
+target-version = "py311"
 exclude = [
     "docs/source/conf.py",
     "docs/source/examples",
@@ -148,7 +149,7 @@ isort.required-imports = [
 
 [tool.black]
 line-length = 115
-target-version = ['py310']
+target-version = ['py311']
 include = '\.pyi?$'
 force-exclude = '''
 (

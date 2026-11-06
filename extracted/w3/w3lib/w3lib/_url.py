@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import encodings.idna
 import functools
 import ipaddress
 import os
@@ -58,6 +59,11 @@ _IPV_FUTURE_RE = re.compile(r"\Av[a-fA-F0-9]+\..+\Z")
 # URL living standard, so it belongs with the other authority delimiters here.
 _NETLOC_DELIMS_RE = re.compile(r"[/?#@:\\]")
 _NETLOC_STRIP_CHARS = str.maketrans("", "", "@:#?")
+# https://url.spec.whatwg.org/#forbidden-host-code-point
+_FORBIDDEN_HOST_CODE_POINT_RE = re.compile(r"[\x00\t\n\r #/:<>?@[\\\]^|]")
+# https://url.spec.whatwg.org/#forbidden-domain-code-point
+_FORBIDDEN_DOMAIN_CODE_POINT_RE = re.compile(r"[\x00-\x20#%/:<>?@[\\\]^|\x7f]")
+_OPAQUE_HOST_SAFE_CHARS = RFC3986_SUB_DELIMS + b"%"
 
 
 def _strip(input_string: str) -> str:
@@ -579,19 +585,22 @@ def _check_bracketed_netloc(netloc: str) -> None:
 
     before_bracket, has_open_bracket, bracketed = hostname_and_port.partition("[")
 
-    if has_open_bracket:
-        # No data is allowed before '['.
-        if before_bracket:
+    if not has_open_bracket:
+        # Brackets confined to the userinfo leave a regular host.
+        if "]" in hostname_and_port:
             raise ValueError("Invalid IPv6 URL")
+        return
 
-        hostname, _, port = bracketed.partition("]")
+    # No data is allowed before '['.
+    if before_bracket:
+        raise ValueError("Invalid IPv6 URL")
 
-        # Only ':<port>' may follow ']'.
-        if port and not port.startswith(":"):
-            raise ValueError("Invalid IPv6 URL")
-        # port validation done after, in `_SplitResult.__post_init__`
-    else:
-        hostname, _, _ = hostname_and_port.partition(":")
+    hostname, _, port = bracketed.partition("]")
+
+    # Only ':<port>' may follow ']'.
+    if port and not port.startswith(":"):
+        raise ValueError("Invalid IPv6 URL")
+    # port validation done after, in `_SplitResult.__post_init__`
 
     _check_bracketed_host(hostname)
 
@@ -614,7 +623,7 @@ def _check_bracketed_host(hostname: str) -> None:
 
     # Bracketed IPv4 literals are forbidden.
     if isinstance(ip, ipaddress.IPv4Address):
-        raise ValueError("An IPv4 address cannot be in brackets")
+        raise ValueError("An IPv4 address cannot be in brackets")  # noqa: TRY004
 
 
 @functools.lru_cache
@@ -724,7 +733,7 @@ def _urlsplit(  # pylint: disable=too-many-locals,too-many-statements
         username, _, password = userinfo.partition(":")
         password = password if _ else None
 
-    if open_br_pos != -1:
+    if "[" in hostinfo:
         hostname, _, port = hostinfo.partition("[")[2].partition("]")
         port = port.partition(":")[2]
     else:
@@ -789,12 +798,135 @@ def _idna(input_string: str) -> tuple[bytes, str]:
 
     _, normalized = _nfkc_netloc(input_string)
 
-    encoded = normalized.encode("idna")
+    if "ß" not in normalized and "ς" not in normalized:
+        encoded = normalized.encode("idna")
+    else:
+        labels = encodings.idna.dots.split(normalized)
+        trailing_dot = len(labels) > 1 and not labels[-1]
+        if trailing_dot:
+            labels.pop()
+        encoded = b".".join(_idna_label(label) for label in labels)
+        if trailing_dot:
+            encoded += b"."
     return encoded, encoded.decode()
+
+
+# The deviation characters "ß" and "ς" are mapped to "ss" and "σ" by IDNA 2003,
+# i.e. by Python's idna codec, but kept by the nontransitional UTS #46
+# processing of the URL living standard, so "faß.example" is "xn--fa-hia.example"
+# in browsers, not the different domain "fass.example".
+# https://www.unicode.org/reports/tr46/#Deviations
+_IDNA_DEVIATION_RE = re.compile("([ßς])")
+
+
+def _idna_label(label: str) -> bytes:
+    if "ß" not in label and "ς" not in label:
+        return encodings.idna.ToASCII(label)
+    label = "".join(
+        piece if piece in {"ß", "ς"} else encodings.idna.nameprep(piece)
+        for piece in _IDNA_DEVIATION_RE.split(label)
+    )
+    encoded = b"xn--" + label.encode("punycode")
+    if len(encoded) > 63:
+        raise UnicodeError("label too long")
+    return encoded
 
 
 def _idna_bytes(input_string: str) -> bytes:
     return _idna(input_string)[0]
+
+
+@functools.lru_cache
+def _opaque_host(host: str) -> bytes:
+    """Return *host*, the host of a non-special URL, percent-encoded."""
+    if _FORBIDDEN_HOST_CODE_POINT_RE.search(host):
+        raise ValueError(f"{host!r} contains a forbidden host code point")
+    return _quote(host.encode(), _OPAQUE_HOST_SAFE_CHARS)
+
+
+def _domain(host: str) -> str:
+    """Return *host*, the host of a special URL, percent-decoded and
+    lowercased, as the URL living standard does before IDNA and IPv4 parsing,
+    e.g. "%31%32%37.0.0.1" as "127.0.0.1"."""
+    if "%" in host:
+        host = _unquote(host).decode("utf-8", "replace")
+    if host.isascii():
+        return host.lower()
+    # str.lower() turns a final "Σ" into "ς", which _idna() keeps, while
+    # UTS #46 maps "Σ" to "σ".
+    return host.replace("Σ", "σ").lower()
+
+
+def _check_domain(host: str) -> None:
+    """Raise ValueError if *host*, the IDNA-encoded host of a special URL,
+    contains a forbidden domain code point.
+
+    A percent-decoded host can contain delimiters such as "/" or "@" that would
+    change where the authority ends if serialized as is.
+    """
+    if _FORBIDDEN_DOMAIN_CODE_POINT_RE.search(host):
+        raise ValueError(f"{host!r} contains a forbidden domain code point")
+
+
+# https://url.spec.whatwg.org/#ipv4-number-parser
+# A number is hexadecimal after "0x", octal after any other leading "0", and
+# decimal otherwise. The radix is matched by hand because int() also takes
+# signs, underscores, whitespace and non-ASCII digits.
+_IPV4_NUMBER_RE = re.compile(r"(0[xX])([0-9a-fA-F]*)|(0[0-7]*)|([1-9][0-9]*)")
+_IPV4_HEX_LAST_PART_RE = re.compile(r"0[xX][0-9a-fA-F]*")
+_IPV4_LAST_CHARS = frozenset("0123456789abcdefxABCDEFX.")
+
+
+def _ipv4_number(part: str) -> int | None:
+    match = _IPV4_NUMBER_RE.fullmatch(part)
+    if match is None:
+        return None
+    _, hex_digits, octal, decimal = match.groups()
+    if hex_digits is not None:
+        return int(hex_digits or "0", 16)
+    if octal is not None:
+        return int(octal, 8)
+    return int(decimal)
+
+
+@functools.lru_cache
+def _ipv4_host(host: str) -> str:
+    """Return *host*, the ASCII host of a special URL, serialized as an IPv4
+    address if it ends in a number, e.g. "0x7f.1" as "127.0.0.1".
+
+    Browsers and getaddrinfo() read such a host as an address, so leaving it
+    as written would report a host other than the one connected to. Raises
+    ValueError if it ends in a number but is not a valid IPv4 address.
+    """
+    # Most hosts end in a letter that no number ends in.
+    if host[-1:] not in _IPV4_LAST_CHARS:
+        return host
+    # https://url.spec.whatwg.org/#ends-in-a-number-checker
+    parts = host.split(".")
+    if parts[-1] == "" and len(parts) > 1:
+        parts.pop()
+    last = parts[-1]
+    if not (
+        (last.isascii() and last.isdigit()) or _IPV4_HEX_LAST_PART_RE.fullmatch(last)
+    ):
+        return host
+    # https://url.spec.whatwg.org/#concept-ipv4-parser
+    if len(parts) > 4:
+        raise ValueError(f"{host!r} is not a valid IPv4 address")
+    numbers = []
+    for part in parts:
+        number = _ipv4_number(part)
+        if number is None:
+            raise ValueError(f"{host!r} is not a valid IPv4 address")
+        numbers.append(number)
+    if any(number > 255 for number in numbers[:-1]) or numbers[-1] >= 256 ** (
+        5 - len(numbers)
+    ):
+        raise ValueError(f"{host!r} is not a valid IPv4 address")
+    address = numbers[-1]
+    for i, number in enumerate(numbers[:-1]):
+        address += number * 256 ** (3 - i)
+    return str(ipaddress.IPv4Address(address))
 
 
 @functools.lru_cache

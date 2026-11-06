@@ -209,6 +209,21 @@ class InotifyWatchGroup(WatchCallback):
                 return
             self._remove_watch_internally(wd)
 
+    def on_queue_overflow(self) -> None:
+        """Rebuild recursive watches after the kernel drops events."""
+        with self._lock:
+            if not self.is_active:
+                return
+            self._move_event_grouper.discard_pending_events()
+            if not self.is_recursive:
+                return
+            logger.warning("Inotify queue overflowed; reconciling recursive watches below %r", self.path)
+            self._remove_callbacks(list(self._active_callbacks_by_watch))
+            try:
+                self._add_all_callbacks(self.path)
+            except OSError:
+                logger.exception("Unable to rebuild recursive inotify watches below %r", self.path)
+
     def on_event(self, event: InotifyEvent) -> None:
         """called for every event for each watch this callback is registered at."""
         with self._lock:
@@ -236,15 +251,15 @@ class InotifyWatchGroup(WatchCallback):
             elif event.is_moved_to:
                 move_src_path = self._source_for_move(event.cookie)
                 move_dst_path = src_path
-                if move_src_path is not None:
-                    self._move_watches(move_src_path, move_dst_path)
-                # TODO: When a directory from another part of the
-                #  filesystem is moved into a watched directory, this
-                #  will not generate events for the directory tree.
-                #  We need to coalesce IN_MOVED_TO events and those
-                #  IN_MOVED_TO events which don't pair up with
-                #  IN_MOVED_FROM events should be marked IN_CREATE
-                #  instead relative to this directory.
+                source_was_watched = move_src_path is not None and self._move_watches(move_src_path, move_dst_path)
+                if event.is_directory and self.is_recursive and not source_was_watched:
+                    # The source may have been seen before its watch was registered.
+                    self._add_all_callbacks(src_path)
+                    if move_src_path is not None:
+                        for sub_event in self._recursive_simulate(src_path):
+                            sub_src_path = self._build_event_source_path(sub_event)
+                            if sub_src_path is not None:
+                                self._move_event_grouper.put_event(PathedInotifyEvent(sub_event, sub_src_path))
             elif event.is_create and event.is_directory and self.is_recursive:
                 self._add_all_callbacks(src_path)
 
@@ -262,17 +277,19 @@ class InotifyWatchGroup(WatchCallback):
         # This will handle: mkdir -p foobar/blah/bar; touch foobar/afile
         events = []
         for root, dirnames, filenames in os.walk(src_path, followlinks=self.follow_symlink):
+            wd_root = self._active_callbacks_by_path.get(root)
+            if wd_root is None:
+                # Not watched: it could not be, or it appeared after the watches were added (e.g. a copy
+                # still in progress) and its own queued IN_CREATE event will watch it and report its content
+                continue
+
             for dirname in dirnames:
-                full_path = os.path.join(root, dirname)
-                wd_dir = self._active_callbacks_by_path[os.path.dirname(full_path)]
                 mask = Mask(InotifyConstants.IN_CREATE | InotifyConstants.IN_ISDIR)
-                events.append(InotifyEvent(wd_dir, mask, 0, dirname))
+                events.append(InotifyEvent(wd_root, mask, 0, dirname))
 
             for filename in filenames:
-                full_path = os.path.join(root, filename)
-                wd_parent_dir = self._active_callbacks_by_path[os.path.dirname(full_path)]
                 mask = InotifyConstants.IN_CREATE
-                events.append(InotifyEvent(wd_parent_dir, mask, 0, filename))
+                events.append(InotifyEvent(wd_root, mask, 0, filename))
         return events
 
     def deactivate(self) -> None:
@@ -302,8 +319,8 @@ class InotifyWatchGroup(WatchCallback):
             return None
         return os.path.join(watched_path, event.name) if event.name else watched_path  # avoid trailing slash
 
-    def _move_watches(self, move_src_path: bytes, move_dst_path: bytes) -> None:
-        """moves all watches that are inside the directory move_src_path to move_dst_path"""
+    def _move_watches(self, move_src_path: bytes, move_dst_path: bytes) -> bool:
+        """Move all watches in the source tree and return whether the source was watched."""
         moved_watch = self._active_callbacks_by_path.pop(move_src_path, None)
         if moved_watch is not None:
             self._active_callbacks_by_watch[moved_watch] = move_dst_path
@@ -317,6 +334,8 @@ class InotifyWatchGroup(WatchCallback):
                     path = path.replace(move_src_path, move_dst_path, 1)
                     self._active_callbacks_by_watch[wd] = path
                     self._active_callbacks_by_path[path] = wd
+            return True
+        return False
 
     def _add_all_callbacks(self, path: bytes) -> None:
         """Adds a watch (optionally recursively) for the given directory path
@@ -576,5 +595,12 @@ class InotifyObserver(BaseObserver):
     """
 
     def __init__(self, *, timeout: Seconds = DEFAULT_OBSERVER_TIMEOUT, generate_full_events: bool = False) -> None:
+        self._inotify_fd = InotifyFD()
+        self._inotify_fd.start()
         cls = InotifyFullEmitter if generate_full_events else InotifyEmitter
-        super().__init__(cls, timeout=timeout)
+        super().__init__(cls, timeout=timeout, inotify_fd=self._inotify_fd)
+
+    def on_thread_stop(self) -> None:
+        super().on_thread_stop()
+        self._inotify_fd.stop()
+        self._inotify_fd.join()

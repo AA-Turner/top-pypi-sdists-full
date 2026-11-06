@@ -30,6 +30,8 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 if TYPE_CHECKING:
     from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 
+    from mistralai.workflows.core._events.event_route_token_manager import EventRouteTokenManager
+
 logger = get_logger(__name__)
 
 # Matches the NATS max_payload configured for the workflows cluster (2MB).
@@ -90,6 +92,8 @@ class EventContext:
         custom_event_payload_encoder: PayloadEncoder | None = None,
     ) -> None:
         self.events_client = events_client
+        # Shared with other worker-side clients (sequences) so they reuse one route-token cache.
+        self._worker_client = worker_client
         self._token: Optional[Token] = None
         self._batch_events_supported: bool = True
         # v2-only forbids any v1 fallback (used by v2 integration tests).
@@ -109,6 +113,16 @@ class EventContext:
             if worker_client is not None
             else None
         )
+
+    @property
+    def worker_client(self) -> PrivateWorkerClient | None:
+        return self._worker_client
+
+    @property
+    def event_route_token_manager(self) -> EventRouteTokenManager | None:
+        if self._event_route_publisher is None:
+            return None
+        return self._event_route_publisher.route_token_manager
 
     @staticmethod
     def has_context() -> bool:

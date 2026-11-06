@@ -5,6 +5,7 @@ Fixtures for the documentation tests and examples.
 import os
 import re
 import subprocess
+import sys
 from collections.abc import Iterable, Iterator
 from doctest import ELLIPSIS
 from pathlib import Path
@@ -136,7 +137,14 @@ class ConsoleCodeBlockParser(sybil.parsers.myst.CodeBlockParser):
 
         cmds, output = [], []
         for line in code_lines:
-            if line.startswith("$"):
+            if line.startswith("#"):
+                # If current Python version is < than the version required by the
+                # example, stop adding cmds/output.
+                match = re.match(r"^# requires-python: (\d+)\.(\d+)", line)
+                py_ver = sys.version_info[:2]
+                if match and py_ver < (int(match.group(1)), int(match.group(2))):
+                    break
+            elif line.startswith("$"):
                 _, _, current_cmd = line.partition(" ")
                 cmds.append(current_cmd)
             else:

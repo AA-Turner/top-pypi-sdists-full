@@ -9,7 +9,7 @@ variables:
   # Check "https://ghcr.io/astral-sh/uv" for updates
   IMAGE_BASE_LAYER: 'trixie'
   IMAGE_PY_VERSION: '3.14'
-  IMAGE_UV_VERSION: '0.11.17'
+  IMAGE_UV_VERSION: '0.12.9'
   # Use local cache dir so that we can use the GitLab cache.
   # This way, we can also keep the default "link-mode".
   UV_CACHE_DIR: '$CI_PROJECT_DIR/.cache/uv'
@@ -56,7 +56,7 @@ test:
   extends: '.test'
   parallel:
     matrix:
-      - PY: ['3.10', '3.11', '3.12', '3.13', '3.14']
+      - PY: ['3.11', '3.12', '3.13', '3.14', '3.15']
         DEPS_VERSION: ['min_deps_version', 'latest_deps_version']
   # rules:
   #   # Adding rules without checking for a branch/tag will enable
@@ -64,7 +64,7 @@ test:
   #   # See: https://docs.gitlab.com/ee/ci/jobs/job_rules.html#avoid-duplicate-pipelines
   #   - if: $CI_COMMIT_BRANCH == null && $CI_COMMIT_TAG == null
   #     when: never
-  #   - if: $PY == '3.14'
+  #   - if: $PY == '3.15'
   #     allow_failure: true
   #   - when: 'on_success'
   script:
@@ -89,27 +89,8 @@ test-coverage:
         coverage_format: 'cobertura'
         path: 'coverage.xml'
 
-.release-base:
-  # Abstract base step for "release" steps.
-  # Extending steps must define the following variables:
-  # - PYPI_OIDC_AUD: Audience for the ID token that GitLab issues to the pipeline step
-  # - PYPI_OIDC_URL: PyPI endpoint for retrieving a publish token with GitLab’s ID token
-  # - UV_PUBLISH_URL: PyPI endpoint for the actual upload
-  stage: 'deploy'
-  id_tokens:
-    PYPI_ID_TOKEN:
-      aud: '$PYPI_OIDC_AUD'
-  script:
-    - >-
-      resp="$(curl -X POST "${PYPI_OIDC_URL}" -d "{\"token\":\"${PYPI_ID_TOKEN}\"}")"
-    - >-
-      publish_token="$(python -c 'import json, sys; print(json.load(sys.stdin)["token"])' <<< "${resp}")"
-    - 'uv publish --token "$publish_token" dist/*'
-    - 'version="$(uv run --with hatch-vcs hatchling version)"'
-    - 'echo -e "\033[34;1mPackage on PyPI:\033[0m ${CI_ENVIRONMENT_URL}${version}/"'
-
 release-test:
-  extends: '.release-base'
+  stage: 'deploy'
   rules:
     # Do not run if source is not one of {api, push, web, webide}
     - if: >-
@@ -127,12 +108,17 @@ release-test:
     name: 'release-test'
     url: 'https://test.pypi.org/project/typed-settings/'
   variables:
-    PYPI_OIDC_AUD: 'testpypi'
-    PYPI_OIDC_URL: 'https://test.pypi.org/_/oidc/mint-token'
     UV_PUBLISH_URL: 'https://test.pypi.org/legacy/'
+  id_tokens:
+    TESTPYPI_ID_TOKEN:
+      aud: 'testpypi'
+  script:
+    - 'uv publish dist/*'
+    - 'version="$(uv run --with hatch-vcs hatchling version)"'
+    - 'echo -e "\033[34;1mPackage on PyPI:\033[0m ${CI_ENVIRONMENT_URL}${version}/"'
 
 release:
-  extends: '.release-base'
+  stage: 'deploy'
   rules:
     # Do not run if source is not one of {api, push, web, webide}
     - if: >-
@@ -151,5 +137,11 @@ release:
     url: 'https://pypi.org/project/typed-settings/'
   variables:
     PYPI_OIDC_AUD: 'pypi'
-    PYPI_OIDC_URL: 'https://pypi.org/_/oidc/mint-token'
     UV_PUBLISH_URL: 'https://upload.pypi.org/legacy/'
+  id_tokens:
+    PYPI_ID_TOKEN:
+      aud: 'pypi'
+  script:
+    - 'uv publish dist/*'
+    - 'version="$(uv run --with hatch-vcs hatchling version)"'
+    - 'echo -e "\033[34;1mPackage on PyPI:\033[0m ${CI_ENVIRONMENT_URL}${version}/"'

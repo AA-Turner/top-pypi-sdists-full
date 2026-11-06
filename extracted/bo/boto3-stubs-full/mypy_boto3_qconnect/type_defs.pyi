@@ -26,6 +26,7 @@ from .literals import (
     AIPromptAPIFormatType,
     AIPromptTypeType,
     AssistantCapabilityTypeType,
+    AssistantGlobalResiliencyStatusType,
     AssistantStatusType,
     AssociationTypeType,
     ChannelSubtypeType,
@@ -34,6 +35,7 @@ from .literals import (
     ConversationStatusReasonType,
     ConversationStatusType,
     CrossRegionStatusType,
+    GlobalResiliencyStatusType,
     GuardrailActionType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingFilterTypeType,
@@ -441,11 +443,16 @@ __all__ = (
     "RecommendationDataTypeDef",
     "RecommendationTriggerDataTypeDef",
     "RecommendationTriggerTypeDef",
+    "RegisterAssistantReplicaKeyRequestTypeDef",
+    "RegisterAssistantReplicaKeyResponseTypeDef",
+    "RegisterKnowledgeBaseReplicaKeyRequestTypeDef",
+    "RegisterKnowledgeBaseReplicaKeyResponseTypeDef",
     "RemoveAssistantAIAgentRequestTypeDef",
     "RemoveKnowledgeBaseTemplateUriRequestTypeDef",
     "RenderMessageTemplateRequestTypeDef",
     "RenderMessageTemplateResponseTypeDef",
     "RenderingConfigurationTypeDef",
+    "ReplicaKmsKeyTypeDef",
     "ResponseMetadataTypeDef",
     "ResultDataPaginatorTypeDef",
     "ResultDataTypeDef",
@@ -479,7 +486,9 @@ __all__ = (
     "SemanticChunkingConfigurationTypeDef",
     "SendMessageRequestTypeDef",
     "SendMessageResponseTypeDef",
+    "ServerSideEncryptionConfigurationOutputTypeDef",
     "ServerSideEncryptionConfigurationTypeDef",
+    "ServerSideEncryptionConfigurationUnionTypeDef",
     "SessionDataTypeDef",
     "SessionIntegrationConfigurationTypeDef",
     "SessionSummaryTypeDef",
@@ -629,6 +638,8 @@ class AIGuardrailSummaryTypeDef(TypedDict):
     aiGuardrailArn: str
     visibilityStatus: VisibilityStatusType
     modifiedTime: NotRequired[datetime]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
     description: NotRequired[str]
     status: NotRequired[StatusType]
     tags: NotRequired[dict[str, str]]
@@ -681,6 +692,8 @@ AIPromptSummaryTypeDef = TypedDict(
         "apiFormat": AIPromptAPIFormatType,
         "visibilityStatus": VisibilityStatusType,
         "modifiedTime": NotRequired[datetime],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
         "origin": NotRequired[OriginType],
         "description": NotRequired[str],
         "status": NotRequired[StatusType],
@@ -748,9 +761,6 @@ class OrchestratorConfigurationEntryTypeDef(TypedDict):
     orchestratorUseCase: str
     aiAgentId: NotRequired[str]
 
-class ServerSideEncryptionConfigurationTypeDef(TypedDict):
-    kmsKeyId: NotRequired[str]
-
 class ParsingPromptTypeDef(TypedDict):
     parsingPromptText: str
 
@@ -796,6 +806,9 @@ class ContentDataTypeDef(TypedDict):
     urlExpiry: datetime
     tags: NotRequired[dict[str, str]]
     linkOutUri: NotRequired[str]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
+    fileHash: NotRequired[str]
 
 class GenerativeContentFeedbackDataTypeDef(TypedDict):
     relevance: RelevanceType
@@ -820,6 +833,9 @@ class ContentSummaryTypeDef(TypedDict):
     status: ContentStatusType
     metadata: dict[str, str]
     tags: NotRequired[dict[str, str]]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
+    fileHash: NotRequired[str]
 
 class ConversationStateTypeDef(TypedDict):
     status: ConversationStatusType
@@ -1344,6 +1360,7 @@ class ModelSummaryTypeDef(TypedDict):
     modelLifecycle: NotRequired[ModelLifecycleType]
     legacyTimestamp: NotRequired[datetime]
     endOfLifeTimestamp: NotRequired[datetime]
+    globalResiliencyStatus: NotRequired[GlobalResiliencyStatusType]
 
 class ListQuickResponsesRequestTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -1360,6 +1377,7 @@ class QuickResponseSummaryTypeDef(TypedDict):
     status: QuickResponseStatusType
     createdTime: datetime
     lastModifiedTime: datetime
+    lastModifiedRegion: NotRequired[str]
     description: NotRequired[str]
     lastModifiedBy: NotRequired[str]
     isActive: NotRequired[bool]
@@ -1483,6 +1501,9 @@ QuickResponseQueryFieldTypeDef = TypedDict(
         "priority": NotRequired[PriorityType],
     },
 )
+
+class ReplicaKmsKeyTypeDef(TypedDict):
+    arn: str
 
 class RemoveAssistantAIAgentRequestTypeDef(TypedDict):
     assistantId: str
@@ -1700,52 +1721,6 @@ class AssistantAssociationInputDataTypeDef(TypedDict):
 class AssistantAssociationOutputDataTypeDef(TypedDict):
     knowledgeBaseAssociation: NotRequired[KnowledgeBaseAssociationDataTypeDef]
     externalBedrockKnowledgeBaseConfig: NotRequired[ExternalBedrockKnowledgeBaseConfigTypeDef]
-
-AssistantDataTypeDef = TypedDict(
-    "AssistantDataTypeDef",
-    {
-        "assistantId": str,
-        "assistantArn": str,
-        "name": str,
-        "type": Literal["AGENT"],
-        "status": AssistantStatusType,
-        "description": NotRequired[str],
-        "tags": NotRequired[dict[str, str]],
-        "serverSideEncryptionConfiguration": NotRequired[ServerSideEncryptionConfigurationTypeDef],
-        "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
-        "capabilityConfiguration": NotRequired[AssistantCapabilityConfigurationTypeDef],
-        "aiAgentConfiguration": NotRequired[dict[AIAgentTypeType, AIAgentConfigurationDataTypeDef]],
-        "orchestratorConfigurationList": NotRequired[list[OrchestratorConfigurationEntryTypeDef]],
-    },
-)
-AssistantSummaryTypeDef = TypedDict(
-    "AssistantSummaryTypeDef",
-    {
-        "assistantId": str,
-        "assistantArn": str,
-        "name": str,
-        "type": Literal["AGENT"],
-        "status": AssistantStatusType,
-        "description": NotRequired[str],
-        "tags": NotRequired[dict[str, str]],
-        "serverSideEncryptionConfiguration": NotRequired[ServerSideEncryptionConfigurationTypeDef],
-        "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
-        "capabilityConfiguration": NotRequired[AssistantCapabilityConfigurationTypeDef],
-        "aiAgentConfiguration": NotRequired[dict[AIAgentTypeType, AIAgentConfigurationDataTypeDef]],
-        "orchestratorConfigurationList": NotRequired[list[OrchestratorConfigurationEntryTypeDef]],
-    },
-)
-CreateAssistantRequestTypeDef = TypedDict(
-    "CreateAssistantRequestTypeDef",
-    {
-        "name": str,
-        "type": Literal["AGENT"],
-        "clientToken": NotRequired[str],
-        "description": NotRequired[str],
-        "tags": NotRequired[Mapping[str, str]],
-        "serverSideEncryptionConfiguration": NotRequired[ServerSideEncryptionConfigurationTypeDef],
-    },
-)
 
 class BedrockFoundationModelConfigurationForParsingTypeDef(TypedDict):
     modelArn: str
@@ -2104,6 +2079,24 @@ class QuickResponseSearchExpressionTypeDef(TypedDict):
     filters: NotRequired[Sequence[QuickResponseFilterFieldTypeDef]]
     orderOnField: NotRequired[QuickResponseOrderFieldTypeDef]
 
+class RegisterAssistantReplicaKeyRequestTypeDef(TypedDict):
+    assistantId: str
+    replicaKmsKey: ReplicaKmsKeyTypeDef
+    clientToken: NotRequired[str]
+
+class RegisterKnowledgeBaseReplicaKeyRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    replicaKmsKey: ReplicaKmsKeyTypeDef
+    clientToken: NotRequired[str]
+
+class ServerSideEncryptionConfigurationOutputTypeDef(TypedDict):
+    kmsKeyId: NotRequired[str]
+    replicaKmsKeys: NotRequired[list[ReplicaKmsKeyTypeDef]]
+
+class ServerSideEncryptionConfigurationTypeDef(TypedDict):
+    kmsKeyId: NotRequired[str]
+    replicaKmsKeys: NotRequired[Sequence[ReplicaKmsKeyTypeDef]]
+
 class RetrieveResponseTypeDef(TypedDict):
     results: list[RetrieveResultTypeDef]
     errors: list[RetrieveErrorTypeDef]
@@ -2185,6 +2178,8 @@ class AIGuardrailDataTypeDef(TypedDict):
     tags: NotRequired[dict[str, str]]
     status: NotRequired[StatusType]
     modifiedTime: NotRequired[datetime]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
 
 AIGuardrailWordPolicyConfigUnionTypeDef = Union[
     AIGuardrailWordPolicyConfigTypeDef, AIGuardrailWordPolicyConfigOutputTypeDef
@@ -2211,6 +2206,8 @@ AIPromptDataTypeDef = TypedDict(
         "visibilityStatus": VisibilityStatusType,
         "inferenceConfiguration": NotRequired[AIPromptInferenceConfigurationTypeDef],
         "modifiedTime": NotRequired[datetime],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
         "description": NotRequired[str],
         "tags": NotRequired[dict[str, str]],
         "origin": NotRequired[OriginType],
@@ -2290,6 +2287,8 @@ class AssistantAssociationDataTypeDef(TypedDict):
     associationType: AssociationTypeType
     associationData: AssistantAssociationOutputDataTypeDef
     tags: NotRequired[dict[str, str]]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
 
 class AssistantAssociationSummaryTypeDef(TypedDict):
     assistantAssociationId: str
@@ -2299,23 +2298,8 @@ class AssistantAssociationSummaryTypeDef(TypedDict):
     associationType: AssociationTypeType
     associationData: AssistantAssociationOutputDataTypeDef
     tags: NotRequired[dict[str, str]]
-
-class CreateAssistantResponseTypeDef(TypedDict):
-    assistant: AssistantDataTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetAssistantResponseTypeDef(TypedDict):
-    assistant: AssistantDataTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateAssistantAIAgentResponseTypeDef(TypedDict):
-    assistant: AssistantDataTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListAssistantsResponseTypeDef(TypedDict):
-    assistantSummaries: list[AssistantSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
 
 class ParsingConfigurationTypeDef(TypedDict):
     parsingStrategy: Literal["BEDROCK_FOUNDATION_MODEL"]
@@ -2571,6 +2555,7 @@ class QuickResponseDataTypeDef(TypedDict):
     status: QuickResponseStatusType
     createdTime: datetime
     lastModifiedTime: datetime
+    lastModifiedRegion: NotRequired[str]
     contents: NotRequired[QuickResponseContentsTypeDef]
     description: NotRequired[str]
     groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
@@ -2593,6 +2578,7 @@ class QuickResponseSearchResultDataTypeDef(TypedDict):
     createdTime: datetime
     lastModifiedTime: datetime
     isActive: bool
+    lastModifiedRegion: NotRequired[str]
     description: NotRequired[str]
     groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
     shortcutKey: NotRequired[str]
@@ -2615,6 +2601,53 @@ class SearchQuickResponsesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
     attributes: NotRequired[Mapping[str, str]]
+
+AssistantDataTypeDef = TypedDict(
+    "AssistantDataTypeDef",
+    {
+        "assistantId": str,
+        "assistantArn": str,
+        "name": str,
+        "type": Literal["AGENT"],
+        "status": AssistantStatusType,
+        "description": NotRequired[str],
+        "tags": NotRequired[dict[str, str]],
+        "serverSideEncryptionConfiguration": NotRequired[
+            ServerSideEncryptionConfigurationOutputTypeDef
+        ],
+        "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
+        "capabilityConfiguration": NotRequired[AssistantCapabilityConfigurationTypeDef],
+        "aiAgentConfiguration": NotRequired[dict[AIAgentTypeType, AIAgentConfigurationDataTypeDef]],
+        "orchestratorConfigurationList": NotRequired[list[OrchestratorConfigurationEntryTypeDef]],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
+        "assistantGlobalResiliencyStatus": NotRequired[AssistantGlobalResiliencyStatusType],
+    },
+)
+AssistantSummaryTypeDef = TypedDict(
+    "AssistantSummaryTypeDef",
+    {
+        "assistantId": str,
+        "assistantArn": str,
+        "name": str,
+        "type": Literal["AGENT"],
+        "status": AssistantStatusType,
+        "description": NotRequired[str],
+        "tags": NotRequired[dict[str, str]],
+        "serverSideEncryptionConfiguration": NotRequired[
+            ServerSideEncryptionConfigurationOutputTypeDef
+        ],
+        "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
+        "capabilityConfiguration": NotRequired[AssistantCapabilityConfigurationTypeDef],
+        "aiAgentConfiguration": NotRequired[dict[AIAgentTypeType, AIAgentConfigurationDataTypeDef]],
+        "orchestratorConfigurationList": NotRequired[list[OrchestratorConfigurationEntryTypeDef]],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
+    },
+)
+ServerSideEncryptionConfigurationUnionTypeDef = Union[
+    ServerSideEncryptionConfigurationTypeDef, ServerSideEncryptionConfigurationOutputTypeDef
+]
 
 class UpdateSessionDataRequestTypeDef(TypedDict):
     assistantId: str
@@ -2902,6 +2935,41 @@ class SearchQuickResponsesResponseTypeDef(TypedDict):
     results: list[QuickResponseSearchResultDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CreateAssistantResponseTypeDef(TypedDict):
+    assistant: AssistantDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAssistantResponseTypeDef(TypedDict):
+    assistant: AssistantDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RegisterAssistantReplicaKeyResponseTypeDef(TypedDict):
+    assistant: AssistantDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAssistantAIAgentResponseTypeDef(TypedDict):
+    assistant: AssistantDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAssistantsResponseTypeDef(TypedDict):
+    assistantSummaries: list[AssistantSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+CreateAssistantRequestTypeDef = TypedDict(
+    "CreateAssistantRequestTypeDef",
+    {
+        "name": str,
+        "type": Literal["AGENT"],
+        "clientToken": NotRequired[str],
+        "description": NotRequired[str],
+        "tags": NotRequired[Mapping[str, str]],
+        "serverSideEncryptionConfiguration": NotRequired[
+            ServerSideEncryptionConfigurationUnionTypeDef
+        ],
+    },
+)
 
 class ManagedSourceConfigurationOutputTypeDef(TypedDict):
     webCrawlerConfiguration: NotRequired[WebCrawlerConfigurationOutputTypeDef]
@@ -3316,11 +3384,13 @@ class KnowledgeBaseDataTypeDef(TypedDict):
     vectorIngestionConfiguration: NotRequired[VectorIngestionConfigurationOutputTypeDef]
     sourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
     renderingConfiguration: NotRequired[RenderingConfigurationTypeDef]
-    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationOutputTypeDef]
     description: NotRequired[str]
     tags: NotRequired[dict[str, str]]
     ingestionStatus: NotRequired[SyncStatusType]
     ingestionFailureReasons: NotRequired[list[str]]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
 
 class KnowledgeBaseSummaryTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -3331,9 +3401,11 @@ class KnowledgeBaseSummaryTypeDef(TypedDict):
     sourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
     vectorIngestionConfiguration: NotRequired[VectorIngestionConfigurationOutputTypeDef]
     renderingConfiguration: NotRequired[RenderingConfigurationTypeDef]
-    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationOutputTypeDef]
     description: NotRequired[str]
     tags: NotRequired[dict[str, str]]
+    lastModifiedTime: NotRequired[datetime]
+    lastModifiedRegion: NotRequired[str]
 
 SourceConfigurationUnionTypeDef = Union[
     SourceConfigurationTypeDef, SourceConfigurationOutputTypeDef
@@ -3478,6 +3550,10 @@ class GetKnowledgeBaseResponseTypeDef(TypedDict):
     knowledgeBase: KnowledgeBaseDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RegisterKnowledgeBaseReplicaKeyResponseTypeDef(TypedDict):
+    knowledgeBase: KnowledgeBaseDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateKnowledgeBaseTemplateUriResponseTypeDef(TypedDict):
     knowledgeBase: KnowledgeBaseDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3494,7 +3570,7 @@ class CreateKnowledgeBaseRequestTypeDef(TypedDict):
     sourceConfiguration: NotRequired[SourceConfigurationUnionTypeDef]
     renderingConfiguration: NotRequired[RenderingConfigurationTypeDef]
     vectorIngestionConfiguration: NotRequired[VectorIngestionConfigurationUnionTypeDef]
-    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationUnionTypeDef]
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -3582,6 +3658,8 @@ AIAgentDataTypeDef = TypedDict(
         "configuration": AIAgentConfigurationOutputTypeDef,
         "visibilityStatus": VisibilityStatusType,
         "modifiedTime": NotRequired[datetime],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
         "description": NotRequired[str],
         "tags": NotRequired[dict[str, str]],
         "origin": NotRequired[OriginType],
@@ -3599,6 +3677,8 @@ AIAgentSummaryTypeDef = TypedDict(
         "aiAgentArn": str,
         "visibilityStatus": VisibilityStatusType,
         "modifiedTime": NotRequired[datetime],
+        "lastModifiedTime": NotRequired[datetime],
+        "lastModifiedRegion": NotRequired[str],
         "configuration": NotRequired[AIAgentConfigurationOutputTypeDef],
         "origin": NotRequired[OriginType],
         "description": NotRequired[str],

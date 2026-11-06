@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dnaio
-Version: 1.2.4
+Version: 1.2.5
 Summary: Read and write FASTA and FASTQ files efficiently
 Author-email: Marcel Martin <marcel.martin@scilifelab.se>, Ruben Vorderman <r.h.p.vorderman@lumc.nl>
 License-Expression: MIT

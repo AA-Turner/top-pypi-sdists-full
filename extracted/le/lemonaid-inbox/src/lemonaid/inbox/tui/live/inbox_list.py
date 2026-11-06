@@ -84,6 +84,7 @@ class InboxList(Vertical):
         )
         self.grove: Grove | None = None  # the grove of that refresh, for its keys
         self.fold_open = False
+        self.zoom = ("", "")  # the typed grove key's block digit and tree letter, while it is typed
         self.attention = attention
         self.fold_name = ""  # the arranger's name for the folded group
         self._unfolded_ids: frozenset[str] = (
@@ -94,6 +95,9 @@ class InboxList(Vertical):
         self.headers: dict[str, sections.Header] = {}  # the drawn headers, by row key
         self._marked_header = ""  # the header drawn with the cursor's marker
         self._slot = 0  # every header's status slot width, as last drawn
+        self._card_width = 0  # as last drawn
+        self._width = 0  # the pane's, as last drawn
+        self._cards = False  # as last drawn
         self._followed_focus: frozenset[str] = frozenset()  # the lemons the cursor last went to
         # The row a group was collapsed from, drawn until the cursor leaves it.
         self.kept: frozenset[str] = frozenset()
@@ -238,6 +242,45 @@ class InboxList(Vertical):
             )
         return dataclasses.replace(frame, request=request.seq, search_text=request.search_text)
 
+    def summary_slots(self, width: int, slot: int) -> dict[str, int]:
+        """Where attention mode's line, *width* cells wide, puts each status's *slot*-wide badge.
+
+        The slots are the main table's as last drawn; a card's move with the pane's right
+        edge. Empty, for the packed form, when a table's columns were drawn for another width
+        or a slot would not fit.
+        """
+        main = self.main
+        if self._card_width:
+            starts = group_headers.slot_starts(
+                self._card_width + width - self._width, [], layout.NAME_CELL, 0, slot
+            )
+        elif width == self._width:
+            starts = group_headers.slot_starts(
+                0,
+                [c.width for c in main.ordered_columns],
+                layout.NAME_CELL,
+                main.cell_padding,
+                slot,
+            )
+        else:
+            starts = {}
+        return {} if any(start + slot > width for start in starts.values()) else starts
+
+    def summary_layout(
+        self,
+        width: int,
+        rows: abc.Iterable[db.Notification],
+        statuses: abc.Mapping[str, str],
+    ) -> tuple[bool, dict[str, int], int]:
+        """Attention mode's line for *rows* as the inbox would draw it *width* cells wide:
+        whether in card form, each status's slot start, and the slots' width."""
+        rows = list(rows)
+        slot = max(
+            group_headers.slot_width(self.headers.values()),
+            attention_summary.slot_width(rows, statuses),
+        )
+        return self._cards, self.summary_slots(width, slot), slot
+
     def refresh_list(
         self,
         *,
@@ -312,8 +355,16 @@ class InboxList(Vertical):
             stay_on_unread=stay_on_unread,
         )
         self._drawn_at = time.monotonic()
+        self._card_width = card_width
+        self._width = width
+        self._cards = cards
         self.last_frame = frame
         self.grove = inbox_keys.grove(frame, self.config)
+        in_block, in_tree = inbox_keys.zoomed(self.grove, *self.zoom)
+        zoomed = bool(in_block)
+        if zoomed:  # only that block's lemons, all of them, as a search draws its matches
+            frame = inbox_keys.only_block(frame, self.grove, self.zoom[0])
+        self.families.marked = in_tree
         main = self.main
         other = self.other
         fold_label = self.query_one("#fold_label", Static)
@@ -351,13 +402,15 @@ class InboxList(Vertical):
             parents_first=self.arrangement.parents_first,
             lead_first=self.config.tui.group_lead_first,
         )
+        if zoomed:
+            entries = inbox_keys.in_grove_order(entries, self.grove, self.zoom[0])
         drawn = [e for e in entries if isinstance(e, sections.Row)]
         self.drawn = [e.notification if isinstance(e, sections.Row) else None for e in entries]
         unread_count = len({e.notification.id for e in drawn if e.notification.is_unread})
         self.headers = {e.key: e for e in entries if isinstance(e, sections.Header)}
         self._marked_header = current_row if current_row in self.headers else ""
         main.badges_take_clicks = self.attention
-        summary_shown = self.attention and search_text is None
+        summary_shown = self.attention and search_text is None and not zoomed
         chrome = 3 + (summary_shown or bool(folded))
         show_other = bool(other_notifications) and (
             height - chrome - min(len(other_notifications), 8) >= _MIN_MAIN_ROWS
@@ -407,17 +460,13 @@ class InboxList(Vertical):
                     cards,
                     self.config.tui.keybindings.fold[:1],
                     self.fold_open,
-                    group_headers.slot_starts(
-                        card_width,
-                        [column.width for column in main.ordered_columns],
-                        layout.NAME_CELL,
-                        main.cell_padding,
-                        self._slot,
-                    ),
+                    self.summary_slots(width, self._slot),
                     self._slot,
                 ),
             )
-        fold_label.display = bool(all_folded) and search_text is None and not summary_shown
+        fold_label.display = (
+            bool(all_folded) and search_text is None and not summary_shown and not zoomed
+        )
         update_static(
             fold_label,
             inbox_draw.fold_label(

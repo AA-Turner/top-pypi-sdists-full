@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: microsoft-opentelemetry
-Version: 1.5.0
-Summary: Minimal template for the Microsoft OpenTelemetry distro for Python
+Version: 1.6.0
+Summary: Microsoft OpenTelemetry distro for Python
 Project-URL: Homepage, https://github.com/microsoft/opentelemetry-distro-python
 Project-URL: Repository, https://github.com/microsoft/opentelemetry-distro-python
 Project-URL: Documentation, https://microsoft.github.io/opentelemetry-distro-python/
@@ -23,20 +23,20 @@ License-File: LICENSE
 License-File: NOTICE.md
 Requires-Dist: azure-core<2.0.0,>=1.38.0
 Requires-Dist: azure-core-tracing-opentelemetry~=1.0.0b11
-Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b58
-Requires-Dist: opentelemetry-sdk~=1.45.0
-Requires-Dist: opentelemetry-api~=1.45.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.45.0
-Requires-Dist: opentelemetry-instrumentation<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-django<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-fastapi<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-flask<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-httpx<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-psycopg2<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-requests<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-urllib<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-urllib3<0.67b0,>=0.66b0
-Requires-Dist: opentelemetry-instrumentation-logging<0.67b0,>=0.66b0
+Requires-Dist: azure-monitor-opentelemetry-exporter~=1.0.0b59
+Requires-Dist: opentelemetry-sdk~=1.45.1
+Requires-Dist: opentelemetry-api~=1.45.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.45.1
+Requires-Dist: opentelemetry-instrumentation<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-django<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-flask<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-httpx<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-psycopg2<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-requests<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-urllib<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-urllib3<0.67b0,>=0.66b1
+Requires-Dist: opentelemetry-instrumentation-logging<0.67b0,>=0.66b1
 Requires-Dist: opentelemetry-instrumentation-openai-agents-v2==0.1.0
 Requires-Dist: opentelemetry-instrumentation-openai-v2==2.3b0
 Requires-Dist: opentelemetry-resource-detector-azure<1.0.0,>=0.3.0
@@ -57,8 +57,8 @@ Requires-Dist: pytest>=8.0; extra == "test"
 Requires-Dist: pytest-cov>=5.0; extra == "test"
 Requires-Dist: pytest-benchmark>=4.0; extra == "test"
 Provides-Extra: dev
-Requires-Dist: black>=24.0; extra == "dev"
-Requires-Dist: pylint>=3.3; extra == "dev"
+Requires-Dist: black>=26.10.1; extra == "dev"
+Requires-Dist: pylint>=4.0.9; extra == "dev"
 Requires-Dist: mypy>=1.10; extra == "dev"
 Requires-Dist: pyright>=1.1; extra == "dev"
 Requires-Dist: pytest>=8.0; extra == "dev"
@@ -210,7 +210,7 @@ string arguments/results remain supported. See the A365 guide for complete examp
 | `a365_exporter_timeout_ms` | `int` | `30000` | Timeout for a single A365 export operation (ms). |
 | `a365_max_export_batch_size` | `int` | `512` | Maximum batch size for a single A365 export operation. |
 | `a365_exporter_disable_offline_storage` | `bool` | `False` | Disable durable offline storage. When `True`, failed exports are not persisted to disk. |
-| `a365_exporter_storage_directory` | `str` | `None` | Custom directory for durable offline storage. Restrict to the service account; payloads may contain prompts or completions when sensitive-data capture is enabled. |
+| `a365_exporter_storage_directory` | `str` | `None` | Root for an `a365` cache using Azure Monitor's offline storage provider and permission handling. Use separate sibling roots for A365 and Azure Monitor; shared or overlapping cache paths are unsupported and are not rejected automatically. `None` uses its default path resolver with an Agent365 namespace. Payloads are unencrypted; protect the root and ancestors. Existing SQLite backlogs require draining before upgrade. See [storage security and migration](A365_DOCUMENTATION.md#durable-delivery-offline-storage). |
 
 > For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](https://github.com/microsoft/opentelemetry-distro-python/blob/main/A365_DOCUMENTATION.md).
 

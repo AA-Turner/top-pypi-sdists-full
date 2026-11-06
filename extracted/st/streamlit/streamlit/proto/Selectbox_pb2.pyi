@@ -53,6 +53,8 @@ class Selectbox(_message.Message):
     QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     FILTER_MODE_FIELD_NUMBER: _builtins.int
     IGNORE_RERUN_FIELD_NUMBER: _builtins.int
+    REQUIRED_FIELD_NUMBER: _builtins.int
+    ICON_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     label: _builtins.str
     default: _builtins.int
@@ -71,7 +73,15 @@ class Selectbox(_message.Message):
     the next rerun. Bound widgets still update the URL when the value is
     committed. Inside a form, this flag has no effect because the form batches
     values until submit.
-    Next: 17
+    """
+    required: _builtins.bool
+    """If true, an empty selection (None) cannot be committed or submitted
+    (client-side).
+    """
+    icon: _builtins.str
+    """Emoji, Material icon, or "spinner" shown at the start of the input; empty
+    means no icon.
+    Next: 19
     """
     @_builtins.property
     def options(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
@@ -95,10 +105,12 @@ class Selectbox(_message.Message):
         query_param_key: _builtins.str | None = ...,
         filter_mode: _SelectWidgetFilterMode_pb2.SelectWidgetFilterMode.ValueType = ...,
         ignore_rerun: _builtins.bool = ...,
+        required: _builtins.bool = ...,
+        icon: _builtins.str = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_accept_new_options", b"_accept_new_options", "_default", b"_default", "_query_param_key", b"_query_param_key", "_raw_value", b"_raw_value", "accept_new_options", b"accept_new_options", "default", b"default", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key", "raw_value", b"raw_value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_accept_new_options", b"_accept_new_options", "_default", b"_default", "_query_param_key", b"_query_param_key", "_raw_value", b"_raw_value", "accept_new_options", b"accept_new_options", "default", b"default", "disabled", b"disabled", "filter_mode", b"filter_mode", "form_id", b"form_id", "help", b"help", "id", b"id", "ignore_rerun", b"ignore_rerun", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "placeholder", b"placeholder", "query_param_key", b"query_param_key", "raw_value", b"raw_value", "set_value", b"set_value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_accept_new_options", b"_accept_new_options", "_default", b"_default", "_query_param_key", b"_query_param_key", "_raw_value", b"_raw_value", "accept_new_options", b"accept_new_options", "default", b"default", "disabled", b"disabled", "filter_mode", b"filter_mode", "form_id", b"form_id", "help", b"help", "icon", b"icon", "id", b"id", "ignore_rerun", b"ignore_rerun", "label", b"label", "label_visibility", b"label_visibility", "options", b"options", "placeholder", b"placeholder", "query_param_key", b"query_param_key", "raw_value", b"raw_value", "required", b"required", "set_value", b"set_value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__accept_new_options: _TypeAlias = _typing.Literal["accept_new_options"]  # noqa: Y015
     _WhichOneofArgType__accept_new_options: _TypeAlias = _typing.Literal["_accept_new_options", b"_accept_new_options"]  # noqa: Y015

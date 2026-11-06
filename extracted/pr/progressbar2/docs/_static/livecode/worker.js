@@ -32,12 +32,12 @@ let pyodide = null;
 // reached some other way.
 const THREAD_ERROR_MARKER = "can't start new thread";
 const THREAD_ERROR_MESSAGE =
-  'This demo uses MultiBar's `with` form, which starts a real OS ' +
+  'This demo uses MultiBar\'s `with` form, which starts a real OS ' +
   'thread. Browsers cannot provide that, so it cannot run here -- the ' +
   'animation above is the real output. See the source for the pattern.';
 
 const BRIDGE = `
-import os, sys, js, traceback
+import os, sys, time, js, traceback
 from pyodide.ffi import to_js
 
 
@@ -109,9 +109,22 @@ def _excepthook(exc_type, exc_value, exc_tb):
     traceback.print_exception(exc_type, exc_value, exc_tb, file=sys.stderr)
 
 
+def _sleep(seconds):
+    # Pyodide's own time.sleep costs about 80ms per 10ms call in Chromium
+    # on macOS (measured 2026-09-15; Linux stays close to nominal), which
+    # pushed a 1000-item tutorial run past the console's 30 second stop.
+    # A perf_counter loop keeps to the asked duration on every platform.
+    # It burns the worker's CPU while waiting, which is the same thread
+    # the blocking sleep already held.
+    deadline = time.perf_counter() + max(0.0, seconds)
+    while time.perf_counter() < deadline:
+        pass
+
+
 def _install_bridge(columns):
     global _LAST_ERROR
     _LAST_ERROR = None
+    time.sleep = _sleep
     os.environ['TERM'] = 'xterm-256color'
     os.environ['COLORTERM'] = 'truecolor'
     os.environ['COLUMNS'] = str(columns)
@@ -122,7 +135,7 @@ def _install_bridge(columns):
 `;
 
 async function fetchJSON(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, {cache: 'no-cache'});
   if (!response.ok) {
     throw new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
   }

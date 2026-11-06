@@ -1,4 +1,4 @@
-# Copyright (C) 2023 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2023 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 #
@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 """Provides the ``Dimensions`` class."""
 
 from __future__ import annotations
@@ -126,7 +127,7 @@ class Dimensions:
     def __hash__(self) -> int:
         return hash(repr(sorted(self._dimensions.items())))
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self._dimensions)
 
     def __getitem__(self, key: str) -> float:

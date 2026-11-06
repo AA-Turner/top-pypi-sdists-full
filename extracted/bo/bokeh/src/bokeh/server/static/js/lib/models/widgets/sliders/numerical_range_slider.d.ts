@@ -21,5 +21,7 @@ export declare abstract class NumericalRangeSlider extends BaseNumericalSlider {
     value: [number, number];
     value_throttled: [number, number];
     constructor(attrs?: Partial<NumericalRangeSlider.Attrs>);
+    protected _clamp(value: [number, number]): [number, number];
+    protected _enforce_bounds(): void;
 }
 //# sourceMappingURL=numerical_range_slider.d.ts.map

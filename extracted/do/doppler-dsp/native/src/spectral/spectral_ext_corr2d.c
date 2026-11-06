@@ -223,7 +223,7 @@ Corr2DObj_execute (Corr2DObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       size_t _omax    = dp_corr2d_execute_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
+      size_t _min_cap = _omax ? _omax : ((size_t)n);
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -290,7 +290,7 @@ Corr2DObj_execute (Corr2DObject *self, PyObject *args, PyObject *kwds)
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_corr2d_execute_max_out (self->handle);
-  if (!_cap || _cap < _need)
+  if (!_cap)
     _cap = _need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
@@ -673,7 +673,7 @@ Corr2DObj_execute_coherent (Corr2DObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       size_t _omax    = dp_corr2d_execute_coherent_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
+      size_t _min_cap = _omax ? _omax : ((size_t)n);
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -747,7 +747,7 @@ Corr2DObj_execute_coherent (Corr2DObject *self, PyObject *args, PyObject *kwds)
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_corr2d_execute_coherent_max_out (self->handle);
-  if (!_cap || _cap < _need)
+  if (!_cap)
     _cap = _need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
@@ -886,7 +886,7 @@ Corr2DObj_execute_power_sum (Corr2DObject *self, PyObject *args,
           return NULL;
         }
       size_t _omax    = dp_corr2d_execute_power_sum_max_out (self->handle);
-      size_t _min_cap = _omax > (size_t)n ? _omax : ((size_t)n);
+      size_t _min_cap = _omax ? _omax : ((size_t)n);
       if (_cap < _min_cap)
         {
           PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
@@ -960,7 +960,7 @@ Corr2DObj_execute_power_sum (Corr2DObject *self, PyObject *args,
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_corr2d_execute_power_sum_max_out (self->handle);
-  if (!_cap || _cap < _need)
+  if (!_cap)
     _cap = _need;
   size_t _adim_need = (size_t)(_cap);
   if (_adim_need > (size_t)NPY_MAX_INTP)
@@ -1969,9 +1969,21 @@ static PyMethodDef Corr2DObj_methods[] = {
     "ny*nx). Accumulating in the frequency domain and inverting once is\n"
     "exactly the per-frame inverse summed, by linearity of the IFFT — valid\n"
     "because the dwell is **coherent** (a complex sum); a non-coherent\n"
-    "(magnitude) integration could not defer the inverse. The Python wrapper\n"
-    "accepts a (ny, nx) CF32 ndarray; a dump returns a flat length-ny*nx\n"
-    "ndarray, a no-dump returns None.\n"
+    "(magnitude) integration could not defer the inverse.\n"
+    "\n"
+    "**Layout.** A frame is ny*nx complex samples in row-major order: row i\n"
+    "is samples i*nx .. (i+1)*nx - 1. For Corr2D that is a (ny, nx) image;\n"
+    "for DelayDoppler it is the raw stream, ny code periods of nx = code_len\n"
+    "samples back to back. The map a dump produces is flat, n_out = ny_out *\n"
+    "nx_out values (ny values with col_out), also row-major: reshape it to\n"
+    "(ny_out, nx_out). On a DelayDoppler, axis 0 is Doppler (centered, zero\n"
+    "Doppler on row ny_out / 2) and axis 1 is delay (the lag, in samples).\n"
+    "\n"
+    "**Ownership.** In Python, a call that dumps returns a new array when no\n"
+    "`out=` is given, and a view of `out=` when one is (a 1-D array holding\n"
+    "at least n_out values; it is written on a dump only, and the next dump\n"
+    "overwrites it). A call that does not dump returns None and touches\n"
+    "neither.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1984,10 +1996,11 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[np.complex64] | None\n"
-    "    n_out on a dump (or max_out if smaller), 0 otherwise (None in\n"
-    "    Python). If n_in is not the required length the call is REFUSED\n"
-    "    with nothing read, written or counted: SIZE_MAX in C, ValueError in\n"
-    "    Python (#1925). None when the C call writes no output.\n"
+    "    Python: the map on a dump, None otherwise; a frame that is not\n"
+    "    ny*nx samples is REFUSED with nothing read, written or counted, as\n"
+    "    a ValueError (#1925). C: n_out on a dump (or max_out if smaller), 0\n"
+    "    otherwise, and SIZE_MAX for the refused frame. None when the C call\n"
+    "    writes no output.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2022,7 +2035,16 @@ static PyMethodDef Corr2DObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "execute_all(x, out) -> ndarray\n"
     "\n"
-    "Every map of a batch, unreduced: map h at `out + h * n_out`.\n"
+    "Every map of a batch, unreduced: row h of the (H, n_out) result is\n"
+    "the map of frame h (in C, map h is at `out + h * n_out`).\n"
+    "\n"
+    "Python: `x` is the H frames back to back, a flat array of H * ny * nx\n"
+    "samples (H >= 1): frame h is the samples from h * ny * nx up to, not\n"
+    "including, (h + 1) * ny * nx. With no `out=` each call returns a new\n"
+    "array; with `out=` it returns a view of it, and the next call into the\n"
+    "same `out=` overwrites that view. `out=` is a 2-D complex64 array of\n"
+    "shape (rows, n_out) with at least H rows (a shorter one is refused);\n"
+    "the result is its first H rows. The object's dwell is untouched.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -2034,8 +2056,10 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[np.complex64]\n"
-    "    H * n_out, or SIZE_MAX (nothing written) for a refused batch. From\n"
-    "    Python, an (H, n_out) array, a view of `out=` when given.\n"
+    "    Python: the (H, n_out) array; a refused batch (empty, not a whole\n"
+    "    number of frames, or an `out=` with fewer than H rows) is a\n"
+    "    ValueError with nothing written. C: H * n_out, or SIZE_MAX for the\n"
+    "    refused batch.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2076,7 +2100,8 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "int\n"
-    "    H * n_out, or SIZE_MAX if that overflows.\n"
+    "    The capacity `execute_all` needs for n_in samples: H * n_out values\n"
+    "    (C: SIZE_MAX if that overflows).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -2096,6 +2121,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "\n"
     "The coherent sum of a batch's maps, inverted once.\n"
     "\n"
+    "Python: `x` is the H frames back to back, a flat array of H * ny * nx\n"
+    "samples (H >= 1).\n"
+    "\n"
     "The frames' product spectra are summed and the sum is inverted, as a\n"
     "dwell does: the result is bit-identical to what a fresh object with\n"
     "dwell = H dumps for the same frames, and equal to the sum of the H maps\n"
@@ -2111,7 +2139,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[np.complex64]\n"
-    "    n_out, or SIZE_MAX (nothing written) for a refused batch.\n"
+    "    Python: the one map, a new (n_out,) array; a refused batch is a\n"
+    "    ValueError with nothing written. C: n_out, or SIZE_MAX for the\n"
+    "    refused batch.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2166,6 +2196,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "is the sum over h of that cell's `|map_h|^2`, summed in h order in\n"
     "float.\n"
     "\n"
+    "Python: `x` is the H frames back to back, a flat array of H * ny * nx\n"
+    "samples (H >= 1).\n"
+    "\n"
     "Unlike the coherent sum, phase does not cancel: frames x and -x sum to\n"
     "twice one map's power, where their coherent sum is zero.\n"
     "\n"
@@ -2179,7 +2212,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "NDArray[np.float32]\n"
-    "    n_out, or SIZE_MAX (nothing written) for a refused batch.\n"
+    "    Python: the (n_out,) float32 powers, a new array; a refused batch\n"
+    "    is a ValueError with nothing written. C: n_out, or SIZE_MAX for the\n"
+    "    refused batch.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2234,6 +2269,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "The largest power over a batch's maps, cell by cell, and the map it\n"
     "came from.\n"
     "\n"
+    "Python: `x` is the H frames back to back, a flat array of H * ny * nx\n"
+    "samples (H >= 1).\n"
+    "\n"
     "Each cell of out is the largest `|map_h|^2` that cell takes over the\n"
     "maps, and the same cell of out1 is the h it came from. A tie goes to\n"
     "the lowest h: a later map replaces the running maximum only when it is\n"
@@ -2247,8 +2285,10 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "tuple[NDArray[np.float32], NDArray[np.uint32]]\n"
-    "    n_out, or SIZE_MAX (nothing written) for a refused batch or H above\n"
-    "    2^32. From Python, the tuple (power, index).\n"
+    "    Python: the tuple (power, index), each (n_out,): float32 powers and\n"
+    "    uint32 map indices, always new arrays (this call takes no `out=`);\n"
+    "    a refused batch, or H above 2**32, is a ValueError. C: n_out, or\n"
+    "    SIZE_MAX with nothing written.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2277,6 +2317,9 @@ static PyMethodDef Corr2DObj_methods[] = {
     "One record per map of a batch: its peak power, where the peak is,\n"
     "and its mean power.\n"
     "\n"
+    "Python: `x` is the H frames back to back, a flat array of H * ny * nx\n"
+    "samples (H >= 1).\n"
+    "\n"
     "Entry h of each output describes map h: out its largest `|map|^2`, out1\n"
     "and out2 the row and column of that cell (the first in row-major order\n"
     "on a tie), and out3 the mean `|map|^2` over its n_out cells. A map is\n"
@@ -2294,8 +2337,10 @@ static PyMethodDef Corr2DObj_methods[] = {
     "-------\n"
     "tuple[NDArray[np.float32], NDArray[np.uint32], NDArray[np.uint32], "
     "NDArray[np.float32]]\n"
-    "    H, or SIZE_MAX (nothing written) for a refused batch. From Python,\n"
-    "    the tuple (peak, row, col, mean).\n"
+    "    Python: the tuple (peak, row, col, mean), each (H,): float32 peak\n"
+    "    power, uint32 row and column, float32 mean power, always new arrays\n"
+    "    (this call takes no `out=`); a refused batch is a ValueError. C: H,\n"
+    "    or SIZE_MAX with nothing written.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2351,7 +2396,10 @@ static PyMethodDef Corr2DObj_methods[] = {
     "Returns\n"
     "-------\n"
     "tuple[NDArray[np.float32], NDArray[np.uint32]]\n"
-    "    `n_out`, or SIZE_MAX with nothing written.\n"
+    "    Python: the tuple (power, index), each (n_out,): float32 powers and\n"
+    "    uint32 hypothesis indices, always new arrays (this call takes no\n"
+    "    `out=`); a refusal is a ValueError. C: `n_out`, or SIZE_MAX with\n"
+    "    nothing written.\n"
     "\n"
     "Raises\n"
     "------\n"
@@ -2440,7 +2488,11 @@ static PyMethodDef Corr2DObj_methods[] = {
     "-------\n"
     "tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.uint32], "
     "NDArray[np.uint32], NDArray[np.uint32]]\n"
-    "    The record count (0 included), or SIZE_MAX with nothing written for\n"
+    "    Python: the tuple (power, g, rate, row, col), one entry per\n"
+    "    confirmed record (possibly none): float32 refined power, int32\n"
+    "    refined carrier, uint32 rate, row and column, always new arrays\n"
+    "    (this call takes no `out=`); anything below is a ValueError. C: the\n"
+    "    record count (0 included), or SIZE_MAX with nothing written for\n"
     "    anything dp_corr2d_bank_fold() refuses, `L_d == 0`, an L_r that L_d\n"
     "    does not divide, a refined carrier past int32, or max_out below\n"
     "    `n_out`.\n"

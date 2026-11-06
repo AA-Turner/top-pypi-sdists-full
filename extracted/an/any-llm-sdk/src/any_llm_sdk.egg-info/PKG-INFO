@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.44.0
+Version: 1.46.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -11,7 +11,7 @@ License-File: LICENSE
 Requires-Dist: pydantic<3,>2
 Requires-Dist: openai<4,>=2.18.0
 Requires-Dist: openresponses-types<3,>=2.4.0
-Requires-Dist: anthropic<2,>=1.2.0
+Requires-Dist: anthropic<3,>=1.2.0
 Requires-Dist: rich
 Requires-Dist: httpx
 Requires-Dist: typing_extensions>=4.5.0
@@ -32,9 +32,9 @@ Provides-Extra: vertexai
 Requires-Dist: google-genai>=1.70.0; extra == "vertexai"
 Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
-Requires-Dist: anthropic[vertex]<2,>=1.2.0; extra == "vertexaianthropic"
+Requires-Dist: anthropic[vertex]<3,>=1.2.0; extra == "vertexaianthropic"
 Provides-Extra: azureanthropic
-Requires-Dist: anthropic<2,>=1.2.0; extra == "azureanthropic"
+Requires-Dist: anthropic<3,>=1.2.0; extra == "azureanthropic"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub>=0.30.0; extra == "huggingface"
 Provides-Extra: cohere
@@ -44,7 +44,7 @@ Requires-Dist: cerebras_cloud_sdk>=1.23.0; extra == "cerebras"
 Provides-Extra: fireworks
 Requires-Dist: fireworks-ai>=1.2.0; extra == "fireworks"
 Provides-Extra: groq
-Requires-Dist: groq; extra == "groq"
+Requires-Dist: groq>=0.26.0; extra == "groq"
 Provides-Extra: bedrock
 Requires-Dist: boto3; extra == "bedrock"
 Provides-Extra: azure
@@ -52,7 +52,7 @@ Requires-Dist: azure-ai-inference; extra == "azure"
 Provides-Extra: watsonx
 Requires-Dist: ibm-watsonx-ai; python_version < "3.14" and extra == "watsonx"
 Provides-Extra: together
-Requires-Dist: together<3,>=2.0.0; extra == "together"
+Requires-Dist: together<4,>=2.0.0; extra == "together"
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.6.0; extra == "ollama"
 Provides-Extra: voyage

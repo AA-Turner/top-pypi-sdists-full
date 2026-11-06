@@ -31,6 +31,7 @@ from typing import Annotated, Any, Literal, Self
 
 import numpy as np
 from albucore import remap
+from numpy.typing import NDArray
 from pydantic import (
     AfterValidator,
     Field,
@@ -62,7 +63,6 @@ from albumentations.core.type_definitions import (
     CV2_INTER_LINEAR,
     CV2_INTER_NEAREST,
     BorderModeType,
-    ImageType,
     InterpolationType,
     VolumeType,
 )
@@ -118,11 +118,11 @@ class BaseRemapTransform(DualTransform):
 
     def apply(
         self,
-        img: ImageType,
+        img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         map_x: np.ndarray,
         map_y: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         result = remap(
             img,
             map_x,
@@ -131,18 +131,18 @@ class BaseRemapTransform(DualTransform):
             border_mode=self.border_mode,
             border_value=self.fill,
         )
-        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation)
+        return fgeometric.clip_if_interpolation_can_overshoot(result, self.interpolation, source=img)
 
     def apply_to_mask3d(self, mask3d: VolumeType, **params: Any) -> VolumeType:
         return self._apply_to_batch_same_shape(mask3d, lambda mask: self.apply_to_mask(mask, **params))
 
     def apply_to_mask(
         self,
-        mask: ImageType,
+        mask: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
         map_x: np.ndarray,
         map_y: np.ndarray,
         **params: Any,
-    ) -> ImageType:
+    ) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
         return remap(
             mask,
             map_x,
@@ -1133,7 +1133,8 @@ class WaterRefraction(BaseDistortion):
         amplitude_range (tuple[float, float]): Range for maximum displacement as a
             fraction of image size. Default: (0.01, 0.05).
         wavelength_range (tuple[float, float]): Range for wave period as a fraction
-            of image size. Default: (0.05, 0.2).
+            of the smaller displacement-map dimension. Both values must be in [0.001, 1.0].
+            Default: (0.05, 0.2).
         num_waves_range (tuple[int, int]): Range for number of overlaid sine waves.
             More waves = more complex distortion. Default: (3, 7).
         interpolation (int): OpenCV interpolation flag. Default: cv2.INTER_LINEAR.
@@ -1179,7 +1180,7 @@ class WaterRefraction(BaseDistortion):
         ]
         wavelength_range: Annotated[
             tuple[float, float],
-            AfterValidator(check_range_bounds(0, None, min_inclusive=False)),
+            AfterValidator(check_range_bounds(0.001, 1.0)),
             AfterValidator(nondecreasing),
         ]
         num_waves_range: Annotated[

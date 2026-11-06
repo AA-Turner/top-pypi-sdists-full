@@ -83,6 +83,8 @@ from .type_defs import (
     ResendContactReachabilityEmailRequestTypeDef,
     ResendContactReachabilityEmailResponseTypeDef,
     ResendOperationAuthorizationRequestTypeDef,
+    RestoreDomainRequestTypeDef,
+    RestoreDomainResponseTypeDef,
     RetrieveDomainAuthCodeRequestTypeDef,
     RetrieveDomainAuthCodeResponseTypeDef,
     TransferDomainRequestTypeDef,
@@ -442,6 +444,17 @@ class Route53DomainsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53domains/client/resend_operation_authorization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53domains/client/#resend_operation_authorization)
+        """
+
+    def restore_domain(
+        self, **kwargs: Unpack[RestoreDomainRequestTypeDef]
+    ) -> RestoreDomainResponseTypeDef:
+        """
+        Restores a domain that has expired, or was deleted, before it becomes available
+        for others to register.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53domains/client/restore_domain.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53domains/client/#restore_domain)
         """
 
     def retrieve_domain_auth_code(

@@ -91,11 +91,14 @@ SLUG_RE = re.compile(r'[^a-z0-9]+')
 # cursor up n lines to column 0) to that bar's row, the freshly rendered
 # text, then NEXT_LINE(offset) (``ESC[<n>E``) back down to the shared
 # baseline below every bar (progressbar/multi.py's ``render``/``print``).
-# See ``_parse_multibar_frames`` for how ``offset`` is used.
+# Manual line offsets repeat F/B once per row. Accept both forms and sum
+# the upward movements to recover the row above the shared baseline.
 MULTIBAR_REPOSITION_RE = re.compile(
-    r'\x1b\[(\d*)F\r?(.*?)\x1b\[\d*E',
+    r'(?P<up>(?:\x1b\[\d*[FA])+)\r?'
+    r'(?P<text>.*?)(?P<down>(?:\x1b\[\d*[EB])+)',
     re.DOTALL,
 )
+CURSOR_UP_RE: re.Pattern[str] = re.compile(r'\x1b\[(\d*)[FA]')
 # Default per-frame duration. Registry entries can override it (and add a
 # final-frame hold) via ``Demo.frame_seconds``/``Demo.end_hold_seconds``;
 # the README demos do, since they pace as a first impression rather than
@@ -116,7 +119,7 @@ CAPTURE_CLOCK_INSTANT = '2024-03-14T09:41:17'
 def _demo_argv(demo: Demo) -> list[str]:
     """Build the argv used to run ``demo`` under capture.
 
-    Every demo runs through a small ``-c`` bootstrap that freezes the clock
+    By default, a demo runs through a ``-c`` bootstrap that freezes the clock
     (via freezegun, already a test dependency) and makes ``time.sleep``
     advance it by exactly the requested amount instead of actually
     blocking, before executing the module. This lives entirely in the
@@ -168,10 +171,26 @@ def _demo_argv(demo: Demo) -> list[str]:
        threads of their own (``howto/multibar-line-offset``), where
        concurrent ticks would corrupt freezegun's state; such demos
        remain scheduling-dependent and keep ``drift_check=False``.
+
+    Demos with ``capture_real_time`` keep normal clocks and thread
+    scheduling so workers can visibly advance concurrently.
+
+    Capture disables the minimum redraw interval so real intermediate
+    updates reach the recording. Playback timing comes from the registry.
+    The example source and normal library redraw limits stay unchanged.
     """
+    if demo.capture_real_time:
+        bootstrap: str = (
+            'import runpy, progressbar\n'
+            'progressbar.ProgressBar._MINIMUM_UPDATE_INTERVAL = 0.0\n'
+            f"runpy.run_path({str(demo.path)!r}, run_name='__main__')\n"
+        )
+        return [sys.executable, '-c', bootstrap]
+
     bootstrap = (
         'import threading, time, runpy, freezegun\n'
         'import progressbar.multi\n'
+        'progressbar.ProgressBar._MINIMUM_UPDATE_INTERVAL = 0.0\n'
         '_frozen = freezegun.freeze_time('
         f'{CAPTURE_CLOCK_INSTANT!r}).start()\n'
         '_tick_lock = threading.Lock()\n'
@@ -209,6 +228,7 @@ def capture_demo(demo: Demo) -> list[list[str]]:
     env['COLUMNS'] = str(demo.term_width)
     env['PYTHONPATH'] = str(ROOT)
     env['PYTHONIOENCODING'] = 'utf-8'
+    env['PROGRESSBAR_MINIMUM_UPDATE_INTERVAL'] = '0'
 
     controller, worker = pty.openpty()
     try:
@@ -277,7 +297,7 @@ def capture_demo(demo: Demo) -> list[list[str]]:
     finally:
         os.close(controller)
 
-    frames = parse_frames(output)
+    frames = parse_frames(output, history_lines=demo.history_lines)
     if demo.log_lines:
         frames = keep_recent_logs_with_progress(frames, demo.log_lines)
     frames = dedupe_consecutive_frames(frames)
@@ -306,11 +326,18 @@ def normalize_terminal_line(line: str) -> str:
     return STRAY_CSI_RE.sub('', line)
 
 
-def parse_frames(output: str) -> list[list[str]]:
+def parse_frames(
+    output: str,
+    *,
+    history_lines: int = 0,
+) -> list[list[str]]:
     output = output.replace('\x1b[2K', '')
 
     if MULTIBAR_REPOSITION_RE.search(output):
         return _parse_multibar_frames(output)
+
+    if history_lines:
+        return _parse_history_frames(output, history_lines)
 
     frames: list[list[str]] = []
     if '\f' in output:
@@ -338,6 +365,27 @@ def parse_frames(output: str) -> list[list[str]]:
     return frames
 
 
+def _parse_history_frames(
+    output: str,
+    history_lines: int,
+) -> list[list[str]]:
+    """Retain newline output while carriage returns replace the active row."""
+    history: list[str] = []
+    frames: list[list[str]] = []
+    raw_line: str
+    for raw_line in output.replace('\r\n', '\n').split('\n'):
+        last_line: str = ''
+        part: str
+        for part in raw_line.split('\r'):
+            line: str = normalize_terminal_line(part.strip())
+            if line:
+                frames.append([*history, line][-history_lines:])
+                last_line = line
+        if last_line:
+            history = [*history, last_line][-history_lines:]
+    return frames
+
+
 def _parse_multibar_frames(output: str) -> list[list[str]]:
     """Reconstruct ``MultiBar``'s per-bar redraws into combined frames.
 
@@ -356,9 +404,34 @@ def _parse_multibar_frames(output: str) -> list[list[str]]:
     lines_by_offset: dict[int, str] = {}
     frames: list[list[str]] = []
     for match in MULTIBAR_REPOSITION_RE.finditer(output):
-        offset = int(match.group(1) or 1)
-        text = normalize_terminal_line(match.group(2).strip())
+        offset: int = sum(
+            int(count or 1)
+            for count in CURSOR_UP_RE.findall(match.group('up'))
+        )
+        text: str = normalize_terminal_line(match.group('text').strip())
         if not text:
+            # Manual offsets also wrap the empty write from finish().
+            # That write moves the cursor without erasing the bar.
+            if match.group('down').endswith('B'):
+                continue
+            # An empty body at an offset is MultiBar clearing that row --
+            # its `render` erases the line of a bar that vanished since
+            # the previous frame (e.g. the parallel display deletes each
+            # finished task bar). Dropping the tracked row, rather than
+            # ignoring the write, keeps removed bars from lingering as
+            # stale duplicates once later redraws reuse their offsets.
+            # The post-clear state is emitted as a frame of its own:
+            # a clear can be the last thing a run writes (a final render
+            # that only retires rows), and without this append the
+            # animation would end on a frame still showing the retired
+            # bar. `dedupe_consecutive_frames` folds the no-op cases.
+            if lines_by_offset.pop(offset, None) and lines_by_offset:
+                frames.append(
+                    [
+                        lines_by_offset[key]
+                        for key in sorted(lines_by_offset, reverse=True)
+                    ]
+                )
             continue
         lines_by_offset[offset] = text
         frames.append(
@@ -403,7 +476,16 @@ def keep_recent_logs_with_progress(
     """
 
     def is_progress_line(line: str) -> bool:
-        return bool(PERCENT_RE.search(line) or BAR_RE.search(line))
+        # Classify against SGR-stripped text: the default bar colors its
+        # percentage/count and (since the Bar gradient fix) its fill, and
+        # the escape codes defeat both patterns on the raw line --
+        # ``\b\d`` finds no word boundary in ``...39m100%`` (``m`` and
+        # ``1`` are both word characters), and ``BAR_RE``'s inner group
+        # cannot match a fill with color codes woven through it. The
+        # colored 100% finish line then misclassifies as log output and
+        # the animation never shows the bar completing.
+        text = ANSI_SGR_RE.sub('', line)
+        return bool(PERCENT_RE.search(text) or BAR_RE.search(text))
 
     logs: list[str] = []
     output: list[list[str]] = []
@@ -774,25 +856,6 @@ def svg_document(
     .dot-red {{ fill: #ff5f57; }}
     .dot-yellow {{ fill: #ffbd2e; }}
     .dot-green {{ fill: #28c840; }}
-    @media (prefers-reduced-motion: reduce) {{
-      /* Setting display: none on the animate elements does not stop
-         their SMIL animation from running in every browser tested --
-         confirmed empirically, Chromium 2026-08: with only that rule in
-         place, every frame group's computed opacity kept cycling on its
-         original schedule. A SMIL-driven value sits in the CSS cascade's
-         animation layer, above normal author declarations but below
-         !important ones, so overriding opacity (and display, for
-         belt-and-suspenders) with !important here is load-bearing, not
-         decorative -- removing it silently reintroduces the animation.
-         The last frame is selected, not the first: a finished bar is more
-         informative at rest than the empty starting state. Every frame
-         group is a direct child of the root element and no other group
-         element appears in this document, so last-of-type unambiguously
-         selects the final frame. */
-      animate {{ display: none; }}
-      g {{ display: none !important; opacity: 0 !important; }}
-      g:last-of-type {{ display: inline !important; opacity: 1 !important; }}
-    }}
   </style>
   <rect class="terminal-bg" width="100%" height="100%" rx="10" />
   <circle class="dot-red" cx="28" cy="26" r="6" />

@@ -1,674 +1,381 @@
-from __future__ import annotations
+import tempfile
+from email.utils import formatdate
+from pathlib import Path
 
-import gzip
-from datetime import datetime
-from typing import Any
-from zoneinfo import ZoneInfo
-
+import anyio
 import anysqlite
+import httpx
 import pytest
-from inline_snapshot import snapshot
-from time_machine import travel
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.testclient import TestClient
 
 from hishel import AsyncSqliteStorage, CacheOptions
-from hishel._policies import FilterPolicy, SpecificationPolicy
-from hishel.asgi import ASGICacheMiddleware, _ASGIScope
+from hishel.asgi import ASGICacheMiddleware
+from hishel.fastapi import cache
 
 
-# Mock ASGI application that returns a simple response
-async def simple_asgi_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-    """Simple ASGI app that returns a 200 OK response with cache headers."""
-    if scope["type"] != "http":
-        return
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
 
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/plain"),
-                (b"cache-control", b"public, max-age=3600"),
-                (b"content-length", b"13"),
-            ],
-        }
-    )
-    await send(
-        {
-            "type": "http.response.body",
-            "body": b"Hello, World!",
-            "more_body": False,
-        }
-    )
 
+class App:
+    """A small ASGI app that records the scopes it was called with."""
 
-# Mock ASGI application that returns no-cache response
-async def no_cache_asgi_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-    """ASGI app that returns a response without cache headers."""
-    if scope["type"] != "http":
-        return
+    def __init__(self, status=200, headers=(), body=b"body", chunks=None):
+        self.calls = []
+        self.status = status
+        self.headers = list(headers)
+        self.chunks = chunks if chunks is not None else [body]
 
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/plain"),
-                (b"cache-control", b"no-cache"),
-                (b"content-length", b"13"),
-            ],
-        }
-    )
-    await send(
-        {
-            "type": "http.response.body",
-            "body": b"Hello, World!",
-            "more_body": False,
-        }
-    )
-
-
-# Mock ASGI application that returns gzipped content
-async def gzipped_asgi_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-    """ASGI app that returns gzip-encoded content."""
-    if scope["type"] != "http":
-        return
-
-    data = gzip.compress(b"a" * 1000)
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/plain"),
-                (b"content-encoding", b"gzip"),
-                (b"content-length", str(len(data)).encode()),
-                (b"cache-control", b"public, max-age=3600"),
-            ],
-        }
-    )
-    await send(
-        {
-            "type": "http.response.body",
-            "body": data,
-            "more_body": False,
-        }
-    )
-
-
-# Mock ASGI application that streams response in chunks
-async def streaming_asgi_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-    """ASGI app that streams response in multiple chunks."""
-    if scope["type"] != "http":
-        return
-
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/plain"),
-                (b"cache-control", b"public, max-age=3600"),
-            ],
-        }
-    )
-
-    # Send multiple chunks
-    for i in range(5):
-        await send(
-            {
-                "type": "http.response.body",
-                "body": f"Chunk {i}\n".encode(),
-                "more_body": True,
-            }
-        )
-
-    # Final chunk
-    await send(
-        {
-            "type": "http.response.body",
-            "body": b"",
-            "more_body": False,
-        }
-    )
-
-
-# Mock ASGI application that echoes the request method
-async def echo_method_asgi_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-    """ASGI app that echoes the HTTP method in the response."""
-    if scope["type"] != "http":
-        return
-
-    method = scope.get("method", "UNKNOWN")
-    body = f"Method: {method}".encode()
-
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [
-                (b"content-type", b"text/plain"),
-                (b"cache-control", b"public, max-age=3600"),
-                (b"content-length", str(len(body)).encode()),
-            ],
-        }
-    )
-    await send(
-        {
-            "type": "http.response.body",
-            "body": body,
-            "more_body": False,
-        }
-    )
-
-
-# Helper function to create ASGI scope
-def create_asgi_scope(
-    method: str = "GET",
-    path: str = "/",
-    query_string: bytes = b"",
-    headers: list[tuple[bytes, bytes]] | None = None,
-) -> _ASGIScope:
-    """Create a basic ASGI HTTP scope dictionary."""
-    return {
-        "type": "http",
-        "asgi": {"version": "3.0"},
-        "http_version": "1.1",
-        "method": method,
-        "scheme": "https",
-        "path": path,
-        "query_string": query_string,
-        "root_path": "",
-        "headers": headers or [],
-        "server": ("testserver", 80),
-        "client": ("127.0.0.1", 8000),
-        "state": {},
-        "extensions": {},
-    }
-
-
-# Helper function to create a simple receive callable
-async def simple_receive() -> dict[str, Any]:
-    """Simple receive callable that returns http.disconnect."""
-    return {"type": "http.disconnect"}
-
-
-# Helper class to collect ASGI responses
-class ResponseCollector:
-    """Collect response data from ASGI send calls."""
-
-    def __init__(self) -> None:
-        self.status: int = 0
-        self.headers: list[tuple[bytes, bytes]] = []
-        self.body_chunks: list[bytes] = []
-
-    async def send(self, message: dict[str, Any]) -> None:
-        """Collect response data from send calls."""
-        if message["type"] == "http.response.start":
-            self.status = message["status"]
-            self.headers = message.get("headers", [])
-        elif message["type"] == "http.response.body":
-            body = message.get("body", b"")
-            if body:
-                self.body_chunks.append(body)
-
-    def get_body(self) -> bytes:
-        """Get the complete response body."""
-        return b"".join(self.body_chunks)
-
-    def get_header(self, name: bytes) -> bytes | None:
-        """Get a response header by name."""
-        for key, value in self.headers:
-            if key.lower() == name.lower():
-                return value
-        return None
-
-
-@pytest.mark.anyio
-@travel(datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")), tick=False)
-async def test_simple_caching(caplog: pytest.LogCaptureFixture) -> None:
-    """Test that basic caching works with ASGI middleware."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(app=simple_asgi_app, storage=storage)
-
-    # First request - cache miss
-    scope = create_asgi_scope()
-    collector1 = ResponseCollector()
-
-    with caplog.at_level("DEBUG", logger="hishel"):
-        await middleware(scope, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-    assert collector1.get_body() == b"Hello, World!"
-
-    # Check that cache miss occurred
-    assert any("CacheMiss" in msg for msg in caplog.messages)
-
-    collector2 = ResponseCollector()
-
-    with caplog.at_level("DEBUG", logger="hishel"):
-        await middleware(scope, simple_receive, collector2.send)
-
-    assert caplog.messages == snapshot(
-        [
-            "Incoming HTTP request: method=GET path=/",
-            "Building internal request: method=GET url=https://testserver:80/ headers_count=0",
-            "Converted ASGI request to internal format: url=https://testserver:80/",
-            "Handling request through cache proxy",
-            "Handling state: IdleClient",
-            "Handling state: CacheMiss",
-            "Sending request to wrapped application: url=https://testserver:80/",
-            "Application response started: status=200",
-            "Received response body chunk: size=13 bytes",
-            "Application response complete: status=200 total_bytes=13 chunks=1",
-            "Added Date header to response: Mon, 01 Jan 2024 00:00:00 GMT",
-            "Storing response in cache",
-            "Handling state: StoreAndUse",
-            "Request processed: method=GET path=/ status=200",
-            "Sending response to client: status=200 headers_count=4",
-            "Response headers sent",
-            "Sent response chunk: size=13 bytes",
-            "Response fully sent: status=200 total_bytes=13 chunks=1",
-            "Response sent successfully",
-            "Incoming HTTP request: method=GET path=/",
-            "Building internal request: method=GET url=https://testserver:80/ headers_count=0",
-            "Converted ASGI request to internal format: url=https://testserver:80/",
-            "Handling request through cache proxy",
-            "Handling state: IdleClient",
-            "Handling state: FromCache",
-            "Request processed: method=GET path=/ status=200",
-            "Sending response to client: status=200 headers_count=5",
-            "Response headers sent",
-            "Sent response chunk: size=13 bytes",
-            "Response fully sent: status=200 total_bytes=13 chunks=1",
-            "Response sent successfully",
-        ]
-    )
-    assert collector2.status == 200
-    assert collector2.get_body() == b"Hello, World!"
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-@travel(datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")), tick=False)
-async def test_simple_caching_ignoring_spec(caplog: pytest.LogCaptureFixture) -> None:
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(app=no_cache_asgi_app, storage=storage, policy=FilterPolicy())
-
-    # First request
-    scope = create_asgi_scope()
-    collector1 = ResponseCollector()
-
-    with caplog.at_level("DEBUG", logger="hishel"):
-        await middleware(scope, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-    assert collector1.get_body() == b"Hello, World!"
-
-    # Should cache despite no-cache header
-    assert any("ignoring specification" in msg.lower() for msg in caplog.messages)
-
-    collector2 = ResponseCollector()
-
-    with caplog.at_level("DEBUG", logger="hishel"):
-        await middleware(scope, simple_receive, collector2.send)
-
-    assert caplog.messages == snapshot(
-        [
-            "Incoming HTTP request: method=GET path=/",
-            "Building internal request: method=GET url=https://testserver:80/ headers_count=0",
-            "Converted ASGI request to internal format: url=https://testserver:80/",
-            "Handling request through cache proxy",
-            "Trying to get cached response ignoring specification",
-            "Found 0 cached entries for the request",
-            "Sending request to wrapped application: url=https://testserver:80/",
-            "Application response started: status=200",
-            "Received response body chunk: size=13 bytes",
-            "Application response complete: status=200 total_bytes=13 chunks=1",
-            "Added Date header to response: Mon, 01 Jan 2024 00:00:00 GMT",
-            "Storing response in cache ignoring specification",
-            "Request processed: method=GET path=/ status=200",
-            "Sending response to client: status=200 headers_count=4",
-            "Response headers sent",
-            "Sent response chunk: size=13 bytes",
-            "Response fully sent: status=200 total_bytes=13 chunks=1",
-            "Response sent successfully",
-            "Incoming HTTP request: method=GET path=/",
-            "Building internal request: method=GET url=https://testserver:80/ headers_count=0",
-            "Converted ASGI request to internal format: url=https://testserver:80/",
-            "Handling request through cache proxy",
-            "Trying to get cached response ignoring specification",
-            "Found 1 cached entries for the request",
-            "Found matching cached response for the request",
-            "Request processed: method=GET path=/ status=200",
-            "Sending response to client: status=200 headers_count=4",
-            "Response headers sent",
-            "Sent response chunk: size=13 bytes",
-            "Response fully sent: status=200 total_bytes=13 chunks=1",
-            "Response sent successfully",
-        ]
-    )
-    assert collector2.status == 200
-    assert collector2.get_body() == b"Hello, World!"
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_encoded_content_caching() -> None:
-    """Test that gzip-encoded content is cached correctly."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=gzipped_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
-    )
-
-    # First request - cache miss
-    scope = create_asgi_scope()
-    collector1 = ResponseCollector()
-    await middleware(scope, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-    data = collector1.get_body()
-    assert collector1.get_header(b"content-encoding") == b"gzip"
-    assert len(data) > 0
-    # Verify it's actually gzipped
-    decompressed = gzip.decompress(data)
-    assert decompressed == b"a" * 1000
-
-    # Second request - cache hit
-    collector2 = ResponseCollector()
-    await middleware(scope, simple_receive, collector2.send)
-
-    assert collector2.status == 200
-    cached_data = collector2.get_body()
-    assert cached_data == data
-    assert collector2.get_header(b"content-encoding") == b"gzip"
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_streaming_response_caching() -> None:
-    """Test that streaming responses are cached correctly."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=streaming_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
-    )
-
-    # First request - cache miss
-    scope = create_asgi_scope()
-    collector1 = ResponseCollector()
-    await middleware(scope, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-    body1 = collector1.get_body()
-    expected = b"".join(f"Chunk {i}\n".encode() for i in range(5))
-    assert body1 == expected
-
-    # Second request - cache hit
-    collector2 = ResponseCollector()
-    await middleware(scope, simple_receive, collector2.send)
-
-    assert collector2.status == 200
-    body2 = collector2.get_body()
-    assert body2 == body1
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_different_methods() -> None:
-    """Test that different HTTP methods are cached separately."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=echo_method_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
-    )
-
-    # GET request
-    scope_get = create_asgi_scope(method="GET")
-    collector_get = ResponseCollector()
-    await middleware(scope_get, simple_receive, collector_get.send)
-
-    assert collector_get.status == 200
-    assert collector_get.get_body() == b"Method: GET"
-
-    # POST request
-    scope_post = create_asgi_scope(method="POST")
-    collector_post = ResponseCollector()
-    await middleware(scope_post, simple_receive, collector_post.send)
-
-    assert collector_post.status == 200
-    assert collector_post.get_body() == b"Method: POST"
-
-    # Second GET request - should hit cache
-    collector_get2 = ResponseCollector()
-    await middleware(scope_get, simple_receive, collector_get2.send)
-
-    assert collector_get2.status == 200
-    assert collector_get2.get_body() == b"Method: GET"
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_different_paths() -> None:
-    """Test that different paths are cached separately."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=simple_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
-    )
-
-    # Request to /path1
-    scope1 = create_asgi_scope(path="/path1")
-    collector1 = ResponseCollector()
-    await middleware(scope1, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-
-    # Request to /path2
-    scope2 = create_asgi_scope(path="/path2")
-    collector2 = ResponseCollector()
-    await middleware(scope2, simple_receive, collector2.send)
-
-    assert collector2.status == 200
-
-    # Second request to /path1 - should hit cache
-    collector1_cached = ResponseCollector()
-    await middleware(scope1, simple_receive, collector1_cached.send)
-
-    assert collector1_cached.status == 200
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_query_strings() -> None:
-    """Test that query strings are included in cache keys."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=simple_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
-    )
-
-    # Request with query string 1
-    scope1 = create_asgi_scope(query_string=b"param=value1")
-    collector1 = ResponseCollector()
-    await middleware(scope1, simple_receive, collector1.send)
-
-    assert collector1.status == 200
-
-    # Request with query string 2
-    scope2 = create_asgi_scope(query_string=b"param=value2")
-    collector2 = ResponseCollector()
-    await middleware(scope2, simple_receive, collector2.send)
-
-    assert collector2.status == 200
-
-    # Second request with query string 1 - should hit cache
-    collector1_cached = ResponseCollector()
-    await middleware(scope1, simple_receive, collector1_cached.send)
-
-    assert collector1_cached.status == 200
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_non_http_scope() -> None:
-    """Test that non-HTTP scopes are passed through without caching."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-
-    # Track if the app was called
-    app_called = False
-
-    async def websocket_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-        nonlocal app_called
-        app_called = True
-
-    middleware = ASGICacheMiddleware(app=websocket_app, storage=storage)
-
-    # WebSocket scope
-    scope = {
-        "type": "websocket",
-        "path": "/ws",
-    }
-
-    await middleware(scope, simple_receive, lambda msg: None)  # type: ignore
-
-    # App should have been called directly
-    assert app_called
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_custom_cache_options() -> None:
-    """Test that custom cache options are respected."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    cache_options = CacheOptions()
-
-    middleware = ASGICacheMiddleware(
-        app=simple_asgi_app,
-        storage=storage,
-        policy=SpecificationPolicy(
-            cache_options=cache_options,
-        ),
-    )
-
-    scope = create_asgi_scope()
-    collector = ResponseCollector()
-    await middleware(scope, simple_receive, collector.send)
-
-    assert collector.status == 200
-    assert collector.get_body() == b"Hello, World!"
-
-    await middleware.aclose()
-
-
-@pytest.mark.anyio
-async def test_request_with_body() -> None:
-    """Test that requests with bodies are handled correctly."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-
-    # Track if body was received
-    received_body = []
-
-    async def body_echo_app(scope: _ASGIScope, receive: Any, send: Any) -> None:
-        """ASGI app that collects the request body."""
-        if scope["type"] != "http":
-            return
-
-        # Read request body
-        while True:
+    async def __call__(self, scope, receive, send):
+        self.calls.append(scope)
+        if scope["type"] == "http":
             message = await receive()
-            if message["type"] == "http.request":
-                body = message.get("body", b"")
-                if body:
-                    received_body.append(body)
-                if not message.get("more_body", False):
-                    break
-            elif message["type"] == "http.disconnect":
-                break
+            scope["received"] = message.get("body", b"")
+        await send({"type": "http.response.start", "status": self.status, "headers": self.headers})
+        for chunk in self.chunks:
+            await send({"type": "http.response.body", "body": chunk, "more_body": True})
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
 
-        # Send response
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [
-                    (b"content-type", b"text/plain"),
-                    (b"cache-control", b"public, max-age=3600"),
-                ],
-            }
-        )
-        await send(
-            {
-                "type": "http.response.body",
-                "body": b"Body received",
-                "more_body": False,
-            }
-        )
 
-    middleware = ASGICacheMiddleware(app=body_echo_app, storage=storage)
+async def client_for(app, **kwargs):
+    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(ASGICacheMiddleware(app, storage=storage, **kwargs)),
+        base_url="http://testserver",
+    )
 
-    # Create receive callable that sends body
-    body_sent = False
 
-    async def receive_with_body() -> dict[str, Any]:
-        nonlocal body_sent
-        if not body_sent:
-            body_sent = True
-            return {
-                "type": "http.request",
-                "body": b"Test body content",
-                "more_body": False,
-            }
-        return {"type": "http.disconnect"}
-
-    scope = create_asgi_scope(method="POST")
-    collector = ResponseCollector()
-    await middleware(scope, receive_with_body, collector.send)
-
-    assert collector.status == 200
-    assert collector.get_body() == b"Body received"
-    assert b"Test body content" in received_body
-
-    await middleware.aclose()
+CACHEABLE = [(b"cache-control", b"public, max-age=60")]
 
 
 @pytest.mark.anyio
-async def test_headers_are_preserved() -> None:
-    """Test that response headers are preserved in cached responses."""
-    storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
-    middleware = ASGICacheMiddleware(
-        app=simple_asgi_app,
-        storage=storage,
-        policy=FilterPolicy(),
+async def test_rfc_mode_is_the_default_and_respects_the_app():
+    app = App(headers=CACHEABLE)
+    client = await client_for(app)
+
+    assert (await client.get("/")).content == b"body"
+    assert (await client.get("/")).content == b"body"
+    assert len(app.calls) == 1
+
+    no_store = App(headers=[(b"cache-control", b"no-store")])
+    client = await client_for(no_store)
+    await client.get("/")
+    await client.get("/")
+    assert len(no_store.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_default_mode_ignores_caching_headers():
+    app = App(headers=[(b"cache-control", b"no-store")])
+    client = await client_for(app, rfc=False)
+
+    await client.get("/")
+    assert (await client.get("/")).content == b"body"
+
+    assert len(app.calls) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [404, 500, 206])
+async def test_default_mode_does_not_store_other_statuses(status):
+    app = App(status=status)
+    client = await client_for(app, rfc=False)
+
+    assert (await client.get("/")).status_code == status
+    assert (await client.get("/")).status_code == status
+
+    assert len(app.calls) == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("rfc", [False, True])
+async def test_post_reaches_the_app_with_its_body(rfc):
+    app = App(headers=CACHEABLE)
+    client = await client_for(app, rfc=rfc)
+
+    await client.post("/", content=b"sent")
+    await client.post("/", content=b"sent")
+
+    assert len(app.calls) == 2
+    assert app.calls[0]["received"] == b"sent"
+
+
+@pytest.mark.anyio
+async def test_rfc_mode_post_invalidates_the_entries_of_its_url():
+    app = App(headers=CACHEABLE)
+    client = await client_for(app)
+
+    await client.get("/")
+    await client.get("/")
+    assert len(app.calls) == 1
+
+    await client.post("/", content=b"sent")
+    await client.get("/")
+
+    assert [call["method"] for call in app.calls] == ["GET", "POST", "GET"]
+
+
+@pytest.mark.anyio
+async def test_non_http_scopes_pass_through():
+    calls = []
+
+    async def app(scope, receive, send):
+        calls.append(scope["type"])
+
+    middleware = ASGICacheMiddleware(app, storage=AsyncSqliteStorage(connection=await anysqlite.connect(":memory:")))
+    await middleware({"type": "lifespan"}, None, None)  # type: ignore[arg-type]
+    await middleware({"type": "websocket"}, None, None)  # type: ignore[arg-type]
+
+    assert calls == ["lifespan", "websocket"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "first, second",
+    [
+        ("/a", "/b"),
+        ("/a?x=1", "/a?x=2"),
+        # Decoded, these are the same path.
+        ("/a%2Fb", "/a/b"),
+    ],
+)
+async def test_urls_have_separate_entries(first, second):
+    app = App(headers=CACHEABLE)
+    client = await client_for(app)
+
+    await client.get(first)
+    await client.get(second)
+    await client.get(first)
+
+    assert len(app.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_hosts_have_separate_entries():
+    app = App(headers=CACHEABLE)
+    client = await client_for(app)
+
+    await client.get("/", headers={"Host": "a.example.com"})
+    await client.get("/", headers={"Host": "b.example.com"})
+    await client.get("/", headers={"Host": "a.example.com"})
+
+    assert len(app.calls) == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("rfc", [False, True])
+async def test_body_chunks_are_kept_on_a_miss_and_on_a_hit(rfc):
+    app = App(headers=CACHEABLE, chunks=[b"a", b"", b"b"])
+    client = await client_for(app, rfc=rfc)
+
+    assert (await client.get("/")).content == b"ab"
+    assert (await client.get("/")).content == b"ab"
+    assert len(app.calls) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("rfc", [False, True])
+async def test_repeated_set_cookie_values_stay_apart(rfc):
+    pairs = [(b"set-cookie", b"a=1"), (b"set-cookie", b"b=2"), (b"cache-control", b"public, max-age=60")]
+    app = App(headers=pairs)
+    client = await client_for(app, rfc=CacheOptions(shared=False) if rfc else False)
+
+    for _ in range(2):
+        response = await client.get("/")
+        assert response.headers.get_list("set-cookie") == ["a=1", "b=2"]
+    assert len(app.calls) == 1
+
+
+@pytest.mark.anyio
+async def test_a_missing_date_is_added_so_freshness_can_be_calculated():
+    client = await client_for(App(headers=CACHEABLE))
+
+    assert "date" in (await client.get("/")).headers
+
+
+@pytest.mark.anyio
+async def test_a_date_from_the_app_is_kept():
+    date = "Thu, 01 Jan 2026 00:00:00 GMT"
+    client = await client_for(App(headers=[(b"date", date.encode())]))
+
+    assert (await client.get("/")).headers.get_list("date") == [date]
+
+
+@pytest.mark.anyio
+async def test_revalidation_adds_headers_for_the_app_and_serves_the_cached_body():
+    calls = []
+
+    async def app(scope, receive, send):
+        calls.append(dict(scope["headers"]))
+        headers = [
+            (b"etag", b'"v1"'),
+            (b"cache-control", b"public, max-age=0"),
+            (b"date", formatdate(usegmt=True).encode()),
+        ]
+        revalidating = dict(scope["headers"]).get(b"if-none-match") == b'"v1"'
+        await send({"type": "http.response.start", "status": 304 if revalidating else 200, "headers": headers})
+        await send({"type": "http.response.body", "body": b"" if revalidating else b"body", "more_body": False})
+
+    client = await client_for(app)
+
+    await client.get("/", headers={"X-Kept": "yes"})
+    response = await client.get("/", headers={"X-Kept": "yes"})
+
+    assert response.status_code == 200
+    assert response.content == b"body"
+    assert calls[1][b"if-none-match"] == b'"v1"'
+    assert calls[1][b"x-kept"] == b"yes"
+
+
+@pytest.mark.anyio
+async def test_an_app_that_never_responds_raises():
+    async def app(scope, receive, send):
+        pass
+
+    with pytest.raises(RuntimeError, match="without starting a response"):
+        await (await client_for(app)).get("/")
+
+
+@pytest.mark.anyio
+async def test_app_errors_propagate_and_store_nothing():
+    calls = []
+
+    async def app(scope, receive, send):
+        calls.append(scope)
+        raise ValueError("boom")
+
+    client = await client_for(app)
+    for _ in range(2):
+        with pytest.raises(ValueError, match="boom"):
+            await client.get("/")
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
+async def test_a_file_served_with_pathsend_is_stored_with_its_body():
+    # A server advertising this extension would otherwise leave the middleware with an empty body.
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "file.txt"
+        path.write_bytes(b"from a file")
+
+        fastapi_app = FastAPI()
+
+        @fastapi_app.get("/file", dependencies=[cache(max_age=60, public=True)])
+        async def get_file():
+            return FileResponse(path)
+
+        storage = AsyncSqliteStorage(connection=await anysqlite.connect(":memory:"))
+        middleware = ASGICacheMiddleware(fastapi_app, storage=storage)
+
+        messages = []
+
+        async def send(message):
+            messages.append(message)
+
+        received: list[None] = []
+
+        async def receive():
+            # Like a server: the request once, then nothing until the client leaves.
+            received.append(None)
+            if len(received) == 1:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await anyio.sleep_forever()
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/file",
+            "raw_path": b"/file",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"host", b"testserver")],
+            "server": ("testserver", 80),
+            "extensions": {"http.response.pathsend": {}},
+        }
+        await middleware(scope, receive, send)
+
+    assert b"".join(message.get("body", b"") for message in messages) == b"from a file"
+
+
+@pytest.mark.anyio
+async def test_fastapi_cache_dependency_sets_headers_the_middleware_follows():
+    calls = []
+    app = FastAPI()
+
+    @app.get("/cached", dependencies=[cache(max_age=60, public=True)])
+    async def cached():
+        calls.append("cached")
+        return {"value": len(calls)}
+
+    @app.get("/uncached", dependencies=[cache(no_store=True)])
+    async def uncached():
+        calls.append("uncached")
+        return {"value": len(calls)}
+
+    client = await client_for(app)
+
+    first = await client.get("/cached")
+    second = await client.get("/cached")
+    assert first.json() == second.json()
+    assert calls == ["cached"]
+    assert first.headers["cache-control"] == "max-age=60, public"
+    assert "date" in first.headers
+
+    await client.get("/uncached")
+    await client.get("/uncached")
+    assert calls == ["cached", "uncached", "uncached"]
+
+
+def test_fastapi_cache_directives():
+    app = FastAPI()
+
+    @app.get(
+        "/",
+        dependencies=[
+            cache(
+                max_age=1,
+                s_maxage=2,
+                private=["Set-Cookie"],
+                no_cache=["A", "B"],
+                immutable=True,
+                must_revalidate=True,
+                stale_while_revalidate=3,
+            )
+        ],
+    )
+    async def index():
+        return {}
+
+    assert TestClient(app).get("/").headers["cache-control"] == (
+        'max-age=1, s-maxage=2, stale-while-revalidate=3, private="Set-Cookie", '
+        'no-cache="A, B", must-revalidate, immutable'
     )
 
-    # First request
-    scope = create_asgi_scope()
-    collector1 = ResponseCollector()
-    await middleware(scope, simple_receive, collector1.send)
 
-    assert collector1.get_header(b"content-type") == b"text/plain"
-    assert collector1.get_header(b"cache-control") is not None
+def test_works_through_add_middleware_and_streaming_responses():
+    calls = []
+    app = FastAPI()
+    storage = AsyncSqliteStorage(database_path=str(Path(tempfile.mkdtemp()) / "cache.db"))
+    app.add_middleware(ASGICacheMiddleware, storage=storage, rfc=False)
 
-    # Second request - from cache
-    collector2 = ResponseCollector()
-    await middleware(scope, simple_receive, collector2.send)
+    @app.get("/stream")
+    async def stream():
+        calls.append("stream")
 
-    # Headers should be preserved
-    assert collector2.get_header(b"content-type") == b"text/plain"
-    assert collector2.get_header(b"cache-control") is not None
+        async def body():
+            yield b"a"
+            yield b"b"
 
-    await middleware.aclose()
+        return StreamingResponse(body())
+
+    with TestClient(app) as client:
+        assert client.get("/stream").content == b"ab"
+        assert client.get("/stream").content == b"ab"
+
+    assert calls == ["stream"]

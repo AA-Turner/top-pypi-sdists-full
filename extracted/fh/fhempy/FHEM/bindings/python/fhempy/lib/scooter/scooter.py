@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from .. import fhem, generic, utils
-from ..core import bt_recovery
+from ..core import ble_scanner, bt_recovery
 from . import protocol
 
 SCAN_TIME = 10
@@ -148,6 +148,11 @@ class scooter(generic.FhemModule):
         self._wakeup.clear()
 
     async def _run(self):
+        # miauth imports cryptography, the first import blocked fhempy for
+        # more than a second on a Raspberry Pi
+        for name in protocol.CRYPTO_MODULES:
+            await utils.import_module(name)
+        await ble_scanner.load_backend()
         while True:
             try:
                 if not self._address:
@@ -175,8 +180,6 @@ class scooter(generic.FhemModule):
     async def _scan(self, timeout, match):
         """Returns {address: (device, advertisement)} of matching devices,
         stops as soon as wanted_address was found."""
-        from bleak import BleakScanner
-
         found = {}
         done = asyncio.Event()
 
@@ -186,11 +189,34 @@ class scooter(generic.FhemModule):
                 if device.address.upper() == self._address:
                     done.set()
 
-        async with BleakScanner(detection_callback=detected):
+        async def wait():
             try:
                 await asyncio.wait_for(done.wait(), timeout)
             except TimeoutError:
                 pass
+
+        # BlueZ runs only one discovery at a time, a second scan next to the
+        # shared scan of autodiscovery or homekit fails with InProgress
+        shared = ble_scanner.BleScanner.running_instance()
+        if shared is not None:
+            shared.add_callback(detected)
+            try:
+                await wait()
+            finally:
+                shared.remove_callback(detected)
+            return found
+
+        from bleak import BleakScanner
+        from bleak.exc import BleakError
+
+        try:
+            async with BleakScanner(detection_callback=detected):
+                await wait()
+        except BleakError as exc:
+            if "InProgress" not in str(exc):
+                raise
+            # another program scans right now, try again next time
+            self.logger.debug(f"Bluetooth scan busy: {exc}")
         return found
 
     async def _address_in_use(self, address):
@@ -307,7 +333,13 @@ class scooter(generic.FhemModule):
             timeout=CONNECT_TIMEOUT,
             disconnected_callback=self._on_disconnect,
         )
-        await client.connect()
+        shared = ble_scanner.BleScanner.running_instance()
+        if shared is None:
+            await client.connect()
+        else:
+            # some adapters can't scan and connect at the same time
+            async with shared.paused():
+                await client.connect()
         return client
 
     def _on_disconnect(self, client):

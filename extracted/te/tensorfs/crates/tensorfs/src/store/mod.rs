@@ -11,11 +11,13 @@
 //!   checked, flushed per [`Durability`] and renamed into `blobs/`. An object is verified there
 //!   once and trusted after; [`Store::verify`] rehashes on demand.
 //! - One retention regime (`retention.rs`): holds, header files and `local/` refs root objects;
-//!   all else is cache, kept for a TTL after its last use and evicted least recently used first
-//!   when the disk runs low. GC marks and sweeps (`gc.rs`) what is older than the grace, so
+//!   all else is cache, kept for a TTL after its last use and evicted least recently used first,
+//!   one checkpoint's lane whole, when the disk runs low. GC marks and sweeps (`gc.rs`) what is older than the grace, so
 //!   whatever newly references an object makes it young first: `put` and `reuse` touch it.
 //! - Processes share a store with no leases, markers or boot-time rehash: a torn write never has
 //!   a name, and an open descriptor outlives an unlink.
+//! - A fetch's bytes keep their place in `tmp/` when it is cut or killed ([`Store::partial`]): the
+//!   next fetch of the object takes them up, and the object's digest judges them with the rest.
 
 mod checkpoint;
 mod folder;
@@ -25,12 +27,13 @@ mod records;
 pub(crate) mod retention;
 
 pub use checkpoint::{wanted, Checkpoint};
-pub use gc::Collected;
+pub use gc::{Collected, Evicted};
+pub use retention::{Room, RoomLane};
 pub(crate) use records::is_name;
 pub use retention::TTL;
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -338,6 +341,32 @@ impl Store {
         })
     }
 
+    /// `object` for a fetch, which writes each range at its offset and can be cut at any moment, a kill
+    /// included ([`Partial`]). One that another fetch holds is left to it, and this one keeps nothing: a
+    /// cancelled fetch's commit holds it a moment after the next run claims the object (gate 41991226171).
+    pub(crate) fn partial(&self, object: &ObjectRef) -> Result<Partial> {
+        self.path(object)?;
+        let temp = self.root.join("tmp").join(format!("partial-{}", object.sha256));
+        let (temp, file, journal, keep) = match partial(&temp) {
+            Some((file, _)) => {
+                let journal = journal_path(&temp);
+                let journal = OpenOptions::new().read(true).append(true).create(true).open(&journal).map_err(fail("open", &journal))?;
+                let _ = platform::lock::try_claim(&journal);
+                (temp, file, Some(journal), true)
+            }
+            None => {
+                let (temp, file) = self.temp("put")?;
+                (temp, file, None, false)
+            }
+        };
+        let held = journal.as_ref().map(|journal| read_held(journal, object.length)).unwrap_or_default();
+        if !self.maintain(object.length - held.iter().map(|(a, b)| b - a).sum::<u64>())? {
+            return Err(Error::Full { op: "admit", path: self.root.clone() });
+        }
+        file.set_len(object.length).map_err(fail("size", &temp))?;
+        Ok(Partial { store: self.clone(), object: object.clone(), temp, file: Some(file), journal: journal.map(|j| Arc::new(Mutex::new(j))), held, keep })
+    }
+
     /// Admits everything `src` yields. With `expect`, an object already here is reused without
     /// reading `src`.
     pub fn put(&self, mut src: impl Read, expect: Option<&ObjectRef>) -> Result<ObjectRef> {
@@ -387,7 +416,7 @@ impl Store {
         tracing::warn!("tensorfs: {} is {length} bytes, not {}: removed, to be replaced", path.display(), object.length);
         match fs::remove_file(&path) {
             Err(error) if error.kind() != io::ErrorKind::NotFound => Err(fail("remove", &path)(error)),
-            _ => Ok(false),
+            _ => self.stamp_eviction().map(|()| false),
         }
     }
 
@@ -450,7 +479,8 @@ impl Store {
                 .root
                 .join("tmp")
                 .join(format!("{kind}-{}-{n}", std::process::id()));
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
+            // Readable: a partial's commit hashes what it wrote from this file.
+            match OpenOptions::new().read(true).write(true).create_new(true).open(&path) {
                 Ok(file) => return Ok((path, file)),
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
                 Err(error) => return Err(fail("create", &path)(error)),
@@ -564,6 +594,32 @@ impl Store {
     }
 }
 
+/// `tmp/partial-<sha256>` for one fetch to write, locked until it closes, and whether it was there
+/// already. None: another fetch has it, or it can't be had. It may have been finished or swept
+/// between the open and the lock, so what is locked must still be what the name names.
+fn partial(path: &Path) -> Option<(File, bool)> {
+    loop {
+        let open = |new| OpenOptions::new().read(true).write(true).create_new(new).open(path);
+        let (file, found) = match open(true) {
+            Ok(file) => (file, false),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => match open(false) {
+                Ok(file) => (file, true),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(_) => return None,
+            },
+            Err(_) => return None,
+        };
+        if !matches!(platform::lock::try_claim(&file), Ok(true)) {
+            return None;
+        }
+        match (FileId::of(&file), FileId::at(path)) {
+            (Ok(held), Ok(named)) if held == named => return Some((file, found)),
+            (Ok(_), Ok(_)) | (_, Err(_)) => continue,
+            (Err(_), _) => return None,
+        }
+    }
+}
+
 /// Bytes on their way into the store. Dropped unfinished, it leaves nothing behind.
 pub struct Admission {
     store: Store,
@@ -576,7 +632,7 @@ pub struct Admission {
 }
 
 impl Admission {
-    /// Hashes, checks, flushes and names the bytes written.
+    /// Hashes, checks, flushes and names the bytes written. Whatever the end, they stay nowhere else.
     pub fn finish(mut self) -> Result<ObjectRef> {
         let got = ObjectRef {
             length: self.length,
@@ -653,6 +709,153 @@ impl Drop for Admission {
     }
 }
 
+/// An object a fetch writes at its offsets (`tmp/partial-<sha256>`, as long as the object), kept across a
+/// cut or a kill: `.held` beside it records each stretch once written, so the next fetch asks only for
+/// the rest. Nothing is hashed until commit, which reads the whole file back: only the object's digest
+/// lets it in, and wrong bytes leave nothing kept.
+pub(crate) struct Partial {
+    store: Store,
+    object: ObjectRef,
+    temp: PathBuf,
+    file: Option<File>,
+    journal: Option<Arc<Mutex<File>>>,
+    held: Vec<(u64, u64)>,
+    /// Whether what it holds outlives it.
+    keep: bool,
+}
+
+/// Bytes written at their offsets, each stretch recorded once written.
+struct Stretch {
+    file: File,
+    journal: Option<Arc<Mutex<File>>>,
+    path: PathBuf,
+}
+
+impl fetch::RangeWrite for Stretch {
+    fn write_at(&mut self, at: u64, bytes: &[u8]) -> crate::err::Result<()> {
+        write_all_at(&self.file, bytes, at).map_err(|error| fail("write", &self.path)(error).refusal())?;
+        if let Some(journal) = &self.journal {
+            let mut journal = journal.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            writeln!(journal, "{at} {}", at + bytes.len() as u64).map_err(|error| fail("write", journal_path(&self.path))(error).refusal())?;
+        }
+        Ok(())
+    }
+}
+
+impl fetch::Admission for Partial {
+    fn held(&self) -> Vec<(u64, u64)> {
+        self.held.clone()
+    }
+
+    fn writer(&self) -> crate::err::Result<Box<dyn fetch::RangeWrite>> {
+        let file = self.file.as_ref().expect("a partial has its file until it commits").try_clone().map_err(|error| fail("open", &self.temp)(error).refusal())?;
+        Ok(Box::new(Stretch { file, journal: self.journal.clone(), path: self.temp.clone() }))
+    }
+
+    fn commit(mut self: Box<Self>) -> crate::err::Result<()> {
+        let mut file = self.file.take().expect("a partial has its file until it commits");
+        let got = (|| -> io::Result<ObjectRef> {
+            file.seek(SeekFrom::Start(0))?;
+            let (mut hash, mut length, mut buffer) = (Sha256::new(), 0u64, vec![0; 1 << 20]);
+            loop {
+                let n = match file.read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(n) => n,
+                    Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(error) => return Err(error),
+                };
+                hash.update(&buffer[..n]);
+                length += n as u64;
+            }
+            Ok(ObjectRef { length, sha256: hex(&hash.finish()) })
+        })()
+        .map_err(|error| fail("read", &self.temp)(error).refusal())?;
+        if got != self.object {
+            // Wrong bytes are as suspect as what an earlier fetch kept: nothing stays.
+            self.keep = false;
+            let expected = self.object.clone();
+            return Err(Error::Mismatch { expected, got: format!("{} ({} bytes)", got.sha256, got.length) }.refusal());
+        }
+        let installed = (|| -> Result<()> {
+            if self.store.flushes() {
+                file.sync_data().map_err(fail("sync", &self.temp))?;
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                file.set_permissions(fs::Permissions::from_mode(0o444)).map_err(fail("protect", &self.temp))?;
+            }
+            drop(file);
+            let blob = self.store.blob(&got.sha256)?;
+            self.store.install(&self.temp, &blob, &got)
+        })();
+        self.keep = false;
+        installed.map_err(Error::refusal)
+    }
+
+    fn discard(mut self: Box<Self>) {
+        self.keep = false;
+    }
+}
+
+impl Drop for Partial {
+    fn drop(&mut self) {
+        self.file.take();
+        self.journal.take();
+        if !self.keep {
+            let _ = fs::remove_file(&self.temp);
+            let _ = fs::remove_file(journal_path(&self.temp));
+        }
+    }
+}
+
+/// Where a partial records the stretches it holds.
+fn journal_path(temp: &Path) -> PathBuf {
+    let mut name = temp.as_os_str().to_owned();
+    name.push(".held");
+    name.into()
+}
+
+/// The stretches a journal records, merged, within `length`. A torn last line is ignored.
+fn read_held(mut journal: &File, length: u64) -> Vec<(u64, u64)> {
+    let mut text = String::new();
+    let _ = journal.read_to_string(&mut text);
+    let mut stretches: Vec<(u64, u64)> = text
+        .lines()
+        .filter_map(|line| {
+            let (a, b) = line.split_once(' ')?;
+            Some((a.parse().ok()?, b.parse::<u64>().ok()?.min(length)))
+        })
+        .filter(|(a, b)| a < b)
+        .collect();
+    stretches.sort_unstable();
+    let mut merged: Vec<(u64, u64)> = Vec::new();
+    for (a, b) in stretches {
+        match merged.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => merged.push((a, b)),
+        }
+    }
+    merged
+}
+
+#[cfg(unix)]
+fn write_all_at(file: &File, bytes: &[u8], at: u64) -> io::Result<()> {
+    std::os::unix::fs::FileExt::write_all_at(file, bytes, at)
+}
+
+#[cfg(windows)]
+fn write_all_at(file: &File, mut bytes: &[u8], mut at: u64) -> io::Result<()> {
+    while !bytes.is_empty() {
+        let n = std::os::windows::fs::FileExt::seek_write(file, bytes, at)?;
+        if n == 0 {
+            return Err(io::ErrorKind::WriteZero.into());
+        }
+        (bytes, at) = (&bytes[n..], at + n as u64);
+    }
+    Ok(())
+}
+
 pub(crate) fn sync_dir(dir: &Path) -> Result<()> {
     durable::sync_dir(dir).map_err(platform("sync directory", dir))
 }
@@ -672,8 +875,7 @@ impl fetch::ObjectStore for Store {
     }
 
     fn admit(&self, object: &ObjectRef) -> crate::err::Result<Box<dyn fetch::Admission>> {
-        let admission = Store::admit(self, Some(object)).map_err(Error::refusal)?;
-        Ok(Box::new(admission))
+        Ok(Box::new(Store::partial(self, object).map_err(Error::refusal)?))
     }
 
     /// A lock on `tmp/fetching-<sha256>`, which an exit lets go. A claim that can't be made is no
@@ -693,17 +895,6 @@ impl fetch::ObjectStore for Store {
             Ok(false) => None,
             _ => Some(Box::new(Claim(file, path))),
         }
-    }
-}
-
-impl fetch::Admission for Admission {
-    fn write(&mut self, bytes: &[u8]) -> crate::err::Result<()> {
-        self.write_all(bytes)
-            .map_err(|error| self.refusal(error).refusal())
-    }
-
-    fn commit(self: Box<Self>) -> crate::err::Result<()> {
-        self.finish().map(drop).map_err(Error::refusal)
     }
 }
 

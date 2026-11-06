@@ -21,6 +21,7 @@ import sys
 import numpy as np
 
 from doppler.ber import ber_settle_syms, ber_theory_ser
+from doppler.examples._extra import require
 from doppler.track import MpskReceiver
 from doppler.wfm import Composer, Segment
 
@@ -188,6 +189,7 @@ def _ser(out, idx, m, settle):
 
 
 def main(out_path: str = "mpsk_receiver_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

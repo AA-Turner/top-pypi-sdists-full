@@ -229,16 +229,13 @@ class NamedQuery:
                         output_expressions.append(NamedQueryOutputExpression(name=name, expr=expr, namespace=None))
                     else:
                         output.append(feature_to_query_str(o))
-                # Features are returned under their fqns, which contain a '.', and expression columns under
-                # names that do not, so only expression names can collide.
-                names = [e.name for e in output_expressions]
+                # Every output is returned under one column name: a feature under its fqn, an expression
+                # under its alias. An alias may share a feature's short name (`name` next to `user.name`)
+                # or contain a '.', but no two outputs may share a column name.
+                names = [*output, *(e.name for e in output_expressions)]
                 duplicates = sorted({n for n in names if names.count(n) > 1})
                 if duplicates:
                     raise ValueError(f"Output column names must be unique, but found duplicates {duplicates}")
-                # Only unrooted expressions need the input namespaces. Reading `input` re-raises, and records again,
-                # an input error that `input` has already recorded, so it is read only when needed.
-                unrooted = any(e.namespace is None for e in output_expressions)
-                _validate_expression_names_against_features(output_expressions, (self.input or ()) if unrooted else ())
                 self._output = output
                 self._output_expressions = output_expressions
         except Exception as e:
@@ -271,24 +268,6 @@ class NamedQuery:
                 )
 
         return self._additional_logged_features
-
-
-def _validate_expression_names_against_features(
-    expressions: Sequence[NamedQueryOutputExpression], input: Sequence[str]
-) -> None:
-    # The engine rejects a column named like a feature of the namespace its expression is rooted at; an expression
-    # without one is rooted at the query's, so it is checked against every input namespace.
-    from chalk.features.feature_set import FeatureSetBase
-
-    input_namespaces = sorted({fqn.split(".", 1)[0] for fqn in input})
-    for e in expressions:
-        for namespace in [e.namespace] if e.namespace is not None else input_namespaces:
-            features_cls = FeatureSetBase.registry.get(namespace)
-            if features_cls is not None and e.name in {f.name for f in features_cls.features}:
-                raise ValueError(
-                    f"Output column name '{e.name}' is a feature of '{namespace}'; choose a name that is not a "
-                    + "feature name"
-                )
 
 
 @dataclasses.dataclass(frozen=True)

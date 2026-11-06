@@ -4,6 +4,12 @@
 // click, so a reader who never runs anything never downloads Pyodide.
 
 const COLUMNS = 80;
+// Narrowest terminal the fit may produce. progressbar's default widget set
+// needs about 57 columns before the bar itself gets any room, so a phone
+// width host shrinks the font instead of the column count.
+const MIN_COLUMNS = 60;
+const FONT_SIZE = 13;
+const MIN_FONT_SIZE = 6;
 const RUN_TIMEOUT_MS = 30000;
 
 // Read the Docs serves the site under `/en/<version>/`, so root-absolute
@@ -13,13 +19,15 @@ const SCRIPT_ELEMENT =
   document.currentScript ||
   document.querySelector('script[src$="livecode/livecode.js"]');
 const STATIC_ROOT = new URL('../', SCRIPT_ELEMENT.src).href;
-const WORKER_URL = `${STATIC_ROOT}livecode/worker.js`;
+const WORKER_URL = `${STATIC_ROOT}livecode/worker.js?v=${SCRIPT_ELEMENT.dataset.workerVersion}`;
 const WHEELS_URL = `${STATIC_ROOT}wheels/`;
 
 let worker = null;
 let booting = null;
 let activePanel = null;
 let timeoutHandle = null;
+/** @type {number} */
+let editorCount = 0;
 
 function bootWorker() {
   if (booting) return booting;
@@ -91,12 +99,78 @@ function finishRun() {
   if (activePanel) activePanel.setStatus('idle');
 }
 
+/**
+ * @param {HTMLTextAreaElement} editor
+ * @param {HTMLElement} controls
+ * @param {string} source
+ */
+function keepHighlightedSource(editor, controls, source) {
+  editor.hidden = true;
+  editor.id = `demo-editor-${++editorCount}`;
+  /** @type {HTMLButtonElement} */
+  const edit = document.createElement('button');
+  edit.className = 'demo-edit';
+  edit.type = 'button';
+  edit.textContent = 'Edit code';
+  edit.setAttribute('aria-controls', editor.id);
+  edit.setAttribute('aria-expanded', 'false');
+  edit.addEventListener('click', () => {
+    editor.hidden = !editor.hidden;
+    edit.textContent = editor.hidden ? 'Edit code' : 'Reset example';
+    edit.setAttribute('aria-expanded', String(!editor.hidden));
+    if (editor.hidden) {
+      editor.value = source;
+      edit.focus();
+    } else {
+      editor.focus();
+    }
+  });
+  controls.append(edit);
+}
+
+/**
+ * @param {Terminal} terminal
+ * @param {HTMLElement} host
+ * @returns {() => void}
+ */
+function fitTerminalWidth(terminal, host) {
+  /** @type {FitAddon.FitAddon} */
+  const addon = new FitAddon.FitAddon();
+  terminal.loadAddon(addon);
+  /** @type {() => void} */
+  const fit = () => {
+    // Measure at the full font first so a host that grows back gets its
+    // original size, then shrink the font until MIN_COLUMNS fit.
+    terminal.options.fontSize = FONT_SIZE;
+    /** @type {{cols: number, rows: number} | undefined} */
+    let dimensions = addon.proposeDimensions();
+    if (dimensions && Number.isInteger(dimensions.cols)
+        && dimensions.cols > 0 && dimensions.cols < MIN_COLUMNS) {
+      terminal.options.fontSize = Math.max(
+        MIN_FONT_SIZE,
+        Math.floor(FONT_SIZE * dimensions.cols / MIN_COLUMNS),
+      );
+      dimensions = addon.proposeDimensions();
+    }
+    if (dimensions && Number.isInteger(dimensions.cols)
+        && dimensions.cols > 0 && dimensions.cols !== terminal.cols) {
+      terminal.resize(dimensions.cols, terminal.rows);
+    }
+  };
+  /** @type {ResizeObserver} */
+  const observer = new ResizeObserver(fit);
+  observer.observe(host);
+  return fit;
+}
+
 function createPanel(container, source) {
   const editor = document.createElement('textarea');
   editor.className = 'demo-editor';
   editor.value = source;
-  editor.rows = source.split('\n').length;
+  editor.rows = source.trimEnd().split('\n').length;
+  editor.wrap = 'off';
   editor.spellcheck = false;
+  editor.setAttribute('aria-label', 'Python example source');
 
   const button = document.createElement('button');
   button.className = 'demo-button';
@@ -105,23 +179,31 @@ function createPanel(container, source) {
 
   const status = document.createElement('span');
   status.className = 'demo-status';
+  status.setAttribute('role', 'status');
 
   const screen = document.createElement('div');
   screen.className = 'demo-terminal';
+  /** @type {HTMLDivElement} */
+  const terminalHost = document.createElement('div');
+  screen.append(terminalHost);
 
   const controls = document.createElement('div');
   controls.className = 'demo-controls';
-  controls.append(button, status);
+  controls.append(button);
+  keepHighlightedSource(editor, controls, source);
+  controls.append(status);
   container.append(controls, editor, screen);
 
   const terminal = new Terminal({
     cols: COLUMNS,
-    rows: 12,
+    rows: container.closest('.home-quickstart') ? 3 : 12,
     convertEol: true,
-    fontSize: 13,
+    fontSize: FONT_SIZE,
     theme: {background: '#101418', foreground: '#d6e2ef'},
   });
-  terminal.open(screen);
+  terminal.open(terminalHost);
+  /** @type {() => void} */
+  const fitWidth = fitTerminalWidth(terminal, terminalHost);
 
   const panel = {
     terminal,
@@ -138,6 +220,7 @@ function createPanel(container, source) {
   };
 
   button.addEventListener('click', async () => {
+    container.dataset.started = 'true';
     activePanel = panel;
     panel.setStatus('loading');
     terminal.reset();
@@ -157,6 +240,8 @@ function createPanel(container, source) {
       panel.setStatus('idle');
       return;
     }
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    fitWidth();
     panel.setStatus('ready');
     timeoutHandle = setTimeout(() => {
       terminal.write('\r\n\x1b[33mStopped after 30 seconds.\x1b[0m\r\n');
@@ -166,7 +251,7 @@ function createPanel(container, source) {
     worker.postMessage({
       type: 'run',
       code: editor.value,
-      columns: COLUMNS,
+      columns: terminal.cols,
     });
   });
 
@@ -174,15 +259,19 @@ function createPanel(container, source) {
   return panel;
 }
 
-// Two demos cannot run under Pyodide at all: MultiBar starts a background
+// Threaded demos cannot run under Pyodide: MultiBar starts a background
 // thread and `Thread.start()` raises `RuntimeError: can't start new thread`
 // there, rendering nothing first. The worker returns a friendly message
 // rather than a traceback, but the Run button should not be offered in the
 // first place -- the message is defence in depth, not the control.
-const NON_RUNNABLE_DEMOS = new Set(['readme/multibar', 'howto/multibar']);
+const NON_RUNNABLE_DEMOS = new Set([
+  'readme/multibar',
+  'howto/multibar',
+  'howto/parallel-execution',
+]);
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (typeof Terminal === 'undefined') return;
+  if (typeof Terminal === 'undefined' || typeof FitAddon === 'undefined') return;
   for (const container of document.querySelectorAll('.demo-run')) {
     if (NON_RUNNABLE_DEMOS.has(container.dataset.demo)) {
       container.textContent =
@@ -192,7 +281,10 @@ document.addEventListener('DOMContentLoaded', () => {
       continue;
     }
     fetch(container.dataset.source)
-      .then((response) => response.text())
+      .then((response) => {
+        if (!response.ok) throw new Error('Example source unavailable.');
+        return response.text();
+      })
       .then((source) => createPanel(container, source))
       .catch(() => {
         container.textContent = 'Live console unavailable.';

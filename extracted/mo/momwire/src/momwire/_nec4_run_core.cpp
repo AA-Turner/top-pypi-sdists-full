@@ -17,6 +17,7 @@
 #include <limits>
 #include <array>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -504,6 +505,19 @@ std::vector<cd> load_impedances(const BuildTables &bt, ll n_ports, double omega,
     return z;
 }
 
+// `DeckSolver.loaded_twice(group_index)` (momwire#1807): two loads in force
+// at one position share one port, so a repeated port is a stacked pair (no
+// nec4 basis carries its loads natively, so every load has a port).
+bool loaded_twice(const BuildTables &bt, ll group_index) {
+    for (const auto &g : bt.group_loads) {
+        if (g.first != group_index) continue;
+        std::set<ll> seen;
+        for (ll k : g.second)
+            if (!seen.insert(bt.model_loads.at(static_cast<std::size_t>(k)).first).second) return true;
+    }
+    return false;
+}
+
 // `portal._wire_arc_at_knot` / the knot walk `_element_match` and
 // `element_currents` share: per solver polyline, its knots (numpy's
 // linspace per edge, the first knot of each later edge dropped).
@@ -949,7 +963,13 @@ RunResult solve_group(Ctx &c, const PortalGroup &group, double freq, ll group_in
                 const nec5::Op vo{v_gap.data(), P, 1, 1, 0};
                 rp::np_matmul(*c.np, y.op(), vo, i_port.data(), 1, 0);
             }
-            v_applied = v_gap;
+            // the gap's voltage plus the drop across a load on the driven
+            // segment, `v_gap + z_load * i_port` (momwire#1813)
+            v_applied.assign(static_cast<std::size_t>(P), cd(0.0, 0.0));
+            for (ll k = 0; k < P; k++) {
+                const std::size_t q = static_cast<std::size_t>(k);
+                v_applied[q] = cadd(v_gap[q], cm(z_load[q], i_port[q]));
+            }
             i_source = i_port;
             return;
         }
@@ -1331,26 +1351,55 @@ PrintNearBlock near_field(Ctx &c, const nec5::Card &card, const RunResult &r) {
     const std::vector<double> points = rp::near_grid(rq);
     const std::vector<GeometryWire> &wires = c.ss->deck.structure.wires;
     if (wires.empty()) decline("a near field with no wire");
-    // `_refuse_finite_ground_near_field`: any point of a deck with a buried
-    // wire is refused (not worded here)
-    if (r.finite)
-        for (const GeometryWire &w : wires)
-            if (w.p1[2] < 0.0 || w.p2[2] < 0.0) decline("a near field over a buried wire (the reference refuses)");
+    // `_refuse_finite_ground_near_field` (the nec2 portal's sentences) over
+    // a finite ground: any field of a deck with a buried wire, then
+    // `near_point_refusal`'s first cell no composition answers: a point in
+    // the soil (every point first) or, point by point, one on a wire end
+    // standing on the ground (the solver's own per-wire tolerance)
     if (r.finite) {
-        // `_refuse_finite_ground_near_field`: a point in the soil, or on a
-        // wire end standing on the ground, is refused (not worded here)
-        for (std::size_t q = 0; q < points.size() / 3; q++)
-            if (points[3 * q + 2] < 0.0) decline("a near-field point below a finite ground (the reference refuses)");
+        const std::string &mn = card.mnemonic;
         for (const GeometryWire &w : wires) {
             const double tol = nec5::ground_touch_tol(w.p1, w.p2);
-            for (const double *end : {w.p1, w.p2}) {
-                if (!(std::fabs(end[2] - 0.0) <= tol)) continue;
-                for (std::size_t q = 0; q < points.size() / 3; q++) {
-                    const double d[3] = {points[3 * q] - end[0], points[3 * q + 1] - end[1], points[3 * q + 2] - end[2]};
-                    if (norm3(d) <= tol) decline("a near-field point on a wire's finite-ground contact (the reference refuses)");
-                }
-            }
+            if (std::min(w.p1[2], w.p2[2]) < 0.0 - tol)
+                throw Refusal(mn + " asks for a field on a deck with a wire below the ground (tag " + w.tag.str() +
+                              "), and a buried deck's near field is not supported by this engine: the point "
+                              "evaluator serves sources above the interface only (momwire#524 phase 3). The "
+                              "deck's impedance, currents and radiation pattern are served");
         }
+        const auto where = [&](std::size_t q) {
+            return "(" + nec5::format_g(points[3 * q]) + ", " + nec5::format_g(points[3 * q + 1]) + ", " +
+                   nec5::format_g(points[3 * q + 2]) + ") metres";
+        };
+        for (std::size_t q = 0; q < points.size() / 3; q++)
+            if (points[3 * q + 2] < 0.0)
+                throw Refusal(mn + " asks for the field at " + where(q) +
+                              ", which is below the finite ground; the field inside the soil is the "
+                              "transmitted field and this engine composes the field above the interface "
+                              "only. Every point at or above the ground is served");
+        struct Contact {
+            std::size_t wire;
+            const double *end;
+            double tol;
+        };
+        std::vector<Contact> contacts;
+        for (std::size_t i = 0; i < wires.size(); i++) {
+            const GeometryWire &w = wires[i];
+            const double tol = nec5::ground_touch_tol(w.p1, w.p2);
+            for (const double *end : {w.p1, w.p2})
+                if (std::fabs(end[2] - 0.0) <= tol) contacts.push_back(Contact{i, end, tol});
+        }
+        for (std::size_t q = 0; q < points.size() / 3; q++)
+            for (const Contact &ct : contacts) {
+                const double d[3] = {points[3 * q] - ct.end[0], points[3 * q + 1] - ct.end[1],
+                                     points[3 * q + 2] - ct.end[2]};
+                if (norm3(d) <= ct.tol)
+                    throw Refusal(mn + " asks for the field at " + where(q) + ", which is where wire " +
+                                  wires[ct.wire].tag.str() +
+                                  " stands on the finite ground, and the field AT a wire's ground contact "
+                                  "over a finite ground is singular (the image cancels the contact charge "
+                                  "only by 2/(1+epsilon)), so no sampling of it converges. Every point off "
+                                  "the contact is served");
+            }
     }
     double radius = wires[0].radius;  // `min(w.radius for w in self.wires)`
     for (const GeometryWire &w : wires)
@@ -1458,6 +1507,7 @@ PrintRun run(Ctx &c, const PortalGroup &group, ll index, double freq, const RunR
             }
         }
         for (const nec5::Card &ld : group.loads) p.loads.push_back(load_row(ld));
+        p.loaded_twice = loaded_twice(c.sb->tables, index);
         p.fill_seconds = static_cast<double>(static_cast<ll>(std::nearbyint(r.fill_seconds * 1000.0))) / 1000.0;
         p.factor_seconds = 0.0;
     }

@@ -92,7 +92,6 @@ WHY = {
     "cold-start": "started for a robot that connected",
 
     "first-worker": "the machine its version's check ran on, kept on as its first worker",
-    "resume": "started again for a robot that reconnected",
     "min_containers": "kept running: the policy's min workers",
     "min_workers": "kept running: the policy's min workers",
     "warm_hours": "kept running: the policy's warm hours",
@@ -102,32 +101,25 @@ WHY = {
 
     "version-replacement": "started to serve a new version",
     "probe-alive": "its robot's lease ran out while it still answered: kept a little longer",
-    "idle-cooldown": "stopped: no robot acted on it for the idle timeout",
-    "unclaimed": "stopped: no robot took it within a minute of starting; billed until then",
-    "surplus": "stopped: a second worker was started for the same place; not billed",
+    "idle-cooldown": "ended: no robot connected to it for the idle timeout",
+    "unclaimed": "ended: no robot took it within a minute of starting; billed until then",
+    "surplus": "ended: a second worker was started for the same place; not billed",
 
-    "warm-hours-ended": "stopped: its warm hours ended",
-    "min-workers-lowered": "stopped: the policy's min workers went down",
-    "spare-unneeded": "stopped: no robot needed it as a spare any more",
-    "lease-expired": "stopped: its robot stopped renewing its session",
-    "version-retired": "stopped: another version serves",
-    "max-lifetime": "stopped: it reached the longest a worker runs",
+    "warm-hours-ended": "ended: its warm hours ended",
+    "min-workers-lowered": "ended: the policy's min workers went down",
+    "spare-unneeded": "ended: no robot needed it as a spare any more",
+    "lease-expired": "ended: its robot stopped renewing its session",
+    "version-retired": "ended: a newer version serves",
+    "max-lifetime": "ended: it reached the longest a worker runs",
     "rotate": "replaced after serving its hours",
     "rotated": "replaced after serving its hours",
-    "boot-timeout": "stopped: it did not start in time",
+    "boot-timeout": "ended: it did not start in time",
     "gone-while-starting": "ended while it was starting",
     "gone": "ended by the platform",
     "interrupted": "ended: its machine was taken away",
     "unhealthy": "replaced: it stopped answering",
     "leak-reconcile": "ended: no longer in use",
     "error": "ended after an error",
-
-
-    "resume-no-card": "started new: its stopped worker could not start again, no card available where it was",
-    "resume-failed": "started new: its stopped worker could not start again",
-
-    "stopped-expired": "ended: kept stopped for a fast start, unused for the days one is kept",
-    "stopped-surplus": "ended: its version keeps one stopped worker for a fast start, the one used last",
 }
 
 
@@ -200,8 +192,6 @@ def show_gpus(prices: dict, echo: Echo) -> None:
                                             else "")
         echo(f"{str(g.get('gpu')):{w}}{vram:>7}  {_usd(g.get('usd_per_hour'), per_hour):>10}  "
              f"{_yes(g.get('policy')):8}{bench:15}{_yes(g.get('rt_core')):9}{_yes(g.get('nvenc'))}")
-        if g.get("regions"):
-            echo(f"{'':{w}}runs in {', '.join(g['regions'])}")
     if not rows:
         echo("(no cards are offered right now)")
     cpu_rates, mem_rates = prices.get("cpu") or {}, prices.get("memory") or {}
@@ -240,8 +230,8 @@ def show_gpus(prices: dict, echo: Echo) -> None:
         echo(f"Each time a machine starts, its card is billed for at least {float(floor):.0f} s, and an eval's machines "
              "for at least that much CPU and memory too.")
 
-    echo('gpu="TYPE:N" takes N cards of one type. A deployment runs on its one card and waits '
-         'for it to come free - up to 10 min.')
+    echo('gpu="TYPE:N" takes N cards of one type. A deployment runs on its one card and waits for it to become '
+         'available, which can take more than 10 min: its robot keeps waiting, nothing billed.')
 
 
 
@@ -461,16 +451,12 @@ def every_words(seconds: float) -> str:
 
 
 
-def fleet(name: str, *, base_url: str | None = None, echo: Echo = _silent, version: int | None = None,
-          deploying: bool = False) -> dict:
+def fleet(name: str, *, base_url: str | None = None, echo: Echo = _silent, version: int | None = None) -> dict:
     """A deployment's workers (state, card, copies, seats, sessions, why one died), the robots waiting for a slot, and
     the limits they run under. `version`: the version whose price, capacity and
-    measurements it gives (the platform says which in `priced_version`); the serving one's without it. `deploying`:
-    the read is `seq deploy`'s, after its build, so the platform's word on where its workers run names the region it
-    was deployed to (its query's `dependencies=true`, the platform's name for that read)."""
-    query = "&".join(q for q in (f"version={int(version)}" if version else "",
-                                 "dependencies=true" if deploying else "") if q)
-    out = _call("GET", f"/v1/deployments/{segment(name)}/fleet" + (f"?{query}" if query else ""), base_url)
+    measurements it gives (the platform says which in `priced_version`); the serving one's without it."""
+    query = f"?version={int(version)}" if version else ""
+    out = _call("GET", f"/v1/deployments/{segment(name)}/fleet{query}", base_url)
     show_fleet(name, out, echo)
     return out
 
@@ -488,14 +474,14 @@ def where_line(w: dict) -> str | None:
 
 
 def _turn(w: dict) -> str | None:
-    """How long a worker has served and when it is to be replaced — or, once it is leaving, why and that its robots move
-    at an episode boundary to a worker already up. Said as what is to come: "replaced
+    """How long a worker has served and when it is to be replaced — or, once it is leaving, why and what becomes of its
+    robots. Said as what is to come: "replaced
     from <time>" read as done."""
     if w.get("leaving") == "version":
-        return "leaving: another version serves — its robots move at their next episode boundary"
+        return "leaving: another version serves — it is ending, its robots disconnected"
     if w.get("leaving") == "rotate":
         return "leaving: it has served its hours — its robots move to the replacement at their next episode boundary"
-    if w.get("state") in ("provisioning", "resuming"):
+    if w.get("state") == "provisioning":
         took = w.get("starting_s")
         return ("starting: not serving yet" + (f", {int(float(took)) // 60}m {int(float(took)) % 60:02d}s so far"
                                                if isinstance(took, (int, float)) else ""))
@@ -581,7 +567,7 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
 
 
 
-        cause = (DEATH.get(loop.get("cause")) or "they failed").split(" — ")[0]
+        cause = ({**DEATH, **SERVED_NOT}.get(loop.get("cause")) or "they failed").split(" — ")[0]
         error = f": {loop['error']}" if loop.get("error") else ""
         echo(f"crash-looping: its last {loop['failures']} starts failed — {cause}{error}; the next starts "
              f"{_clock(loop.get('next_start_at'))} — `seq policy logs {name}` shows each")
@@ -841,8 +827,8 @@ def show_measured(measured: dict | None, echo: Echo) -> None:
 
 def show_gpu(g: dict | None, start_wait_s: Any, echo: Echo) -> None:
     """The one card the deployment runs on: whose choice it is (its template's own, or its owner's beside the
-    template's), one worker's price per hour on it as billed and how many of its workers are on it now; how long a start
-    waits for it to come free (`start_wait_s`); and the most GPUs it holds at once, the smaller of its cap and the
+    template's), one worker's price per hour on it as billed and how many of its workers are on it now; what a start's
+    wait for it can take (more than `start_wait_s`); and the most GPUs it holds at once, the smaller of its cap and the
     account's. Nothing for one on CPU. A deployment runs on one card and never switches
 .
     """
@@ -860,13 +846,13 @@ def show_gpu(g: dict | None, start_wait_s: Any, echo: Echo) -> None:
     n = int(c.get("workers") or 0)
     now = f"   ← {n} worker{'s' if n != 1 else ''} on it now" if n else ""
     echo(f"GPU: {card} ({whose})   {price}{now}")
-    if g.get("region"):
-
-
-        echo(f"  region {g['region']}: every worker runs there, and a start waits there for an available {card.split(':')[0]}")
     if isinstance(start_wait_s, (int, float)) and start_wait_s > 0:
 
-        echo(f"  a start waits up to {every_words(float(start_wait_s))} for an available {card.split(':')[0]}")
+
+
+
+        echo(f"  a start waits for an available {card.split(':')[0]}, which can take more than "
+             f"{every_words(float(start_wait_s))}: its robot keeps waiting, nothing billed")
     caps = [x for x in (g.get("max_gpus"), g.get("account_gpus")) if x]
     if caps:
 
@@ -1124,7 +1110,7 @@ def print_worker_price(resources: Any, base_url: str | None, name: str | None = 
     f: dict = {}
     if name:
         try:
-            f = fleet(name, base_url=base_url, version=version, deploying=True)
+            f = fleet(name, base_url=base_url, version=version)
         except Exception:
             f = {}
 

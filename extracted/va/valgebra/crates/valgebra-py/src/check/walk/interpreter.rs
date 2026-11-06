@@ -425,26 +425,49 @@ fn a_meet_stops_at_the_member_that_rejects_the_value() {
 }
 
 /// A class branch names its class, and a class with declared attributes --
-/// the meet of an atom and a record -- names that same class rather than the
-/// algebra's spelling of it. A meet that is not an object has no class to
-/// name, and names each member instead: its kind would name no set.
+/// the meet of an atom and the record or tuple shape the class declares --
+/// names that same class rather than the algebra's spelling of it. A class
+/// beside a member of a kind it does not declare names both, as any other meet
+/// names its members: the class's name alone would read as more than the
+/// branch admits, and a kind alone would name no set.
 #[test]
 fn a_union_names_a_class_branch_by_its_class() {
     Python::attach(|py| {
-        let module = classes(py, c"classes_union");
-        let point = module.getattr("Point").expect("Point");
-        let other = module.getattr("Other").expect("Other");
-        let pool: Vec<Py<PyAny>> = vec![point.unbind(), other.unbind()];
-        let object = Schema::meet([
-            Schema::Instance(ClassIx::new(0)),
-            Schema::AttrRecord {
-                fields: vec![attribute("x", Schema::Int)].into(),
-            },
-        ]);
+        let module = PyModule::from_code(
+            py,
+            c"import dataclasses, typing\n\
+              @dataclasses.dataclass\n\
+              class Point:\n\
+              \x20   x: int\n\
+              class Pair(typing.NamedTuple):\n\
+              \x20   a: int\n\
+              class Other:\n\
+              \x20   pass\n\
+              class Row(tuple):\n\
+              \x20   pass\n",
+            c"label_classes.py",
+            c"label_classes",
+        )
+        .expect("the classes define");
+        let pool: Vec<Py<PyAny>> = ["Point", "Other", "Pair", "Row"]
+            .into_iter()
+            .map(|name| module.getattr(name).expect("the class is defined").unbind())
+            .collect();
+        let class = |index| Schema::Instance(ClassIx::new(index));
+        let record = || Schema::AttrRecord {
+            fields: vec![attribute("x", Schema::Int)].into(),
+        };
+        let positions = || Schema::tuple(SeqShape::fixed([Schema::Int]));
         let schema = Schema::Union(
             vec![
-                object,
-                Schema::Instance(ClassIx::new(1)),
+                Schema::meet([class(0), record()]),
+                class(1),
+                Schema::meet([class(2), positions()]),
+                Schema::meet([class(1), record()]),
+                Schema::meet([class(1), Schema::list(SeqShape::homogeneous(Schema::Int))]),
+                Schema::meet([class(3), positions()]),
+                Schema::meet([class(2), record()]),
+                Schema::meet([class(0), positions()]),
                 Schema::meet([Schema::Int, Schema::Str]),
                 Schema::meet([
                     Schema::union([Schema::Int, Schema::Str]),
@@ -466,7 +489,8 @@ fn a_union_names_a_class_branch_by_its_class() {
         push_branch_label(&schema, ctx, py, &mut labels);
         assert_eq!(
             labels.render(),
-            "one of: Point, Other, int and str, (int or str) and not bool",
+            "one of: Point, Other, Pair, Other and object, list and Other, tuple and Row, \
+             Pair and object, tuple and Point, int and str, (int or str) and not bool",
             "an object meet names its class; any other meet names its members"
         );
     });
@@ -833,6 +857,186 @@ fn a_signal_a_later_branch_raises_stops_an_earlier_record_report() {
         assert!(fatal.is_some_and(|err| err.is_instance_of::<PyKeyboardInterrupt>(py)));
         assert!(report.is_empty(), "{report:?}");
         assert_eq!(count_of(&module, "Seen", "reprs"), 0);
+    });
+}
+
+/// The fast walk `is_valid` runs, with the fatal signal it recorded.
+fn walked_fast(
+    py: Python<'_>,
+    schema: &Schema,
+    value: &Bound<'_, PyAny>,
+    pool: &[Py<PyAny>],
+) -> (bool, Option<PyErr>) {
+    let index = build_index(py, schema, &[], pool);
+    let state = WalkState::new();
+    let ctx = Ctx {
+        pool,
+        defs: &[],
+        index: &index,
+        state: &state,
+        mode: WalkMode::Fast,
+    };
+    let admitted = member(
+        schema,
+        &Value::Py(value),
+        &mut Frame::new(&mut Vec::new(), &mut Vec::new(), ctx),
+    );
+    (admitted, state.take_fatal())
+}
+
+/// The tags `"a"`, `"b"` and `"c"` and the text `"z"`, as a pool.
+fn tags(py: Python<'_>) -> Vec<Py<PyAny>> {
+    ["a", "b", "c", "z"]
+        .iter()
+        .map(|text| PyString::new(py, text).into_any().unbind())
+        .collect()
+}
+
+/// A record whose required `t` is the pool's constant `at`, beside `x`.
+fn tagged(at: usize, payload: Schema) -> Schema {
+    Schema::record(
+        vec![
+            field("t", Schema::Literal(ConstIx::new(at)), true),
+            field("x", payload, true),
+        ],
+        Openness::Closed,
+    )
+}
+
+/// Three records tagged `"a"`, `"b"` and `"c"` at `t`.
+fn three_tagged() -> Schema {
+    Schema::Union(
+        vec![
+            tagged(0, Schema::Int),
+            tagged(1, Schema::Int),
+            tagged(2, Schema::Str),
+        ]
+        .into(),
+    )
+}
+
+/// A union of records one key tags is read at that key, in the fast walk
+/// `is_valid` runs: the record the tag names decides the value, and a union
+/// whose key one record leaves optional has no tag, so every record is read.
+#[test]
+fn a_tagged_union_walks_the_record_its_tag_names() {
+    Python::attach(|py| {
+        let pool = tags(py);
+        let union = three_tagged();
+        let dict = |t: &str, x: Bound<'_, PyAny>| {
+            let value = PyDict::new(py);
+            value.set_item("t", t).expect("a field");
+            value.set_item("x", x).expect("a field");
+            value.into_any()
+        };
+        let int = PyInt::new(py, 1i64).into_any();
+        let text = PyString::new(py, "s").into_any();
+        for (value, admitted) in [
+            (dict("a", int.clone()), true),
+            (dict("a", text.clone()), false),
+            (dict("c", text.clone()), true),
+            (dict("d", int.clone()), false),
+        ] {
+            let (read, fatal) = walked_fast(py, &union, &value, &pool);
+            assert_eq!(read, admitted, "{value}");
+            assert!(fatal.is_none(), "{value}: {fatal:?}");
+            assert_eq!(decide(py, &union, &value, &pool, &[]), admitted, "{value}");
+        }
+        // `t` optional in one record: no tag, and `{"u": "z"}` is that record's.
+        let untagged = Schema::Union(
+            vec![
+                tagged(0, Schema::Int),
+                tagged(1, Schema::Int),
+                Schema::record(
+                    vec![
+                        field("t", Schema::Literal(ConstIx::new(2)), false),
+                        field("u", Schema::Literal(ConstIx::new(3)), true),
+                    ],
+                    Openness::Closed,
+                ),
+            ]
+            .into(),
+        );
+        let only_u = PyDict::new(py);
+        only_u.set_item("u", "z").expect("a field");
+        let (read, fatal) = walked_fast(py, &untagged, only_u.as_any(), &pool);
+        assert!(read && fatal.is_none(), "{fatal:?}");
+    });
+}
+
+/// The tagged reading looks the tag up once, and a key comparing to it by a
+/// method of its own runs that method once, where a scan of the records would
+/// run it for each. A fatal signal raised there is recorded and refuses, since a
+/// signal is delivered once and the scan, looking the key up again, would not
+/// see it raised; an ordinary error is the scan's to read, and records nothing.
+/// Each key below raises at most once and then compares unequal. One lookup is
+/// counted as the interpreter's own `dict.get` counts it: `CPython` 3.12 asks
+/// a key colliding with a `str` twice per lookup, and 3.13 on once.
+#[test]
+fn the_tag_is_looked_up_once_and_a_signal_there_is_recorded() {
+    use pyo3::exceptions::{PyKeyboardInterrupt, PyValueError};
+    Python::attach(|py| {
+        let pool = tags(py);
+        let union = three_tagged();
+        let module = PyModule::from_code(
+            py,
+            c"class Raising:\n\
+              \x20   calls = 0\n\
+              \x20   def __init__(self, error):\n\
+              \x20       self.error = error\n\
+              \x20   def __hash__(self):\n\
+              \x20       return hash('t')\n\
+              \x20   def __eq__(self, other):\n\
+              \x20       Raising.calls += 1\n\
+              \x20       error, self.error = self.error, None\n\
+              \x20       if error is not None:\n\
+              \x20           raise error\n\
+              \x20       return False\n\
+              def one_lookup():\n\
+              \x20   before = Raising.calls\n\
+              \x20   {Raising(None): 1}.get('t')\n\
+              \x20   return Raising.calls - before\n",
+            c"tagged_keys.py",
+            c"tagged_keys",
+        )
+        .expect("the module compiles");
+        let raising = |error: Bound<'_, PyAny>| {
+            let value = PyDict::new(py);
+            let key = module
+                .getattr("Raising")
+                .and_then(|class| class.call1((error,)))
+                .expect("a key");
+            value.set_item(key, 1i64).expect("a key hashing as 't'");
+            value.into_any()
+        };
+        let one_lookup = module
+            .getattr("one_lookup")
+            .and_then(|lookup| lookup.call0())
+            .and_then(|count| count.extract::<i64>())
+            .expect("a dict lookup counts");
+        let before = count_of(&module, "Raising", "calls");
+        let quiet = raising(py.None().into_bound(py));
+        let (admitted, fatal) = walked_fast(py, &union, &quiet, &pool);
+        assert!(!admitted && fatal.is_none(), "{fatal:?}");
+        assert_eq!(
+            count_of(&module, "Raising", "calls") - before,
+            one_lookup,
+            "one lookup"
+        );
+        let ordinary = raising(py.get_type::<PyValueError>().into_any());
+        let (admitted, fatal) = walked_fast(py, &union, &ordinary, &pool);
+        assert!(!admitted);
+        assert!(
+            fatal.is_none(),
+            "an ordinary error is the scan's: {fatal:?}"
+        );
+        let interrupt = raising(py.get_type::<PyKeyboardInterrupt>().into_any());
+        let (admitted, fatal) = walked_fast(py, &union, &interrupt, &pool);
+        assert!(!admitted);
+        assert!(
+            fatal.is_some_and(|err| err.is_instance_of::<PyKeyboardInterrupt>(py)),
+            "the tag's lookup raised it"
+        );
     });
 }
 
@@ -2678,28 +2882,26 @@ fn a_fatal_signal_propagates_from_a_key() {
 /// A length bound reads a tuple subclass's length as `PyObject_Size` reads it,
 /// which runs the type's own `__len__`, so it asks the type whether that
 /// `__len__` is the tuple's own on every interpreter -- where the tuple walk
-/// beside it asks nothing on `CPython`. Asking runs the metaclass: a fatal
-/// signal it raises is kept for the entry point, and an ordinary error reads
-/// the type as a liar, whose length is read through the base.
+/// beside it asks nothing on `CPython`. It asks where `len` looks, the type's
+/// own namespaces, and a descriptor found there runs as `len` would run it: a
+/// fatal signal its `__get__` raises is kept for the entry point, and an
+/// ordinary error reads the type as a liar, whose length is read through the
+/// base.
 #[test]
 fn a_length_bound_asks_a_tuple_subclass_its_type() {
     Python::attach(|py| {
         let module = PyModule::from_code(
             py,
-            c"class StoppingMeta(type):\n\
-              \x20   def __getattribute__(cls, name):\n\
-              \x20       if name == '__len__':\n\
-              \x20           raise KeyboardInterrupt\n\
-              \x20       return super().__getattribute__(name)\n\
-              class RudeMeta(type):\n\
-              \x20   def __getattribute__(cls, name):\n\
-              \x20       if name == '__len__':\n\
-              \x20           raise ValueError('no')\n\
-              \x20       return super().__getattribute__(name)\n\
-              class StoppingPair(tuple, metaclass=StoppingMeta):\n\
-              \x20   pass\n\
-              class RudePair(tuple, metaclass=RudeMeta):\n\
-              \x20   pass\n",
+            c"class Stopping:\n\
+              \x20   def __get__(self, obj, cls):\n\
+              \x20       raise KeyboardInterrupt\n\
+              class Rude:\n\
+              \x20   def __get__(self, obj, cls):\n\
+              \x20       raise ValueError('no')\n\
+              class StoppingPair(tuple):\n\
+              \x20   __len__ = Stopping()\n\
+              class RudePair(tuple):\n\
+              \x20   __len__ = Rude()\n",
             c"bounded_types.py",
             c"bounded_types",
         )
@@ -2719,49 +2921,94 @@ fn a_length_bound_asks_a_tuple_subclass_its_type() {
     });
 }
 
-/// A fatal signal raised by a type's metaclass when the walk asks for its
-/// `__len__` or `__iter__` is kept for the entry point to re-raise; an ordinary
-/// error there reads the type as a liar, and the value is read through its base.
-///
-/// Where the walk asks is the other half of the claim. A set subclass is
-/// iterated where it lies only if its type's `__iter__` is the set's own, on
-/// every interpreter. A tuple subclass is asked for its `__len__` on `PyPy`
-/// alone: `CPython` reads the storage whatever the type overrides, so there the
-/// metaclass never runs and the pair is read for what it holds.
+/// A metaclass answering `__len__` or `__iter__` is not what `len` and `iter`
+/// call: the interpreter reads a type's slots, filled from its own namespaces,
+/// and asks no `__getattribute__`, not even the metaclass's. So the walk never
+/// runs it -- a signal or an error it would raise is never met -- and a
+/// subclass whose metaclass hides a `__len__` of its own behind the base's is
+/// read through the base, as a visible override is.
 #[test]
-fn a_fatal_signal_propagates_from_a_type() {
+fn a_metaclass_answering_a_slot_is_not_what_the_walk_reads() {
     Python::attach(|py| {
         let module = PyModule::from_code(
             py,
             std::ffi::CString::new(
                 "class StoppingMeta(type):\n\
                  \x20   def __getattribute__(cls, name):\n\
-                 \x20       if name == '__len__':\n\
+                 \x20       if name in ('__len__', '__iter__'):\n\
                  \x20           raise KeyboardInterrupt\n\
-                 \x20       return super().__getattribute__(name)\n\
-                 class RudeMeta(type):\n\
-                 \x20   def __getattribute__(cls, name):\n\
-                 \x20       if name == '__len__':\n\
-                 \x20           raise ValueError('no')\n\
                  \x20       return super().__getattribute__(name)\n\
                  class StoppingPair(tuple, metaclass=StoppingMeta):\n\
                  \x20   pass\n\
-                 class RudePair(tuple, metaclass=RudeMeta):\n\
+                 class StoppingBag(set, metaclass=StoppingMeta):\n\
                  \x20   pass\n\
-                 class StoppingIterMeta(type):\n\
+                 class Hiding(type):\n\
                  \x20   def __getattribute__(cls, name):\n\
-                 \x20       if name == '__iter__':\n\
-                 \x20           raise KeyboardInterrupt\n\
+                 \x20       if name in ('__len__', '__iter__'):\n\
+                 \x20           return getattr(set, name)\n\
                  \x20       return super().__getattribute__(name)\n\
-                 class RudeIterMeta(type):\n\
-                 \x20   def __getattribute__(cls, name):\n\
-                 \x20       if name == '__iter__':\n\
-                 \x20           raise ValueError('no')\n\
-                 \x20       return super().__getattribute__(name)\n\
-                 class StoppingBag(set, metaclass=StoppingIterMeta):\n\
-                 \x20   pass\n\
-                 class RudeBag(set, metaclass=RudeIterMeta):\n\
-                 \x20   pass\n",
+                 class LieBag(set, metaclass=Hiding):\n\
+                 \x20   def __iter__(self):\n\
+                 \x20       return iter(['x'])\n",
+            )
+            .expect("no interior nul")
+            .as_c_str(),
+            std::ffi::CString::new("slot_metaclasses.py")
+                .expect("no interior nul")
+                .as_c_str(),
+            std::ffi::CString::new("slot_metaclasses")
+                .expect("no interior nul")
+                .as_c_str(),
+        )
+        .expect("the module compiles");
+        let ints = Schema::tuple(SeqShape::homogeneous(Schema::Int));
+        let pair = module
+            .getattr("StoppingPair")
+            .expect("class")
+            .call1(((1i64, 2i64),))
+            .expect("pair");
+        assert_eq!(decide_with_fatal(py, &ints, &pair, &[]), (true, false));
+        let int_set = Schema::set(Schema::Int);
+        for (class, want) in [("StoppingBag", (true, false)), ("LieBag", (true, false))] {
+            let bag = module
+                .getattr(class)
+                .expect("class")
+                .call1(((1i64, 2i64),))
+                .expect("bag");
+            assert_eq!(decide_with_fatal(py, &int_set, &bag, &[]), want, "{class}");
+        }
+    });
+}
+
+/// A fatal signal raised where the walk asks a type for its `__len__` or
+/// `__iter__` is kept for the entry point to re-raise; an ordinary error there
+/// reads the type as a liar, and the value is read through its base.
+///
+/// Where the walk asks is the other half of the claim. A set subclass is
+/// iterated where it lies only if its type's `__iter__` is the set's own, on
+/// every interpreter. A tuple subclass is asked for its `__len__` on `PyPy`
+/// alone: `CPython` reads the storage whatever the type overrides, so there the
+/// descriptor never runs and the pair is read for what it holds.
+#[test]
+fn a_fatal_signal_propagates_from_a_type() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            std::ffi::CString::new(
+                "class Stopping:\n\
+                 \x20   def __get__(self, obj, cls):\n\
+                 \x20       raise KeyboardInterrupt\n\
+                 class Rude:\n\
+                 \x20   def __get__(self, obj, cls):\n\
+                 \x20       raise ValueError('no')\n\
+                 class StoppingPair(tuple):\n\
+                 \x20   __len__ = Stopping()\n\
+                 class RudePair(tuple):\n\
+                 \x20   __len__ = Rude()\n\
+                 class StoppingBag(set):\n\
+                 \x20   __iter__ = Stopping()\n\
+                 class RudeBag(set):\n\
+                 \x20   __iter__ = Rude()\n",
             )
             .expect("no interior nul")
             .as_c_str(),

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from textual import events
 from textual.app import ComposeResult
+from textual.containers import Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.timer import Timer
@@ -51,6 +52,7 @@ from . import (
     unfocused_dim,
     utils,
 )
+from .briefs.attention_bar import AttentionBar
 from .briefs.brief_pane import BriefPane
 from .crash_logging import CrashLoggedApp
 from .edits import (
@@ -70,12 +72,12 @@ from .rows import brief_cards, row_parts
 from .status_notice import StatusLine
 from .switching import double_activate, history_resume, inbox_switch
 from .tables import row_keys, table_nav
-from .tables.scroll_position import StableTable
 from .tables.table import ClickToActTable
 from .utils import set_terminal_title
 from .views import usage_view, view_modes
 from .views.history_table import HistoryTable
 from .views.snoozed_table import SnoozedTable
+from .views.usage_screen import UsageScreen
 from .views.usage_view import UsageHeader
 from .watchers import focus, session_names, watcher_hooks
 
@@ -156,6 +158,7 @@ class LemonaidApp(CrashLoggedApp):
             resume_available=lambda: (
                 self._selected_channel() in self._detached_channels or self._brief_local()
             ),
+            brief_unselected=bool((pane := self._the(BriefPane)) and pane.unselected),
         )
 
     def get_css_variables(self) -> dict[str, str]:
@@ -197,7 +200,6 @@ class LemonaidApp(CrashLoggedApp):
                     id="history_table",
                 ),
                 SnoozedTable(lists, self._refresh_snoozed, id="snoozed_table"),
-                StableTable(id="usage_table"),
                 *(
                     []
                     if self.config.tui.notes is None
@@ -206,11 +208,17 @@ class LemonaidApp(CrashLoggedApp):
                 StatusLine(id="status"),
                 id="inbox_content",
             )
-            yield BriefPane(
-                self.config,
-                self._get_current_row_key,
-                self._attention.note,
-                self._brief_closed,
+            yield Vertical(
+                AttentionBar(
+                    self.config.tui.status_pulse_seconds,
+                    lambda *args: self._content.inbox.summary_layout(*args),
+                ),
+                BriefPane(
+                    self.config,
+                    self._get_current_row_key,
+                    self._attention.note,
+                    self._brief_closed,
+                ),
                 id="brief_view",
             )
         yield Footer()
@@ -222,7 +230,7 @@ class LemonaidApp(CrashLoggedApp):
             self._update_active_row_background()
 
     def _refresh_usage(self) -> None:
-        if not (self.config.usage.overall_pace or self._mode is view_modes.USAGE):
+        if not self.config.usage.overall_pace:
             return
 
         def load() -> None:
@@ -231,12 +239,7 @@ class LemonaidApp(CrashLoggedApp):
         self.run_worker(load, thread=True, group="usage", exclusive=True)
 
     def _show_usage(self, current: dict) -> None:
-        usage_view.show(
-            self.query_one(UsageHeader),
-            self.query_one("#usage_table", DataTable) if self._mode is view_modes.USAGE else None,
-            current,
-            self.config.usage,
-        )
+        usage_view.show(self.query_one(UsageHeader), current, self.config.usage)
 
     def on_mount(self) -> None:
         self._loop_watchdog.start()
@@ -271,8 +274,6 @@ class LemonaidApp(CrashLoggedApp):
         self._content.build_tables(
             self._content.wants_cards(self.size.width, self.size.height), history_marker=False
         )
-
-        usage_view.setup_table(self.query_one("#usage_table", DataTable))
 
         self._refresh_notifications()
         self.query_one("#main_table", DataTable).focus()
@@ -508,9 +509,12 @@ class LemonaidApp(CrashLoggedApp):
         if not self.is_running or self._ticks.busy:
             return
 
-        if self._brief_target is not None or self._mode is not None:
+        if self._mode is not None:
             self._refresh_notifications()
             return
+
+        if self._brief_target is not None:
+            self._refresh_notifications()
 
         self._content.refresh_notes()
         self._names.maybe_scan(lambda: self.call_from_thread(self._fetched))
@@ -518,7 +522,7 @@ class LemonaidApp(CrashLoggedApp):
         if self._changes is None:
             self._changes = changes.Changes(
                 db.get_db_path(),
-                (brief.store.briefs_dir(), messages.store.inbox_root()),
+                (brief.store.briefs_dir(), messages.store.mailbox_root()),
                 changes.hub(),
             )
             inbox.fetched = self._changes.mark
@@ -537,6 +541,10 @@ class LemonaidApp(CrashLoggedApp):
 
         def done(loaded: tuple[bool | None, inbox_frame.Frame | None]) -> None:
             self._set_input_active(loaded[0])
+            if loaded[1] is not None and self.is_running and self._brief_target is not None:
+                self._observe_attention(loaded[1])
+                return
+
             if (
                 loaded[1] is not None
                 and self.is_running
@@ -555,8 +563,13 @@ class LemonaidApp(CrashLoggedApp):
             self._changes.mark()
         self._tick()
 
+    def _observe_attention(self, frame: inbox_frame.Frame) -> None:
+        self.query_one(AttentionBar).observe(frame.active)
+
     def _inbox_drawn(self, drawn: inbox_draw.Drawn) -> None:
         inbox = self._content.inbox
+        if inbox.last_frame is not None:
+            self._observe_attention(inbox.last_frame)
         self.set_class(bool(drawn.unread), "-unread")
         self._refresh_resume_binding()
 
@@ -627,7 +640,7 @@ class LemonaidApp(CrashLoggedApp):
 
         nothing_open = (
             self._brief_target is None
-            and self._mode not in (view_modes.SNOOZED, view_modes.USAGE)
+            and self._mode is not view_modes.SNOOZED
             and not self._search_mode
         )
         if self._scratch_mode and nothing_open:
@@ -645,7 +658,7 @@ class LemonaidApp(CrashLoggedApp):
             self.query_one(BriefPane).dismiss()
             return
 
-        if self._mode in (view_modes.SNOOZED, view_modes.USAGE):
+        if self._mode is view_modes.SNOOZED:
             self._set_mode(self._mode, False)
             return
 
@@ -703,7 +716,7 @@ class LemonaidApp(CrashLoggedApp):
             self._activate_lemon(notification)
 
     def action_toggle_usage(self) -> None:
-        self._toggle_mode(view_modes.USAGE)
+        self.push_screen(UsageScreen(self.config))
 
     def action_toggle_snoozed(self) -> None:
         self._toggle_mode(view_modes.SNOOZED)
@@ -787,8 +800,6 @@ class LemonaidApp(CrashLoggedApp):
             self._refresh_history()
         elif mode is view_modes.SNOOZED:
             self._refresh_snoozed()
-        else:
-            self._refresh_usage()
         if enabled:
             self.query_one(mode.table_id, DataTable).focus()
 
@@ -1229,11 +1240,20 @@ class LemonaidApp(CrashLoggedApp):
         if self._mode is not view_modes.HISTORY and inbox.display and inbox.grove:
             self._jump_bar = inbox_keys.jump_bar(inbox.grove, digit)
             self.screen.mount(self._jump_bar)
+            self._zoom_inbox(self._jump_bar.zoom)
+
+    def _zoom_inbox(self, zoom: tuple[str, str]) -> None:
+        """Show only the typed key's block, and mark its tree, or the whole inbox again for ("", "")."""
+        inbox = self._content.inbox
+        if inbox.zoom != zoom:
+            inbox.zoom = zoom
+            inbox.redraw()
 
     def _close_jump_bar(self, channel: str) -> None:
         if self._jump_bar is not None:
             self._jump_bar.remove()
             self._jump_bar = None
+        self._zoom_inbox(("", ""))
         self._grove_chose(channel)
 
     async def on_event(self, event: events.Event) -> None:
@@ -1248,6 +1268,8 @@ class LemonaidApp(CrashLoggedApp):
                 taken, chosen = bar.take(jump_bar.key_name(event))
                 if chosen is not None:
                     self._close_jump_bar(chosen)
+                elif taken:
+                    self._zoom_inbox(bar.zoom)
                 if taken:
                     return
             elif isinstance(

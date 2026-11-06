@@ -8,7 +8,7 @@ use pyo3::exceptions::PyKeyboardInterrupt;
 use rusty_fork::rusty_fork_test;
 use std::ffi::CString;
 use valgebra_core::{
-    Carries, Constraint, MapClause, SeqShape, StepGroup, carries_division, carries_length,
+    Carries, Constraint, LONGEST, MapClause, SeqShape, StepGroup, carries_division, carries_length,
     carries_pattern, carries_through,
 };
 
@@ -47,9 +47,12 @@ fn namespace(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     for module in ["typing", "dataclasses", "enum", "re", "types", "warnings"] {
         namespace.set_item(module, py.import(module)?)?;
     }
-    py.run(
-        &CString::new(
-            "import types\n\
+    py.run(&CString::new(STAND_INS)?, Some(&namespace), None)?;
+    Ok(namespace)
+}
+
+/// The markers and classes the tests' annotations name, written in Python.
+const STAND_INS: &str = "import types\n\
              class namespace(types.SimpleNamespace):\n\
              \x20   pass\n\
              class at:\n\
@@ -77,7 +80,9 @@ fn namespace(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
              \x20   pass\n\
              class Unit:\n\
              \x20   def __init__(self, unit): self.unit = unit\n\
-             for vocabulary in (namespace, slotted.Ge, slotted.MinLen, guarded, hooked, Timezone, Unit):\n\
+             class Doc:\n\
+             \x20   def __init__(self, documentation): self.documentation = documentation\n\
+             for vocabulary in (namespace, slotted.Ge, slotted.MinLen, guarded, hooked, Timezone, Unit, Doc):\n\
              \x20   vocabulary.__module__ = 'annotated_types'\n\
              class traced(namespace):\n\
              \x20   def __getattribute__(self, name):\n\
@@ -120,6 +125,15 @@ fn namespace(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
              \x20       self.items = items\n\
              \x20       self.__is_annotated_types_grouped_metadata__ = True\n\
              \x20   def __iter__(self): return iter(self.items)\n\
+             class Len:\n\
+             \x20   __is_annotated_types_grouped_metadata__ = True\n\
+             \x20   def __init__(self, min_length=0, max_length=None):\n\
+             \x20       self.min_length, self.max_length = min_length, max_length\n\
+             \x20   def __iter__(self):\n\
+             \x20       if self.min_length > 0: yield at.MinLen(self.min_length)\n\
+             \x20       if self.max_length is not None: yield namespace(max_length=self.max_length)\n\
+             Len.__module__ = 'annotated_types'\n\
+             at.Len = Len\n\
              def nest(depth):\n\
              \x20   marker = at.Ge(0)\n\
              \x20   for _ in range(depth): marker = grouped(marker)\n\
@@ -136,13 +150,7 @@ fn namespace(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
              \x20   def kind(raised):\n\
              \x20       class Meta(type):\n\
              \x20           def __repr__(cls): raise raised\n\
-             \x20       return Meta('Kind', (), {})\n",
-        )?,
-        Some(&namespace),
-        None,
-    )?;
-    Ok(namespace)
-}
+             \x20       return Meta('Kind', (), {})\n";
 
 /// Build a schema from an annotation expression and render it back.
 fn built(py: Python<'_>, expression: &str) -> PyResult<String> {
@@ -201,9 +209,11 @@ fn a_generic_class_binds_each_parameter_once() {
         let program = r"import dataclasses, typing\nT = typing.TypeVar('T')\n@dataclasses.dataclass\nclass A(typing.Generic[T]):\n    x: T\n@dataclasses.dataclass\nclass B(A[int]):\n    pass\n@dataclasses.dataclass\nclass C(A[int]):\n    pass\n@dataclasses.dataclass\nclass D(B, C):\n    pass\n@dataclasses.dataclass\nclass E(A[str]):\n    pass\n@dataclasses.dataclass\nclass F(B, E):\n    pass\n";
         let spelled =
             |form: &str| format!(r#"(lambda ns: (exec("{program}", ns), {form})[1])({{}})"#);
+        // The class's name alone is refused for its parameter, so the applied
+        // class prints as the meet it is, its field bound to the argument.
         assert_eq!(
             built(py, &spelled("ns['A'][int]")).expect("the applied class builds"),
-            "A"
+            "intersection(instance_of(A), object(x=int))"
         );
         assert_eq!(
             built(py, &spelled("ns['D']")).expect("two bases agreeing build"),
@@ -213,6 +223,49 @@ fn a_generic_class_binds_each_parameter_once() {
         assert!(
             refused.to_string().contains("through one base and to"),
             "{refused}"
+        );
+    });
+}
+
+/// A type variable is its own class's parameter: a class binding a base's
+/// parameter and reusing the same `TypeVar` for its own reads each field in the
+/// scope of the class that declares it, and a base applied to the parameters
+/// crossed binds them crossed. A `TypedDict`'s annotations merge its bases', so
+/// the base holding a field under the same hint is the one that declares it.
+#[test]
+fn a_type_variable_is_its_own_classs_parameter() {
+    Python::attach(|py| {
+        let program = r"import typing\nT = typing.TypeVar('T')\nU = typing.TypeVar('U')\nclass Box(typing.TypedDict, typing.Generic[T]):\n    a: T\nclass IntBoxOf(Box[int], typing.Generic[T]):\n    b: T\nclass Pair(typing.TypedDict, typing.Generic[T, U]):\n    first: T\n    second: U\nclass Crossed(Pair[U, T], typing.Generic[T, U]):\n    pass\n";
+        let spelled =
+            |form: &str| format!(r#"(lambda ns: (exec("{program}", ns), {form})[1])({{}})"#);
+        assert_eq!(
+            built(py, &spelled("ns['IntBoxOf'][str]")).expect("the class builds"),
+            "{'a': int, 'b': str, str: anything}"
+        );
+        assert_eq!(
+            built(py, &spelled("ns['Crossed'][int, str]")).expect("the class builds"),
+            "{'first': str, 'second': int, str: anything}"
+        );
+    });
+}
+
+/// A class reached again while its fields are being built is refused there only
+/// under the arguments it is open under: `Box[Box]` reaches the bare `Box`, which
+/// is another build, refused for the parameter its field names rather than as a
+/// class reached again, and `Box[Box[int]]` reaches `Box[int]`, which builds.
+#[test]
+fn a_class_reached_under_other_arguments_is_another_build() {
+    Python::attach(|py| {
+        let program = r"import dataclasses, typing\nT = typing.TypeVar('T')\n@dataclasses.dataclass\nclass Box(typing.Generic[T]):\n    sub: T\n";
+        let spelled =
+            |form: &str| format!(r#"(lambda ns: (exec("{program}", ns), {form})[1])({{}})"#);
+        let refused =
+            built(py, &spelled("ns['Box'][ns['Box']]")).expect_err("the bare class is refused");
+        assert!(refused.to_string().contains("is generic in T"), "{refused}");
+        assert_eq!(
+            built(py, &spelled("ns['Box'][ns['Box'][int]]")).expect("each level builds"),
+            "intersection(instance_of(Box), object(sub=intersection(instance_of(Box), \
+             object(sub=int))))"
         );
     });
 }
@@ -369,12 +422,6 @@ fn each_spelling_builds_its_own_schema() {
     });
 }
 
-/// The spellings a later release adds, each held where the release has it.
-///
-/// Apart from the table above because a row is read by whoever runs it, and
-/// these are read by fewer lanes: the release each needs rides on the row and
-/// [`Since`] says what that means. Together they are one table -- a spelling
-/// belongs to the frontend's dispatch whether or not the floor can write it.
 /// An object carrying `__metadata__` and no `__origin__` is not an `Annotated`
 /// form. It is read as every other object is, the literal of itself, rather
 /// than failing on the name it lacks; with both names it is the refinement.
@@ -393,60 +440,49 @@ fn metadata_without_an_origin_is_not_annotated() {
     });
 }
 
+/// The spellings a release after the first adds: the ones every supported
+/// release spells, and the rest held where the release has it.
+///
+/// Apart from the table above because a row is read by whoever runs it, and
+/// the later rows by fewer lanes: the release each needs rides on the row and
+/// [`Since`] says what that means. Together they are one table -- a spelling
+/// belongs to the frontend's dispatch whether or not the floor can write it.
 #[test]
 fn each_spelling_a_release_adds_builds_where_that_release_has_it() {
     Python::attach(|py| {
-        for (since, expression, wanted) in [
-            (Since(11), "typing.Never", "nothing"),
-            // The two unpacked tuple spellings: a star inside a subscript is
-            // a syntax error before 3.11, so the row cannot even be written
-            // for that release to read.
-            (
-                Since(11),
-                "tuple[str, *tuple[int, ...]]",
-                "tuple[str, int, ...]",
-            ),
-            (
-                Since(11),
-                "tuple[str, *tuple[int, bool]]",
-                "tuple[str, int, bool]",
-            ),
+        let builds = |expression: &str, wanted: &str| {
+            let got = built(py, expression).unwrap_or_else(|error| {
+                panic!("{expression} did not build: {error}");
+            });
+            assert_eq!(got, wanted, "{expression}");
+        };
+        for (expression, wanted) in [
+            ("typing.Never", "nothing"),
+            // The two unpacked tuple spellings of a prefix and a tail.
+            ("tuple[str, *tuple[int, ...]]", "tuple[str, int, ...]"),
+            ("tuple[str, *tuple[int, bool]]", "tuple[str, int, bool]"),
             // What a splice carries is read as the carrier's own arguments: a
             // star inside it unpacks and a `...` in it repeats, in either
             // spelling, and a splice of nothing splices nothing.
             (
-                Since(11),
                 "tuple[int, *tuple[str, *tuple[bool, ...]]]",
                 "tuple[int, str, bool, ...]",
             ),
             (
-                Since(11),
                 "tuple[int, typing.Unpack[tuple[str, typing.Unpack[tuple[bool, ...]]]]]",
                 "tuple[int, str, bool, ...]",
             ),
-            (
-                Since(11),
-                "tuple[*tuple[*tuple[int, ...]]]",
-                "tuple[int, ...]",
-            ),
-            (
-                Since(11),
-                "tuple[*tuple[int, str, ...]]",
-                "tuple[int, str, ...]",
-            ),
-            (
-                Since(11),
-                "tuple[*tuple[int, *tuple[()]], str]",
-                "tuple[int, str]",
-            ),
-            // A dict literal's field reads `ReadOnly` through, and a clause's
-            // value has no presence a qualifier could contradict.
+            ("tuple[*tuple[*tuple[int, ...]]]", "tuple[int, ...]"),
+            ("tuple[*tuple[int, str, ...]]", "tuple[int, str, ...]"),
+            ("tuple[*tuple[int, *tuple[()]], str]", "tuple[int, str]"),
+            // A clause's value has no presence a qualifier could contradict.
+            ("{str: typing.NotRequired[int]}", "dict[str, int]"),
+        ] {
+            builds(expression, wanted);
+        }
+        for (since, expression, wanted) in [
+            // A dict literal's field reads `ReadOnly` through.
             (Since(13), "{'a': typing.ReadOnly[int]}", "{'a': int}"),
-            (
-                Since(11),
-                "{str: typing.NotRequired[int]}",
-                "dict[str, int]",
-            ),
             // An alias in metadata is read through to what it names, and one
             // naming no `Annotated` alias is metadata nobody reads -- as are
             // aliases naming each other in a cycle, which name no form.
@@ -468,13 +504,9 @@ fn each_spelling_a_release_adds_builds_where_that_release_has_it() {
                 "int",
             ),
         ] {
-            if !since.met(py) {
-                continue;
+            if since.met(py) {
+                builds(expression, wanted);
             }
-            let got = built(py, expression).unwrap_or_else(|error| {
-                panic!("{expression} did not build: {error}");
-            });
-            assert_eq!(got, wanted, "{expression}");
         }
     });
 }
@@ -643,7 +675,8 @@ fn a_typing_form_in_metadata_is_not_a_predicate() {
 /// Metadata that excludes no value is ignored wherever it is written: the
 /// standard library's `deprecated`, whose class `warnings` defines from 3.13 and
 /// `_py_warnings` from 3.14 and whose call raises for a value, and the
-/// vocabulary's `Unit`, which names what a number is measured in. Read as
+/// vocabulary's `Unit`, which names what a number is measured in, and its
+/// documentation marker under the name annotated-types 0.8.0 gives it. Read as
 /// narrowing, the first would be a predicate refusing every value and the second
 /// a constraint refused for what it would admit; and a group yielding `Unit`
 /// beside a bound is the bound. A vocabulary marker that does narrow is still
@@ -676,6 +709,7 @@ fn metadata_that_excludes_no_value_is_ignored() {
                 bound.as_str(),
             ),
             ("typing.Annotated[int, Unit('m'), at.Ge(0)]", bound.as_str()),
+            ("typing.Annotated[int, Doc('a count')]", "int"),
         ] {
             reads(expression, wanted);
         }
@@ -753,15 +787,11 @@ fn a_typing_form_is_refused_where_a_constant_or_a_type_argument_is_read() {
                 "typing.Literal[typing.NewType('U', int)]",
                 "rather than a constant",
             ),
+            ("typing.Literal[typing.Never]", "rather than a constant"),
         ] {
             refuses(expression, wanted);
         }
         for (since, expression, wanted) in [
-            (
-                Since(11),
-                "typing.Literal[typing.Never]",
-                "rather than a constant",
-            ),
             (
                 Since(12),
                 "typing.Literal[typing.TypeAliasType('A', int)]",
@@ -773,10 +803,30 @@ fn a_typing_form_is_refused_where_a_constant_or_a_type_argument_is_read() {
                 "typing.TypeAliasType('A', 'int')",
                 "forward reference",
             ),
+            // And so is a string an alias substitutes, refused before `typing`
+            // reads the text and raises `SyntaxError` at one that is no
+            // expression.
+            (
+                Since(12),
+                "typing.TypeAliasType('G', dict[str, (T := typing.TypeVar('T'))], \
+                 type_params=(T,))['']",
+                "'' is a forward reference",
+            ),
         ] {
             if since.met(py) {
                 refuses(expression, wanted);
             }
+        }
+        // A parameter the value does not use substitutes nothing.
+        if Since(12).met(py) {
+            assert_eq!(
+                built(
+                    py,
+                    "typing.TypeAliasType('U', int, type_params=(typing.TypeVar('T'),))['x']"
+                )
+                .expect("an unused parameter's argument is never read"),
+                "int"
+            );
         }
     });
 }
@@ -864,6 +914,146 @@ fn a_bound_or_a_step_python_cannot_apply_is_refused() {
         ] {
             built(py, &expression).unwrap_or_else(|error| panic!("{expression}: {error}"));
         }
+    });
+}
+
+/// A not-a-number bound or step is refused: a float's and a `Decimal`'s, quiet
+/// or signaling, each admitting no value. The signaling one refuses the
+/// conversion to a float, so `Decimal`'s own `is_nan` reads it, and a subclass
+/// overriding that method is read the same way. A `Decimal` that is a number
+/// builds.
+#[test]
+fn a_not_a_number_bound_or_step_is_refused() {
+    Python::attach(|py| {
+        let decimal = |text: &str| format!("__import__('decimal').Decimal('{text}')");
+        let overriding = "type('Quiet', (__import__('decimal').Decimal,), \
+                          {'is_nan': lambda self: False})('sNaN')";
+        for (expression, wanted) in [
+            (
+                "typing.Annotated[int, at.Ge(float('nan'))]".to_owned(),
+                "ge cannot be nan",
+            ),
+            (
+                format!("typing.Annotated[int, at.Ge({})]", decimal("NaN")),
+                "ge cannot be nan",
+            ),
+            (
+                format!("typing.Annotated[int, at.Ge({})]", decimal("sNaN")),
+                "ge cannot be nan",
+            ),
+            (
+                format!("typing.Annotated[object, at.Le({})]", decimal("-sNaN")),
+                "le cannot be nan",
+            ),
+            (
+                format!("typing.Annotated[int, at.Le({overriding})]"),
+                "le cannot be nan",
+            ),
+            (
+                "typing.Annotated[int, at.MultipleOf(float('nan'))]".to_owned(),
+                "MultipleOf(nan)",
+            ),
+            (
+                format!("typing.Annotated[int, at.MultipleOf({})]", decimal("sNaN")),
+                "MultipleOf(nan)",
+            ),
+            (
+                format!("typing.Annotated[int, at.MultipleOf({overriding})]"),
+                "MultipleOf(nan)",
+            ),
+        ] {
+            match built(py, &expression) {
+                Err(error) => {
+                    let error = error.to_string();
+                    assert!(error.contains(wanted), "{expression} refused with {error}");
+                }
+                Ok(schema) => panic!("{expression} built {schema} instead of refusing"),
+            }
+        }
+        for expression in [
+            format!("typing.Annotated[int, at.Ge({})]", decimal("2.5")),
+            format!("typing.Annotated[int, at.MultipleOf({})]", decimal("0.5")),
+        ] {
+            built(py, &expression).unwrap_or_else(|error| panic!("{expression}: {error}"));
+        }
+    });
+}
+
+/// A length no value can have is refused inside a grouped marker as it is on its
+/// own: `annotated_types` unpacks a `Len` whose minimum is below one to no lower
+/// bound at all, so the minimum is read before the group unpacks.
+#[test]
+fn a_group_naming_no_length_is_refused_as_its_bound_is() {
+    Python::attach(|py| {
+        for expression in [
+            "typing.Annotated[str, at.MinLen(-1)]",
+            "typing.Annotated[str, at.Len(-1)]",
+            "typing.Annotated[list[int], at.Len(-1, 2)]",
+        ] {
+            match built(py, expression) {
+                Err(error) => assert!(
+                    error.to_string().contains("a length a value can have"),
+                    "{expression} refused with {error}"
+                ),
+                Ok(schema) => panic!("{expression} built {schema} instead of refusing"),
+            }
+        }
+        for expression in [
+            "typing.Annotated[str, at.Len(0, 2)]",
+            "typing.Annotated[str, at.Len(2)]",
+        ] {
+            built(py, expression).unwrap_or_else(|error| panic!("{expression}: {error}"));
+        }
+    });
+}
+
+/// A length bound equal to a whole number is that length: `len` is an `int`, and
+/// Python compares one with a `float`, a `Fraction` or a `Decimal` exactly. A
+/// number with a fraction, a complex one, and an object of any other type --
+/// however its `__int__` and `__eq__` answer -- name no length, and are refused,
+/// and so is a length past `sys.maxsize`, [`LONGEST`], which no value has, as an
+/// `int` and as the whole float equal to it; `sys.maxsize` itself builds.
+#[test]
+fn a_number_equal_to_a_whole_length_is_that_length() {
+    Python::attach(|py| {
+        for expression in [
+            "typing.Annotated[str, at.MinLen(2.0)]",
+            "typing.Annotated[str, at.MinLen(__import__('fractions').Fraction(4, 2))]",
+            "typing.Annotated[str, at.MinLen(__import__('decimal').Decimal('2.0'))]",
+        ] {
+            let schema =
+                built(py, expression).unwrap_or_else(|error| panic!("{expression}: {error}"));
+            assert_eq!(schema, "Annotated[str, MinLen(2)]", "{expression}");
+        }
+        for expression in [
+            "typing.Annotated[str, at.MinLen(2.5)]",
+            "typing.Annotated[str, at.MinLen(float('nan'))]",
+            "typing.Annotated[str, at.MinLen(complex(2, 0))]",
+            "typing.Annotated[str, at.MinLen(type('Counted', (), {'__int__': lambda self: 2, \
+             '__eq__': lambda self, other: other == 2, '__hash__': lambda self: 0})())]",
+            "typing.Annotated[str, at.MinLen(type('EqualToAll', (float,), {'__eq__': \
+             lambda self, other: True, '__hash__': float.__hash__})(2.5))]",
+            "typing.Annotated[str, at.MinLen(type('Whole', (float,), {})(2.0))]",
+            "typing.Annotated[str, at.MinLen(__import__('fractions').Fraction(5, 2))]",
+            "typing.Annotated[str, at.MinLen(__import__('sys').maxsize + 1)]",
+            "typing.Annotated[str, at.MinLen(float(__import__('sys').maxsize + 1))]",
+        ] {
+            match built(py, expression) {
+                Err(error) => assert!(
+                    error.to_string().contains("a length a value can have"),
+                    "{expression} refused with {error}"
+                ),
+                Ok(schema) => panic!("{expression} built {schema} instead of refusing"),
+            }
+        }
+        assert_eq!(
+            built(
+                py,
+                "typing.Annotated[str, at.MinLen(__import__('sys').maxsize)]"
+            )
+            .expect("the longest length builds"),
+            format!("Annotated[str, MinLen({LONGEST})]")
+        );
     });
 }
 
@@ -962,11 +1152,9 @@ fn each_refusal_says_what_it_refuses() {
         ] {
             refuses(expression, wanted);
         }
-        // The star inside a subscript is a syntax error before 3.11, so below
-        // it the refusal the row reads is the *parser's* rather than this one's.
-        if Since(11).met(py) {
-            refuses("tuple[*list[int]]", "only a tuple can be unpacked");
-        }
+        // An unpack of something that is not a tuple: the star binds element
+        // types into a tuple, and a list has none to bind.
+        refuses("tuple[*list[int]]", "only a tuple can be unpacked");
     });
 }
 
@@ -976,9 +1164,8 @@ fn each_refusal_says_what_it_refuses() {
 /// and a qualifier under `Annotated` where the spec and the runtime part.
 ///
 /// Apart from the table above, which they would carry past the length a test
-/// is held to, and gated by release where the form is: a star inside a
-/// subscript, `NotRequired`, `TypeAliasType` and `ReadOnly` each arrive in
-/// one.
+/// is held to, and gated by release where the form is: `TypeAliasType` and
+/// `ReadOnly` each arrive in one.
 #[test]
 fn each_refusal_of_a_form_read_as_another_set_says_what_it_refuses() {
     Python::attach(|py| {
@@ -992,36 +1179,34 @@ fn each_refusal_of_a_form_read_as_another_set_says_what_it_refuses() {
                 "{expression} refused with {error}, which does not name {wanted}"
             );
         };
-        if Since(11).met(py) {
-            // A `...` repeats the one element written before it in its own
-            // tuple, which a splice is not, and a tail reached through a
-            // splice is still a tail.
-            refuses("tuple[*tuple[int, str], ...]", "are not one element");
-            refuses("tuple[int, *tuple[()], ...]", "are not one element");
-            refuses("tuple[int, *tuple[..., str]]", "cannot begin with one");
-            refuses(
-                "tuple[*tuple[int, *tuple[str, ...]], bool]",
-                "nothing may follow the tail",
-            );
-            // An unpacked tuple anywhere but a tuple's arguments, in both
-            // spellings: read as a type, the star is `tuple[int]`.
-            for expression in [
-                "[*tuple[int]][0]",
-                "list[*tuple[int]]",
-                "[*tuple[int]]",
-                "list[typing.Unpack[tuple[int]]]",
-            ] {
-                refuses(expression, "unpacks into the arguments");
-            }
-            // A presence qualifier on a dict literal's field, through what
-            // wraps it, where the key's `?` is the one marker.
-            for expression in [
-                "{'a': typing.NotRequired[int]}",
-                "{'a?': typing.Required[int]}",
-                "{'a': typing.Annotated[typing.NotRequired[int], 'm']}",
-            ] {
-                refuses(expression, "of a dict literal is a TypedDict qualifier");
-            }
+        // A `...` repeats the one element written before it in its own
+        // tuple, which a splice is not, and a tail reached through a
+        // splice is still a tail.
+        refuses("tuple[*tuple[int, str], ...]", "are not one element");
+        refuses("tuple[int, *tuple[()], ...]", "are not one element");
+        refuses("tuple[int, *tuple[..., str]]", "cannot begin with one");
+        refuses(
+            "tuple[*tuple[int, *tuple[str, ...]], bool]",
+            "nothing may follow the tail",
+        );
+        // An unpacked tuple anywhere but a tuple's arguments, in both
+        // spellings: read as a type, the star is `tuple[int]`.
+        for expression in [
+            "[*tuple[int]][0]",
+            "list[*tuple[int]]",
+            "[*tuple[int]]",
+            "list[typing.Unpack[tuple[int]]]",
+        ] {
+            refuses(expression, "unpacks into the arguments");
+        }
+        // A presence qualifier on a dict literal's field, through what
+        // wraps it, where the key's `?` is the one marker.
+        for expression in [
+            "{'a': typing.NotRequired[int]}",
+            "{'a?': typing.Required[int]}",
+            "{'a': typing.Annotated[typing.NotRequired[int], 'm']}",
+        ] {
+            refuses(expression, "of a dict literal is a TypedDict qualifier");
         }
         if Since(13).met(py) {
             refuses(
@@ -1290,6 +1475,54 @@ fn a_recursive_generic_alias_is_tied_by_its_arguments() {
         assert!(
             refusal.contains("Nest applies itself to Nest[list[T]]"),
             "{refusal}"
+        );
+    });
+}
+
+/// A `TypedDict` qualifier given as a class's type argument, bare or under
+/// `Annotated`, is refused: it qualifies an item where it is declared, and the
+/// runtime keeps the key it reaches required. The type alone reads.
+#[test]
+fn a_qualifier_as_a_type_argument_is_refused() {
+    Python::attach(|py| {
+        let holds = |argument: &str| {
+            format!(
+                r#"(lambda ns: (exec("import typing\nT = typing.TypeVar('T')\nclass Holds(typing.TypedDict, typing.Generic[T]):\n    a: T\n", ns), ns['Holds'][{argument}])[1])({{}})"#
+            )
+        };
+        assert_eq!(
+            built(py, &holds("int")).expect("the type alone reads"),
+            "{'a': int, str: anything}"
+        );
+        for qualified in [
+            "typing.NotRequired[int]",
+            "typing.Annotated[typing.NotRequired[int], 'note']",
+        ] {
+            let refused = built(py, &holds(qualified)).expect_err(qualified);
+            assert!(
+                refused.to_string().contains("is a TypedDict qualifier"),
+                "{qualified}: {refused}"
+            );
+        }
+    });
+}
+
+/// A class over a `TypeVarTuple` applied binds the parameter to a list of
+/// types, which no field form here takes, and is refused; the class bare binds
+/// nothing, and reads where no field names the parameter.
+#[test]
+fn a_class_binding_a_list_of_types_is_refused_applied() {
+    Python::attach(|py| {
+        let row = |applied: &str| {
+            format!(
+                r#"(lambda ns: (exec("import dataclasses, typing\nTs = typing.TypeVarTuple('Ts')\n@dataclasses.dataclass\nclass Row(typing.Generic[typing.Unpack[Ts]]):\n    a: int\n", ns), ns['Row']{applied})[1])({{}})"#
+            )
+        };
+        assert_eq!(built(py, &row("")).expect("the bare class builds"), "Row");
+        let refused = built(py, &row("[int, str]")).expect_err("the applied class is refused");
+        assert!(
+            refused.to_string().contains("stands for a list of types"),
+            "{refused}"
         );
     });
 }
@@ -2415,6 +2648,107 @@ fn a_subscripted_validator_is_an_annotation_and_not_a_schema() {
     });
 }
 
+/// A type parameter's default written as a string is a forward reference, and
+/// a field that is the parameter alone refuses it as the same string written as
+/// the argument is, rather than reading it as the literal of its text.
+#[test]
+fn a_default_written_as_a_string_is_refused_as_a_forward_reference() {
+    Python::attach(|py| {
+        if !Since(13).met(py) {
+            return;
+        }
+        let namespace = namespace(py).expect("the corpus namespace builds");
+        py.run(
+            c"import typing\n\
+              W = typing.TypeVar('W', default='int')\n\
+              class ByDefault(typing.TypedDict, typing.Generic[W]):\n\
+              \x20   a: W\n",
+            Some(&namespace),
+            None,
+        )
+        .expect("the corpus class defines");
+        let class = namespace
+            .get_item("ByDefault")
+            .expect("the namespace answers")
+            .expect("the class is in it");
+        let refusal = match build_schema(&class, &mut Pool::default(), &mut Vec::new()) {
+            Err(refusal) => refusal.to_string(),
+            Ok(schema) => panic!("ByDefault built {schema:?}"),
+        };
+        assert!(
+            refusal.contains("'int' is a forward reference"),
+            "{refusal}"
+        );
+    });
+}
+
+/// A dict literal's field wrapped past the wrappers its qualifier reading reads
+/// is refused as nesting too deep, never built with the qualifier under them
+/// dropped; one layer short of the bound, the qualifier is read and refused.
+#[test]
+fn a_qualifier_past_the_wrappers_read_is_refused_by_depth() {
+    Python::attach(|py| {
+        if !Since(13).met(py) {
+            return;
+        }
+        let wrapped = |depth: usize| {
+            format!(
+                "{{'a': {}typing.NotRequired[int]{}}}",
+                "typing.ReadOnly[".repeat(depth),
+                "]".repeat(depth)
+            )
+        };
+        let refusal = |depth: usize| match built(py, &wrapped(depth)) {
+            Err(refusal) => refusal.to_string(),
+            Ok(schema) => panic!("{depth} layers built {schema}"),
+        };
+        assert!(refusal(7).contains("TypedDict qualifier"), "{}", refusal(7));
+        assert!(refusal(8).contains("nesting is too deep"), "{}", refusal(8));
+    });
+}
+
+/// A `TypedDict` qualifier is refused where a class takes it as a parameter's
+/// default, as where it takes it as an argument, and `Required` or
+/// `NotRequired` as `extra_items`, which PEP 728 calls an error.
+#[test]
+fn a_qualifier_as_a_default_or_as_extra_items_is_refused() {
+    Python::attach(|py| {
+        let namespace = namespace(py).expect("the corpus namespace builds");
+        let mut source = String::from(
+            "import typing\n\
+             class Extra(typing.TypedDict):\n\
+             \x20   a: int\n\
+             Extra.__extra_items__ = typing.NotRequired[int]\n",
+        );
+        let mut refused = vec![("Extra", "is a presence qualifier")];
+        if Since(13).met(py) {
+            source.push_str(
+                "X = typing.TypeVar('X', default=typing.NotRequired[int])\n\
+                 class HoldsByDefault(typing.TypedDict, typing.Generic[X]):\n\
+                 \x20   a: X\n",
+            );
+            refused.push(("HoldsByDefault", "as the default of X"));
+        }
+        py.run(
+            &CString::new(source).expect("a source with no interior nul"),
+            Some(&namespace),
+            None,
+        )
+        .expect("the corpus classes define");
+        for (name, wanted) in refused {
+            let class = namespace
+                .get_item(name)
+                .expect("the namespace answers")
+                .expect("the class is in it");
+            let refusal = match build_schema(&class, &mut Pool::default(), &mut Vec::new()) {
+                Err(refusal) => refusal.to_string(),
+                Ok(schema) => panic!("{name} built {schema:?}"),
+            };
+            assert!(refusal.contains(wanted), "{name}: {refusal}");
+        }
+    });
+}
+
 /// A `TypedDict` says which keys it admits beyond the ones it declares, and
 /// the two ways it says so are read.
 #[test]
@@ -2431,7 +2765,10 @@ fn a_typed_dict_says_which_other_keys_it_admits() {
                  Closed.__closed__ = True\n\
                  class Extra(typing.TypedDict):\n\
                  \x20   name: str\n\
-                 Extra.__extra_items__ = int\n",
+                 Extra.__extra_items__ = int\n\
+                 class Worded(typing.TypedDict):\n\
+                 \x20   name: str\n\
+                 Worded.__extra_items__ = 'int | None'\n",
             )
             .expect("a source with no interior nul"),
             Some(&namespace),
@@ -2447,6 +2784,9 @@ fn a_typed_dict_says_which_other_keys_it_admits() {
             ("Closed", "{'name': str}"),
             // `extra_items` types the rest rather than admitting anything.
             ("Extra", "{'name': str, str: int}"),
+            // A string there is the type expression it spells, resolved as
+            // the class's own annotations are, never the literal of its text.
+            ("Worded", "{'name': str, str: None | int}"),
         ] {
             let annotation = namespace
                 .get_item(name)
@@ -2594,19 +2934,8 @@ fn a_typed_dict_inherits_the_tail_its_base_states() {
 fn a_class_is_read_through_what_it_declares() {
     Python::attach(|py| {
         let namespace = namespace(py).expect("the corpus namespace builds");
-        // `NotRequired` reaches `typing` in 3.11, so the key it marks is
-        // declared where the interpreter has the marker to declare it with --
-        // the class is written the way a caller writes it, rather than built
-        // and then patched. Below 3.11 the record is the required half alone,
-        // which is the record that release gives a caller for this class.
-        let optional = Since(11).met(py);
-        let note = if optional {
-            "\x20   note: typing.NotRequired[int]\n"
-        } else {
-            ""
-        };
         py.run(
-            &CString::new(format!(
+            &CString::new(
                 "import dataclasses, typing\n\
                  @dataclasses.dataclass\n\
                  class Point:\n\
@@ -2614,8 +2943,8 @@ fn a_class_is_read_through_what_it_declares() {
                  \x20   tag: typing.ClassVar[str] = 'p'\n\
                  class Row(typing.TypedDict):\n\
                  \x20   name: str\n\
-                 {note}"
-            ))
+                 \x20   note: typing.NotRequired[int]\n",
+            )
             .expect("a source with no interior nul"),
             Some(&namespace),
             None,
@@ -2627,14 +2956,7 @@ fn a_class_is_read_through_what_it_declares() {
             ("Point", "Point"),
             // A `TypedDict` is a record, open as the typing spec defines
             // one, and `NotRequired` marks the key rather than its type.
-            (
-                "Row",
-                if optional {
-                    "{'name': str, 'note?': int, str: anything}"
-                } else {
-                    "{'name': str, str: anything}"
-                },
-            ),
+            ("Row", "{'name': str, 'note?': int, str: anything}"),
         ] {
             let annotation = namespace
                 .get_item(name)
@@ -2686,82 +3008,51 @@ fn a_qualifier_states_required_ness_only_from_the_outside() {
             ("int", None),
             ("list[int]", None),
             ("typing.Annotated[int, 1]", None),
-        ] {
-            assert_eq!(answer(expression), wanted, "{expression}");
-        }
-        // Every other row names a marker `typing` gained in 3.11, so each
-        // carries the release it needs: below it the name is an
-        // `AttributeError` and the row would be about the interpreter rather
-        // than about the walk. The rows themselves are what every lane above
-        // the floor drives.
-        for (since, expression, wanted) in [
             // Stated, and read.
-            (Since(11), "typing.Required[int]", Some(true)),
-            (Since(11), "typing.NotRequired[int]", Some(false)),
+            ("typing.Required[int]", Some(true)),
+            ("typing.NotRequired[int]", Some(false)),
             // Stated behind a qualifier that carries no answer of its own.
-            (
-                Since(11),
-                "typing.Required[typing.Annotated[int, 1]]",
-                Some(true),
-            ),
+            ("typing.Required[typing.Annotated[int, 1]]", Some(true)),
             // The one the walk must not read through: `list` is not a field
             // qualifier, so the search ends at it and never sees the
             // `Required` it holds.
-            (Since(11), "list[typing.Required[int]]", None),
+            ("list[typing.Required[int]]", None),
             // `Annotated` carries no answer of its own either, and what it
             // annotates may be the qualifier.
-            (
-                Since(11),
-                "typing.Annotated[typing.NotRequired[int], 1]",
-                Some(false),
-            ),
-            (
-                Since(11),
-                "typing.Annotated[typing.Required[int], 1]",
-                Some(true),
-            ),
-            (Since(11), "dict[str, typing.NotRequired[int]]", None),
+            ("typing.Annotated[typing.NotRequired[int], 1]", Some(false)),
+            ("typing.Annotated[typing.Required[int], 1]", Some(true)),
+            ("dict[str, typing.NotRequired[int]]", None),
             // A qualifier nested in itself says once what it says twice.
-            (
-                Since(11),
-                "typing.Required[typing.Required[int]]",
-                Some(true),
-            ),
-            (
-                Since(11),
-                "typing.NotRequired[typing.NotRequired[int]]",
-                Some(false),
-            ),
+            ("typing.Required[typing.Required[int]]", Some(true)),
+            ("typing.NotRequired[typing.NotRequired[int]]", Some(false)),
         ] {
-            if since.met(py) {
-                assert_eq!(answer(expression), wanted, "{expression}");
-            }
+            assert_eq!(answer(expression), wanted, "{expression}");
         }
         // And the walk reads on below the first that answers, so the opposite
         // one under it is found, through an `Annotated` between, and refused.
-        if Since(11).met(py) {
-            for expression in [
-                "typing.Required[typing.NotRequired[int]]",
-                "typing.NotRequired[typing.Required[int]]",
-                "typing.Required[typing.Annotated[typing.NotRequired[int], 1]]",
-            ] {
-                let hint = py
-                    .eval(
-                        &CString::new(expression).expect("no interior nul"),
-                        Some(&namespace),
-                        None,
-                    )
-                    .expect(expression);
-                assert!(qualified_required(&hint).is_err(), "{expression}");
-            }
+        for expression in [
+            "typing.Required[typing.NotRequired[int]]",
+            "typing.NotRequired[typing.Required[int]]",
+            "typing.Required[typing.Annotated[typing.NotRequired[int], 1]]",
+        ] {
+            let hint = py
+                .eval(
+                    &CString::new(expression).expect("no interior nul"),
+                    Some(&namespace),
+                    None,
+                )
+                .expect(expression);
+            assert!(qualified_required(&hint).is_err(), "{expression}");
         }
     });
 }
 
 /// A form `typing_extensions` spells with an object of its own reads as its
-/// `typing` spelling does: `Any` the top, `Never` the bottom, an alias its
-/// aliased type, a qualifier the type it qualifies, `Unpack` a tuple's tail,
-/// and `Self` a construct to refuse.
+/// `typing` spelling does: an alias its aliased type, `ReadOnly` the type it
+/// qualifies, and `Unpack` a tuple's tail. The forms every supported release
+/// spells in `typing` are `typing`'s own objects there -- `Any` the top,
+/// `Never` the bottom, a presence qualifier the type it qualifies, and `Self` a
+/// construct to refuse.
 ///
 /// The module is the installed one where there is one. The corpora run on an
 /// interpreter's own standard library, so where there is none a stand-in
@@ -2780,17 +3071,16 @@ fn a_typing_extensions_form_reads_as_its_typing_spelling() {
               \x20   extensions = types.ModuleType('typing_extensions')\n\
               \x20   class _SpecialForm:\n\
               \x20       pass\n\
-              \x20   class Any:\n\
-              \x20       pass\n\
               \x20   class TypeAliasType:\n\
               \x20       def __init__(self, name, value):\n\
               \x20           self.__name__ = name\n\
               \x20           self.__value__ = value\n\
               \x20           self.__type_params__ = ()\n\
-              \x20   for name in ('Never', 'Self', 'Required', 'NotRequired', 'ReadOnly', 'Unpack'):\n\
+              \x20   for name in ('Any', 'Never', 'Self', 'Required', 'NotRequired'):\n\
+              \x20       setattr(extensions, name, getattr(typing, name))\n\
+              \x20   for name in ('ReadOnly', 'Unpack'):\n\
               \x20       setattr(extensions, name, _SpecialForm())\n\
               \x20   extensions._SpecialForm = _SpecialForm\n\
-              \x20   extensions.Any = Any\n\
               \x20   extensions.TypeAliasType = TypeAliasType\n\
               \x20   sys.modules['typing_extensions'] = extensions\n\
               \x20   stand_in = True\n\
@@ -2898,9 +3188,6 @@ fn a_bare_generic_alias_unpacked_names_its_unbound_parameter() {
 #[test]
 fn a_qualifier_under_an_annotated_keeps_its_marker() {
     Python::attach(|py| {
-        if !Since(11).met(py) {
-            return;
-        }
         let record = built(
             py,
             "typing.TypedDict('Row', {'a': typing.Annotated[typing.NotRequired[int], at.Ge(0)], \
@@ -2923,9 +3210,6 @@ fn a_qualifier_under_an_annotated_keeps_its_marker() {
 #[test]
 fn a_field_is_built_from_the_hint_below_its_top_qualifiers() {
     Python::attach(|py| {
-        if !Since(11).met(py) {
-            return;
-        }
         let namespace = namespace(py).expect("the namespace builds");
         let eval = |expression: &str| {
             py.eval(
@@ -3082,9 +3366,6 @@ rusty_fork_test! {
     #[test]
     fn typing_unpack_reads_where_typing_extensions_was_never_loaded() {
         Python::attach(|py| {
-            if !Since(11).met(py) {
-                return;
-            }
             let loaded = py
                 .import("sys")
                 .and_then(|sys| sys.getattr("modules"))
@@ -3120,5 +3401,109 @@ fn a_key_schema_written_twice_is_refused() {
             "{refused}"
         );
         assert!(built(py, "{int: str, str: bytes}").is_ok());
+    });
+}
+
+/// A class's name stands for its atom beside a declaration only where the name
+/// builds that pair. A dataclass and a named tuple print as their names, and so
+/// does `instance_of(C)` met with the very record `C` declares; a class met with
+/// a shape or a record it does not declare prints whole, since its name alone
+/// reads back as more than the meet admits. A generic class applied prints
+/// whole too: its name is refused where a field needs the argument.
+#[test]
+fn a_class_names_only_the_pair_its_name_builds() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"import dataclasses, typing\n\
+              T = typing.TypeVar('T')\n\
+              @dataclasses.dataclass\n\
+              class Point:\n\
+              \x20   x: int\n\
+              @dataclasses.dataclass\n\
+              class Box(typing.Generic[T]):\n\
+              \x20   x: T\n\
+              IntBox = Box[int]\n\
+              class Pair(typing.NamedTuple):\n\
+              \x20   a: int\n\
+              class Plain:\n\
+              \x20   pass\n",
+            c"render_pairs.py",
+            c"render_pairs",
+        )
+        .expect("the classes define");
+        let mut pool = Pool::default();
+        let mut defs = Vec::new();
+        let mut build = |name: &str| {
+            let annotation = module.getattr(name).expect("the class is defined");
+            build_schema(&annotation, &mut pool, &mut defs).expect("the class builds")
+        };
+        let (point, pair, plain, int_box) = (
+            build("Point"),
+            build("Pair"),
+            build("Plain"),
+            build("IntBox"),
+        );
+        let (point_class, point_record) = point.object_class().expect("a dataclass is a pair");
+        let (pair_class, _) = pair.object_class().expect("a named tuple is a pair");
+        let named_str = Schema::attr_record(vec![valgebra_core::Attribute {
+            name: "x".into(),
+            schema: Schema::Str,
+        }]);
+        for (schema, wanted) in [
+            (point.clone(), "Point"),
+            (pair.clone(), "Pair"),
+            (
+                Schema::meet([Schema::Instance(point_class), point_record.clone()]),
+                "Point",
+            ),
+            (
+                Schema::meet([plain.clone(), point_record.clone()]),
+                "intersection(Plain, object(x=int))",
+            ),
+            (
+                Schema::meet([plain, Schema::list(SeqShape::homogeneous(Schema::Int))]),
+                "intersection(list[int], Plain)",
+            ),
+            (
+                Schema::meet([Schema::Instance(point_class), named_str]),
+                "intersection(instance_of(Point), object(x=str))",
+            ),
+            (
+                Schema::meet([
+                    Schema::Instance(pair_class),
+                    Schema::tuple(SeqShape::fixed([Schema::Bool])),
+                ]),
+                "intersection(tuple[bool], instance_of(Pair))",
+            ),
+            (int_box, "intersection(instance_of(Box), object(x=int))"),
+        ] {
+            assert_eq!(
+                render(py, &schema, pool.items(), &defs).expect("it renders"),
+                wanted
+            );
+        }
+    });
+}
+
+/// The marker cache keeps the types it reads up to its bound and no further:
+/// a program building a marker class per call grows it to
+/// [`MAX_MARKER_TYPES`] and stops there, each type past it read afresh.
+#[test]
+fn the_marker_cache_stops_at_its_bound() {
+    Python::attach(|py| {
+        let make = py.get_type::<pyo3::types::PyType>();
+        for at in 0..=MAX_MARKER_TYPES {
+            let class = make
+                .call1((
+                    format!("Marker{at}"),
+                    pyo3::types::PyTuple::empty(py),
+                    pyo3::types::PyDict::new(py),
+                ))
+                .unwrap();
+            Probes::of(&class.call0().unwrap()).unwrap();
+        }
+        let held = CARRIED.get(py).expect("read").bind(py).len();
+        assert_eq!(held, MAX_MARKER_TYPES);
     });
 }

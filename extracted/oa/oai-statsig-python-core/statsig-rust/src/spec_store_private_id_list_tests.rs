@@ -32,7 +32,12 @@ fn update(name: &str, body: Option<&str>) -> (String, IdListUpdate) {
 
 #[tokio::test]
 async fn staged_append_and_deletion_survive_config_and_unchanged_list_publications() {
-    let store = store(Some(true));
+    for format in [None, Some(true)] {
+        check_staged_append_and_deletion(store(format));
+    }
+}
+
+fn check_staged_append_and_deletion(store: SpecStore) {
     store.did_receive_id_list_updates(HashMap::from([
         update("kept", Some("+AAAAAAAA\n")),
         update("removed", Some("+obsolete\n")),
@@ -42,6 +47,7 @@ async fn staged_append_and_deletion_survive_config_and_unchanged_list_publicatio
         &base,
         HashMap::from([update("kept", Some("+BBBBBBBB\n"))]),
         IdListPublicationMode::Replace,
+        1,
     );
 
     store
@@ -63,11 +69,13 @@ async fn staged_append_and_deletion_survive_config_and_unchanged_list_publicatio
     assert!(Arc::ptr_eq(&base, &store.load_data().id_lists));
 
     store
-        .publish_staged_id_lists(
-            &base,
+        .commit_id_lists(
+            Some(&base),
             staged,
             HashMap::new(),
+            "Network",
             IdListPublicationMode::Replace,
+            LOCK_TIMEOUT,
         )
         .unwrap();
     let data = store.load_data();
@@ -83,13 +91,19 @@ async fn staged_append_and_deletion_survive_config_and_unchanged_list_publicatio
 
 #[test]
 fn staged_append_cannot_replace_an_installed_snapshot_with_the_same_cursor() {
-    let store = store(Some(true));
+    for format in [None, Some(true)] {
+        check_superseded_append(store(format));
+    }
+}
+
+fn check_superseded_append(store: SpecStore) {
     store.did_receive_id_list_updates(HashMap::from([update("members", Some("+AAAAAAAA\n"))]));
     let base = store.load_data().id_lists.clone();
     let staged = store.updated_id_lists(
         &base,
         HashMap::from([update("members", Some("+BBBBBBBB\n"))]),
         IdListPublicationMode::Replace,
+        1,
     );
     let discarded = Arc::downgrade(&staged);
 
@@ -115,11 +129,13 @@ fn staged_append_cannot_replace_an_installed_snapshot_with_the_same_cursor() {
 
     // An empty observation map would clear the winner's propagation state if applied.
     assert!(matches!(
-        store.publish_staged_id_lists(
-            &base,
+        store.commit_id_lists(
+            Some(&base),
             staged,
             HashMap::new(),
-            IdListPublicationMode::Replace
+            "Network",
+            IdListPublicationMode::Replace,
+            LOCK_TIMEOUT,
         ),
         Err(StatsigErr::InvalidOperation(_))
     ));
@@ -133,11 +149,110 @@ fn staged_append_cannot_replace_an_installed_snapshot_with_the_same_cursor() {
 }
 
 #[test]
-fn concurrent_private_callbacks_preserve_independent_appends() {
-    let store = store(Some(true));
-    store.did_receive_id_list_updates(HashMap::from([update("a", None), update("b", None)]));
+fn size_gauges_follow_accepted_list_updates() {
+    use crate::observability::ops_stats::{OpsStatsEvent, OpsStatsEventObserver};
+
+    // Read the published OpsStats events synchronously to check their ordering.
+    struct Observer;
+    impl ObservabilityClient for Observer {
+        fn init(&self) {}
+        fn increment(&self, _: String, _: f64, _: Option<HashMap<String, String>>) {}
+        fn gauge(&self, _: String, _: f64, _: Option<HashMap<String, String>>) {}
+        fn dist(&self, _: String, _: f64, _: Option<HashMap<String, String>>) {}
+        fn error(&self, _: String, _: String) {}
+        fn should_enable_high_cardinality_for_this_tag(&self, _: String) -> Option<bool> {
+            None
+        }
+        fn to_ops_stats_event_observer(self: Arc<Self>) -> Arc<dyn OpsStatsEventObserver> {
+            self
+        }
+    }
+    let observer: Arc<dyn ObservabilityClient> = Arc::new(Observer);
+    let store = SpecStore::new(
+        "list-size-publication",
+        String::new(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&StatsigOptions {
+            enable_id_list_access_metrics: Some(true),
+            observability_client: Some(Arc::downgrade(&observer)),
+            ..Default::default()
+        }),
+    );
+    let mut events = store.ops_stats.subscribe_for_test();
+    let mut sizes = || {
+        let mut samples = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            if let OpsStatsEvent::Observability(event) = event {
+                if event.metric_name == "id_list_size" {
+                    assert!(matches!(event.metric_type, MetricType::Gauge));
+                    samples.push((event.tags.unwrap()["id_list_name"].clone(), event.value));
+                }
+            }
+        }
+        samples.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        samples
+    };
+
+    store.did_receive_id_list_updates(HashMap::from([update("disabled", Some("+AAAAAAAA\n"))]));
+    assert!(sizes().is_empty());
+    store
+        .global_configs
+        .as_ref()
+        .unwrap()
+        .set_sdk_configs(HashMap::from([("id_list_access_metrics".into(), 1.into())]));
+    store.did_receive_id_list_updates(HashMap::from([
+        update("members", Some("+AAAAAAAA\n+BBBBBBBB\n")),
+        update("empty", None),
+    ]));
+    assert_eq!(sizes(), [("empty".into(), 0.0), ("members".into(), 2.0)]);
     let base = store.load_data().id_lists.clone();
-    let owners = Arc::strong_count(&base);
+    // A shared manifest can rotate a URL or remove a list without changing membership.
+    let mut members = base["members"].clone();
+    members.metadata.url.push_str("?new-signature");
+    store
+        .did_receive_id_list_snapshot(
+            HashMap::from([("members".into(), members.clone())]),
+            HashMap::new(),
+        )
+        .unwrap();
+    assert!(sizes().is_empty());
+
+    // Even with the same file metadata, a newly installed body has a new size.
+    Arc::make_mut(&mut members.ids).remove("BBBBBBBB");
+    store
+        .did_receive_id_list_snapshot(HashMap::from([("members".into(), members)]), HashMap::new())
+        .unwrap();
+    assert_eq!(sizes(), [("members".into(), 1.0)]);
+    let stale = store.updated_id_lists(
+        &base,
+        HashMap::from([update("members", Some("+CCCCCCCC\n"))]),
+        IdListPublicationMode::Replace,
+        1,
+    );
+    assert!(matches!(
+        store.commit_id_lists(
+            Some(&base),
+            stale,
+            HashMap::new(),
+            "Network",
+            IdListPublicationMode::Replace,
+            LOCK_TIMEOUT
+        ),
+        Err(StatsigErr::InvalidOperation(_))
+    ));
+    assert!(sizes().is_empty());
+}
+
+#[test]
+fn concurrent_private_callbacks_preserve_independent_appends() {
+    for format in [None, Some(true)] {
+        check_concurrent_appends(store(format));
+    }
+}
+
+fn check_concurrent_appends(store: SpecStore) {
+    store.did_receive_id_list_updates(HashMap::from([update("a", None), update("b", None)]));
     let commit = store.update_lock.lock();
     std::thread::scope(|scope| {
         let first = scope.spawn(|| {
@@ -146,17 +261,17 @@ fn concurrent_private_callbacks_preserve_independent_appends() {
                 update("b", None),
             ]));
         });
-        // Stop the first callback between pinning its base and committing. The next
-        // callback must still wait to select its base, even if it uses the other hook.
+        // Hold the first callback at commit. A second writer must still wait
+        // before selecting the list snapshot to append to.
         let deadline = Instant::now() + LOCK_TIMEOUT;
-        while Arc::strong_count(&base) == owners {
+        while !store.id_list_propagation.is_locked() {
             assert!(
                 Instant::now() < deadline,
-                "first callback did not pin the catalog"
+                "first callback did not reach publication"
             );
             std::thread::yield_now();
         }
-        assert!(store.private_id_list_mutation.as_ref().unwrap().is_locked());
+        assert!(store.id_list_mutation.is_locked());
         let second = scope.spawn(|| {
             store.try_receive_id_list_updates_with_propagation(
                 HashMap::from([update("a", None), update("b", Some("+BBBBBBBB\n"))]),
@@ -202,4 +317,40 @@ async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
             });
         }
     });
+}
+
+#[test]
+fn contended_hash_and_shared_writers_finish_without_publishing() {
+    let hash = store(None);
+    let shared = store(None);
+    shared.did_receive_id_list_updates(HashMap::from([update("members", Some("+AAAAAAAA\n"))]));
+    let (done, result) = std::sync::mpsc::channel();
+    std::thread::scope(|scope| {
+        let _mutation = hash.id_list_mutation.lock();
+        let _propagation = shared.id_list_propagation.lock();
+        scope.spawn(|| {
+            hash.try_receive_id_list_updates_with_propagation(
+                HashMap::from([update("members", Some("+AAAAAAAA\n"))]),
+                HashMap::new(),
+            )
+            .unwrap();
+            done.send(()).unwrap();
+        });
+        scope.spawn(|| {
+            assert!(matches!(
+                shared.did_receive_id_list_snapshot(HashMap::new(), HashMap::new()),
+                Err(StatsigErr::LockFailure(_))
+            ));
+            done.send(()).unwrap();
+        });
+        // Release the guards even if a regression would otherwise hang the test.
+        for _ in 0..2 {
+            result
+                .recv_timeout(LOCK_TIMEOUT * 2)
+                .expect("writer did not respect the lock timeout");
+        }
+    });
+    assert!(hash.get_current_id_list_metadata().is_empty());
+    let data = shared.load_data();
+    assert!(data.id_lists["members"].ids.contains("AAAAAAAA"));
 }

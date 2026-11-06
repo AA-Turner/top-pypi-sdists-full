@@ -77,6 +77,29 @@ class TreasuryResource:
         """Get balance"""
         return self._client._get("/v1/balance")
 
+    def get_auto_recharge(self) -> dict[str, Any]:
+        """Get auto-recharge settings"""
+        return self._client._get("/v1/balance/auto-recharge")
+
+    def update_auto_recharge(
+        self,
+        *,
+        enabled: bool | None = None,
+        below_cents: int | None = None,
+        to_cents: int | None = None,
+        monthly_limit_cents: Any | None = None,
+        alert_below_cents: Any | None = None,
+    ) -> dict[str, Any]:
+        """Update auto-recharge settings"""
+        payload = self._build_payload(
+            enabled=enabled,
+            below_cents=below_cents,
+            to_cents=to_cents,
+            monthly_limit_cents=monthly_limit_cents,
+            alert_below_cents=alert_below_cents,
+        )
+        return self._client._patch("/v1/balance/auto-recharge", data=payload)
+
     def create_topup(
         self,
         amount_cents: int,
@@ -106,18 +129,24 @@ class TreasuryResource:
         )
         return self._client._get("/v1/balance/top-ups", params=params)
 
-    def get_topup_card_fee(
-        self, *, payment_method_id: str | None = None
-    ) -> dict[str, Any]:
-        """Get the card fee for a top-up"""
-        params = self._build_params(
-            payment_method_id=payment_method_id,
+    def preview_topup(self, amount_cents: int) -> dict[str, Any]:
+        """Preview a top-up's tax"""
+        payload = self._build_payload(
+            amount_cents=amount_cents,
         )
-        return self._client._get("/v1/balance/top-ups/card-fee", params=params)
+        return self._client._post("/v1/balance/top-ups/preview", data=payload)
 
     def get_topup_receipt(self, topup_id: str) -> dict[str, Any]:
         """Get a top-up receipt"""
         return self._client._get(f"/v1/balance/top-ups/{topup_id}/receipt")
+
+    def get_topup_invoice(self, topup_id: str) -> dict[str, Any]:
+        """Get a top-up invoice"""
+        return self._client._get(f"/v1/balance/top-ups/{topup_id}/invoice")
+
+    def get_topup_statement(self, topup_id: str) -> dict[str, Any]:
+        """Get a top-up invoice (alias)"""
+        return self._client._get(f"/v1/balance/top-ups/{topup_id}/statement")
 
     def confirm_topup(self, topup_id: str) -> dict[str, Any]:
         """Confirm a top-up"""
@@ -184,6 +213,29 @@ class TreasuryResource:
         """Get balance (async)"""
         return await self._client._aget("/v1/balance")
 
+    async def aget_auto_recharge(self) -> dict[str, Any]:
+        """Get auto-recharge settings (async)"""
+        return await self._client._aget("/v1/balance/auto-recharge")
+
+    async def aupdate_auto_recharge(
+        self,
+        *,
+        enabled: bool | None = None,
+        below_cents: int | None = None,
+        to_cents: int | None = None,
+        monthly_limit_cents: Any | None = None,
+        alert_below_cents: Any | None = None,
+    ) -> dict[str, Any]:
+        """Update auto-recharge settings (async)"""
+        payload = self._build_payload(
+            enabled=enabled,
+            below_cents=below_cents,
+            to_cents=to_cents,
+            monthly_limit_cents=monthly_limit_cents,
+            alert_below_cents=alert_below_cents,
+        )
+        return await self._client._apatch("/v1/balance/auto-recharge", data=payload)
+
     async def acreate_topup(
         self,
         amount_cents: int,
@@ -215,18 +267,24 @@ class TreasuryResource:
         )
         return await self._client._aget("/v1/balance/top-ups", params=params)
 
-    async def aget_topup_card_fee(
-        self, *, payment_method_id: str | None = None
-    ) -> dict[str, Any]:
-        """Get the card fee for a top-up (async)"""
-        params = self._build_params(
-            payment_method_id=payment_method_id,
+    async def apreview_topup(self, amount_cents: int) -> dict[str, Any]:
+        """Preview a top-up's tax (async)"""
+        payload = self._build_payload(
+            amount_cents=amount_cents,
         )
-        return await self._client._aget("/v1/balance/top-ups/card-fee", params=params)
+        return await self._client._apost("/v1/balance/top-ups/preview", data=payload)
 
     async def aget_topup_receipt(self, topup_id: str) -> dict[str, Any]:
         """Get a top-up receipt (async)"""
         return await self._client._aget(f"/v1/balance/top-ups/{topup_id}/receipt")
+
+    async def aget_topup_invoice(self, topup_id: str) -> dict[str, Any]:
+        """Get a top-up invoice (async)"""
+        return await self._client._aget(f"/v1/balance/top-ups/{topup_id}/invoice")
+
+    async def aget_topup_statement(self, topup_id: str) -> dict[str, Any]:
+        """Get a top-up invoice (alias) (async)"""
+        return await self._client._aget(f"/v1/balance/top-ups/{topup_id}/statement")
 
     async def aconfirm_topup(self, topup_id: str) -> dict[str, Any]:
         """Confirm a top-up (async)"""

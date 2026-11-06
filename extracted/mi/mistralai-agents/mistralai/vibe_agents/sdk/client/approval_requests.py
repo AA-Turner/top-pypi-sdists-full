@@ -38,61 +38,61 @@ _HINTS = frozenset(str(field.alias) for field in ToolAnnotations.model_fields.va
 class ApprovalTool(BaseModel):
     """The tool that an approval is for.
 
-    ``id`` is the tool's stable id, the one permission rules use, such as ``"file_system.bash"``,
-    ``"client.open_case"``, ``"billing.charge"`` or ``"github.create_issue"``. ``name`` is the name
-    the model called, which changes with how it called the tool (``deploy_service`` directly,
-    ``tools.client.deploy_service`` from ``run_typescript``), so decide on ``id``, never on ``name``.
-    ``kind`` says where the tool comes from: ``"builtin"`` for the runtime's own
-    tools, ``"client"`` for the agent's ``@agents.tool`` and client tools, ``"mcp"`` for an MCP
-    server's, ``"connector"`` for a Mistral connector's, ``"plugin"`` for any other, and an
-    :class:`UnknownValue` for a kind a newer host added.
-
-    ``description``, ``input_schema`` and ``output_schema`` are the tool's, as the model reads
-    them; they are ``None`` for builtins, and ``output_schema`` for a tool that declares none.
-    ``definition`` is the tool's definition. For a tool of the agent or of one of its subagents,
-    it is the tool object the agent was given, such as the one ``@agents.tool`` returned; it is
-    ``None`` on a session handle that does not hold the agent's tools. For an MCP server's or a
-    connector's tool, it is an ``agents.ToolDefinition`` of the whole tool as the server listed
-    it, such as its ``title``, ``annotations``, ``output_schema`` and ``meta``, with the server's
-    name as ``source``; the host sends it, so it is there with or without the agent, unless the
-    host runs a Harness older than the SDK. It is ``None`` for the other tools. Each kind has
-    ``display_title``, the name to show people.
-
-    ``annotations`` are the hints the tool declares, such as ``read_only_hint``: those of
-    ``annotations=`` on ``@agents.tool``, ``agents.PythonTool`` and ``agents.client_tool``, and
-    those an MCP server or a connector declares for its tool. The host sends them with the
-    approval, so every approver reads the same ones, with or without the agent. A hint the tool
-    does not declare takes MCP's default, which assumes the worst: a policy that allows only
-    read-only tools allows a tool only if it declares ``read_only_hint=True``.
+    Decide on ``id``, never on ``name``: ``name`` changes with how the model called the tool. A hint
+    the tool does not declare in ``annotations`` takes MCP's default, which assumes the worst.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     id: str
+    """The tool's stable ID, the one permission rules use, such as ``"file_system.bash"``,
+    ``"client.open_case"``, ``"billing.charge"`` or ``"github.create_issue"``."""
     name: str
+    """The name the model called, which changes with how it called the tool: ``deploy_service``
+    directly, ``tools.client.deploy_service`` from ``run_typescript``."""
     kind: ApprovalToolKind | UnknownValue
+    """Where the tool comes from: ``"builtin"`` for the agent's built-in tools, ``"client"`` for the agent's
+    ``@agents.tool`` and client tools, ``"mcp"`` for an MCP server's, ``"connector"`` for a Mistral
+    connector's, ``"plugin"`` for any other, or an :class:`UnknownValue` for a kind added after your SDK version."""
     description: str | None = None
+    """The tool's description, as the model reads it; ``None`` for builtins."""
     input_schema: dict[str, JsonValue] | None = None
+    """The JSON Schema of the tool's input, as the model reads it; ``None`` for builtins."""
     output_schema: dict[str, JsonValue] | None = None
+    """The JSON Schema of the tool's output; ``None`` for builtins and for a tool that declares none."""
     definition: _Tool | ToolDefinition | None = None
+    """The tool's definition. For a tool of the agent or of one of its subagents, the tool object the
+    agent was given, such as the one ``@agents.tool`` returned; ``None`` on a session handle that does not
+    hold the agent's tools. For an MCP server's or a connector's tool, an ``agents.ToolDefinition`` of the
+    whole tool as the server listed it, such as its ``title``, ``annotations``, ``output_schema`` and
+    ``meta``, with the server's name as ``source``, with or without the agent. ``None`` for the other tools. Every
+    definition has ``display_title``, the tool's name to show people."""
     annotations: ToolAnnotations = ToolAnnotations()
+    """The hints the tool declares, such as ``read_only_hint``: those of ``annotations=`` on
+    ``@agents.tool``, ``agents.PythonTool`` and ``agents.client_tool``, and those an MCP server or a
+    connector declares for its tool. The approval carries them, so every approver reads the
+    same ones, with or without the agent. A hint the tool does not declare takes MCP's default, which
+    assumes the worst: a policy that allows only read-only tools allows a tool only if it declares
+    ``read_only_hint=True``."""
 
 
 class ApprovalRequest(BaseModel):
-    """A tool call that waits for an approval. The ids are in the handler's ``ctx``.
+    """A tool call that waits for an approval. The IDs are in the handler's ``ctx``.
 
-    ``tool`` is the tool the call is for. ``hook`` is the name of the ``pre_tool_call`` hook that asked for the
-    approval, or ``None`` when the agent's permission policy asked. A hook's approval cannot be
-    allowed for the session: answer it with ``AllowApproval()``, once. ``input`` is the arguments
-    of the call, as the model wrote them.
+    A hook's approval cannot be allowed for the session. Answer it with ``AllowApproval()``, once.
     """
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     tool: ApprovalTool
+    """The tool the call is for."""
     hook: str | None = None
+    """The name of the ``pre_tool_call`` hook that asked for the approval, or ``None`` when the agent's
+    permission policy asked."""
     title: str
+    """The question to show a person, such as ``"Allow bash?"``."""
     input: JsonValue = None
+    """The arguments of the call: the model's, or the ones a ``pre_tool_call`` hook set."""
 
 
 # A handle made without the agent has no tool objects.
@@ -100,7 +100,7 @@ NO_TOOLS: Mapping[str, _Tool] = types.MappingProxyType({})
 
 
 def tools_by_id(tools: Iterable[_Tool]) -> Mapping[str, _Tool]:
-    """``tools`` by the id the host gives a tool, ``<namespace>.<name>``. A tool id that two
+    """``tools`` by the ID the host gives a tool, ``<namespace>.<name>``. A tool ID that two
     different objects share has no tool object."""
     by_id: dict[str, _Tool | None] = {}
     for tool in tools:
@@ -110,14 +110,14 @@ def tools_by_id(tools: Iterable[_Tool]) -> Mapping[str, _Tool]:
 
 
 def approval_request(callback: harness_session.ApprovalCallback, tools: Mapping[str, _Tool]) -> ApprovalRequest:
-    """The request of ``callback``, with its tool object from ``tools`` by tool id."""
+    """The request of ``callback``, with its tool object from ``tools`` by tool ID."""
     return ApprovalRequest(
         tool=approval_tool(callback, tools), hook=callback.hook, title=callback.title, input=callback.input
     )
 
 
 def approval_tool(callback: harness_session.ApprovalCallback, tools: Mapping[str, _Tool]) -> ApprovalTool:
-    """The tool of ``callback``, with its tool object from ``tools`` by tool id."""
+    """The tool of ``callback``, with its tool object from ``tools`` by tool ID."""
     tool_id = callback.tool_id or callback.name or ""
     name = callback.name or tool_id
     return ApprovalTool(

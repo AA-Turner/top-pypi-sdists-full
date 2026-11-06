@@ -243,11 +243,6 @@ def build_parser() -> argparse.ArgumentParser:
                    help="check it here and on the platform without building anything: the request and the files it "
                         "uploads, what the platform says of it, and a policy's price per hour, day and month "
                         "(without an API key or a connection: the checks here alone)")
-    p.add_argument("--region", default=None, metavar="REGION",
-                   help="where a policy's machines run, over the decorator's region=: auto (the default - the "
-                        "region nearest each robot, else wherever a card is available), or one of the platform's "
-                        "regions its card runs in (`seq gpus` lists them) - there alone, a robot waiting while no card "
-                        "is available there")
     p.add_argument("--no-wait", dest="wait", action="store_false", default=True,
                    help="return once the build has started (follow it with `seq policy status <name> --wait`, a "
                         "benchmark's with `seq benchmark status <name> --wait`)")
@@ -427,8 +422,9 @@ def build_parser() -> argparse.ArgumentParser:
                                         "refused - deploy the new code")
     _upgrade_args(p, "deployment")
     p = psub.add_parser("rollback", help="serve a kept earlier version again: it serves from now on, nothing rebuilt; "
-                                          "robots move at their next episode, after a cold start when none of its "
-                                          "workers runs; a version still building is dropped")
+                                          "robots on another version are disconnected, and each connects again to "
+                                          "reach it, after a cold start when none of its workers runs; a version "
+                                          "still building is dropped")
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the deployment, or NAME@vN for that kept version as `seq policy versions` lists it (default: "
                         "the version before the one serving)")
@@ -525,7 +521,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("key", help="the key's id, the first characters of it, or its last four")
     p.add_argument("--expires", choices=KEY_EXPIRIES, default=None, help="when it lapses, from today")
     p.add_argument("--limit", default=None, metavar="USD|none", help="what it may spend in all; none removes the limit")
-    kysub.add_parser("revoke", help="revoke a key: it opens nothing from now on").add_argument(
+    kysub.add_parser("revoke", help="revoke a key: it opens nothing within 30 s").add_argument(
         "key", help="the key's id, the first characters of it, or its last four")
     bsub = _group(ap, sub, "benchmark", "Your registered benchmarks (register one with `seq deploy <folder>`).")
     p = bsub.add_parser("upgrade", help="move a benchmark registered from a template to the template's newer version "
@@ -564,10 +560,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the benchmark, or NAME@vN for that version: the latest, or the latest that passed its check - "
                         "the two whose tasks are kept (default: the current one)")
-    p = bsub.add_parser("shell", help="run one command on a machine of a version of the benchmark - in its image, on "
-                                      "the card it declares: one its last check left warm, else one opened for it - "
+    p = bsub.add_parser("shell", help="run one command on a machine of the benchmark's newest version - in its image, on "
+                                      "the card it declares: one up already, else one opened for it - "
                                       "its output printed, its exit code this command's")
-    p.add_argument("name", metavar="NAME[@vN]", help="the benchmark name; NAME@vN: that version (default: its newest)")
+    p.add_argument("name", metavar="NAME", help="the benchmark name: a shell runs on its newest version alone")
     p.add_argument("--timeout", type=float, default=30.0, metavar="SECONDS",
                    help="its time limit, up to 120 s (default 30)")
     p.add_argument("--stop", action="store_true",
@@ -581,10 +577,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wait", action="store_true", help="poll until the build reaches ready / failed")
     p.add_argument("--timeout", type=float, default=None, help="seconds to wait with --wait (default 3600, and up to 3 "
                    "hours while its build log still moves)")
-    p = bsub.add_parser("cancel", help="stop the benchmark's registration in flight: its check's machine ends now, none "
-                                       "of its check is billed, and evals run the version before it",
+    p = bsub.add_parser("cancel", help="stop the benchmark's registration in flight: its machines end now, billed for "
+                                       "what they ran until then, and evals run the version before it",
                         description="Stop a benchmark's registration in flight: the version it was registering is "
-                                    "canceled, its check ends if it started and none of it is billed, and evals run "
+                                    "canceled, its machines end, billed for what they ran until then, and evals run "
                                     "the version before it if one passed its check.")
     p.add_argument("name", help="the benchmark name")
     p = bsub.add_parser("rm", help="delete a benchmark for good: what it stores goes, its name and quota place are free at "
@@ -727,8 +723,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--endpoint", choices=["chat", "decide"], default=None,
                    help="only the models answering on it (a plan's model call: --endpoint chat)")
     sub.add_parser("gpus", description="The cards gpu= can name: memory, price per hour, whether a policy and a "
-                                       "benchmark may use it, the regions a policy on it runs in, RT cores, video "
-                                       "encoding; and what a CPU core and a GiB of memory cost.")
+                                       "benchmark may use it, RT cores, video encoding; and what a CPU core and a "
+                                       "GiB of memory cost.")
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
                                                  "the payment method its bill goes to, and your GPUs: the limit, how "
                                                  "many serving, evals, "

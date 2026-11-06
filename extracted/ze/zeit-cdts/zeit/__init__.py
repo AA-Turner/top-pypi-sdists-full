@@ -23,7 +23,7 @@ from ._recovery import recovery_metrics
 from ._ewmacd import ewmacd
 from ._beast import beast
 from .metrics import extract_events, agreement
-from ._accuracy import sampling_design, stratified_sample, accuracy
+from ._accuracy import sampling_design, stratified_sample, accuracy, transitions
 from ._ccdc import predict_synthetic_image
 from ._twdtw_api import twdtw
 
@@ -34,6 +34,7 @@ from ._profile import ErrorProfile, error_profile
 from ._hotspots import emerging_hotspots
 from .segmentation import snic_grid, snic_to_polygons
 from ._snic_api import snic
+from ._texture_api import texture
 from ._som_api import som, clean_samples
 from ._smooth import smooth
 from .masks import extract_water_mask
@@ -99,9 +100,9 @@ __all__ = [
     "ccdc", "sccd",
     "bfast_monitor", "bfast_lite", "bfast", "mann_kendall", "phenology",
     "ar_trend", "parts", "recovery_metrics", "ewmacd", "beast",
-    "twdtw", "smooth", "tmask", "snic", "som", "clean_samples", "unmix", "coded",
+    "twdtw", "smooth", "tmask", "snic", "texture", "som", "clean_samples", "unmix", "coded",
     "extract_events", "agreement", "predict_synthetic_image",
-    "sampling_design", "stratified_sample", "accuracy",
+    "sampling_design", "stratified_sample", "accuracy", "transitions",
     "train_classifier", "classify",
     "apply_mmu_filter", "apply_majority_filter", "mmu_sieve", "smooth_probs", "desawtooth_classes",
     "aoa", "train_di", "TrainDI",

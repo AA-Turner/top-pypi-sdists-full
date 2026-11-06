@@ -6,6 +6,7 @@ from collections import UserDict, defaultdict, namedtuple
 from billiard.common import TERM_SIGNAME
 from kombu.utils.encoding import safe_repr
 
+from celery import states
 from celery.exceptions import WorkerShutdown
 from celery.platforms import EX_OK
 from celery.platforms import signals as _signals
@@ -123,11 +124,14 @@ def _find_requests_by_id(ids,
 
 def _state_of_task(request,
                    is_active=worker_state.active_requests.__contains__,
-                   is_reserved=worker_state.reserved_requests.__contains__):
+                   is_reserved=worker_state.reserved_requests.__contains__,
+                   is_scheduled=worker_state.scheduled_requests.__contains__):
     if is_active(request):
         return 'active'
     elif is_reserved(request):
         return 'reserved'
+    elif is_scheduled(request):
+        return 'scheduled'
     return 'ready'
 
 
@@ -198,8 +202,11 @@ def revoke_by_stamped_headers(state, headers, terminate=False, signal=None, **kw
             # if so, check if any stamps match a revoked stamp
             for expected_header_key, expected_header_value in headers.items():
                 if expected_header_key in req.stamps:
+                    actual_header = req.stamps.get(expected_header_key)
+                    if actual_header is None:
+                        continue
                     expected_header_value = maybe_list(expected_header_value)
-                    actual_header = maybe_list(req.stamps[expected_header_key])
+                    actual_header = maybe_list(actual_header)
                     matching_stamps_for_request = set(actual_header) & set(expected_header_value)
                     # Check any possible match regardless if the stamps are a sequence or not
                     if matching_stamps_for_request:
@@ -216,10 +223,25 @@ def _revoke(state, task_ids, terminate=False, signal=None, **kwargs):
     terminated = set()
 
     worker_state.revoked.update(task_ids)
+    requests_by_id = {request.id: request for request in _find_requests_by_id(task_ids)}
 
     for task_id in task_ids:
+        request = requests_by_id.get(task_id)
+        if request and request in worker_state.active_requests:
+            continue
+        # Tasks may override their backend.
+        backend = request.task.backend if request else state.app.backend
         try:
-            state.app.backend.mark_as_revoked(task_id, reason='revoked', store_result=True)
+            task_state = backend.get_state(task_id)
+            if task_state in states.READY_STATES:
+                # The task already has a result (or the chord error handler
+                # failed it on its behalf); a revoke must not overwrite it.
+                continue
+            if task_state not in (states.PENDING, states.RECEIVED, states.RETRY, states.REJECTED):
+                # Another worker started the task (STARTED, or a custom state
+                # it set), so leave its state to that worker.
+                continue
+            backend.mark_as_revoked(task_id, reason='revoked', store_result=True)
         except Exception as exc:
             logger.warning('Failed to mark task %s as revoked in backend: %s', task_id, exc)
 
@@ -345,6 +367,8 @@ def election(state, id, topic, action=None, **kwargs):
 def enable_events(state):
     """Tell worker(s) to send task-related events."""
     dispatcher = state.consumer.event_dispatcher
+    if dispatcher is None:
+        return nok('event dispatcher unavailable')
     if dispatcher.groups and 'task' not in dispatcher.groups:
         dispatcher.groups.add('task')
         logger.info('Events of group {task} enabled by remote.')
@@ -356,6 +380,8 @@ def enable_events(state):
 def disable_events(state):
     """Tell worker(s) to stop sending task-related events."""
     dispatcher = state.consumer.event_dispatcher
+    if dispatcher is None:
+        return nok('event dispatcher unavailable')
     if 'task' in dispatcher.groups:
         dispatcher.groups.discard('task')
         logger.info('Events of group {task} disabled by remote.')
@@ -368,7 +394,8 @@ def heartbeat(state):
     """Tell worker(s) to send event heartbeat immediately."""
     logger.debug('Heartbeat requested by remote.')
     dispatcher = state.consumer.event_dispatcher
-    dispatcher.send('worker-heartbeat', freq=5, **worker_state.SOFTWARE_INFO)
+    if dispatcher:
+        dispatcher.send('worker-heartbeat', freq=5, **worker_state.SOFTWARE_INFO)
 
 
 # -- Worker
@@ -382,11 +409,13 @@ def hello(state, from_node, revoked=None, **kwargs):
     if from_node != state.hostname:
         logger.info('sync with %s', from_node)
         if revoked:
-            worker_state.revoked.update(revoked)
+            worker_state.merge_revoked(revoked)
         # Do not send expired items to the other worker.
         worker_state.revoked.purge()
         return {
-            'revoked': worker_state.revoked._data,
+            # The ids only, see merge_revoked(): oldest first, so that
+            # a receiver whose set is full evicts our oldest ids first.
+            'revoked': list(worker_state.revoked),
             'clock': state.app.clock.forward(),
         }
 
@@ -464,6 +493,8 @@ def registered(state, taskinfoitems=None, builtins=False, **kwargs):
     """
     reg = state.app.tasks
     taskinfoitems = taskinfoitems or DEFAULT_TASK_INFO_ITEMS
+    taskinfoitems = [item for item in taskinfoitems
+                     if isinstance(item, str) and not item.startswith('_')]
 
     tasks = reg if builtins else (
         task for task in reg if not task.startswith('celery.'))

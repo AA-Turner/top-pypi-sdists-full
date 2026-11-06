@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Sequence, Union
 
-from ...domain.attention.receptions import StoredBlocks
+from ...domain.attention.receptions import FlowStateWrite, StoredBlocks, StoredFlowStates
 from ...models.company.assets.recepcion import Ausencia, Recepcion
 from ...models.utils.types import StrObjectId
 from ..cached_catalog_repository import CachedCatalogById
@@ -32,11 +32,20 @@ class CachedReceptionRepository(CachedCatalogById[Recepcion]):
     async def stored_blocks(self, company_id: StrObjectId, fields: Sequence[str]) -> Optional[StoredBlocks]:
         return await self.inner.stored_blocks(company_id, fields)
 
+    async def flow_states(self, company_id: StrObjectId, *, max_time_ms: int) -> Optional[StoredFlowStates]:
+        return await self.inner.flow_states(company_id, max_time_ms=max_time_ms)
+
+    async def set_flow_state(self, company_id: StrObjectId, state: str, *, account_id: Optional[str] = None,
+                             only_if_missing: bool = False) -> FlowStateWrite:
+        # No clear of the item or the lists: the model does not carry `atencion_estado`, and in `main` this write went
+        # straight to the collection (the state's own cache is api-chatty's).
+        return await self.inner.set_flow_state(company_id, state, account_id=account_id, only_if_missing=only_if_missing)
+
     async def swap_default_block(self, company_id: StrObjectId, reception_id: Any, previous_account_id: str,
                                  to_previous: Dict[str, Any], to_base: Dict[str, Any],
                                  retired_account_id: Optional[str]) -> None:
         await self.inner.swap_default_block(company_id, reception_id, previous_account_id, to_previous, to_base,
                                             retired_account_id)
         # Not `assets.invalidate`: in `main` this clear was not wrapped, so a Redis that fails here fails the request.
-        await self.assets.cache.delete_many(
-            [self.assets.item_key(str(reception_id)), *self.assets.list_keys(str(company_id))])
+        await self.assets.drop([self.assets.item_key(str(reception_id)), *self.assets.list_keys(str(company_id))],
+                               on_failure=None)

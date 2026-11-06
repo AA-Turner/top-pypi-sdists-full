@@ -3840,6 +3840,128 @@ class Client(OpenApiClient):
         headers = dingtalkmicro_app__1__0_models.ListInnerAppVersionHeaders()
         return await self.list_inner_app_version_with_options_async(agent_id, headers, runtime)
 
+    def list_inner_web_apps_with_options(
+        self,
+        request: dingtalkmicro_app__1__0_models.ListInnerWebAppsRequest,
+        headers: dingtalkmicro_app__1__0_models.ListInnerWebAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse:
+        """
+        @summary 获取企业内部网页应用列表
+        
+        @param request: ListInnerWebAppsRequest
+        @param headers: ListInnerWebAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListInnerWebAppsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.app_type):
+            query['app_type'] = request.app_type
+        if not UtilClient.is_unset(request.offset):
+            query['offset'] = request.offset
+        if not UtilClient.is_unset(request.size):
+            query['size'] = request.size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListInnerWebApps',
+            version='microApp_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/microApp/innerWebApps',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse(),
+            self.execute(params, req, runtime)
+        )
+
+    async def list_inner_web_apps_with_options_async(
+        self,
+        request: dingtalkmicro_app__1__0_models.ListInnerWebAppsRequest,
+        headers: dingtalkmicro_app__1__0_models.ListInnerWebAppsHeaders,
+        runtime: util_models.RuntimeOptions,
+    ) -> dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse:
+        """
+        @summary 获取企业内部网页应用列表
+        
+        @param request: ListInnerWebAppsRequest
+        @param headers: ListInnerWebAppsHeaders
+        @param runtime: runtime options for this request RuntimeOptions
+        @return: ListInnerWebAppsResponse
+        """
+        UtilClient.validate_model(request)
+        query = {}
+        if not UtilClient.is_unset(request.app_type):
+            query['app_type'] = request.app_type
+        if not UtilClient.is_unset(request.offset):
+            query['offset'] = request.offset
+        if not UtilClient.is_unset(request.size):
+            query['size'] = request.size
+        real_headers = {}
+        if not UtilClient.is_unset(headers.common_headers):
+            real_headers = headers.common_headers
+        if not UtilClient.is_unset(headers.x_acs_dingtalk_access_token):
+            real_headers['x-acs-dingtalk-access-token'] = UtilClient.to_jsonstring(headers.x_acs_dingtalk_access_token)
+        req = open_api_models.OpenApiRequest(
+            headers=real_headers,
+            query=OpenApiUtilClient.query(query)
+        )
+        params = open_api_models.Params(
+            action='ListInnerWebApps',
+            version='microApp_1.0',
+            protocol='HTTP',
+            pathname=f'/v1.0/microApp/innerWebApps',
+            method='GET',
+            auth_type='AK',
+            style='ROA',
+            req_body_type='none',
+            body_type='json'
+        )
+        return TeaCore.from_map(
+            dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse(),
+            await self.execute_async(params, req, runtime)
+        )
+
+    def list_inner_web_apps(
+        self,
+        request: dingtalkmicro_app__1__0_models.ListInnerWebAppsRequest,
+    ) -> dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse:
+        """
+        @summary 获取企业内部网页应用列表
+        
+        @param request: ListInnerWebAppsRequest
+        @return: ListInnerWebAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkmicro_app__1__0_models.ListInnerWebAppsHeaders()
+        return self.list_inner_web_apps_with_options(request, headers, runtime)
+
+    async def list_inner_web_apps_async(
+        self,
+        request: dingtalkmicro_app__1__0_models.ListInnerWebAppsRequest,
+    ) -> dingtalkmicro_app__1__0_models.ListInnerWebAppsResponse:
+        """
+        @summary 获取企业内部网页应用列表
+        
+        @param request: ListInnerWebAppsRequest
+        @return: ListInnerWebAppsResponse
+        """
+        runtime = util_models.RuntimeOptions()
+        headers = dingtalkmicro_app__1__0_models.ListInnerWebAppsHeaders()
+        return await self.list_inner_web_apps_with_options_async(request, headers, runtime)
+
     def list_pending_publish_audits_with_options(
         self,
         request: dingtalkmicro_app__1__0_models.ListPendingPublishAuditsRequest,

@@ -150,14 +150,20 @@ class ClientToolCall:
     ``name`` is the tool's ID, its namespace then the name it was declared with, such as
     ``client.get_weather`` (``client`` is the default namespace) or ``ui.get_location``: the same
     as ``agents.ToolCall.name`` in ``Completed.tool_calls``.
-    ``arguments`` is the object the model passed, not validated: the handler checks it.
+    ``arguments`` holds the call's arguments, not validated: the model's, or the ones a
+    ``pre_tool_call`` hook set. The handler checks them.
 
     A tool with its own answer in ``agents.ClientToolAnswers`` never reaches the default handler:
     its answer wins.
     """
 
     name: str
+    """The tool's ID, its namespace then the name it was declared with, such as
+    ``client.get_weather`` (``client`` is the default namespace) or ``ui.get_location``: the same
+    as ``agents.ToolCall.name`` in ``Completed.tool_calls``."""
     arguments: JsonValue
+    """The call's arguments, not validated: the model's, or the ones a ``pre_tool_call`` hook set.
+    The handler checks them."""
 
 
 def client_tool_call(callback: ClientToolCallback) -> ClientToolCall:
@@ -186,8 +192,18 @@ class ClientToolAnswers:
     tool's stub. ``default`` gets the calls of every other client tool, as a plain
     ``on_client_tool=`` handler does: a tool's own answer wins over it.
 
+    A plain function runs in a separate thread, so a blocking call such as ``input()`` does not stop
+    the session. An ``async def`` one runs on the event loop: do not block in it. The answers also
+    get the client tool calls of the session's subagents.
+
     Raises ``SdkError`` here when two answers are for the same tool. Before the session starts, the
-    Agent raises ``SdkError`` for an answer to a stub that is not one of its tools or its subagents'.
+    agent raises ``SdkError`` for an answer to a stub that is not one of its tools or its subagents'.
+    A deployed agent loaded with ``Agent.load_from`` skips that check: it has no tool objects.
+
+    Args:
+        answers: The answers, each from ``<tool>.answer(function)``, one per tool.
+        default: The handler of every other client tool call. ``None`` leaves those calls open: the
+            run returns ``Blocked``.
     """
 
     __slots__ = ("_answers", "_default")

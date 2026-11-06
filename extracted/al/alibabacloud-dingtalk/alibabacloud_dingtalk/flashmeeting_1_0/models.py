@@ -1504,3 +1504,316 @@ class GetTaskFromShanhuiDocResponse(TeaModel):
         return self
 
 
+class ListUserMeetingsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListUserMeetingsRequest(TeaModel):
+    def __init__(
+        self,
+        create_time_from: int = None,
+        create_time_to: int = None,
+        keyword: str = None,
+        list_type: str = None,
+        next_token: str = None,
+        order: str = None,
+        page_size: int = None,
+        user_id: str = None,
+    ):
+        self.create_time_from = create_time_from
+        self.create_time_to = create_time_to
+        self.keyword = keyword
+        # This parameter is required.
+        self.list_type = list_type
+        self.next_token = next_token
+        # This parameter is required.
+        self.order = order
+        # This parameter is required.
+        self.page_size = page_size
+        # This parameter is required.
+        self.user_id = user_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.create_time_from is not None:
+            result['createTimeFrom'] = self.create_time_from
+        if self.create_time_to is not None:
+            result['createTimeTo'] = self.create_time_to
+        if self.keyword is not None:
+            result['keyword'] = self.keyword
+        if self.list_type is not None:
+            result['listType'] = self.list_type
+        if self.next_token is not None:
+            result['nextToken'] = self.next_token
+        if self.order is not None:
+            result['order'] = self.order
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        if self.user_id is not None:
+            result['userId'] = self.user_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('createTimeFrom') is not None:
+            self.create_time_from = m.get('createTimeFrom')
+        if m.get('createTimeTo') is not None:
+            self.create_time_to = m.get('createTimeTo')
+        if m.get('keyword') is not None:
+            self.keyword = m.get('keyword')
+        if m.get('listType') is not None:
+            self.list_type = m.get('listType')
+        if m.get('nextToken') is not None:
+            self.next_token = m.get('nextToken')
+        if m.get('order') is not None:
+            self.order = m.get('order')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        if m.get('userId') is not None:
+            self.user_id = m.get('userId')
+        return self
+
+
+class ListUserMeetingsResponseBodyResultItems(TeaModel):
+    def __init__(
+        self,
+        create_time: int = None,
+        creator: str = None,
+        end_time: int = None,
+        flashmeeting_key: str = None,
+        has_summary: str = None,
+        start_time: int = None,
+        title: str = None,
+        url: str = None,
+    ):
+        self.create_time = create_time
+        self.creator = creator
+        self.end_time = end_time
+        # This parameter is required.
+        self.flashmeeting_key = flashmeeting_key
+        self.has_summary = has_summary
+        self.start_time = start_time
+        # This parameter is required.
+        self.title = title
+        # This parameter is required.
+        self.url = url
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.create_time is not None:
+            result['createTime'] = self.create_time
+        if self.creator is not None:
+            result['creator'] = self.creator
+        if self.end_time is not None:
+            result['endTime'] = self.end_time
+        if self.flashmeeting_key is not None:
+            result['flashmeetingKey'] = self.flashmeeting_key
+        if self.has_summary is not None:
+            result['hasSummary'] = self.has_summary
+        if self.start_time is not None:
+            result['startTime'] = self.start_time
+        if self.title is not None:
+            result['title'] = self.title
+        if self.url is not None:
+            result['url'] = self.url
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('createTime') is not None:
+            self.create_time = m.get('createTime')
+        if m.get('creator') is not None:
+            self.creator = m.get('creator')
+        if m.get('endTime') is not None:
+            self.end_time = m.get('endTime')
+        if m.get('flashmeetingKey') is not None:
+            self.flashmeeting_key = m.get('flashmeetingKey')
+        if m.get('hasSummary') is not None:
+            self.has_summary = m.get('hasSummary')
+        if m.get('startTime') is not None:
+            self.start_time = m.get('startTime')
+        if m.get('title') is not None:
+            self.title = m.get('title')
+        if m.get('url') is not None:
+            self.url = m.get('url')
+        return self
+
+
+class ListUserMeetingsResponseBodyResult(TeaModel):
+    def __init__(
+        self,
+        has_more: bool = None,
+        items: List[ListUserMeetingsResponseBodyResultItems] = None,
+        next_token: str = None,
+        total: int = None,
+    ):
+        # This parameter is required.
+        self.has_more = has_more
+        # This parameter is required.
+        self.items = items
+        # This parameter is required.
+        self.next_token = next_token
+        # This parameter is required.
+        self.total = total
+
+    def validate(self):
+        if self.items:
+            for k in self.items:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        result['items'] = []
+        if self.items is not None:
+            for k in self.items:
+                result['items'].append(k.to_map() if k else None)
+        if self.next_token is not None:
+            result['nextToken'] = self.next_token
+        if self.total is not None:
+            result['total'] = self.total
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        self.items = []
+        if m.get('items') is not None:
+            for k in m.get('items'):
+                temp_model = ListUserMeetingsResponseBodyResultItems()
+                self.items.append(temp_model.from_map(k))
+        if m.get('nextToken') is not None:
+            self.next_token = m.get('nextToken')
+        if m.get('total') is not None:
+            self.total = m.get('total')
+        return self
+
+
+class ListUserMeetingsResponseBody(TeaModel):
+    def __init__(
+        self,
+        result: ListUserMeetingsResponseBodyResult = None,
+        success: bool = None,
+    ):
+        # This parameter is required.
+        self.result = result
+        # This parameter is required.
+        self.success = success
+
+    def validate(self):
+        if self.result:
+            self.result.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.result is not None:
+            result['result'] = self.result.to_map()
+        if self.success is not None:
+            result['success'] = self.success
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('result') is not None:
+            temp_model = ListUserMeetingsResponseBodyResult()
+            self.result = temp_model.from_map(m['result'])
+        if m.get('success') is not None:
+            self.success = m.get('success')
+        return self
+
+
+class ListUserMeetingsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListUserMeetingsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListUserMeetingsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+

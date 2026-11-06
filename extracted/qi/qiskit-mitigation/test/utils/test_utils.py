@@ -14,22 +14,26 @@
 
 from __future__ import annotations
 
+import copy
 import unittest
+import warnings
 
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.circuit import BoxOp, CircuitInstruction, Gate
-from qiskit.quantum_info import SparsePauliOp
+from qiskit.circuit import CircuitInstruction
+from qiskit.quantum_info import PauliLindbladMap, SparsePauliOp
 from qiskit_mitigation import PEC, MitigationTask
 from qiskit_mitigation.trex import TREX
 from qiskit_mitigation.utils.utils import (
-    _find_box_type,
     find_combined_unique_layers,
     load_tasks_from_result,
 )
 from qiskit_mitigation.zne.gate_folding import GateFolding
 from qiskit_mitigation.zne.pea import PEA
-from samplomatic.quantum_program import QuantumProgramResult
+from samplomatic.quantum_program import QuantumProgram, QuantumProgramResult
+from samplomatic.utils import find_unique_box_instructions
+
+from ..trim_helpers import eigenstate_circuit, layer_refs
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -346,92 +350,6 @@ class TestLoadTasksFromResultMitigationTypes(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# find_box_type — unit tests
-# ---------------------------------------------------------------------------
-
-
-class TestFindBoxType(unittest.TestCase):
-    """Tests for find_box_type using real boxed circuits."""
-
-    def setUp(self):
-        self.circuit = _simple_circuit()
-
-    def _get_all_boxes(self, circuit: QuantumCircuit) -> list[CircuitInstruction]:
-        """Box a circuit with MitigationTask and return all CircuitInstructions."""
-        boxed = MitigationTask._box_circuit(circuit, None)
-        return [instr for instr in boxed if instr.operation.name == "box"]
-
-    def test_find_box_type_raises_for_non_box_instruction(self):
-        """find_box_type must raise ValueError when passed a non-box instruction."""
-        # Iterate to find an instruction that is NOT a box
-        # Use a simple gate circuit without boxing to get a non-box instruction
-        plain = QuantumCircuit(2)
-        plain.h(0)
-        for instr in plain:
-            with self.assertRaises(ValueError):
-                _find_box_type(instr)
-            break  # only test the first non-box instruction
-
-    def test_measurement_box_has_type_measurement(self):
-        """A box that contains measurement operations must return 'measurement'."""
-        boxes = self._get_all_boxes(self.circuit)
-        measurement_boxes = [b for b in boxes if len(b.clbits) > 0]
-        self.assertTrue(len(measurement_boxes) > 0, "Expected at least one measurement box")
-        for box in measurement_boxes:
-            self.assertEqual(_find_box_type(box), "measurement")
-
-    def test_gate_box_has_type_gates(self):
-        """A box that contains only standard gates must return 'gates'."""
-        boxes = self._get_all_boxes(self.circuit)
-        gate_boxes = [b for b in boxes if len(b.clbits) == 0]
-        self.assertTrue(len(gate_boxes) > 0, "Expected at least one gate-only box")
-        for box in gate_boxes:
-            self.assertEqual(_find_box_type(box), "gates")
-
-    def test_pec_gate_box_has_type_gates(self):
-        """Gate boxes produced by PEC boxing must also return 'gates'."""
-        boxed = PEC._box_circuit(self.circuit, None)
-        gate_boxes = [
-            instr for instr in boxed if instr.operation.name == "box" and len(instr.clbits) == 0
-        ]
-        self.assertTrue(len(gate_boxes) > 0, "PEC boxing should produce at least one gate box")
-        for box in gate_boxes:
-            self.assertEqual(_find_box_type(box), "gates")
-
-    def test_return_value_is_string(self):
-        """_find_box_type must always return a string."""
-        boxes = self._get_all_boxes(self.circuit)
-        for box in boxes:
-            result = _find_box_type(box)
-            self.assertIsInstance(result, str)
-
-    def test_return_value_is_known_type(self):
-        """_find_box_type must return one of the recognised type strings."""
-        known_types = {"gates", "measurement"}
-        boxes = self._get_all_boxes(self.circuit)
-        for box in boxes:
-            self.assertIn(_find_box_type(box), known_types)
-
-    def test_empty_body_box_returns_gates(self):
-        """A box with zero body instructions must return ``'gates'``."""
-
-        # BoxOp wrapping an empty circuit produces a body with len == 0
-        empty_box = BoxOp(QuantumCircuit(1))
-        instr = CircuitInstruction(operation=empty_box, qubits=[], clbits=[])
-        self.assertEqual(_find_box_type(instr), "gates")
-
-    def test_gate_only_body_returns_gates(self):
-        """A box whose body contains only gates (no measurements) must return ``'gates'``."""
-
-        custom = Gate("mygate", 1, [])
-        inner = QuantumCircuit(1)
-        inner.append(custom, [0])
-        box = BoxOp(inner)
-        instr = CircuitInstruction(operation=box, qubits=[], clbits=[])
-        self.assertEqual(_find_box_type(instr), "gates")
-
-
-# ---------------------------------------------------------------------------
 # find_combined_unique_layers — argument validation
 # ---------------------------------------------------------------------------
 
@@ -491,14 +409,14 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
             [self.circuit, self.circuit], mitigation_types=tasks, box_types="all"
         )
         # PEC boxing adds an extra gate box; combined result has gates + measurement types
-        types = {_find_box_type(layer) for layer in combined_layers}
+        types = {MitigationTask._find_box_type(layer) for layer in combined_layers}
         self.assertIn("gates", types)
         self.assertIn("measurement", types)
 
     def test_all_without_mitigation_types(self):
         """box_types='all' without mitigation_types defaults to MitigationTask boxing."""
         layers = find_combined_unique_layers([self.circuit, self.circuit], box_types="all")
-        types = {_find_box_type(layer) for layer in layers}
+        types = {MitigationTask._find_box_type(layer) for layer in layers}
         self.assertIn("gates", types)
         self.assertIn("measurement", types)
 
@@ -508,7 +426,7 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
             [self.circuit], mitigation_types=[MitigationTask()], box_types="all"
         )
         self.assertTrue(len(layers) > 0)
-        types = {_find_box_type(layer) for layer in layers}
+        types = {MitigationTask._find_box_type(layer) for layer in layers}
         self.assertIn("gates", types)
         self.assertIn("measurement", types)
 
@@ -518,7 +436,7 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
             [self.circuit], mitigation_types=[PEC()], box_types="all"
         )
         self.assertTrue(len(layers) > 0)
-        types = {_find_box_type(layer) for layer in layers}
+        types = {MitigationTask._find_box_type(layer) for layer in layers}
         self.assertIn("gates", types)
         self.assertIn("measurement", types)
 
@@ -534,14 +452,14 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(combined_layers) > 0, "Expected at least one gate box")
         for layer in combined_layers:
-            self.assertEqual(_find_box_type(layer), "gates")
+            self.assertEqual(MitigationTask._find_box_type(layer), "gates")
 
     def test_gates_only_without_mitigation_types(self):
         """box_types='gates' without mitigation_types returns only gate boxes."""
         layers = find_combined_unique_layers([self.circuit, self.circuit], box_types="gates")
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "gates")
+            self.assertEqual(MitigationTask._find_box_type(layer), "gates")
 
     def test_gates_only_with_single_mitigation_task(self):
         """box_types='gates' with a single MitigationTask returns only gate boxes."""
@@ -550,7 +468,7 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "gates")
+            self.assertEqual(MitigationTask._find_box_type(layer), "gates")
 
     def test_gates_only_with_single_pec(self):
         """box_types='gates' with a single PEC task returns only gate boxes."""
@@ -559,7 +477,7 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "gates")
+            self.assertEqual(MitigationTask._find_box_type(layer), "gates")
 
     # --- box_types='measurement' ---
 
@@ -573,14 +491,14 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(combined_layers) > 0, "Expected at least one measurement box")
         for layer in combined_layers:
-            self.assertEqual(_find_box_type(layer), "measurement")
+            self.assertEqual(MitigationTask._find_box_type(layer), "measurement")
 
     def test_measurement_only_without_mitigation_types(self):
         """box_types='measurement' without mitigation_types returns only measurement boxes."""
         layers = find_combined_unique_layers([self.circuit, self.circuit], box_types="measurement")
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "measurement")
+            self.assertEqual(MitigationTask._find_box_type(layer), "measurement")
 
     def test_measurement_only_with_single_mitigation_task(self):
         """box_types='measurement' with a single MitigationTask returns only measurement boxes."""
@@ -589,7 +507,7 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "measurement")
+            self.assertEqual(MitigationTask._find_box_type(layer), "measurement")
 
     def test_measurement_only_with_single_pec(self):
         """box_types='measurement' with a single PEC task returns only measurement boxes."""
@@ -598,7 +516,220 @@ class TestFindCombinedUniqueLayersWithMitigationTypes(unittest.TestCase):
         )
         self.assertTrue(len(layers) > 0)
         for layer in layers:
-            self.assertEqual(_find_box_type(layer), "measurement")
+            self.assertEqual(MitigationTask._find_box_type(layer), "measurement")
+
+    def test_measurement_boxes_warn_when_a_task_has_a_trex_but_trex_is_false(self):
+        """The measurement boxes would not match those of a task prepared with TREX, so the
+        measurement and all box types warn, unless ``trex=True``. The gate boxes do not."""
+        with_trex = MitigationTask()
+        with_trex.trex = TREX()
+        # Only one of the tasks has a TREX
+        tasks = [MitigationTask(), with_trex]
+        circuits = [self.circuit, self.circuit]
+        for box_types in ("measurement", "all"):
+            with self.subTest(box_types=box_types):
+                with self.assertWarnsRegex(UserWarning, "TREX"):
+                    find_combined_unique_layers(circuits, tasks, box_types=box_types)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    find_combined_unique_layers(circuits, tasks, box_types=box_types, trex=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            find_combined_unique_layers(circuits, tasks, box_types="gates")
+
+    def test_trex_ignores_the_trex_of_the_tasks(self):
+        """The ``trex`` flag alone decides the layers, whether or not the given tasks have a TREX."""
+        task_with_trex = MitigationTask()
+        task_with_trex.trex = TREX()
+        plain = find_combined_unique_layers([self.circuit], mitigation_types=[MitigationTask()])
+        with self.assertWarns(UserWarning):
+            with_task_trex = find_combined_unique_layers(
+                [self.circuit], mitigation_types=[task_with_trex]
+            )
+        self.assertEqual(plain, with_task_trex)
+        flagged = find_combined_unique_layers(
+            [self.circuit], mitigation_types=[MitigationTask()], trex=True
+        )
+        flagged_with_task_trex = find_combined_unique_layers(
+            [self.circuit], mitigation_types=[task_with_trex], trex=True
+        )
+        self.assertEqual(flagged, flagged_with_task_trex)
+        self.assertNotEqual(plain, flagged)
+
+    def _calibration_layer(self, circuits, meas_qubits_list=None, options=None):
+        """Return the measurement layer of the calibration circuit, as ``TREX.prepare`` creates it."""
+        trex = TREX()
+        meas_qubits_list = meas_qubits_list or [None] * len(circuits)
+        cal_qubits = TREX._calibration_qubits(circuits, meas_qubits_list)
+        boxed = trex._prepare_calibration_circuit(
+            max(cal_qubits) + 1, options, cal_qubits, disable_measure_noise_injection=True
+        )
+        return find_unique_box_instructions(
+            instructions=boxed, normalize_annotations=None, undress_boxes=True
+        )
+
+    def test_trex_true_returns_circuit_measurement_layers_and_the_calibration_layer(self):
+        """With ``trex=True`` the measurement layers of the circuits and the TREX calibration
+        layer are all returned, together with the gate layers."""
+        first = QuantumCircuit(3)
+        first.cx(0, 1)
+        second = QuantumCircuit(3)
+        second.cx(1, 2)
+        observables = [[SparsePauliOp("IIZ")], [SparsePauliOp("ZII")]]
+        for box_types, expected_gates, expected_measurements in (
+            ("gates", True, 0),
+            ("measurement", False, 3),
+            ("all", True, 3),
+        ):
+            with self.subTest(box_types=box_types):
+                layers = find_combined_unique_layers(
+                    [first, second], box_types=box_types, observables=observables, trex=True
+                )
+                types = [MitigationTask._find_box_type(x) for x in layers]
+                self.assertEqual(types.count("measurement"), expected_measurements)
+                self.assertEqual("gates" in types, expected_gates)
+        # The circuits measure qubits [0, 1] and [1, 2], the calibration layer measures [0, 1, 2]
+        layers = find_combined_unique_layers(
+            [first, second], box_types="measurement", observables=observables, trex=True
+        )
+        num_measures = sorted(
+            sum(op.operation.name == "measure" for op in layer.operation.body.data)
+            for layer in layers
+        )
+        self.assertEqual(num_measures, [2, 2, 3])
+
+    def test_trex_true_calibration_layer_is_the_one_created_by_prepare(self):
+        """The returned calibration layer is identical to the one ``TREX.prepare`` builds, also
+        when the user asks for noise injection on the measurements."""
+        for options in (
+            None,
+            {"inject_noise_targets": "all"},
+            {"inject_noise_targets": "measures"},
+        ):
+            with self.subTest(options=options):
+                task = MitigationTask()
+                task.circuit = self.circuit
+                task.meas_qubits = None
+                trex = TREX()
+                trex.tasks.append(task)
+                trex.prepare(1, QuantumProgram(shots=1), custom_boxing_options=options)
+                from_prepare = find_unique_box_instructions(
+                    instructions=trex.boxed_circuit, normalize_annotations=None, undress_boxes=True
+                )
+                layers = find_combined_unique_layers(
+                    [self.circuit],
+                    box_types="measurement",
+                    trex=True,
+                    trex_custom_boxing_options=options,
+                )
+                (calibration,) = from_prepare
+                self.assertIn(calibration, layers)
+                self.assertFalse(
+                    any(
+                        type(a).__name__ == "InjectNoise" for a in calibration.operation.annotations
+                    )
+                )
+
+    def test_trex_true_calibration_layer_spans_the_union_of_the_measured_qubits(self):
+        """The calibration layer measures the union of the qubits measured by all the circuits."""
+        first = QuantumCircuit(3)
+        first.x(0)
+        second = QuantumCircuit(3)
+        second.x(2)
+        observables = [[SparsePauliOp("IIZ")], [SparsePauliOp("ZII")]]
+        layers = find_combined_unique_layers(
+            [first, second], box_types="measurement", observables=observables, trex=True
+        )
+        (calibration,) = self._calibration_layer([first, second], [[0], [2]])
+        self.assertIn(calibration, layers)
+        measures = [op for op in calibration.operation.body.data if op.operation.name == "measure"]
+        self.assertEqual(len(measures), 2)
+
+    def test_trex_true_gives_all_the_noise_layers_needed_by_pec_prepare(self):
+        """With noise injection on all the boxes, every layer ``PEC.prepare`` needs is returned,
+        also when the circuits are different and their measurements are trimmed."""
+        first = QuantumCircuit(3)
+        first.h(0)
+        first.cx(0, 1)
+        second = QuantumCircuit(3)
+        second.h(2)
+        second.x(1)
+        circuits = [first, second]
+        observables = [[SparsePauliOp("IZZ")], [SparsePauliOp("ZII")]]
+        options = {"inject_noise_targets": "all"}
+        layers = find_combined_unique_layers(
+            circuits, custom_boxing_options=options, observables=observables, trex=True
+        )
+        noise_maps = {
+            annotation.ref: PauliLindbladMap.from_sparse_list([("Z", [0], 0.01)], len(layer.qubits))
+            for layer in layers
+            for annotation in layer.operation.annotations
+            if type(annotation).__name__ == "InjectNoise"
+        }
+        trex = TREX()
+        program = None
+        for circuit, obs in zip(circuits, observables, strict=True):
+            program = PEC().prepare(
+                circuit,
+                obs,
+                None,
+                custom_boxing_options=options,
+                noise_maps=noise_maps,
+                trex=trex,
+                quantum_program=program,
+                trim_measurements=True,
+                shots_per_randomization=4,
+                num_randomizations=4,
+            )
+
+    def test_trex_true_with_different_task_boxing_options(self):
+        """The task options may differ between circuits, since the calibration circuit does not
+        use them."""
+        layers = find_combined_unique_layers(
+            [self.circuit, self.circuit],
+            custom_boxing_options=[{"inject_noise_targets": "all"}, None],
+            box_types="measurement",
+            trex=True,
+        )
+        self.assertTrue(len(layers) > 0)
+
+    def test_trex_true_calibration_layer_ignores_the_task_boxing_options(self):
+        """The calibration layer depends only on ``trex_custom_boxing_options``."""
+        task_options = {"twirling_strategy": "all", "add_tags": "unique_box"}
+        (calibration,) = self._calibration_layer([self.circuit])
+        layers = find_combined_unique_layers(
+            [self.circuit],
+            custom_boxing_options=task_options,
+            box_types="measurement",
+            trex=True,
+        )
+        self.assertIn(calibration, layers)
+
+    def test_trex_true_with_task_options_valid_only_for_tasks(self):
+        """Task options that TREX does not accept for its own calibration are fine for the tasks."""
+        task_options = {"enable_measures": True, "measure_annotations": "change_basis"}
+        find_combined_unique_layers([self.circuit], custom_boxing_options=task_options, trex=True)
+        with self.assertRaisesRegex(ValueError, "must be `twirl`"):
+            find_combined_unique_layers(
+                [self.circuit], trex=True, trex_custom_boxing_options=task_options
+            )
+
+    def test_trex_custom_boxing_options_without_trex_raises(self):
+        """The TREX options are meaningless when ``trex`` is ``False``."""
+        with self.assertRaisesRegex(ValueError, "trex_custom_boxing_options"):
+            find_combined_unique_layers(
+                [self.circuit], trex_custom_boxing_options={"add_tags": "unique_box"}
+            )
+
+    def test_no_circuits_returns_no_layers(self):
+        """Without circuits there are no layers and no calibration circuit, also with ``trex``."""
+        for kwargs in ({}, {"trex": True}, {"trex": True, "custom_boxing_options": []}):
+            for box_types in ("gates", "measurement", "all"):
+                with self.subTest(box_types=box_types, **kwargs), warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    self.assertEqual(
+                        find_combined_unique_layers([], box_types=box_types, **kwargs), []
+                    )
 
     # --- uniqueness and deduplication ---
 
@@ -666,6 +797,67 @@ class TestTREXCreateInstanceFromPassthroughData(unittest.TestCase):
         """A passthrough dict with no ``'mitigation'`` key must raise ``ValueError``."""
         with self.assertRaises(ValueError):
             TREX.create_instance_from_passthrough_data({})
+
+
+# ---------------------------------------------------------------------------
+# find_combined_unique_layers  -  the ``observables`` argument (trimmed measurements)
+# ---------------------------------------------------------------------------
+
+
+class TestFindCombinedUniqueLayersWithObservables(unittest.TestCase):
+    """``observables`` makes the finder box the circuits with trimmed measurements."""
+
+    def setUp(self):
+        self.circuit = eigenstate_circuit()
+        self.observables = [SparsePauliOp("IIIZ")]
+
+    def test_without_observables_is_unchanged(self):
+        self.assertEqual(
+            find_combined_unique_layers([self.circuit]),
+            find_combined_unique_layers([self.circuit], observables=None),
+        )
+
+    def test_trimming_changes_the_layers(self):
+        full = find_combined_unique_layers([self.circuit], [PEC()])
+        trimmed = find_combined_unique_layers(
+            [self.circuit], [PEC()], observables=[self.observables]
+        )
+        self.assertNotEqual(layer_refs(full), layer_refs(trimmed))
+
+    def test_works_without_mitigation_types(self):
+        layers = find_combined_unique_layers([self.circuit], observables=[self.observables])
+        self.assertGreater(len(layers), 0)
+
+    def test_agrees_with_the_task_method(self):
+        from_function = find_combined_unique_layers(
+            [self.circuit], [PEC()], observables=[self.observables]
+        )
+        from_method = PEC().find_unique_layers(self.circuit, observables=self.observables)
+        self.assertEqual(layer_refs(from_function), layer_refs(from_method))
+
+    def test_observables_length_mismatch_raises(self):
+        with self.assertRaisesRegex(ValueError, "observables"):
+            find_combined_unique_layers([self.circuit], observables=[self.observables] * 2)
+
+    def test_per_circuit_options_with_one_all_entry_warns(self):
+        with self.assertWarns(UserWarning):
+            find_combined_unique_layers(
+                [self.circuit, self.circuit],
+                custom_boxing_options=[{}, {"twirling_strategy": "all"}],
+                observables=[self.observables, self.observables],
+            )
+
+    def test_empty_measured_set_raises(self):
+        with self.assertRaisesRegex(ValueError, "no qubit is active"):
+            find_combined_unique_layers([QuantumCircuit(3)], observables=[[SparsePauliOp("III")]])
+
+    def test_boxing_options_are_not_modified(self):
+        options = {"twirling_strategy": "active"}
+        original = copy.deepcopy(options)
+        find_combined_unique_layers(
+            [self.circuit], custom_boxing_options=options, observables=[self.observables]
+        )
+        self.assertEqual(options, original)
 
 
 if __name__ == "__main__":

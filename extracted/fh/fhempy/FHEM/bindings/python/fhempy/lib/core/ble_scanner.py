@@ -38,6 +38,14 @@ ACTIVE_REFRESH = 900
 # back to continuous scanning after a recovery
 RECOVERY_FALLBACK = 3600
 NO_ADAPTER_RETRY = 600
+# bleak imports its BlueZ backend (dbus_fast) on the first BleakScanner or
+# BleakClient, that takes more than a second on a Raspberry Pi
+BACKEND_MODULES = (
+    "bleak.backends.bluezdbus.scanner",
+    "bleak.backends.bluezdbus.client",
+)
+# another program (or ble_monitor) scans on the adapter right now
+BUSY_RETRY = 60
 # devices seen within this time are found without scanning again
 RECENT_MAX_AGE = 60
 # try passive again, e.g. after BlueZ was restarted with --experimental
@@ -226,6 +234,7 @@ class BleScanner:
         self._changed.clear()
 
     async def _run(self):
+        await load_backend()
         while True:
             try:
                 self._cleanup_recent()
@@ -254,6 +263,15 @@ class BleScanner:
                 self.scanning = ""
                 raise
             except Exception as exc:
+                if "InProgress" in str(exc):
+                    self.scanning = "busy"
+                    self._errors.failed(
+                        "Bluetooth adapter is busy, another program scans "
+                        f"right now, retry in {BUSY_RETRY}s",
+                        traceback=False,
+                    )
+                    await self._wait_changed(BUSY_RETRY)
+                    continue
                 if "No Bluetooth adapters" in str(exc) or "not found" in str(exc):
                     self.scanning = "no adapter"
                 else:
@@ -336,3 +354,11 @@ def seen_by(device, adapter):
         return True
     details = device.details if isinstance(device.details, dict) else {}
     return f"/{adapter}/" in str(details.get("path", ""))
+
+
+async def load_backend():
+    """Import bleak's backend in a thread instead of on the event loop"""
+    if platform.system() != "Linux":
+        return
+    for name in BACKEND_MODULES:
+        await utils.import_module(name)

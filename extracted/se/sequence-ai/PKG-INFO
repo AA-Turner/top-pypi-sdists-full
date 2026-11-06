@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.56.5
+Version: 0.56.8
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -305,22 +305,23 @@ For a multi-gigabyte checkpoint that is minutes — the weights read, the model 
 for one chunk is a few hundred milliseconds. Those two numbers are why connecting is a separate
 call from controlling.
 
-### A worker stays warm for its idle timeout, a minute unless set
+### A worker stays warm while a robot is connected, and for its idle timeout after
 
-After its last act a worker stays for its idle timeout, 60 seconds unless you set the deployment's `idle_timeout`
-(2 seconds to 20 minutes), and every act inside that window is warm.
-The clock restarts on each act, so a loop that keeps acting never goes cold. Cross the window with no
-acts and the worker stops; the next connect pays the cold start again.
+A worker stays up while a robot is connected to it, whether or not that robot acts, with no limit, billed as it runs:
+a robot can stay connected to several policies and act on one at a time, each answering the moment it is asked, each
+billed as its own. Once its last robot disconnects the worker stays for its idle timeout, 60 seconds unless you set the
+deployment's `idle_timeout` (2 seconds to 20 minutes), then ends; the next connect pays a cold start on a new machine,
+every time.
 
 ```
-connect ──► cold start ──► warm ◄────────── 60 s idle timeout ──────────► stopped
-                             ▲                                              │
-                             └────── any act restarts the window ───────────┘
+connect ──► cold start ──► warm while connected ──► disconnect ── 60 s idle timeout ──► ended
+                                                        ▲                  │
+                                                        └── a robot connecting keeps it
 ```
 
-**Why a minute.** A held GPU bills whether or not you call it, and a session with thinking time
-in it is mostly holding: a minute covers a loop's own pauses without paying for the gaps between
-runs. `seq policy set <name> idle_timeout=600` keeps a worker 10 minutes after its last act instead
+**Why a minute.** A held GPU bills whether or not you call it, so close a connection you no longer need: a minute after
+that covers a robot coming back without paying for the gaps between
+runs. `seq policy set <name> idle_timeout=600` keeps a worker 10 minutes after its last robot disconnects instead
 (2 seconds to 20 minutes), billed all the while; `min_workers=1` on `@seq.policy` keeps a worker
 running with no robot connected (no cold start, billed while it runs), and `seq policy set <name>
 schedule.hours="Mon-Fri 08:00-18:00" schedule.min_workers=1` keeps some warm in working hours only.
@@ -416,8 +417,8 @@ killed.
 A robot cut off from the platform for up to about 40 s keeps its slot (up to 60 s when the cut comes just after a
 keepalive, sent every 20 s); one cut off for longer is told on stderr that its slot went, and its next act takes one again or waits in
 line. Ending an episode does not give it back — the same policy acts again — so close the policy when the robot is
-done. Keeping a slot is not keeping a worker: a worker still stops its idle timeout (60 seconds unless set) after
-its last act, and its slots go with it, so a policy left open and unused costs at most that long. A robot whose slot went
+done. Keeping a slot keeps its worker, whether or not the robot acts, with no limit, billed as it runs, so a policy
+left open costs for as long as it stays open. A robot whose slot went
 takes one again at its next act, or waits in line; when a worker has to start for it, `act()` waits for it, within
 `startup_timeout_s`.
 
@@ -762,6 +763,7 @@ Every error the platform sends has one shape — `detail`, `code`, `retryable`, 
 | `NotFound` | `not_found` | no such name — or not yours, which reads the same | 4 |
 | `Gone` | `gone` | retired on purpose; `.replacement` names what to use instead | 4 |
 | `Conflict` | `conflict` | the state is in the way: a name taken; a deployment building, failed or stopped; a limit reached — your account's GPUs all in use is `details["reason"] == "gpu_limit_reached"`, and the message says what serving and evals hold; deleting a secret a deployment still uses is `details["reason"] == "secret_in_use"` with the deployments in `details["deployments"]` (`seq secret rm --force` deletes anyway) | 5 |
+| `NewVersion` | `conflict` | a `Conflict`: a new version went live, or a rollback made another serve, which ended this connection, whatever it was doing: every call on it raises this. `connect()` again reaches the version that serves, `.version` | 5 |
 | `Unavailable` | `busy`, `warming`, `unavailable`, `upstream_error`, `timeout` | worth retrying after `.retry_after_s`; `.warming` means a cold worker and `.queued` a robot in line for a slot — the SDK waits both out on every `act()`, within `startup_timeout_s`; with no GPU available, `details["reason"]` says why (`gpu_busy`, `gpu_limit_reached`, `gpu_low_stock`, `deployment_full`, `in_line`, `queue_timeout`) | 7 |
 | `PolicyError` | `policy_error` | your policy's own code raised, or broke its declared contract; `.remote_traceback` has its frames. A built-in exception (`ValueError`, …) comes back as itself | 1 |
 | `InternalError` | `internal`, `dependency_missing` | ours: report it with `.request_id` | 1 |
@@ -910,10 +912,11 @@ policy as it starts (see below).
 
 ### Where it runs, how long it may take, and what the build is doing
 
-- **`gpu="L4"`** is the one card the deployment runs on. A start waits up to 10 minutes for it to become available and never
-  switches to another card; past it the robot is told which card and how long it waited. A list runs on its first
-  card.
-- Workers start in the region nearest each robot, or in the one `region=` names
+- **`gpu="L4"`** is the one card the deployment runs on. A start waits for it to become available and never switches to
+  another card, which can take more than 10 minutes: one place after another is tried, the robot keeps waiting, and
+  nothing is billed until a machine has its card. A robot every place turns away at once waits in line for the card, and
+  past 10 minutes in line it is told which card and how long it waited. A list runs on its first card.
+- Workers start in the region nearest each robot
   ([below](#state-across-steps-and-more-than-one-robot-at-a-time)).
 - **Time limits are the platform's**: a worker that has not loaded within 30 minutes fails (the build check is held to
   the same), and one inference longer than 300 s is answered `504`; one still running that long again ends its copy,
@@ -1033,19 +1036,16 @@ adapter's `__init__` keywords and a benchmark's constructor keywords the same wa
   for a seat: position 2, …` — for up to two minutes. A loop that has started is never interrupted by a robot
   arriving, and closing the policy gives its slot to the next in line at once. `min_workers=1` keeps that many workers
   running with no robot connected (no cold start, billed while they run); `buffer_workers=1` keeps one spare while
-  robots are connected; an idle worker stops after its idle timeout, 60 seconds unless set. `seq policy set <name>
+  robots are connected; an idle worker ends after its idle timeout, 60 seconds unless set. `seq policy set <name>
   max_gpus=4 min_workers=1 buffer_workers=1` changes those three at once, without a redeploy (see [Settings without a
   redeploy](#settings-without-a-redeploy)), and `seq policy status <name>` shows
   each worker's copies of the model, the robots it seats and those on it, the robots in line, and why a worker died -
   and, under the figure it comes from, what the deployment's own measurements say is worth adding next (a `hint:`
   line), as the console says it in that figure's tip.
-- **Where its machines run — `region=`.** `region="auto"`, the default, starts each robot's worker in the platform's
-  region nearest the robot, and in the next nearest when that one has no card available. A named region keeps every
-  worker in that region: a robot waits while no card is available there, and the deployment's status says which region
-  it waits for. The regions are the platform's own geographic ones — US East, US Northwest, US Southwest, US Central,
-  US East Central, US Southeast, US Mountain — each a metro, never a provider's region; `seq gpus` lists the ones each card runs in.
-  `seq deploy --region us-east` sets it over the decorator's, and `--region auto` back to the default; a region a card
-  has no machine in is refused at deploy, naming the ones that do. Benchmarks and evals take none.
+- **Where its machines run.** Each robot's worker starts in the platform's region nearest the robot, and in the next
+  nearest when that one has no card available. The regions are the platform's own geographic ones — US East,
+  US Northwest, US Southwest, US Central, US East Central, US Southeast, US Mountain — each a metro, never a provider's
+  region.
 
 ### GPUs, limits and what they cost
 
@@ -1068,7 +1068,7 @@ prints the rows alone.
 
 When a request finds no GPU or no seat, the error says which of six things happened, in one sentence:
 your account's GPUs are in use (with what serving and evals hold), every GPU on the platform is busy, no card of the
-type you declared became available within the start's 10 minutes, the deployment holds its `max_gpus`, every seat on
+type you declared became available in the robot's 10 minutes in line, the deployment holds its `max_gpus`, every seat on
 the deployment's workers is taken, or a queued robot waited in line past two minutes.
 `details["reason"]` carries the same as a code (`gpu_limit_reached`, `gpu_busy`, `gpu_low_stock`, `deployment_full`,
 `in_line`, `queue_timeout`).
@@ -1124,14 +1124,15 @@ the deploy payload.
 Deploying a name that already serves never takes it down: the new version builds **beside** the serving
 one, robots keep acting on the old version the whole time, and the new one takes over only once its build
 is ready. A version that fails to build changes nothing — the old one goes on serving, and `seq deploy`
-says so. New sessions go to the new version at once; a robot already acting moves to it at its next episode
-boundary (or its next lease renewal, between episodes), onto a worker started for it in advance.
+says so. The moment the new version takes over, every worker of the old one ends and its robots are disconnected,
+mid-episode too. A robot does not go on by itself: its next call raises `NewVersion`, and `connect()` again reaches the
+new version, on the machine its build was checked on while that one runs.
 
 ```bash
 seq policy ls                        # your deployments: the serving version, one building beside it, the card
                                      #   (50 a page; the last line names the --cursor of the next)
 seq policy versions pi05_ft_user     # v4 building · v3 serving · v2, v1 kept — each with its build
-seq policy rollback pi05_ft_user     # serve the previous version again, nothing rebuilt: robots move at their next episode
+seq policy rollback pi05_ft_user     # serve the previous version again, nothing rebuilt: robots are disconnected, connect() again
 seq policy rollback pi05_ft_user@v1  # or a specific kept version: a version is always NAME@vN
 seq policy stop pi05_ft_user         # emergency stop: every worker ends now, every connect is refused
 seq policy start pi05_ft_user        # let robots connect again
@@ -1159,14 +1160,11 @@ from, who changed it last and when, and how many of its running workers have tak
 KEY=VALUE ...` changes them at once, all of them or none, and says when each takes effect; `KEY=` puts one back to what
 the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name, {"min_workers": 1})`. The keys:
 
-- scaling: `max_gpus`, `min_workers`, `buffer_workers`, `idle_timeout` - how long, in seconds, a worker no robot acts on
-  stays up before it stops, 2 to 1200 and 60 unless set, billed all the while - and warm hours -
+- scaling: `max_gpus`, `min_workers`, `buffer_workers`, `idle_timeout` - how long, in seconds, a worker with no robot connected
+  stays up before it ends, 2 to 1200 and 60 unless set, billed all the while - and warm hours -
   `schedule.hours="Mon-Fri 08:00-18:00"`,
   `schedule.min_workers`, `schedule.tz` - taken at once; the warm hours' workers start before the hours, by the time
-  they take to come up, so they serve as the hours open, and are billed from that start; and `region` - `auto`, each
-  robot's worker in the region nearest it, or one of the platform's regions (`us-east`, `us-east-central`,
-  `us-southeast`, `us-central`, `us-northwest`, `us-southwest`, `us-mountain`), every worker there alone - for the
-  workers placed from then on;
+  they take to come up, so they serve as the hours open, and are billed from that start;
 - `params.<name>=VALUE`: an inference parameter, what every robot runs with - each running worker takes it within a
   minute, for the episodes begun after it (an act carries none);
 - `plan.every_s` - each running worker takes it within a minute;
@@ -1250,7 +1248,6 @@ image       nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04@sha256:131e238d724ee14
   env               OPENPI_DATA_HOME=/data/.cache/openpi
 weights     template://pi05-droid@v1
             → copied before its workers start; your class is handed the directory as weights_dir, such as /srv/ckpt/my_pi05_user: read it from there, never write the path in - where it is depends on the machine its worker runs on
-region      auto: each robot's machine in the region nearest it, else wherever a card is available
 code        the folder ./my_pi05_user, whole: 85 file(s), 1.0 MB (0.31 MB compressed)
             the class it deploys is in policy.py
             .seqignore, CHANGELOG.md, LICENSE, NOTICE, README.md, client.py, frozen.toml, pins-policy.txt, policy.py, requirements-policy.lock, third_party/ (74), upstream.toml
@@ -1385,9 +1382,9 @@ What the platform fixes; everything else is your code's. Each value is what the 
 | GPUs at once | Your plan's: 8 on Starter, 32 on Team, serving and evals together (`seq account` shows them); `max_gpus` caps one deployment. An eval they cannot fit waits in line up to 10 minutes. |
 | A worker going away | Its acts are answered `503 unavailable` (`reason: draining`); the SDK reconnects to another worker and replays the act. |
 | Shutdown | Before a worker is removed, the acts in flight finish and every replica runs `@seq.shutdown` — within 30 s. After that the worker is stopped without further notice. |
-| Scale to zero | A worker stops after its idle timeout with no robot acting: 60 seconds unless its deployment sets another, 2 seconds to 20 minutes. `min_workers` (default 0) keeps some warm. |
+| Scale to zero | A worker ends after its idle timeout with no robot acting: 60 seconds unless its deployment sets another, 2 seconds to 20 minutes. `min_workers` (default 0) keeps some warm. |
 | Cards | The platform's price list names them (`GET /v1/pricing`): A100, A100-40GB, B200, H100, L4, RTX-PRO-6000 and T4 as of 2026-11. A benchmark's sims run on L4, RTX-PRO-6000, T4 or A100, or on CPU machines when it says `gpu="cpu"`. An A100 has no RT cores, so Isaac Sim does not run on it: name an L4 or an RTX-PRO-6000 for an Isaac Sim benchmark. |
-| Regions | A deployment's workers start in the region nearest each robot, or in the one its `region=` names (one of the platform's own geographic regions; `seq gpus` lists the ones each card runs in). A benchmark's and an eval's machines run wherever a card is available. |
+| Regions | A deployment's workers start in the region nearest each robot. A benchmark's and an eval's machines run wherever a card is available. |
 | Billing | Per second of a worker's life: each card for at least 60 s each time the worker starts, plus its CPU cores and GiB of memory at the greater of the request and actual use (the minimum, 0.125 / 0.125, when undeclared). |
 
 ## Install footprint

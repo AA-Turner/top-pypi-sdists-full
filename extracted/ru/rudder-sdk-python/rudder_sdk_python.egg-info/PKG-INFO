@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rudder-sdk-python
-Version: 2.2.0
+Version: 2.2.1
 Summary: RudderStack is an open-source Segment alternative written in Go, built for the enterprise.
 Home-page: https://github.com/rudderlabs/rudder-sdk-python
 Author: RudderStack

@@ -784,11 +784,13 @@ class AsyncCreateContractAnalysisRequestFileInfo(TeaModel):
         file_name: str = None,
         file_type: str = None,
         space_id: str = None,
+        url: str = None,
     ):
         self.file_id = file_id
         self.file_name = file_name
         self.file_type = file_type
         self.space_id = space_id
+        self.url = url
 
     def validate(self):
         pass
@@ -807,6 +809,8 @@ class AsyncCreateContractAnalysisRequestFileInfo(TeaModel):
             result['fileType'] = self.file_type
         if self.space_id is not None:
             result['spaceId'] = self.space_id
+        if self.url is not None:
+            result['url'] = self.url
         return result
 
     def from_map(self, m: dict = None):
@@ -819,6 +823,8 @@ class AsyncCreateContractAnalysisRequestFileInfo(TeaModel):
             self.file_type = m.get('fileType')
         if m.get('spaceId') is not None:
             self.space_id = m.get('spaceId')
+        if m.get('url') is not None:
+            self.url = m.get('url')
         return self
 
 
@@ -4869,6 +4875,7 @@ class CreateContractReviewRequestFileInfo(TeaModel):
         file_size: str = None,
         file_type: str = None,
         space_id: str = None,
+        url: str = None,
     ):
         # This parameter is required.
         self.file_id = file_id
@@ -4877,6 +4884,7 @@ class CreateContractReviewRequestFileInfo(TeaModel):
         self.file_type = file_type
         # This parameter is required.
         self.space_id = space_id
+        self.url = url
 
     def validate(self):
         pass
@@ -4897,6 +4905,8 @@ class CreateContractReviewRequestFileInfo(TeaModel):
             result['fileType'] = self.file_type
         if self.space_id is not None:
             result['spaceId'] = self.space_id
+        if self.url is not None:
+            result['url'] = self.url
         return result
 
     def from_map(self, m: dict = None):
@@ -4911,6 +4921,8 @@ class CreateContractReviewRequestFileInfo(TeaModel):
             self.file_type = m.get('fileType')
         if m.get('spaceId') is not None:
             self.space_id = m.get('spaceId')
+        if m.get('url') is not None:
+            self.url = m.get('url')
         return self
 
 
@@ -8334,12 +8346,14 @@ class GetAsyncCreateContractAnalysisRequestFileInfo(TeaModel):
         file_size: int = None,
         file_type: str = None,
         space_id: str = None,
+        url: str = None,
     ):
         self.file_id = file_id
         self.file_name = file_name
         self.file_size = file_size
         self.file_type = file_type
         self.space_id = space_id
+        self.url = url
 
     def validate(self):
         pass
@@ -8360,6 +8374,8 @@ class GetAsyncCreateContractAnalysisRequestFileInfo(TeaModel):
             result['fileType'] = self.file_type
         if self.space_id is not None:
             result['spaceId'] = self.space_id
+        if self.url is not None:
+            result['url'] = self.url
         return result
 
     def from_map(self, m: dict = None):
@@ -8374,6 +8390,8 @@ class GetAsyncCreateContractAnalysisRequestFileInfo(TeaModel):
             self.file_type = m.get('fileType')
         if m.get('spaceId') is not None:
             self.space_id = m.get('spaceId')
+        if m.get('url') is not None:
+            self.url = m.get('url')
         return self
 
 
@@ -8545,12 +8563,14 @@ class GetContractAnalysisResultRequestFileInfo(TeaModel):
         file_size: int = None,
         file_type: str = None,
         space_id: str = None,
+        url: str = None,
     ):
         self.file_id = file_id
         self.file_name = file_name
         self.file_size = file_size
         self.file_type = file_type
         self.space_id = space_id
+        self.url = url
 
     def validate(self):
         pass
@@ -8571,6 +8591,8 @@ class GetContractAnalysisResultRequestFileInfo(TeaModel):
             result['fileType'] = self.file_type
         if self.space_id is not None:
             result['spaceId'] = self.space_id
+        if self.url is not None:
+            result['url'] = self.url
         return result
 
     def from_map(self, m: dict = None):
@@ -8585,6 +8607,8 @@ class GetContractAnalysisResultRequestFileInfo(TeaModel):
             self.file_type = m.get('fileType')
         if m.get('spaceId') is not None:
             self.space_id = m.get('spaceId')
+        if m.get('url') is not None:
+            self.url = m.get('url')
         return self
 
 

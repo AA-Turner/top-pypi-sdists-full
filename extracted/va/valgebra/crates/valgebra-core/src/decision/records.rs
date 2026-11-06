@@ -72,6 +72,8 @@ use super::{Cx, descending, spend};
 /// A fresh list there unfolds the reference again: a recursive meet of two maps
 /// reaches this rule once per unfolding, with nothing to stop it but the stack.
 pub(super) fn keyed_map_meet_verdict(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     let maps: Vec<(&[Field], bool)> = members
         .iter()
         .filter_map(|member| match member {
@@ -124,6 +126,8 @@ pub(super) fn keyed_map_meet_verdict(members: &[Schema], cx: &mut Cx<'_>) -> Ver
 /// as the key meets above are.
 #[inline(never)]
 fn record_of_maps_verdict(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     let Some(met) = record_of_maps(members, cx) else {
         return Verdict::Unknown;
     };
@@ -171,6 +175,8 @@ pub(super) fn keyed_map_subtype(
     db: &[MapClause],
     cx: &mut Cx<'_>,
 ) -> Relation {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     // A cursor over each field list, so finding every name of one list in the
     // other is one forward walk of each rather than a scan per field.
     let order = Cell::new(None);
@@ -551,6 +557,8 @@ fn entered<'b>(
     values_asked: &mut Vec<(&'b Schema, Relation)>,
     cx: &mut Cx<'_>,
 ) -> Relation {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     match reader {
         None => *inhabited.get_or_insert_with(|| Relation::of_mismatch(mine.value.verdict_rec(cx))),
         Some(value) => {
@@ -580,6 +588,8 @@ fn entered<'b>(
 /// case is the rare one.
 #[inline(never)]
 fn spelled_by(clause: &MapClause, field: &Field, cx: &mut Cx<'_>) -> Relation {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     let spelled = key_cover(&clause.key, cx.oracle)
         .filter(|(_, parts)| !parts.contains(&Some(Kind::Str)))
         .map(|(labels, _)| labels.contains(&Label::str(&field.name)));
@@ -726,6 +736,60 @@ pub(super) fn keyed_map_minus_keyed_maps(members: &[Schema], cx: &mut Cx<'_>) ->
     }
 }
 
+/// Whether a meet holding a record the key partition cannot read
+/// ([`read_map`]) beside a complement is empty without that record, by the
+/// set representation; `false` where it holds no such record.
+///
+/// A meet is below the members it keeps [FCB08, Def. 4.1], so the meet of the
+/// rest is a superset, and its emptiness is the meet's. A record whose clause
+/// names part of a kind -- `{Literal[1]: str, ~Literal[1]: anything}`, an
+/// opened record keyed by an integer -- leaves the records' readings the whole
+/// meet unread, and the rest is asked of the set representation, which reads
+/// no decision step of the query's: a reading asked beside the ones that
+/// declined spends nothing they share.
+pub(super) fn empty_without_the_maps_unread(members: &[Schema], cx: &Cx<'_>) -> bool {
+    let unread = |member: &Schema| {
+        matches!(member, Schema::KeyedMap { fields, defaults }
+            if read_map(fields, defaults, cx).is_none())
+    };
+    if !members
+        .iter()
+        .any(|member| matches!(member, Schema::Complement(_)))
+        || !members.iter().any(unread)
+    {
+        return false;
+    }
+    let kept: Vec<Schema> = members
+        .iter()
+        .filter(|member| !unread(member))
+        .cloned()
+        .collect();
+    cx.denotes_no_value(&Schema::meet_within(kept, cx.defs))
+}
+
+/// Whether a field two records share is refuted by the set representation,
+/// asked of the field alone where the records were refused it as a pair.
+///
+/// One record is below another where it is empty or where each label's type
+/// is below the other's [Cas23, Lem. 2.3], one record on each side, and a key
+/// both records declare is read by each through its field alone. So a value
+/// outside the supertype's field, carried under that key by a value of the
+/// subject, is a value of the subject outside the supertype, which stands on
+/// the subject holding a value -- the caller's to read. Thirteen guarded fields
+/// are past the node bound as a pair, and each field is a pair of a few nodes.
+pub(super) fn a_shared_field_refuted_by_the_sets(fa: &[Field], fb: &[Field], cx: &Cx<'_>) -> bool {
+    let order = Cell::new(None);
+    let mut a_by_name = FieldCursor::over(fa, fb, &order);
+    fb.iter().any(|b_field| {
+        a_by_name.named(&b_field.name).is_some_and(|a_field| {
+            a_field
+                .schema
+                .descriptor_contained_in(&b_field.schema, cx.oracle, cx.defs)
+                == Relation::Fails
+        })
+    })
+}
+
 /// `meet ⊆ other` for a meet holding two keyed maps or more and `other` a
 /// keyed map or a union holding one: the maps met into one record R◦
 /// [Cas23, (12)], split across the maps of `other` as one record is
@@ -826,22 +890,75 @@ fn record_of_maps<'s>(members: &'s [Schema], cx: &Cx<'_>) -> Option<Met<'s>> {
             .collect::<Option<Vec<Schema>>>()
             .map(Schema::meet)
     });
-    let mut spelled: Vec<&'s str> = read
+    let labels: Vec<&Labels<'s>> = read.iter().map(|(_, labels)| labels).collect();
+    Some(Met {
+        parts,
+        named: labels_met(&labels),
+    })
+}
+
+/// Every name the maps label, each met across them as [`Labels::slot`] reads
+/// it in each: the type a map declares it with, or that map's default where it
+/// declares none; absent only where every map allows its absence.
+///
+/// A meet is the set of its members [FCB08, Def. 4.1], and the maps that label
+/// no name give it their defaults, which are a few distinct schemas however
+/// many maps hold them. So a name's meet is built from the maps that label it
+/// and the defaults of the maps left, each once, and it is the meet a slot of
+/// every map builds. A slot a map is the square of the meet's width: a
+/// thousand records met, each with one field, are a million slots.
+fn labels_met<'s>(maps: &[&Labels<'s>]) -> Vec<(&'s str, Slot)> {
+    // The distinct defaults, with how many maps give each, and the one each
+    // map gives.
+    let mut defaults: Vec<(Option<&'s Schema>, usize)> = Vec::new();
+    let given: Vec<usize> = maps
         .iter()
-        .flat_map(|(_, labels)| labels.named.iter().map(|(name, _)| *name))
-        .collect();
-    spelled.sort_unstable();
-    spelled.dedup();
-    let named = spelled
-        .into_iter()
-        .map(|name| {
-            let slots: Vec<Slot> = read.iter().map(|(_, labels)| labels.slot(name)).collect();
-            let absent = slots.iter().all(|slot| slot.absent);
-            let ty = Schema::meet(slots.into_iter().map(|slot| slot.ty));
-            (name, Slot { ty, absent })
+        .map(|labels| {
+            if let Some(at) = defaults.iter().position(|(rest, _)| *rest == labels.rest) {
+                if let Some((_, given)) = defaults.get_mut(at) {
+                    *given += 1;
+                }
+                at
+            } else {
+                defaults.push((labels.rest, 1));
+                defaults.len() - 1
+            }
         })
         .collect();
-    Some(Met { parts, named })
+    let mut labeled: Vec<(&'s str, usize, &Slot)> = maps
+        .iter()
+        .enumerate()
+        .flat_map(|(at, labels)| {
+            labels
+                .named
+                .iter()
+                .map(move |(name, slot)| (*name, at, slot))
+        })
+        .collect();
+    labeled.sort_unstable_by_key(|(name, at, _)| (*name, *at));
+    let mut left = Vec::with_capacity(defaults.len());
+    labeled
+        .chunk_by(|a, b| a.0 == b.0)
+        .filter_map(|labeling| {
+            let (name, _, _) = labeling.first()?;
+            left.clear();
+            left.extend(defaults.iter().map(|(_, given)| *given));
+            for (_, at, _) in labeling {
+                if let Some(left) = given.get(*at).and_then(|group| left.get_mut(*group)) {
+                    *left -= 1;
+                }
+            }
+            let declared = labeling.iter().map(|(_, _, slot)| slot.ty.clone());
+            let read_as_default = defaults
+                .iter()
+                .zip(&left)
+                .filter(|(_, left)| **left > 0)
+                .map(|((rest, _), _)| rest.map_or(Schema::Nothing, Schema::clone));
+            let ty = Schema::meet(declared.chain(read_as_default));
+            let absent = labeling.iter().all(|(_, _, slot)| slot.absent);
+            Some((*name, Slot { ty, absent }))
+        })
+        .collect()
 }
 
 /// R◦ as [`record_of_maps`] builds it, owned, since each part and label is a
@@ -956,6 +1073,8 @@ fn defaults_against(
     theirs: &[Option<&Schema>; PARTS],
     cx: &mut Cx<'_>,
 ) -> Defaults {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     let mut exceeds: Option<bool> = None;
     let mut declined = false;
     for (part, (mine, theirs)) in mine.iter().zip(theirs).enumerate() {
@@ -997,6 +1116,8 @@ impl Slot {
     /// the other slot does not allow is a value outside it [Cas23, §3.2.1],
     /// whatever the types say of each other.
     fn below(&self, theirs: &Slot, cx: &mut Cx<'_>) -> Relation {
+        #[cfg(test)]
+        let _crossing = super::goal_tests::goals::crossing();
         if self.absent && !theirs.absent {
             return Relation::Fails;
         }
@@ -1013,12 +1134,14 @@ impl Slot {
         }
     }
 
-    /// Whether the two slots share no value, absence included.
+    /// Whether the two slots share no value, absence included: their meet in
+    /// `T⊥` holds `⊥` where both allow it [Cas23, §4.1].
     fn apart(&self, theirs: &Slot, cx: &mut Cx<'_>) -> bool {
         if self.absent && theirs.absent {
             return false;
         }
-        self.ty.shares_no_value_with(&theirs.ty, cx)
+        self.ty
+            .shares_no_value_with_a_part_of_the_supertype(&theirs.ty, cx)
     }
 }
 
@@ -1109,6 +1232,8 @@ impl<'s> Labels<'s> {
     /// [Cas23, (17)] folded in: refuted where every key the map requires holds
     /// a value, proved where one holds none [Cas23, (11)].
     fn base_case(&self, cx: &mut Cx<'_>) -> Relation {
+        #[cfg(test)]
+        let _crossing = super::goal_tests::goals::crossing();
         let mut verdict = Verdict::Inhabited;
         for (_, slot) in &self.named {
             if slot.absent {
@@ -1140,6 +1265,8 @@ struct Branch<'s> {
 /// first conjunct that does not hold is the answer. Each branch narrowed by is
 /// a level of the query's depth, as in the product rule.
 fn phi(subject: &Labels<'_>, branches: &[Branch<'_>], cx: &mut Cx<'_>) -> Relation {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     if !spend(cx.budget) {
         return Relation::Unknown;
     }
@@ -1209,6 +1336,8 @@ fn phi(subject: &Labels<'_>, branches: &[Branch<'_>], cx: &mut Cx<'_>) -> Relati
 /// every value of the subtype exactly when the subtype names it too, at least
 /// as narrowly.
 pub(super) fn attr_record_subtype(fa: &[Attribute], fb: &[Attribute], cx: &mut Cx<'_>) -> Relation {
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
     let order = Cell::new(None);
     let mut a_by_name = FieldCursor::over(fa, fb, &order);
     Relation::all(fb.iter().map(|b| {

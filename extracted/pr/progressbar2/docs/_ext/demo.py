@@ -7,6 +7,7 @@ upgrades into a Run button.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import importlib.util
 import pathlib
@@ -17,7 +18,7 @@ import typing
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx.application import Sphinx
-from sphinx.errors import NoUri
+from sphinx.errors import ExtensionError, NoUri
 from sphinx.util.osutil import relative_uri
 
 if typing.TYPE_CHECKING:
@@ -116,6 +117,8 @@ class DemoDirective(Directive):
             here = ''
         svg_uri = relative_uri(here, f'_static/demos/{demo.svg_path.name}')
         source_uri = relative_uri(here, f'_static/examples/{stem}.py')
+        source_hash: str = hashlib.sha256(source.encode('utf-8')).hexdigest()
+        source_uri += f'?v={source_hash}'
 
         container = nodes.container(classes=['demo'])
         container += nodes.raw(
@@ -155,11 +158,29 @@ def copy_example_sources(app: Sphinx, exception: Exception | None) -> None:
         )
 
 
+def validate_showcase_assets(_app: Sphinx) -> None:
+    """Check recordings embedded as raw HTML on the documentation homepage."""
+    name: str
+    for name in ('readme/colors', 'readme/multibar', 'readme/hero'):
+        svg_path: pathlib.Path = DEMOS_BY_NAME[name].svg_path
+        if not svg_path.is_file():
+            raise ExtensionError(
+                f'showcase animation not rendered: {name} '
+                f'(run: python scripts/render_demos.py --only {name})'
+            )
+
+
 def setup(app: Sphinx) -> dict[str, typing.Any]:
     app.add_directive('demo', DemoDirective)
+    app.connect('builder-inited', validate_showcase_assets)
     app.connect('build-finished', copy_example_sources)
     app.add_css_file('vendor/xterm.css')
     app.add_css_file('livecode/livecode.css')
     app.add_js_file('vendor/xterm.js')
-    app.add_js_file('livecode/livecode.js')
+    app.add_js_file('vendor/addon-fit.js')
+    worker_path: pathlib.Path = REPO_ROOT / 'docs/_static/livecode/worker.js'
+    worker_hash: str = hashlib.sha256(worker_path.read_bytes()).hexdigest()
+    app.add_js_file(
+        'livecode/livecode.js', **{'data-worker-version': worker_hash}
+    )
     return {'parallel_read_safe': True, 'parallel_write_safe': True}

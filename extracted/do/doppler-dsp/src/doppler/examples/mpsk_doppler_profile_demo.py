@@ -42,6 +42,7 @@ import sys
 # --8<-- [start:profile]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.telemetry import MemoryCapture, Telemetry
 from doppler.track import MpskReceiver
 from doppler.wfm import SampleClock
@@ -139,6 +140,7 @@ def _tail(n_idx: np.ndarray, vals: np.ndarray, lo: int, hi: int) -> np.ndarray:
 
 
 def main(out_path: str = "mpsk_doppler_profile_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

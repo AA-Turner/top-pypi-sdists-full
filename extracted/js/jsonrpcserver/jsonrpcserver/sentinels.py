@@ -7,6 +7,12 @@ import sys
 
 
 class Sentinel:
+    """Use this class to create a unique object.
+
+    Has a nicer repr than `object()`.
+    """
+
+    # pylint: disable=too-few-public-methods
     def __init__(self, name: str):
         self.name = name
 
@@ -15,5 +21,8 @@ class Sentinel:
 
 
 NOCONTEXT = Sentinel("NoContext")
+"""The default for `context`: don't pass a context to methods."""
 NODATA = Sentinel("NoData")
+"""The default for `data` in `Error` and `JsonRpcError`: leave `data` out."""
 NOID = Sentinel("NoId")
+"""The id of a notification, which has none."""

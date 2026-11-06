@@ -129,7 +129,7 @@ class SessionOut(UniversalBaseModel):
 
     total_cost_usd: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Total LLM cost of the session in USD, when tracked
+    Total LLM cost of the session in USD, when tracked. Null unless the caller is Athena staff or an owner or manager of the session's workspace
     """
 
     trigger_type: typing.Optional[str] = pydantic.Field(default=None)

@@ -9,7 +9,7 @@ overwritten there before anything reads it.
 
 import posixpath
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from mistralai.vibe.harness.app_server.session.models.configuration import (
     MaterializedSkillDefinition,
@@ -33,11 +33,17 @@ class ChildDefinitionRefusal(ValueError):
 # working directory from the sandbox it borrows. A parent that served its skill sources sends none.
 _RUNTIME_OWNED_AGENT_CONFIG_FIELDS = ("sandbox", "workdir", "skill_sources")
 
+type FilesRoot = Callable[[str], str | None]
+"""Where the worker's sandbox writes the files of a namespace such as ``/skills``, or None if it writes none."""
+
+_SESSION_ID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
 
 def verified_child_definition(
     root: WorkflowHarnessDefinition,
     child: StartSessionRequest,
     skill_files: sandbox_skills.SandboxSkillFiles | None = None,
+    files_root: FilesRoot | None = None,
 ) -> WorkflowHarnessDefinition:
     """The child's definition, derived from this worker's own agent; the request supplies only runtime state.
 
@@ -47,7 +53,8 @@ def verified_child_definition(
 
     Raises ``ChildDefinitionRefusal`` when the request has no lineage, when its lineage does not lead to its
     agent path and configuration, or when it names skill sources the derived definition does not have, or
-    a skill the worker does not serve.
+    a skill the worker does not serve. `files_root` maps a skill folder to where the worker's sandbox
+    writes it, so a skill the sandbox wrote under a folder of its own is served too.
     """
 
     lineage = child.lineage
@@ -71,7 +78,7 @@ def verified_child_definition(
     runtime_state: dict[str, object] = {
         name: getattr(received.agent_config, name) for name in _RUNTIME_OWNED_AGENT_CONFIG_FIELDS
     }
-    runtime_state.update(_served_skill_catalog(received.agent_config.skills, derived, skill_files))
+    runtime_state.update(_served_skill_catalog(received.agent_config.skills, derived, skill_files, files_root))
     return derived.model_copy(
         update={
             "session_id": str(child.session_id),
@@ -85,6 +92,7 @@ def _served_skill_catalog(
     received: Sequence[SessionSkillDefinition],
     derived: WorkflowHarnessDefinition,
     skill_files: sandbox_skills.SandboxSkillFiles | None,
+    files_root: FilesRoot | None,
 ) -> dict[str, object]:
     """The skill catalog a parent served and its fingerprint, once every skill is one this worker serves.
 
@@ -101,7 +109,7 @@ def _served_skill_catalog(
     for skill in received:
         if not isinstance(skill, MaterializedSkillDefinition):
             raise ChildDefinitionRefusal("Child Session request lists an inline skill the agent does not declare")
-        if skill not in declared and not _served_skill_path(skill, skill_files):
+        if skill not in declared and not _served_skill_path(skill, skill_files, files_root):
             raise ChildDefinitionRefusal(
                 "Child Session request lists a skill outside the folders the worker serves skills from"
             )
@@ -110,7 +118,9 @@ def _served_skill_catalog(
 
 
 def _served_skill_path(
-    skill: MaterializedSkillDefinition, skill_files: sandbox_skills.SandboxSkillFiles | None
+    skill: MaterializedSkillDefinition,
+    skill_files: sandbox_skills.SandboxSkillFiles | None,
+    files_root: FilesRoot | None,
 ) -> bool:
     path = skill.path
     if not path.startswith("/") or posixpath.normpath(path) != path:
@@ -124,10 +134,26 @@ def _served_skill_path(
     if binding is not None:
         # A discovered Registry entry: only where the root publishes them, and only on a worker that discovers.
         _, root = binding
-        return root == sandbox_skills.SKILLS_ROOT and _discovers_registry_skills(skill_files)
-    if path.startswith((sandbox_skills.SKILLS_ROOT + "/", sandbox_skills.SUBAGENT_SKILLS_ROOT + "/")):
+        return root in _folders(sandbox_skills.SKILLS_ROOT, files_root) and _discovers_registry_skills(skill_files)
+    if path.startswith(sandbox_skills.SUBAGENT_SKILLS_ROOT + "/") or any(
+        path.startswith(folder + "/") for folder in _folders(sandbox_skills.SKILLS_ROOT, files_root)
+    ):
+        return True
+    if files_root is not None and any(
+        path.startswith(folder + "/")
+        # A child writes its own skills under its Session ID; a descendant that inherits them names that folder.
+        for session_id in _SESSION_ID.findall(path)
+        for folder in _folders(posixpath.join(sandbox_skills.SUBAGENT_SKILLS_ROOT, session_id), files_root)
+    ):
         return True
     return skill_files is not None and any(_in_workspace_skills(path, found) for found in skill_files.workspace)
+
+
+def _folders(namespace: str, files_root: FilesRoot | None) -> tuple[str, ...]:
+    """The folder named `namespace` and the one the worker's sandbox writes it to, when that differs."""
+
+    written = files_root(namespace) if files_root is not None else None
+    return (namespace,) if written is None or written == namespace else (namespace, written)
 
 
 def _discovers_registry_skills(skill_files: sandbox_skills.SandboxSkillFiles | None) -> bool:

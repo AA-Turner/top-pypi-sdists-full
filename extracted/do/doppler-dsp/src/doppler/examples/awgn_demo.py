@@ -20,11 +20,16 @@ from __future__ import annotations
 import math
 import pathlib
 
+from doppler.examples._extra import require
+
+require("matplotlib")
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+require("scipy")
 from scipy.signal import welch
 
 from doppler.source import AWGN, LO

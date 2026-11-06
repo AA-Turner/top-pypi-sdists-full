@@ -1,0 +1,456 @@
+// Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
+
+use bytes::BytesMut;
+use futures_intrusive::sync::ManualResetEvent;
+use redis::{Cmd, ConnectionAddr, Value, ValueCodec};
+use std::collections::HashMap;
+use std::io;
+use std::io::Read;
+use std::io::Write;
+use std::net::TcpListener;
+use std::net::TcpStream as StdTcpStream;
+use std::str::from_utf8;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU16, Ordering},
+};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio_util::codec::Decoder;
+
+pub struct MockedRequest {
+    pub expected_message: String,
+    pub response: String,
+}
+
+#[derive(Clone, Copy)]
+pub enum SetInfoResponse {
+    Ok,
+    Unsupported,
+}
+
+type ResponseContext<'a> = (
+    &'a Arc<AtomicU16>,
+    &'a Arc<AtomicU16>,
+    SetInfoResponse,
+    &'a HashMap<String, Value>,
+    &'a mut HashMap<String, Vec<String>>,
+);
+
+pub struct ServerMock {
+    request_sender: UnboundedSender<MockedRequest>,
+    address: ConnectionAddr,
+    received_commands: Arc<AtomicU16>,
+    received_setinfo_commands: Arc<AtomicU16>,
+    accepted_connections: Arc<AtomicU16>,
+    runtime: Option<tokio::runtime::Runtime>, // option so that we can take the runtime on drop.
+    closing_signal: Arc<ManualResetEvent>,
+    closing_completed_signal: Arc<ManualResetEvent>,
+}
+
+fn read_from_socket(
+    buffer: &mut [u8],
+    socket: &mut StdTcpStream,
+    closing_signal: &Arc<ManualResetEvent>,
+) -> Option<usize> {
+    while !closing_signal.is_set() {
+        let read_res = socket.read(buffer); // read() is using timeout
+        match read_res {
+            Ok(0) => {
+                return None;
+            }
+            Ok(size) => {
+                return Some(size);
+            }
+            Err(ref e)
+                if e.kind() == io::ErrorKind::WouldBlock
+                    || e.kind() == io::ErrorKind::Interrupted =>
+            {
+                continue;
+            }
+            Err(_) => {
+                return None;
+            }
+        }
+    }
+    // If we reached here, it means we got a signal to terminate
+    None
+}
+
+/// Escape and print a RESP message
+fn log_resp_message(msg: &str) {
+    glide_logger::log_info(
+        "Test",
+        format!(
+            "{:?} {}",
+            std::thread::current().id(),
+            msg.replace('\r', "\\r").replace('\n', "\\n")
+        ),
+    );
+}
+
+fn is_command(value: &Value, expected_tokens: &[&[u8]]) -> bool {
+    let Value::Array(tokens) = value else {
+        return false;
+    };
+
+    tokens.len() >= expected_tokens.len()
+        && tokens
+            .iter()
+            .zip(expected_tokens)
+            .all(|(token, expected)| match token {
+                Value::BulkString(token) => token.eq_ignore_ascii_case(expected),
+                _ => false,
+            })
+}
+
+/// The command name of a request, upper-cased, or `None` if it is not an array.
+fn command_name(value: &Value) -> Option<String> {
+    let Value::Array(tokens) = value else {
+        return None;
+    };
+    match tokens.first()? {
+        Value::BulkString(name) => Some(String::from_utf8_lossy(name).to_uppercase()),
+        _ => None,
+    }
+}
+
+fn respond_to_message(
+    receiver: &mut tokio::sync::mpsc::UnboundedReceiver<MockedRequest>,
+    socket: &mut StdTcpStream,
+    response_context: &mut ResponseContext<'_>,
+    message: String,
+    value: Value,
+) {
+    let (
+        received_commands,
+        received_setinfo_commands,
+        setinfo_response,
+        constant_responses,
+        command_scripts,
+    ) = response_context;
+    let setinfo_response = *setinfo_response;
+
+    log_resp_message(&message);
+
+    if is_command(&value, &[b"CLIENT", b"SETINFO"]) {
+        received_setinfo_commands.fetch_add(1, Ordering::AcqRel);
+        let mut buffer = Vec::new();
+        match setinfo_response {
+            SetInfoResponse::Ok => super::encode_value(&Value::Okay, &mut buffer).unwrap(),
+            SetInfoResponse::Unsupported => {
+                buffer.extend_from_slice(b"-ERR unknown command 'CLIENT SETINFO'\r\n")
+            }
+        }
+        socket.write_all(&buffer).unwrap();
+        return;
+    }
+
+    if is_command(&value, &[b"HELLO"]) {
+        let mut buffer = Vec::new();
+        let response = Value::Map(vec![
+            (Value::BulkString(b"proto".to_vec().into()), Value::Int(3)),
+            (
+                Value::BulkString(b"role".to_vec().into()),
+                Value::BulkString(b"master".to_vec().into()),
+            ),
+        ]);
+        super::encode_value(&response, &mut buffer).unwrap();
+        socket.write_all(&buffer).unwrap();
+        return;
+    }
+
+    // Scripted by command name for commands whose arguments a test cannot predict.
+    // The last reply in a script is repeated, so a script of one reply answers
+    // that command however many times it arrives.
+    if let Some(name) = command_name(&value)
+        && let Some(replies) = command_scripts.get_mut(&name)
+    {
+        let reply = match replies.len() {
+            0 => panic!("The script for {name} ran out of replies"),
+            1 => replies[0].clone(),
+            _ => replies.remove(0),
+        };
+        received_commands.fetch_add(1, Ordering::AcqRel);
+        socket.write_all(reply.as_bytes()).unwrap();
+        return;
+    }
+
+    if let Some(response) = constant_responses.get(&message) {
+        let mut buffer = Vec::new();
+        super::encode_value(response, &mut buffer).unwrap();
+        socket.write_all(&buffer).unwrap();
+        return;
+    }
+    let Ok(request) = receiver.try_recv() else {
+        panic!("Received unexpected message: {message}");
+    };
+    received_commands.fetch_add(1, Ordering::AcqRel);
+    assert_eq!(message, request.expected_message);
+    socket.write_all(request.response.as_bytes()).unwrap();
+}
+
+/// The next connection, or `None` once the mock is closing.
+fn accept_unless_closing(
+    listener: &TcpListener,
+    closing_signal: &Arc<ManualResetEvent>,
+) -> Option<StdTcpStream> {
+    listener.set_nonblocking(true).unwrap();
+    while !closing_signal.is_set() {
+        match listener.accept() {
+            Ok((socket, _)) => {
+                socket.set_nonblocking(false).unwrap();
+                return Some(socket);
+            }
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Err(error) => panic!("ServerMock failed to accept a connection: {error}"),
+        }
+    }
+    None
+}
+
+type SharedState = Mutex<(
+    tokio::sync::mpsc::UnboundedReceiver<MockedRequest>,
+    HashMap<String, Vec<String>>,
+)>;
+
+/// Answer one connection until it closes or the mock is closing.
+fn serve_connection(
+    mut socket: StdTcpStream,
+    shared: &SharedState,
+    constant_responses: &HashMap<String, Value>,
+    received_commands: &Arc<AtomicU16>,
+    received_setinfo_commands: &Arc<AtomicU16>,
+    setinfo_response: SetInfoResponse,
+    closing_signal: &Arc<ManualResetEvent>,
+) {
+    let _ = socket.set_read_timeout(Some(std::time::Duration::from_millis(10)));
+    let mut pending = BytesMut::new();
+    let mut codec = ValueCodec::default();
+    let mut buffer = [0; 1024];
+    while let Some(size) = read_from_socket(&mut buffer, &mut socket, closing_signal) {
+        pending.extend_from_slice(&buffer[..size]);
+        loop {
+            let buffered = pending.clone();
+            let Some(value) = codec.decode(&mut pending).unwrap() else {
+                break;
+            };
+            let consumed = buffered.len() - pending.len();
+            let message = from_utf8(&buffered[..consumed]).unwrap().to_string();
+            let mut guard = shared.lock().unwrap();
+            let (receiver, command_scripts) = &mut *guard;
+            let mut response_context = (
+                received_commands,
+                received_setinfo_commands,
+                setinfo_response,
+                constant_responses,
+                command_scripts,
+            );
+            respond_to_message(
+                receiver,
+                &mut socket,
+                &mut response_context,
+                message,
+                value.unwrap(),
+            );
+        }
+    }
+    // Terminate the connection
+    let _ = socket.shutdown(std::net::Shutdown::Both);
+}
+
+pub trait Mock {
+    fn get_addresses(&self) -> Vec<ConnectionAddr>;
+
+    fn add_response(&self, request: &Cmd, response: String);
+
+    fn get_number_of_received_commands(&self) -> u16;
+}
+
+impl ServerMock {
+    pub fn new(constant_responses: HashMap<String, Value>) -> Self {
+        let listener = super::get_listener_on_available_port();
+        Self::new_with_listener(constant_responses, listener)
+    }
+
+    pub fn new_with_setinfo_response(
+        constant_responses: HashMap<String, Value>,
+        setinfo_response: SetInfoResponse,
+    ) -> Self {
+        let listener = super::get_listener_on_available_port();
+        Self::new_with_listener_and_setinfo_response(
+            constant_responses,
+            listener,
+            setinfo_response,
+            HashMap::new(),
+            1,
+        )
+    }
+
+    pub fn new_with_listener(
+        constant_responses: HashMap<String, Value>,
+        listener: TcpListener,
+    ) -> Self {
+        Self::new_with_listener_and_setinfo_response(
+            constant_responses,
+            listener,
+            SetInfoResponse::Ok,
+            HashMap::new(),
+            1,
+        )
+    }
+
+    /// A mock that answers by command name for commands whose arguments a test
+    /// cannot predict. Each entry is a queue of raw RESP replies -- so an error
+    /// reply is expressible, unlike the `Value` map -- and the last one repeats
+    /// once the queue is down to it.
+    ///
+    /// A scripted name answers before anything queued with `add_response`, and
+    /// swallows the command rather than matching it, so do not script a command
+    /// a test also wants to assert the exact arguments of.
+    pub fn new_with_command_scripts(
+        constant_responses: HashMap<String, Value>,
+        command_scripts: HashMap<String, Vec<String>>,
+    ) -> Self {
+        let listener = super::get_listener_on_available_port();
+        Self::new_with_listener_and_setinfo_response(
+            constant_responses,
+            listener,
+            SetInfoResponse::Ok,
+            command_scripts,
+            1,
+        )
+    }
+
+    /// Like [`Self::new_with_command_scripts`], but also accepts the connections a
+    /// client opens when it reconnects. Every connection shares the same scripts,
+    /// so a script's replies carry on from one connection to the next.
+    pub fn new_with_command_scripts_accepting_reconnects(
+        constant_responses: HashMap<String, Value>,
+        command_scripts: HashMap<String, Vec<String>>,
+    ) -> Self {
+        let listener = super::get_listener_on_available_port();
+        Self::new_with_listener_and_setinfo_response(
+            constant_responses,
+            listener,
+            SetInfoResponse::Ok,
+            command_scripts,
+            u16::MAX,
+        )
+    }
+
+    /// How many connections the mock has accepted.
+    pub fn get_number_of_accepted_connections(&self) -> u16 {
+        self.accepted_connections.load(Ordering::Acquire)
+    }
+
+    fn new_with_listener_and_setinfo_response(
+        constant_responses: HashMap<String, Value>,
+        listener: TcpListener,
+        setinfo_response: SetInfoResponse,
+        command_scripts: HashMap<String, Vec<String>>,
+        max_connections: u16,
+    ) -> Self {
+        let (request_sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let received_commands = Arc::new(AtomicU16::new(0));
+        let received_commands_clone = received_commands.clone();
+        let received_setinfo_commands = Arc::new(AtomicU16::new(0));
+        let received_setinfo_commands_clone = received_setinfo_commands.clone();
+        let accepted_connections = Arc::new(AtomicU16::new(0));
+        let accepted_connections_clone = accepted_connections.clone();
+        let address = ConnectionAddr::Tcp(
+            "localhost".to_string(),
+            listener.local_addr().unwrap().port(),
+        );
+        let closing_signal = Arc::new(ManualResetEvent::new(false));
+        let closing_signal_clone = closing_signal.clone();
+        let closing_completed_signal = Arc::new(ManualResetEvent::new(false));
+        let closing_completed_signal_clone = closing_completed_signal.clone();
+        let address_clone = address.clone();
+        std::thread::spawn(move || {
+            glide_logger::log_info("Test", format!("ServerMock started on: {address_clone}"));
+            // Shared by every connection, each served on its own thread.
+            let shared = Arc::new(Mutex::new((receiver, command_scripts)));
+            let constant_responses = Arc::new(constant_responses);
+            let mut connections = Vec::new();
+            while accepted_connections_clone.load(Ordering::Acquire) < max_connections {
+                let Some(socket) = accept_unless_closing(&listener, &closing_signal_clone) else {
+                    break;
+                };
+                accepted_connections_clone.fetch_add(1, Ordering::AcqRel);
+                let shared = shared.clone();
+                let constant_responses = constant_responses.clone();
+                let received_commands = received_commands_clone.clone();
+                let received_setinfo_commands = received_setinfo_commands_clone.clone();
+                let closing_signal = closing_signal_clone.clone();
+                connections.push(std::thread::spawn(move || {
+                    serve_connection(
+                        socket,
+                        &shared,
+                        &constant_responses,
+                        &received_commands,
+                        &received_setinfo_commands,
+                        setinfo_response,
+                        &closing_signal,
+                    )
+                }));
+            }
+            for connection in connections {
+                let _ = connection.join();
+            }
+
+            // Now notify exit completed
+            closing_completed_signal_clone.set();
+
+            glide_logger::log_info(
+                "Test",
+                format!("{:?} ServerMock exited", std::thread::current().id()),
+            );
+        });
+
+        Self {
+            request_sender,
+            address,
+            received_commands,
+            received_setinfo_commands,
+            accepted_connections,
+            runtime: None,
+            closing_signal,
+            closing_completed_signal,
+        }
+    }
+
+    pub fn get_number_of_received_setinfo_commands(&self) -> u16 {
+        self.received_setinfo_commands.load(Ordering::Acquire)
+    }
+
+    pub async fn close(self) {
+        self.closing_signal.set();
+        self.closing_completed_signal.wait().await;
+    }
+}
+
+impl Mock for ServerMock {
+    fn get_addresses(&self) -> Vec<ConnectionAddr> {
+        vec![self.address.clone()]
+    }
+
+    fn add_response(&self, request: &Cmd, response: String) {
+        let expected_message = String::from_utf8(request.get_packed_command()).unwrap();
+        let _ = self.request_sender.send(MockedRequest {
+            expected_message,
+            response,
+        });
+    }
+
+    fn get_number_of_received_commands(&self) -> u16 {
+        self.received_commands.load(Ordering::Acquire)
+    }
+}
+
+impl Drop for ServerMock {
+    fn drop(&mut self) {
+        self.closing_signal.set();
+    }
+}

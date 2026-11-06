@@ -4,6 +4,8 @@ import gc
 import io
 import sys
 
+import pytest
+
 import progressbar
 
 # Alias (not a `from` import) so CodeQL doesn't flag `progressbar` as imported
@@ -248,3 +250,127 @@ def test_fast_path_does_not_import_widgets_or_colors():
     )
     assert out.returncode == 0, out.stderr
     assert 'ok' in out.stdout
+
+
+@pytest.mark.parametrize('width', [80, 110])
+@pytest.mark.parametrize(
+    ('prefix', 'suffix'),
+    [
+        ('', ''),
+        ('load ', ''),
+        ('', ' done'),
+        ('load ', ' done'),
+        ('\x1b[31mload \x1b[0m', ' done'),
+    ],
+)
+def test_fast_labels_share_terminal_width(width, prefix, suffix):
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=10, fd=fd, term_width=width, prefix=prefix, suffix=suffix
+    )
+    assert list(bar(range(10))) == list(range(10))
+    for frame in fd.repaints():
+        assert progressbar.utils.len_color(frame.rstrip('\r\n')) == width
+
+
+def test_fast_labels_use_custom_width_measurement():
+    def display_width(text):
+        return progressbar.utils.len_color(text.replace('界', 'xx'))
+
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=10,
+        fd=fd,
+        term_width=80,
+        prefix='界 ',
+        suffix=' 界',
+        custom_len=display_width,
+    )
+    assert list(bar(range(10))) == list(range(10))
+    for frame in fd.repaints():
+        assert display_width(frame.rstrip('\r\n')) == 80
+
+
+def test_shortcut_desc_shares_terminal_width():
+    fd = TTY()
+    assert list(
+        progressbar.progressbar(range(10), fd=fd, desc='load ', term_width=80)
+    ) == list(range(10))
+    for frame in fd.repaints():
+        assert progressbar.utils.len_color(frame.rstrip('\r\n')) == 80
+
+
+@pytest.mark.parametrize(
+    ('label', 'rendered'),
+    [(1, '1'), (b'x ', 'b\x27x \x27'), (True, 'True')],
+)
+def test_fast_non_str_labels_still_render(label, rendered):
+    # 4.6.0 rendered labels through an f-string, so non-str values printed.
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=3, fd=fd, term_width=80, prefix=label, suffix=label
+    )
+    assert list(bar(range(3))) == [0, 1, 2]
+    frame = fd.repaints()[-1].rstrip('\r\n')
+    assert frame.startswith(rendered)
+    assert frame.endswith(rendered)
+    assert len(frame) == 80
+
+
+@pytest.mark.parametrize('custom_len', [None, lambda text: float(len(text))])
+def test_fast_tolerates_uncallable_or_float_custom_len(custom_len):
+    # 4.6.0 never called custom_len on the fast path, so these rendered.
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=3,
+        fd=fd,
+        term_width=80,
+        prefix='load ',
+        custom_len=custom_len,
+    )
+    assert list(bar(range(3))) == [0, 1, 2]
+    for frame in fd.repaints():
+        assert len(frame.rstrip('\r\n')) == 80
+
+
+def test_fast_coloured_prefix_counts_visible_width_only():
+    # A label carrying escape codes is measured through len_color, so the
+    # bar still fills the terminal width exactly.
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=3,
+        fd=fd,
+        term_width=80,
+        prefix='\x1b[31mload\x1b[39m ',
+        suffix=' \x1b[1mnow\x1b[0m',
+        # Keep the escapes in the output whatever the CI terminal
+        # supports, the width arithmetic is what this test is about.
+        enable_colors=True,
+    )
+    assert list(bar(range(3))) == [0, 1, 2]
+    frames = fd.repaints()
+    assert frames
+    for frame in frames:
+        assert '\x1b[31m' in frame
+        assert progressbar.utils.len_color(frame.rstrip('\r\n')) == 80
+
+
+def test_fast_str_subclass_labels_render_as_plain_text():
+    class Label(str):
+        pass
+
+    fd = TTY()
+    bar = fast_module.FastProgressBar(
+        max_value=3,
+        fd=fd,
+        term_width=80,
+        prefix=Label('load '),
+        suffix=Label(' now'),
+    )
+    assert list(bar(range(3))) == [0, 1, 2]
+    frames = fd.repaints()
+    assert frames
+    for frame in frames:
+        assert frame.startswith(('\rload ', 'load '))
+        assert frame.rstrip('\r\n').endswith(' now')
+        assert len(frame.rstrip('\r\n')) == 80

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: localstack-twisted
-Version: 26.4.0
+Version: 26.10.0
 Summary: An asynchronous networking framework written in Python
 Project-URL: Homepage, https://github.com/localstack/twisted-distribution
 Project-URL: Changelog, https://github.com/twisted/twisted/blob/HEAD/NEWS.rst

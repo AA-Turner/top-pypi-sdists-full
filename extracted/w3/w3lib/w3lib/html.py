@@ -6,12 +6,23 @@ from __future__ import annotations
 
 import functools
 import re
-from html.entities import name2codepoint
-from typing import TYPE_CHECKING, Any
-from urllib.parse import urljoin
+import warnings
+from html.entities import html5
+from typing import TYPE_CHECKING, Any, AnyStr
 
-from w3lib._util import _attr_re, _scannable, iter_tag_attributes, to_unicode
-from w3lib.url import safe_url_string
+from frostwork import navigation
+
+from w3lib._url import _SCHEME_RE
+from w3lib._util import (
+    _COMMENT,
+    _OTHER_TAG,
+    _TAG_REST,
+    _attr_re,
+    _scannable,
+    iter_tag_attributes,
+    to_unicode,
+)
+from w3lib.url import _urljoin, safe_url_string
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -36,8 +47,10 @@ _TAG_BODY = r"""[^<>=]*(?:(?:=\s*"[^"]*"|=\s*'[^']*'|=(?!\s*["']))[^<>=]*)*"""
 # Pairing quotes across a "<" that opens no tag, e.g. the one in "i<n" inside a
 # script, would take the tag to the far side of the next quote, and past every
 # tag in between. A name is pinned to its full length, as below, so that the
-# "<" of "n<arguments.length" is left to the plain reading.
-_TAG_NAME = r"""[a-zA-Z][a-zA-Z0-9]*(?![^ <>/])"""
+# "<" of "n<arguments.length" is left to the plain reading. As in the HTML
+# tokenizer, a tab, newline, form feed or carriage return ends a name just as a
+# space does.
+_TAG_NAME = r"""[a-zA-Z][a-zA-Z0-9]*(?![^\t\n\f\r <>/])"""
 # Anything else, a markup declaration or a tag named otherwise, keeps the plain
 # reading: an apostrophe in a comment is text, and pairing it with a later
 # quote would swallow the markup in between. A tag with no "=" before its
@@ -53,39 +66,79 @@ _tag_re = re.compile(
 # and case-insensitive matching pairs no "s" with "\u017f" nor "k" with
 # "\u212a". It is also what makes a pattern and its byte counterpart match the
 # same markup.
-# Any tag, up to where it ends or the text does. A quoted value left open by
-# the end of the text is taken to the next angle bracket, which is where the
-# tag it belongs to can no longer reach.
-_tag_extent_source = rf"""<[a-zA-Z!/]{_TAG_BODY}(?:=\s*["'][^"'<>]*)?>?"""
-_tag_extent_re = re.compile(_tag_extent_source, re.ASCII)
-_tag_extent_bytes_re = re.compile(_tag_extent_source.encode())
 
-_base_re = re.compile("<base", re.IGNORECASE | re.ASCII)
+
+def _ignored_tags_source(ignore_tags: tuple[str, ...]) -> str:
+    tags = "|".join(re.escape(tag) for tag in ignore_tags)
+    # Only HTML whitespace, "/" or ">" after the name can open or close the
+    # element; anything else continues the name, as in "<script-loader>".
+    return (
+        rf"<(?P<t>{tags})(?=[\t\n\f\r />]){_TAG_BODY}>[^<]*"
+        r"(?:<(?!/(?P=t)[\t\n\f\r />])[^<]*)*"
+        rf"(?:</(?P=t){_TAG_REST}|$)"
+    )
+
+
+_tag_body_re = re.compile(_TAG_BODY, re.ASCII)
+_tag_body_bytes_re = re.compile(_TAG_BODY.encode())
+
+
+def _tag_text_has(
+    text: AnyStr, tag: re.Pattern[AnyStr], word: re.Pattern[AnyStr]
+) -> bool:
+    """Return whether the text after the name of some *tag* in *text*, read as
+    the scans below read a <base> or <meta>, has a match of *word*.
+
+    The scans walk the attributes of every tag, so that a <base> or <meta>
+    written inside one is not read, which costs several times a search for the
+    tag name. They only act on a tag whose own text spells *word*, wherever the
+    tag sits, so a document with none can skip them at the cost of that search.
+    """
+    body: re.Pattern[Any] = (
+        _tag_body_re if isinstance(text, str) else _tag_body_bytes_re
+    )
+    # The body pattern matches the empty string, so match() always succeeds.
+    return any(
+        word.search(body.match(text, m.end()).group())  # type: ignore[union-attr]
+        for m in tag.finditer(text)
+    )
+
+
 _base_bytes_re = re.compile(rb"<base", re.IGNORECASE)
+_base_start_re = re.compile(r"<base[\t\n\f\r /]", re.IGNORECASE | re.ASCII)
+_href_re = re.compile("href", re.IGNORECASE | re.ASCII)
 # Scan for <base> tags, consuming comments and <script>/<noscript> content
 # (where a browser never parses tags) along the way. Ignorable regions come
 # first in the alternation, so a <base> inside one is consumed before it can
 # match; unterminated regions swallow the rest of the document, as a browser
 # does. Their content is consumed in runs of characters that cannot start the
 # closing delimiter, so that the large inline scripts of real pages cost a
-# tight loop per run rather than a match attempt per character.
+# tight loop per run rather than a match attempt per character. The start and
+# end tags need the tag name followed by HTML whitespace, "/" or ">".
 #
 # The text of a <base> tag after its name is captured whole and its attributes
-# are then read one by one, as for <meta>.
+# are then read one by one, as for <meta>. The name ends at HTML whitespace or
+# "/", e.g. <base/href="...">; "\s" would also take "\v", which continues the
+# name instead. Any other tag is consumed whole, so that a <base> written
+# inside one of its quoted attribute values is not read.
 _base_scan_re = re.compile(
     rf"""
-      <!--[^-]*(?:-(?!->)[^-]*)*(?:-->|$)
-    | <(?P<t>script|noscript)\b{_TAG_BODY}>[^<]*(?:<(?!/(?P=t)>)[^<]*)*(?:</(?P=t)>|$)
-    | <base\s(?P<attrs>{_TAG_BODY})
+      {_COMMENT}
+    | {_ignored_tags_source(("script", "noscript"))}
+    | <base[\t\n\f\r /](?P<attrs>{_TAG_BODY})
+    | {_OTHER_TAG}
     """,
     re.IGNORECASE | re.DOTALL | re.VERBOSE | re.ASCII,
 )
 
 
 # The refresh payload: ``3; url=...``. The url= part is required.
-# The interval is ASCII digits only, as in the HTML refresh steps.
+# The interval is ASCII digits only, and the separator after it is ";", ","
+# or ASCII whitespace, as in the HTML refresh steps. The two separator
+# alternatives keep their whitespace runs from overlapping, so that matching
+# stays linear.
 _meta_refresh_content_re = re.compile(
-    r"\s*(?P<int>([0-9]*\.)?[0-9]+)\s*;\s*url=\s*(?P<url>.*)",
+    r"\s*(?P<int>([0-9]*\.)?[0-9]+)(?:\s*[;,]\s*|\s+)url=\s*(?P<url>.*)",
     re.DOTALL | re.IGNORECASE | re.ASCII,
 )
 
@@ -98,17 +151,21 @@ _tags_re = re.compile(
       {_TAG_BODY}>  # attribute values are read whole
     |
     </?             # opening angle bracket, optional slash for a closing tag
-    (?P<name>[^ <>/]+)
+    (?P<name>[^ <>/][^\t\n\f\r <>/]*+)
                     # tag name (captured): a run of non-space, non-bracket chars,
-    (?![^ <>/])     # pinned to its maximal length by this lookahead so it can't
-                    # overlap the run below and backtrack quadratically on an
-                    # unterminated tag (a "<" with a long run and no ">")
+                    # ended by any HTML whitespace after its first char,
+                    # possessive so that it can't give characters back to the
+                    # run below and backtrack quadratically on an unterminated
+                    # tag (a "<" with a long run and no ">")
     [^<>]*          # the rest of the tag: attributes, whitespace, etc.
     >               # closing angle bracket
     """,
     re.IGNORECASE | re.VERBOSE | re.ASCII,
 )
-_meta_re = re.compile("<meta", re.IGNORECASE | re.ASCII)
+_meta_start_re = re.compile(r"<meta[\t\n\f\r /]", re.IGNORECASE | re.ASCII)
+_meta_start_bytes_re = re.compile(rb"<meta[\t\n\f\r /]", re.IGNORECASE)
+_refresh_re = re.compile("refresh", re.IGNORECASE | re.ASCII)
+_refresh_bytes_re = re.compile(b"refresh", re.IGNORECASE)
 
 
 def _meta_scan_source(ignore_tags: tuple[str, ...]) -> str:
@@ -118,31 +175,25 @@ def _meta_scan_source(ignore_tags: tuple[str, ...]) -> str:
     # swallow the rest of the document, as a browser does. Their content is
     # consumed in runs of characters that cannot start the closing delimiter,
     # so that the large inline scripts of real pages cost a tight loop per run
-    # rather than a match attempt per character. The end tag closes on the tag
-    # name followed by whitespace, "/" or ">", as browsers treat it.
+    # rather than a match attempt per character. The start and end tags need the
+    # tag name followed by HTML whitespace, "/" or ">".
     #
     # The <meta> body is matched without the closing angle bracket, which is
     # not required: a tag left unterminated by the next "<" or by the end of
-    # the text is still parsed, as browsers do.
-    alternatives = [r"<!--[^-]*(?:-(?!->)[^-]*)*(?:-->|$)"]
+    # the text is still parsed, as browsers do. As for <base>, the name ends at
+    # HTML whitespace or "/". Any other tag is consumed whole, so that a <meta>
+    # written inside one of its quoted attribute values is not read.
+    alternatives = [_COMMENT]
     if ignore_tags:
-        tags = "|".join(re.escape(tag) for tag in ignore_tags)
-        alternatives.append(
-            rf"<(?P<t>{tags})\b{_TAG_BODY}>[^<]*(?:<(?!/(?P=t)[\s/>])[^<]*)*"
-            rf"(?:</(?P=t){_TAG_BODY}>?|$)"
-        )
-    alternatives.append(rf"<meta\s(?P<attrs>{_TAG_BODY})")
+        alternatives.append(_ignored_tags_source(ignore_tags))
+    alternatives.append(rf"<meta[\t\n\f\r /](?P<attrs>{_TAG_BODY})")
+    alternatives.append(_OTHER_TAG)
     return "|".join(alternatives)
 
 
 @functools.lru_cache(maxsize=256)
 def _build_meta_scan_pattern(ignore_tags: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(_meta_scan_source(ignore_tags), re.IGNORECASE | re.ASCII)
-
-
-@functools.lru_cache(maxsize=256)
-def _build_meta_scan_bytes_pattern(ignore_tags: tuple[str, ...]) -> re.Pattern[bytes]:
-    return re.compile(_meta_scan_source(ignore_tags).encode(), re.IGNORECASE)
 
 
 HTML5_WHITESPACE = " \t\n\r\x0c"
@@ -195,9 +246,13 @@ def replace_entities(
             entity_name = groups["named"]
             if entity_name.lower() in keep:
                 return m.group(0)
-            number = name2codepoint.get(entity_name) or name2codepoint.get(
-                entity_name.lower()
-            )
+            # The named character reference table is looked up as written: it
+            # is case-sensitive, and only its legacy entries resolve without
+            # the semicolon.
+            # https://html.spec.whatwg.org/commit-snapshots/3e7b72c44ce144cee7db859cd0647af6646b6793/#named-character-reference-state
+            replacement = html5.get(entity_name + groups["semicolon"])
+            if replacement is not None:
+                return replacement
         if number is not None:
             # A null or surrogate reference is a parse error that the tokenizer
             # resolves to U+FFFD; chr() would instead emit a NUL or a lone
@@ -251,7 +306,7 @@ def replace_tags(
     return _tag_re.sub(token, to_unicode(text, encoding))
 
 
-_REMOVECOMMENTS_RE = re.compile("<!--.*?(?:-->|$)", re.DOTALL)
+_REMOVECOMMENTS_RE = re.compile(_COMMENT)
 
 
 def remove_comments(text: str | bytes, encoding: str | None = None) -> str:
@@ -462,32 +517,15 @@ def unquote_markup(
     return "".join(ret)
 
 
-def _cut(text: str | bytes, max_scan: int | None) -> tuple[str | bytes, bool]:
-    """Return *text* cut to its first *max_scan* characters or bytes, extended
-    to the end of a tag the cut splits, and whether anything was left out."""
-    if max_scan is None:
-        return text, False
-    if max_scan < 0:
-        raise ValueError(f"max_scan must not be negative, got {max_scan!r}")
-    if max_scan >= len(text):
-        return text, False
-    is_str = isinstance(text, str)
-    extent: re.Pattern[Any] = _tag_extent_re if is_str else _tag_extent_bytes_re
-    lt: Any = "<" if is_str else b"<"
-    # Only a tag that reaches past the cut is split by it, and reading it to
-    # its end is what keeps it whole. Half a tag parses as a whole one, down to
-    # a truncated url, hence reading it whole or not at all. The search runs
-    # backwards from the cut because the tag that straddles it, if any, is the
-    # one that starts closest to it.
-    start = max_scan
-    while (start := text.rfind(lt, 0, start)) != -1:
-        tag = extent.match(text, start)
-        if tag is None:
-            continue
-        if tag.end() > max_scan:
-            return text[: tag.end()], tag.end() < len(text)
-        break
-    return text[:max_scan], True
+def _warn_relative_baseurl(function: str) -> None:
+    warnings.warn(
+        f"Passing a relative or empty baseurl to w3lib.html.{function}() is "
+        "deprecated, pass the absolute URL of the document instead. In a "
+        "future version, baseurl will be required, and a relative one will "
+        "raise ValueError.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 def get_base_url(
@@ -497,22 +535,30 @@ def get_base_url(
     *,
     max_scan: int | None = None,
 ) -> str:
-    """Return the base url if declared in the given HTML `text`,
-    relative to the given base url.
+    """Return the base URL of the HTML *text*, as a web browser finds it.
 
-    .. versionadded:: VERSION
-       The *max_scan* parameter.
-
-    If no base url is found, the given `baseurl` is returned.
-
-    *max_scan* is an upper bound on how much of *text* to look at, in
-    characters, or in bytes if *text* is a byte string, defaulting to ``None``,
-    i.e. no bound. It bounds work, not results: a tag that starts before the
-    limit is read to its end. ``0`` looks at nothing, and a negative value
-    raises :exc:`ValueError`.
+    *baseurl* is the absolute URL of the document, which is also the result
+    when *text* declares no usable base URL.
     """
-
-    text, cut = _cut(text, max_scan)
+    if max_scan is not None:
+        warnings.warn(
+            "The max_scan parameter of w3lib.html.get_base_url() is deprecated "
+            "and ignored.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    url = to_unicode(baseurl, errors="percentencode")
+    if _SCHEME_RE.match(url):
+        nav = navigation(
+            text,
+            url,
+            encoding if isinstance(text, bytes) else None,
+            meta_refresh=False,
+        )
+        assert nav.base_url is not None
+        return nav.base_url
+    _warn_relative_baseurl("get_base_url")
+    document_url = safe_url_string(baseurl)
 
     # Most documents declare no base url, so ruling one out in the bytes saves
     # decoding them. A hit falls through to the scan below, which decides: a
@@ -523,11 +569,10 @@ def get_base_url(
         and _scannable(encoding)
         and not _base_bytes_re.search(text)
     ):
-        return safe_url_string(baseurl)
+        return document_url
 
-    # A cut through bytes can split a character, which is then replaced.
-    utext = to_unicode(text, encoding, errors="replace" if cut else "strict")
-    if _base_re.search(utext):
+    utext = to_unicode(text, encoding)
+    if _tag_text_has(utext, _base_start_re, _href_re):
         for m in _base_scan_re.finditer(utext):
             if (attrs := m.group("attrs")) is None:
                 continue
@@ -543,24 +588,33 @@ def get_base_url(
                 # https://html.spec.whatwg.org/commit-snapshots/3e7b72c44ce144cee7db859cd0647af6646b6793/#set-the-frozen-base-url
                 value = attr["double"] or attr["single"] or attr["bare"] or ""
                 if url := value.strip(HTML5_WHITESPACE):
-                    return urljoin(
-                        safe_url_string(baseurl),
-                        safe_url_string(url, encoding=encoding),
-                    )
-                return safe_url_string(baseurl)
-    return safe_url_string(baseurl)
+                    # A URL that cannot be parsed also leaves the fallback in
+                    # place, e.g. a relative URL against an opaque path such as
+                    # "data:…", or a host with a forbidden code point.
+                    try:
+                        url = safe_url_string(
+                            _urljoin(document_url, url), encoding=encoding
+                        )
+                    except ValueError:
+                        return document_url
+                    # So does a data: or javascript: URL.
+                    if not url.startswith(("data:", "javascript:")):
+                        return url
+                return document_url
+    return document_url
 
 
 def _refresh(attrs: str, baseurl: str, encoding: str) -> tuple[float, str] | None:
     """Return the interval and absolute url of the refresh that *attrs*, the
     text of a <meta> tag after its name, declares, if it declares one."""
-    if "&" in attrs:
-        attrs = replace_entities(attrs)
-
     has_refresh_pragma = False
     interval: float | None = None
     url: str | None = None
-    for name, value in iter_tag_attributes(attrs):
+    for name, raw_value in iter_tag_attributes(attrs):
+        # a reference is decoded into the value of its own attribute, so a
+        # decoded quote or "=" is data, and a name is not decoded at all
+        # https://html.spec.whatwg.org/commit-snapshots/3e7b72c44ce144cee7db859cd0647af6646b6793/#flush-code-points-consumed-as-a-character-reference
+        value = replace_entities(raw_value) if "&" in raw_value else raw_value
         match name:
             case "http-equiv":
                 if "refresh" in value.lower():
@@ -573,7 +627,15 @@ def _refresh(attrs: str, baseurl: str, encoding: str) -> tuple[float, str] | Non
     if not has_refresh_pragma or interval is None:
         return None
     assert url is not None
-    return interval, urljoin(baseurl, safe_url_string(url.strip(" \"'"), encoding))
+    # A URL that cannot be parsed declares no refresh, so a later <meta> can.
+    # https://html.spec.whatwg.org/commit-snapshots/3e7b72c44ce144cee7db859cd0647af6646b6793/#shared-declarative-refresh-steps
+    try:
+        return interval, safe_url_string(_urljoin(baseurl, url.strip(" \"'")), encoding)
+    except ValueError:
+        return None
+
+
+_BROWSER_IGNORED_TAGS = frozenset(("script", "noscript", "template"))
 
 
 def get_meta_refresh(
@@ -584,36 +646,61 @@ def get_meta_refresh(
     *,
     max_scan: int | None = None,
 ) -> tuple[None, None] | tuple[float, str]:
-    """Return the http-equiv parameter of the HTML meta element from the given
-    HTML text and return a tuple ``(interval, url)`` where interval is a float
-    containing the delay in seconds (or zero if not present) and url is a
-    string with the absolute url to redirect.
+    """Return ``(interval, url)`` for the meta refresh of the HTML *text*
+    that a web browser follows, or ``(None, None)`` if there is none.
 
-    .. versionadded:: VERSION
-       The *max_scan* parameter.
+    *interval* is the delay in seconds, and *url* is the absolute URL to load,
+    resolved against *baseurl*, the absolute URL of the document, and against
+    a ``<base>`` element of *text*.
 
-    If no meta redirect is found, ``(None, None)`` is returned.
-
-    *max_scan* works as in :func:`get_base_url`.
+    ``<noscript>`` content counts only if *ignore_tags* does not contain
+    ``"noscript"``, as in a browser with JavaScript disabled.
     """
+    if max_scan is not None:
+        warnings.warn(
+            "The max_scan parameter of w3lib.html.get_meta_refresh() is "
+            "deprecated and ignored.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     ignored = tuple(sorted({tag.lower() for tag in ignore_tags}))
-    text, cut = _cut(text, max_scan)
+    browser_tags = _BROWSER_IGNORED_TAGS.issuperset(ignored)
+    if not browser_tags:
+        warnings.warn(
+            "Passing ignore_tags with tags other than 'script', 'noscript' and "
+            "'template' to w3lib.html.get_meta_refresh() is deprecated, and "
+            "will raise ValueError in a future version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    absolute = _SCHEME_RE.match(baseurl)
+    if not absolute:
+        _warn_relative_baseurl("get_meta_refresh")
+    if browser_tags and absolute:
+        nav = navigation(
+            text,
+            baseurl,
+            encoding if isinstance(text, bytes) else None,
+            base_url=False,
+            scripting="noscript" in ignored,
+        )
+        if nav.meta_refresh is None:
+            return None, None
+        return nav.meta_refresh.delay, nav.meta_refresh.url
 
     # Most documents declare no refresh, so ruling one out in the bytes saves
     # decoding them. A hit falls through to the scan of the decoded document,
     # which decides: a byte sequence that spells a tag is not necessarily one,
     # e.g. in a multi-byte encoding it can be part of a character.
-    if isinstance(text, bytes) and _scannable(encoding):
-        matches = _build_meta_scan_bytes_pattern(ignored).finditer(text)
-        if not any(
-            (attrs := match.group("attrs")) and b"refresh" in attrs.lower()
-            for match in matches
-        ):
-            return None, None
+    if (
+        isinstance(text, bytes)
+        and _scannable(encoding)
+        and not _tag_text_has(text, _meta_start_bytes_re, _refresh_bytes_re)
+    ):
+        return None, None
 
-    # A cut through bytes can split a character, which is then replaced.
-    utext = to_unicode(text, encoding, errors="replace" if cut else "strict")
-    if not _meta_re.search(utext):
+    utext = to_unicode(text, encoding)
+    if not _tag_text_has(utext, _meta_start_re, _refresh_re):
         return None, None
 
     for tag in _build_meta_scan_pattern(ignored).finditer(utext):

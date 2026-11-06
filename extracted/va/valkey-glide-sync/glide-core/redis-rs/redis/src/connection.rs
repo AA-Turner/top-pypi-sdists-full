@@ -235,6 +235,8 @@ pub struct RedisConnectionInfo {
     pub client_name: Option<String>,
     /// Optionally a library name that should be used for connection
     pub lib_name: Option<String>,
+    /// Optionally a library version that should be used for connection
+    pub lib_ver: Option<String>,
     /// Optionally a cache used for client-side caching
     pub cache: Option<Arc<dyn GlideCache>>,
     /// Whether to enable server-assisted client tracking (CLIENT TRACKING ON BCAST)
@@ -397,6 +399,7 @@ fn url_to_tcp_connection_info(url: url::Url) -> RedisResult<ConnectionInfo> {
             },
             client_name: None,
             lib_name: None,
+            lib_ver: None,
             cache: None,
             server_assisted_cache: false,
         },
@@ -432,6 +435,7 @@ fn url_to_unix_connection_info(url: url::Url) -> RedisResult<ConnectionInfo> {
             },
             client_name: None,
             lib_name: None,
+            lib_ver: None,
             cache: None,
             server_assisted_cache: false,
         },
@@ -679,6 +683,76 @@ impl ActualConnection {
                 ));
             }
         })
+    }
+
+    /// Vectored send of a packed command's segments, avoiding a contiguous
+    /// copy of large shared payloads ([`crate::cmd::SegmentedBytes`]). On
+    /// partial writes the `IoSlice` cursor is advanced until fully drained.
+    pub fn send_segments(&mut self, segments: &crate::cmd::SegmentedBytes) -> RedisResult<Value> {
+        fn write_all_vectored<W: io::Write>(
+            w: &mut W,
+            segments: &crate::cmd::SegmentedBytes,
+        ) -> io::Result<()> {
+            const MAX_SLICES: usize = 64;
+            let segs = segments.segments().collect::<Vec<_>>();
+            let mut idx = 0;
+            let mut offset = 0;
+            while idx < segs.len() {
+                let end = std::cmp::min(idx + MAX_SLICES, segs.len());
+                let mut slices: Vec<io::IoSlice> = Vec::with_capacity(end - idx);
+                slices.push(io::IoSlice::new(&segs[idx][offset..]));
+                for seg in &segs[idx + 1..end] {
+                    slices.push(io::IoSlice::new(seg));
+                }
+                let mut n = w.write_vectored(&slices)?;
+                if n == 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "failed to write whole command",
+                    ));
+                }
+                while n > 0 {
+                    let remaining = segs[idx].len() - offset;
+                    if n >= remaining {
+                        n -= remaining;
+                        idx += 1;
+                        offset = 0;
+                    } else {
+                        offset += n;
+                        n = 0;
+                    }
+                }
+            }
+            w.flush()
+        }
+
+        macro_rules! send_via {
+            ($conn:expr, $writer:expr) => {{
+                let res = write_all_vectored($writer, segments).map_err(RedisError::from);
+                match res {
+                    Err(e) => {
+                        if e.is_unrecoverable_error() {
+                            $conn.open = false;
+                        }
+                        Err(e)
+                    }
+                    Ok(_) => Ok(Value::Okay),
+                }
+            }};
+        }
+
+        match *self {
+            ActualConnection::Tcp(ref mut connection) => {
+                send_via!(connection, &mut connection.reader)
+            }
+            ActualConnection::TcpRustls(ref mut connection) => {
+                send_via!(connection, &mut connection.reader)
+            }
+            #[cfg(unix)]
+            ActualConnection::Unix(ref mut connection) => {
+                send_via!(connection, &mut connection.sock)
+            }
+        }
     }
 
     pub fn send_bytes(&mut self, bytes: &[u8]) -> RedisResult<Value> {
@@ -938,26 +1012,57 @@ fn effective_lib_name<'a>(
     runtime_lib_name: Option<&'a str>,
     compile_time_lib_name: Option<&'a str>,
 ) -> &'a str {
-    runtime_lib_name
+    match runtime_lib_name
         .filter(|lib_name| !lib_name.is_empty())
         .or(compile_time_lib_name.filter(|lib_name| !lib_name.is_empty()))
-        .unwrap_or("UnknownClient")
+    {
+        Some(lib_name) => lib_name,
+        None => {
+            glide_logger::log_warn(
+                "client_set_info",
+                "No library name available. Defaulting to 'lib-name=UnknownClient'.",
+            );
+            "UnknownClient"
+        }
+    }
 }
 
-pub(crate) fn client_set_info_pipeline(lib_name: Option<&str>) -> Pipeline {
+fn effective_lib_ver<'a>(
+    runtime_lib_ver: Option<&'a str>,
+    compile_time_lib_ver: Option<&'a str>,
+) -> &'a str {
+    match runtime_lib_ver
+        .filter(|lib_ver| !lib_ver.is_empty())
+        .or(compile_time_lib_ver.filter(|lib_ver| !lib_ver.is_empty()))
+    {
+        Some(lib_ver) => lib_ver,
+        None => {
+            glide_logger::log_warn(
+                "client_set_info",
+                "No library version available. Defaulting to 'lib-ver=unknown'.",
+            );
+            "unknown"
+        }
+    }
+}
+
+pub(crate) fn client_set_info_pipeline(lib_name: Option<&str>, lib_ver: Option<&str>) -> Pipeline {
     let mut pipeline = crate::pipe();
-    let final_lib_name = effective_lib_name(lib_name, option_env!("GLIDE_NAME"));
+
+    let lib_name = effective_lib_name(lib_name, option_env!("GLIDE_NAME"));
     pipeline
         .cmd("CLIENT")
         .arg("SETINFO")
         .arg("LIB-NAME")
-        .arg(final_lib_name)
+        .arg(lib_name)
         .ignore();
+
+    let lib_ver = effective_lib_ver(lib_ver, option_env!("GLIDE_VERSION"));
     pipeline
         .cmd("CLIENT")
         .arg("SETINFO")
         .arg("LIB-VER")
-        .arg(std::env!("GLIDE_VERSION"))
+        .arg(lib_ver)
         .ignore();
     pipeline
 }
@@ -1013,8 +1118,11 @@ fn setup_connection(
 
     // result is ignored, as per the command's instructions.
     // https://redis.io/commands/client-setinfo/
-    let _: RedisResult<()> =
-        client_set_info_pipeline(connection_info.lib_name.as_deref()).query(&mut rv);
+    let _: RedisResult<()> = client_set_info_pipeline(
+        connection_info.lib_name.as_deref(),
+        connection_info.lib_ver.as_deref(),
+    )
+    .query(&mut rv);
 
     Ok(rv)
 }
@@ -1225,10 +1333,9 @@ impl Connection {
         };
         // shutdown connection on protocol error
         if let Err(e) = &result {
-            let shutdown = match e.as_io_error() {
-                Some(e) => e.kind() == io::ErrorKind::UnexpectedEof,
-                None => false,
-            };
+            // Not just UnexpectedEof: a peer killed with data in flight delivers RST,
+            // which surfaces as ConnectionReset and must also mark the socket closed.
+            let shutdown = e.is_connection_dropped();
             if shutdown {
                 // Notify the PushManager that the connection was lost
                 self.push_manager.try_send_raw(&Value::Push {
@@ -1280,12 +1387,18 @@ impl Connection {
 impl ConnectionLike for Connection {
     /// Sends a [Cmd] into the TCP socket and reads a single response from it.
     fn req_command(&mut self, cmd: &Cmd) -> RedisResult<Value> {
-        let pcmd = cmd.get_packed_command();
         if self.pubsub {
             self.exit_pubsub()?;
         }
 
-        self.send_bytes(&pcmd)?;
+        // Only pay the segmented/vectored path when there's a large shared
+        // payload to keep off the copy path; otherwise the contiguous pack +
+        // single write is cheaper for small/normal commands.
+        if cmd.has_out_of_line_args() {
+            self.con.send_segments(&cmd.get_packed_segments())?;
+        } else {
+            self.send_bytes(&cmd.get_packed_command())?;
+        }
         if cmd.is_no_response() {
             return Ok(Value::Nil);
         }
@@ -1748,42 +1861,112 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_effective_lib_name_prefers_non_empty_runtime_name() {
-        assert_eq!(
-            effective_lib_name(Some("RuntimeClient"), Some("CompileTimeClient")),
-            "RuntimeClient"
-        );
+    fn test_read_response_connection_reset_closes_and_notifies() {
+        use std::net::TcpListener;
+        use std::time::Instant;
+
+        let timeout = Duration::from_secs(5);
+        for protocol in [ProtocolVersion::RESP2, ProtocolVersion::RESP3] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let addr = listener.local_addr().unwrap();
+            let transport = ActualConnection::new(
+                &ConnectionAddr::Tcp(addr.ip().to_string(), addr.port()),
+                Some(timeout),
+            )
+            .unwrap();
+            let deadline = Instant::now() + timeout;
+            let mut peer = loop {
+                match listener.accept() {
+                    Ok((peer, _)) => break peer,
+                    Err(err)
+                        if err.kind() == io::ErrorKind::WouldBlock && Instant::now() < deadline =>
+                    {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(err) => panic!("test peer did not accept the connection: {err}"),
+                }
+            };
+            // macOS can inherit the listener's nonblocking mode on accepted sockets.
+            peer.set_nonblocking(false).unwrap();
+            peer.set_read_timeout(Some(timeout)).unwrap();
+
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+            // Post-handshake state isolates response handling from setup errors.
+            let mut con = Connection {
+                con: transport,
+                parser: Parser::new(),
+                db: 0,
+                pubsub: false,
+                protocol,
+                push_manager: PushManager::new(Some(tx), None, None),
+            };
+            con.set_read_timeout(Some(timeout)).unwrap();
+            con.set_write_timeout(Some(timeout)).unwrap();
+
+            // Consuming the request before the reset rules out a write-side error.
+            con.send_packed_command(&cmd("PING").get_packed_command())
+                .unwrap();
+            assert_eq!(
+                Parser::new().parse_value(&mut peer).unwrap(),
+                Value::Array(vec![Value::BulkString(b"PING".to_vec().into())])
+            );
+            assert!(con.is_open());
+            assert_eq!(
+                rx.try_recv().unwrap_err(),
+                tokio::sync::mpsc::error::TryRecvError::Empty
+            );
+
+            // An ordinary close can produce EOF, which the old predicate already handled.
+            socket2::SockRef::from(&peer)
+                .set_linger(Some(Duration::ZERO))
+                .unwrap();
+            drop(peer);
+
+            let err = con.recv_response().unwrap_err();
+            assert_eq!(
+                err.as_io_error().map(io::Error::kind),
+                Some(io::ErrorKind::ConnectionReset),
+                "expected a read-side reset for {protocol:?}, got {err}"
+            );
+            assert!(!con.is_open(), "read-side reset left {protocol:?} open");
+            let push = rx
+                .try_recv()
+                .expect("missing disconnection push after reset");
+            assert_eq!(push.kind, PushKind::Disconnection);
+            assert!(push.data.is_empty());
+        }
     }
 
     #[test]
-    fn test_effective_lib_name_uses_compile_time_name() {
-        assert_eq!(
-            effective_lib_name(None, Some("CompileTimeClient")),
-            "CompileTimeClient"
-        );
+    fn test_effective_lib_name() {
+        let runtime = "RuntimeClient";
+        let compile = "CompileTimeClient";
+        let unknown = "UnknownClient";
+
+        assert_eq!(effective_lib_name(Some(runtime), Some(compile)), runtime);
+        assert_eq!(effective_lib_name(None, Some(compile)), compile);
+        assert_eq!(effective_lib_name(Some(""), Some(compile)), compile);
+        assert_eq!(effective_lib_name(None, Some("")), unknown);
+        assert_eq!(effective_lib_name(None, None), unknown);
     }
 
     #[test]
-    fn test_effective_lib_name_uses_unknown_client_without_names() {
-        assert_eq!(effective_lib_name(None, None), "UnknownClient");
+    fn test_effective_lib_ver() {
+        let runtime = "1.2.3";
+        let compile = "9.9.9";
+        let unknown = "unknown";
+
+        assert_eq!(effective_lib_ver(Some(runtime), Some(compile)), runtime);
+        assert_eq!(effective_lib_ver(None, Some(compile)), compile);
+        assert_eq!(effective_lib_ver(Some(""), Some(compile)), compile);
+        assert_eq!(effective_lib_ver(None, Some("")), unknown);
+        assert_eq!(effective_lib_ver(None, None), unknown);
     }
 
     #[test]
-    fn test_effective_lib_name_treats_empty_compile_time_name_as_absent() {
-        assert_eq!(effective_lib_name(None, Some("")), "UnknownClient");
-    }
-
-    #[test]
-    fn test_effective_lib_name_treats_empty_runtime_name_as_absent() {
-        assert_eq!(
-            effective_lib_name(Some(""), Some("CompileTimeClient")),
-            "CompileTimeClient"
-        );
-    }
-
-    #[test]
-    fn test_client_set_info_pipeline_uses_effective_lib_name() {
-        let pipeline = client_set_info_pipeline(Some("RuntimeClient"));
+    fn test_client_set_info_pipeline_includes_lib_name_and_lib_ver() {
+        let pipeline = client_set_info_pipeline(Some("RuntimeClient"), Some("1.2.3"));
         let packed_commands = pipeline.get_packed_pipeline();
         let cmd_str = String::from_utf8_lossy(&packed_commands);
 
@@ -1791,6 +1974,8 @@ mod tests {
         assert!(cmd_str.contains("SETINFO"));
         assert!(cmd_str.contains("LIB-NAME"));
         assert!(cmd_str.contains("RuntimeClient"));
+        assert!(cmd_str.contains("LIB-VER"));
+        assert!(cmd_str.contains("1.2.3"));
     }
 
     #[test]
@@ -1903,6 +2088,7 @@ mod tests {
                         protocol: ProtocolVersion::RESP2,
                         client_name: None,
                         lib_name: None,
+                        lib_ver: None,
                         cache: None,
                         server_assisted_cache: false,
                     },

@@ -823,6 +823,205 @@ class BanOrOpenGroupWordsResponse(TeaModel):
         return self
 
 
+class BatchChangePrivateStorageOpenAppsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class BatchChangePrivateStorageOpenAppsRequest(TeaModel):
+    def __init__(
+        self,
+        delete_client_ids: List[str] = None,
+        save_client_ids: List[str] = None,
+    ):
+        self.delete_client_ids = delete_client_ids
+        self.save_client_ids = save_client_ids
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.delete_client_ids is not None:
+            result['deleteClientIds'] = self.delete_client_ids
+        if self.save_client_ids is not None:
+            result['saveClientIds'] = self.save_client_ids
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('deleteClientIds') is not None:
+            self.delete_client_ids = m.get('deleteClientIds')
+        if m.get('saveClientIds') is not None:
+            self.save_client_ids = m.get('saveClientIds')
+        return self
+
+
+class BatchChangePrivateStorageOpenAppsResponseBodyFailures(TeaModel):
+    def __init__(
+        self,
+        client_id: str = None,
+        code: str = None,
+        message: str = None,
+        operation: str = None,
+    ):
+        self.client_id = client_id
+        self.code = code
+        self.message = message
+        self.operation = operation
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.client_id is not None:
+            result['clientId'] = self.client_id
+        if self.code is not None:
+            result['code'] = self.code
+        if self.message is not None:
+            result['message'] = self.message
+        if self.operation is not None:
+            result['operation'] = self.operation
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('clientId') is not None:
+            self.client_id = m.get('clientId')
+        if m.get('code') is not None:
+            self.code = m.get('code')
+        if m.get('message') is not None:
+            self.message = m.get('message')
+        if m.get('operation') is not None:
+            self.operation = m.get('operation')
+        return self
+
+
+class BatchChangePrivateStorageOpenAppsResponseBody(TeaModel):
+    def __init__(
+        self,
+        deleted_client_ids: List[str] = None,
+        failures: List[BatchChangePrivateStorageOpenAppsResponseBodyFailures] = None,
+        saved_client_ids: List[str] = None,
+    ):
+        self.deleted_client_ids = deleted_client_ids
+        self.failures = failures
+        self.saved_client_ids = saved_client_ids
+
+    def validate(self):
+        if self.failures:
+            for k in self.failures:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.deleted_client_ids is not None:
+            result['deletedClientIds'] = self.deleted_client_ids
+        result['failures'] = []
+        if self.failures is not None:
+            for k in self.failures:
+                result['failures'].append(k.to_map() if k else None)
+        if self.saved_client_ids is not None:
+            result['savedClientIds'] = self.saved_client_ids
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('deletedClientIds') is not None:
+            self.deleted_client_ids = m.get('deletedClientIds')
+        self.failures = []
+        if m.get('failures') is not None:
+            for k in m.get('failures'):
+                temp_model = BatchChangePrivateStorageOpenAppsResponseBodyFailures()
+                self.failures.append(temp_model.from_map(k))
+        if m.get('savedClientIds') is not None:
+            self.saved_client_ids = m.get('savedClientIds')
+        return self
+
+
+class BatchChangePrivateStorageOpenAppsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: BatchChangePrivateStorageOpenAppsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = BatchChangePrivateStorageOpenAppsResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
 class BusinessEventUpdateHeaders(TeaModel):
     def __init__(
         self,
@@ -19195,6 +19394,193 @@ class ListPartnerRolesResponse(TeaModel):
             self.status_code = m.get('statusCode')
         if m.get('body') is not None:
             temp_model = ListPartnerRolesResponseBody()
+            self.body = temp_model.from_map(m['body'])
+        return self
+
+
+class ListPrivateStorageOpenAppsHeaders(TeaModel):
+    def __init__(
+        self,
+        common_headers: Dict[str, str] = None,
+        x_acs_dingtalk_access_token: str = None,
+    ):
+        self.common_headers = common_headers
+        self.x_acs_dingtalk_access_token = x_acs_dingtalk_access_token
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.common_headers is not None:
+            result['commonHeaders'] = self.common_headers
+        if self.x_acs_dingtalk_access_token is not None:
+            result['x-acs-dingtalk-access-token'] = self.x_acs_dingtalk_access_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('commonHeaders') is not None:
+            self.common_headers = m.get('commonHeaders')
+        if m.get('x-acs-dingtalk-access-token') is not None:
+            self.x_acs_dingtalk_access_token = m.get('x-acs-dingtalk-access-token')
+        return self
+
+
+class ListPrivateStorageOpenAppsRequest(TeaModel):
+    def __init__(
+        self,
+        next_token: str = None,
+        page_size: int = None,
+    ):
+        self.next_token = next_token
+        self.page_size = page_size
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.next_token is not None:
+            result['nextToken'] = self.next_token
+        if self.page_size is not None:
+            result['pageSize'] = self.page_size
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('nextToken') is not None:
+            self.next_token = m.get('nextToken')
+        if m.get('pageSize') is not None:
+            self.page_size = m.get('pageSize')
+        return self
+
+
+class ListPrivateStorageOpenAppsResponseBodyApps(TeaModel):
+    def __init__(
+        self,
+        app_name: str = None,
+        client_id: str = None,
+    ):
+        self.app_name = app_name
+        self.client_id = client_id
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.app_name is not None:
+            result['appName'] = self.app_name
+        if self.client_id is not None:
+            result['clientId'] = self.client_id
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('appName') is not None:
+            self.app_name = m.get('appName')
+        if m.get('clientId') is not None:
+            self.client_id = m.get('clientId')
+        return self
+
+
+class ListPrivateStorageOpenAppsResponseBody(TeaModel):
+    def __init__(
+        self,
+        apps: List[ListPrivateStorageOpenAppsResponseBodyApps] = None,
+        has_more: bool = None,
+        next_token: str = None,
+    ):
+        self.apps = apps
+        self.has_more = has_more
+        self.next_token = next_token
+
+    def validate(self):
+        if self.apps:
+            for k in self.apps:
+                if k:
+                    k.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        result['apps'] = []
+        if self.apps is not None:
+            for k in self.apps:
+                result['apps'].append(k.to_map() if k else None)
+        if self.has_more is not None:
+            result['hasMore'] = self.has_more
+        if self.next_token is not None:
+            result['nextToken'] = self.next_token
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        self.apps = []
+        if m.get('apps') is not None:
+            for k in m.get('apps'):
+                temp_model = ListPrivateStorageOpenAppsResponseBodyApps()
+                self.apps.append(temp_model.from_map(k))
+        if m.get('hasMore') is not None:
+            self.has_more = m.get('hasMore')
+        if m.get('nextToken') is not None:
+            self.next_token = m.get('nextToken')
+        return self
+
+
+class ListPrivateStorageOpenAppsResponse(TeaModel):
+    def __init__(
+        self,
+        headers: Dict[str, str] = None,
+        status_code: int = None,
+        body: ListPrivateStorageOpenAppsResponseBody = None,
+    ):
+        self.headers = headers
+        self.status_code = status_code
+        self.body = body
+
+    def validate(self):
+        if self.body:
+            self.body.validate()
+
+    def to_map(self):
+        _map = super().to_map()
+        if _map is not None:
+            return _map
+
+        result = dict()
+        if self.headers is not None:
+            result['headers'] = self.headers
+        if self.status_code is not None:
+            result['statusCode'] = self.status_code
+        if self.body is not None:
+            result['body'] = self.body.to_map()
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('headers') is not None:
+            self.headers = m.get('headers')
+        if m.get('statusCode') is not None:
+            self.status_code = m.get('statusCode')
+        if m.get('body') is not None:
+            temp_model = ListPrivateStorageOpenAppsResponseBody()
             self.body = temp_model.from_map(m['body'])
         return self
 

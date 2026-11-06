@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-memory"
-version = "0.18.9"
+version = "0.18.10"
 description = "OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -291,10 +291,6 @@ known-first-party = ["omnimemory"]
     "ERA001",  # Commented-out code in examples
     "T201",  # print() is intentional user-facing output
 ]
-# Dep-provenance gate CLI (OMN-13873) — user-facing print() diagnostics
-"scripts/check_dep_provenance.py" = [
-    "T201",  # print() is intentional user-facing CLI output
-]
 # Root foundation validators are user-facing CLI scripts.
 "validate_foundation*.py" = [
     "T201",  # print() is intentional user-facing output
@@ -312,8 +308,6 @@ known-first-party = ["omnimemory"]
 "src/omnimemory/tools/contract_linter.py" = ["T201"]
 # Performance benchmark test — uses print() for results output
 "tests/test_performance.py" = ["T201"]
-# Dep-provenance gate test (OMN-13873) — importlib spec+loader guard assert
-"tests/scripts/test_check_dep_provenance.py" = ["PT018"]
 # Test-only rules - acceptable in test files
 "tests/**/*" = [
     "SLF001",  # Private member accessed (tests need to verify internals)
@@ -414,6 +408,11 @@ markers = [
     "embedding: marks tests as requiring an embedding server (LLM_EMBEDDING_URL)",
 ]
 
+[tool.omnimemory.ci]
+# CI wall-clock budgets the workflows read from here instead of writing them inline.
+uv_http_timeout_seconds = 600
+pin_resolve_timeout_seconds = 900
+
 [tool.uv]
 # Override transitive pins so our direct pins win.
 override-dependencies = [
@@ -423,7 +422,6 @@ override-dependencies = [
     "omnibase-core>=0.47.0,<0.48.0",
     "omnibase-spi>=0.23.0,<0.24.0",
     "omnibase-infra>=0.38.4,<0.39.0",
-    "omnibase-compat>=0.5.0,<0.6.0",
     # OMN-16765: the "omninode-memory>=0.17.0,<0.18.0" override was REMOVED here.
     # omninode-memory is this project's own [project].name, so overriding it made
     # uv resolve the root package as an external pinned dependency instead of the
@@ -436,10 +434,14 @@ override-dependencies = [
     # The override was also redundant: [tool.uv.sources] below already routes any
     # transitive dependency on omninode-memory to the workspace copy, which is
     # what the OMN-13837 omnimarket-chain note actually needed.
-    "omnimarket>=0.4.0,<0.5.0",
+    # OMN-22360: the omnimarket override and its v0.4.0 git source are removed.
+    # omnimarket sits above omnimemory in the declared layer order and omnimemory
+    # never imports it, so declaring it was an upward edge and a cycle with
+    # omnimarket's own dependency on omninode-memory.
 ]
 
 [tool.uv.sources]
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "dev-20261104102410-b002ec3ceab1" }
 omninode-memory = { workspace = true }
 # OMN-16760: the omnibase-core git-source override (rev dc35561cf, opened under
 # OMN-15639 to carry the canonical consumer-group util ahead of a release) is
@@ -454,4 +456,3 @@ omninode-memory = { workspace = true }
 # published on PyPI carrying the spi-0.23 pins (OMN-15604 cascade-leg
 # recovery), so the immutable-rev override is no longer needed; resolves from
 # PyPI via the >=0.38.4,<0.39.0 constraint above.
-omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", tag = "v0.4.0" }

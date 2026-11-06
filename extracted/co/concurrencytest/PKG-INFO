@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: concurrencytest
-Version: 0.1.11
+Version: 0.1.12
 Summary: Run unittest test suites concurrently
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
@@ -20,13 +20,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: python-subunit
-Requires-Dist: testtools
+Requires-Dist: python-subunit>=1.4.6
+Requires-Dist: testtools>=2.9.1
 Dynamic: license-file
 
 concurrencytest
@@ -97,16 +98,16 @@ pip install concurrencytest
 1. write your tests in normal `unittest` style (test methods inside a
    `unittest.TestCase` class)
 2. load a suite of tests using `unittest.TestLoader` (or `unittest.defaultTestLoader`):
-  - `suite = unittest.TestLoader().discover("tests")`
-  - `suite = unittest.TestLoader().loadTestsFromModule(my_tests)`
-  - `suite = unittest.TestLoader().loadTestsFromTestCase(MyTests)`
-  - `suite = unittest.TestLoader().loadTestsFromName("MyTests.test_1")`
-  - `suite = unittest.TestLoader().loadTestsFromNames("MyTests.test_1", "MyTests.test_2")`
+    - `suite = unittest.TestLoader().discover("tests")`
+    - `suite = unittest.TestLoader().loadTestsFromModule(my_tests)`
+    - `suite = unittest.TestLoader().loadTestsFromTestCase(MyTests)`
+    - `suite = unittest.TestLoader().loadTestsFromName("MyTests.test_1")`
+    - `suite = unittest.TestLoader().loadTestsFromNames("MyTests.test_1", "MyTests.test_2")`
 3. Wrap with `ConcurrentTestSuite`:
-  - `concurrent_suite = ConcurrentTestSuite(suite)`
-  - `concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(4))`
+    - `concurrent_suite = ConcurrentTestSuite(suite)`
+    - `concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(4))`
 4. Run the suite using a unittest-compatible runner:
-  - `unittest.TextTestRunner().run(concurrent_suite)`
+    - `unittest.TextTestRunner().run(concurrent_suite)`
 
 
 #### Configuring number of processes and partition strategy:
@@ -126,9 +127,9 @@ fork_for_tests(num_processes, partition_func)
 ```
 
 - `num_processes` (optional): Number of worker processes to spawn
-  - Defaults to the number of CPUs on the system.
+    - Defaults to the number of CPUs on the system.
 - `partition_func` (optional): Function used to partition tests across workers.
-  - Defaults to `partition_tests` (round-robin partition strategy).
+    - Defaults to `partition_tests`.
 
 Available partition functions:
 
@@ -182,11 +183,10 @@ import unittest
 
 from concurrencytest import ConcurrentTestSuite
 
-"""Tests just sleep for demo."""
+"""Tests sleep for demo."""
 
 
 class ExampleTestCase(unittest.TestCase):
-
     def test_1(self):
         time.sleep(1)
 
@@ -247,11 +247,10 @@ from concurrencytest import (
     partition_tests_by_class,
 )
 
-"""Tests just sleep for demo."""
+"""Tests sleep for demo."""
 
 
 class ExampleTestCase1(unittest.TestCase):
-
     def test_1(self):
         time.sleep(1)
 
@@ -346,6 +345,5 @@ OK
 
 ## Notes
 
-For more info about writing/running tests with the `unittest` testing
-framework, see the
-[official documentation](https://docs.python.org/library/unittest.html).
+For more info about writing/running tests with the `unittest` testing framework,
+see the [official documentation](https://docs.python.org/library/unittest.html).

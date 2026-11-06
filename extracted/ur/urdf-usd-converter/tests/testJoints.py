@@ -3,7 +3,9 @@
 import math
 import pathlib
 
-from pxr import Gf, Usd, UsdPhysics
+import usdex.core
+import usdex.test
+from pxr import Gf, Tf, Usd, UsdPhysics
 
 import urdf_usd_converter
 from tests.util.ConverterTestCase import ConverterTestCase
@@ -15,7 +17,9 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        revolute_arms = [("Arm_1", "revolute"), ("Arm_2", "revolute"), ("Arm_3", "revolute"), ("Arm_4", "revolute")]
+        with self.expect_no_mass_source(revolute_arms):
+            asset_path = converter.convert(input_path, output_dir)
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
 
@@ -74,14 +78,13 @@ class TestJoints(ConverterTestCase):
         self.assertAlmostEqual(revolute_joint.GetLowerLimitAttr().Get(), 0.0, places=6)
         self.assertAlmostEqual(revolute_joint.GetUpperLimitAttr().Get(), 17.188734, places=6)
 
-        # Custom attributes and NewtonJointAPI.
+        # Custom attributes. Velocity is omitted, so no velocity limit is authored.
         joint_prim = revolute_joint.GetPrim()
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").HasAuthoredValue())
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").IsCustom())
         self.assertAlmostEqual(joint_prim.GetAttribute("urdf:limit:effort").Get(), 0.0, places=6)
-        self.assertTrue(joint_prim.HasAPI("NewtonJointAPI"))
-        self.assertTrue(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
-        self.assertAlmostEqual(joint_prim.GetAttribute("newton:velocityLimit").Get(), 0.0, places=6)
+        self.assertFalse(joint_prim.HasAPI("NewtonJointAPI"))
+        self.assertFalse(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
         physics_revolute_joint_prim = stage.GetPrimAtPath(physics_scope_prim.GetPath().AppendChild("joint_arm_2"))
         self.assertTrue(physics_revolute_joint_prim.IsValid())
         self.assertTrue(physics_revolute_joint_prim.IsA(UsdPhysics.RevoluteJoint))
@@ -96,14 +99,13 @@ class TestJoints(ConverterTestCase):
         self.assertAlmostEqual(revolute_joint.GetLowerLimitAttr().Get(), -17.188734, places=6)
         self.assertAlmostEqual(revolute_joint.GetUpperLimitAttr().Get(), 0.0, places=6)
 
-        # Custom attributes and NewtonJointAPI.
+        # Custom attributes. Velocity is omitted, so no velocity limit is authored.
         joint_prim = revolute_joint.GetPrim()
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").HasAuthoredValue())
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").IsCustom())
         self.assertAlmostEqual(joint_prim.GetAttribute("urdf:limit:effort").Get(), 0.0, places=6)
-        self.assertTrue(joint_prim.HasAPI("NewtonJointAPI"))
-        self.assertTrue(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
-        self.assertAlmostEqual(joint_prim.GetAttribute("newton:velocityLimit").Get(), 0.0, places=6)
+        self.assertFalse(joint_prim.HasAPI("NewtonJointAPI"))
+        self.assertFalse(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
 
         # Joint_arm_3.
         physics_revolute_joint_prim = stage.GetPrimAtPath(physics_scope_prim.GetPath().AppendChild("joint_arm_3"))
@@ -138,7 +140,8 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        with self.expect_no_mass_source([("Arm_2", "continuous")]):
+            asset_path = converter.convert(input_path, output_dir)
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
 
@@ -188,7 +191,9 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        prismatic_arms = [("Arm_1", "prismatic"), ("Arm_2", "prismatic"), ("Arm_3", "prismatic"), ("Arm_4", "prismatic")]
+        with self.expect_no_mass_source(prismatic_arms):
+            asset_path = converter.convert(input_path, output_dir)
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
 
@@ -236,14 +241,13 @@ class TestJoints(ConverterTestCase):
         self.assertAlmostEqual(prismatic_joint.GetLowerLimitAttr().Get(), 0.0, places=6)
         self.assertAlmostEqual(prismatic_joint.GetUpperLimitAttr().Get(), 0.5, places=6)
 
-        # Custom attributes and NewtonJointAPI.
+        # Custom attributes. Velocity is omitted, so no velocity limit is authored.
         joint_prim = prismatic_joint.GetPrim()
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").HasAuthoredValue())
         self.assertTrue(joint_prim.GetAttribute("urdf:limit:effort").IsCustom())
         self.assertAlmostEqual(joint_prim.GetAttribute("urdf:limit:effort").Get(), 0.01, places=6)
-        self.assertTrue(joint_prim.HasAPI("NewtonJointAPI"))
-        self.assertTrue(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
-        self.assertAlmostEqual(joint_prim.GetAttribute("newton:velocityLimit").Get(), 0.0, places=6)
+        self.assertFalse(joint_prim.HasAPI("NewtonJointAPI"))
+        self.assertFalse(joint_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
 
         # Joint_arm_2.
         physics_prismatic_joint_prim = stage.GetPrimAtPath(physics_scope_prim.GetPath().AppendChild("joint_arm_2"))
@@ -302,7 +306,17 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        planar_links = [
+            ("planar_negative_z", "planar"),
+            ("planar_z", "planar"),
+            ("planar_negative_y", "planar"),
+            ("planar_y", "planar"),
+            ("planar_negative_x", "planar"),
+            ("planar_x", "planar"),
+            ("planar_tilt", "planar"),
+        ]
+        with self.expect_no_mass_source(planar_links):
+            asset_path = converter.convert(input_path, output_dir)
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
 
@@ -524,7 +538,8 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        with self.expect_no_mass_source([("Arm_2", "floating")]):
+            asset_path = converter.convert(input_path, output_dir)
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
 
@@ -581,7 +596,9 @@ class TestJoints(ConverterTestCase):
         output_dir = self.tmpDir()
 
         converter = urdf_usd_converter.Converter()
-        asset_path = converter.convert(input_path, output_dir)
+        mimic_links = [("linkA", "revolute"), ("linkB", "revolute"), ("linkC", "prismatic"), ("linkD", "prismatic")]
+        with self.expect_no_mass_source(mimic_links):
+            asset_path = converter.convert(input_path, output_dir)
 
         self.assertIsNotNone(asset_path)
         self.assertTrue(pathlib.Path(asset_path.path).exists())
@@ -624,3 +641,148 @@ class TestJoints(ConverterTestCase):
         self.assertTrue(joint_d_prim.HasAPI("NewtonMimicAPI"))
         self.assertAlmostEqual(joint_d_prim.GetAttribute("newton:mimicCoef0").Get(), 0.25, places=6)
         self.assertAlmostEqual(joint_d_prim.GetAttribute("newton:mimicCoef1").Get(), 2.0)
+
+    def test_urdf_12_joint_limits(self):
+        input_path = "tests/data/urdf_12_joint_limits.urdf"
+        output_dir = self.tmpDir()
+
+        asset_path = urdf_usd_converter.Converter().convert(input_path, output_dir)
+        self.assertIsNotNone(asset_path)
+        self.assertTrue(pathlib.Path(asset_path.path).exists())
+
+        stage: Usd.Stage = Usd.Stage.Open(asset_path.path)
+        self.assertIsValidUsd(stage)
+
+        physics_scope_prim = stage.GetDefaultPrim().GetChild("Physics")
+
+        revolute_prim = physics_scope_prim.GetChild("revolute_joint")
+        self.assertTrue(revolute_prim.IsA(UsdPhysics.RevoluteJoint))
+        self.assertAlmostEqual(revolute_prim.GetAttribute("physics:lowerLimit").Get(), math.degrees(-1.57), places=5)
+        self.assertAlmostEqual(revolute_prim.GetAttribute("physics:upperLimit").Get(), math.degrees(1.57), places=5)
+        self.assertAlmostEqual(revolute_prim.GetAttribute("newton:velocityLimit").Get(), math.degrees(1.0), places=5)
+        self.assertTrue(revolute_prim.GetAttribute("urdf:limit:effort").IsCustom())
+        self.assertAlmostEqual(revolute_prim.GetAttribute("urdf:limit:effort").Get(), 100.0, places=6)
+        self.assertAlmostEqual(revolute_prim.GetAttribute("urdf:limit:acceleration").Get(), 10.0, places=6)
+        self.assertAlmostEqual(revolute_prim.GetAttribute("urdf:limit:deceleration").Get(), 5.0, places=6)
+        self.assertAlmostEqual(revolute_prim.GetAttribute("urdf:limit:jerk").Get(), 200.0, places=6)
+
+        prismatic_prim = physics_scope_prim.GetChild("prismatic_joint")
+        self.assertTrue(prismatic_prim.IsA(UsdPhysics.PrismaticJoint))
+        self.assertAlmostEqual(prismatic_prim.GetAttribute("urdf:limit:effort").Get(), 50.0, places=6)
+        self.assertAlmostEqual(prismatic_prim.GetAttribute("urdf:limit:acceleration").Get(), 2.0, places=6)
+        self.assertAlmostEqual(prismatic_prim.GetAttribute("urdf:limit:deceleration").Get(), 1.5, places=6)
+        self.assertAlmostEqual(prismatic_prim.GetAttribute("urdf:limit:jerk").Get(), 20.0, places=6)
+
+        continuous_prim = physics_scope_prim.GetChild("continuous_joint")
+        self.assertTrue(continuous_prim.IsA(UsdPhysics.RevoluteJoint))
+        self.assertFalse(continuous_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+        self.assertEqual(continuous_prim.GetAttribute("urdf:limit:acceleration").Get(), 3.0)
+        for name in ("urdf:limit:effort", "urdf:limit:deceleration", "urdf:limit:jerk"):
+            self.assertFalse(continuous_prim.GetAttribute(name).IsValid())
+
+        infinite_velocity_prim = physics_scope_prim.GetChild("infinite_velocity_joint")
+        self.assertTrue(infinite_velocity_prim.IsA(UsdPhysics.RevoluteJoint))
+        self.assertFalse(infinite_velocity_prim.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+
+    def test_pre_12_limit_derivatives_are_not_authored(self):
+        input_path = "tests/data/warning_urdf_12_joint_limits.urdf"
+        output_dir = self.tmpDir()
+
+        converter = urdf_usd_converter.Converter()
+        with usdex.test.ScopedDiagnosticChecker(
+            self,
+            [
+                (
+                    Tf.TF_DIAGNOSTIC_WARNING_TYPE,
+                    (
+                        '.*limit: Joint "arm_joint" ignores acceleration, deceleration, jerk '
+                        r"because the URDF version is earlier than 1.2\. These values are not authored \(line: 22\).*"
+                    ),
+                ),
+                (
+                    Tf.TF_DIAGNOSTIC_WARNING_TYPE,
+                    ".*Link 'arm_link' has no collision or positive-mass inertial, including its descendants, and is connected by a revolute joint.*",
+                ),
+            ],
+            level=usdex.core.DiagnosticsLevel.eWarning,
+        ):
+            asset_path = converter.convert(input_path, output_dir)
+        self.assertIsNotNone(asset_path)
+
+        stage: Usd.Stage = Usd.Stage.Open(asset_path.path)
+        self.assertIsValidUsd(stage)
+        joint_prim = stage.GetDefaultPrim().GetChild("Physics").GetChild("arm_joint")
+        self.assertTrue(joint_prim.IsValid())
+        self.assertAlmostEqual(joint_prim.GetAttribute("urdf:limit:effort").Get(), 1.0, places=6)
+        for name in ("urdf:limit:acceleration", "urdf:limit:deceleration", "urdf:limit:jerk"):
+            self.assertFalse(joint_prim.GetAttribute(name).IsValid())
+
+    def test_velocity_limit(self):
+        input_path = "tests/data/velocity_limits.urdf"
+        output_dir = self.tmpDir()
+
+        converter = urdf_usd_converter.Converter()
+        mass_warnings = [
+            (
+                Tf.TF_DIAGNOSTIC_WARNING_TYPE,
+                (
+                    f".*Link '{name}' has no collision or positive-mass inertial, including its descendants, "
+                    f"and is connected by a {joint_type} joint.*"
+                ),
+            )
+            for name, joint_type in [
+                ("positive_link", "revolute"),
+                ("omitted_link", "revolute"),
+                ("zero_link", "revolute"),
+                ("negative_link", "revolute"),
+                ("damped_link", "revolute"),
+                ("slide_link", "prismatic"),
+            ]
+        ]
+        with usdex.test.ScopedDiagnosticChecker(
+            self,
+            [
+                *mass_warnings,
+                (Tf.TF_DIAGNOSTIC_WARNING_TYPE, '.*Joint "negative" has negative <limit velocity> "-1.0".*'),
+            ],
+            level=usdex.core.DiagnosticsLevel.eWarning,
+        ):
+            asset_path = converter.convert(input_path, output_dir)
+        self.assertIsNotNone(asset_path)
+        self.assertTrue(pathlib.Path(asset_path.path).exists())
+
+        stage: Usd.Stage = Usd.Stage.Open(asset_path.path)
+        self.assertIsValidUsd(stage)
+
+        physics_scope_prim = stage.GetPrimAtPath(stage.GetDefaultPrim().GetPath().AppendChild("Physics"))
+        self.assertTrue(physics_scope_prim.IsValid())
+
+        positive = physics_scope_prim.GetChild("positive")
+        self.assertTrue(positive.HasAPI("NewtonJointAPI"))
+        self.assertTrue(positive.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+        self.assertAlmostEqual(positive.GetAttribute("newton:velocityLimit").Get(), math.degrees(0.5), places=6)
+
+        omitted = physics_scope_prim.GetChild("omitted")
+        self.assertFalse(omitted.HasAPI("NewtonJointAPI"))
+        self.assertFalse(omitted.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+
+        zero = physics_scope_prim.GetChild("zero")
+        self.assertFalse(zero.HasAPI("NewtonJointAPI"))
+        self.assertFalse(zero.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+
+        negative = physics_scope_prim.GetChild("negative")
+        self.assertFalse(negative.HasAPI("NewtonJointAPI"))
+        self.assertFalse(negative.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+
+        # Dynamics are still authored when the velocity limit is dropped.
+        damped = physics_scope_prim.GetChild("damped")
+        self.assertTrue(damped.HasAPI("NewtonJointAPI"))
+        self.assertFalse(damped.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+        self.assertTrue(damped.GetAttribute("newton:damping").HasAuthoredValue())
+        self.assertAlmostEqual(damped.GetAttribute("newton:damping").Get(), math.pi / 180.0, places=6)
+        self.assertAlmostEqual(damped.GetAttribute("newton:friction").Get(), 0.5, places=6)
+
+        slide = physics_scope_prim.GetChild("slide")
+        self.assertTrue(slide.HasAPI("NewtonJointAPI"))
+        self.assertTrue(slide.GetAttribute("newton:velocityLimit").HasAuthoredValue())
+        self.assertAlmostEqual(slide.GetAttribute("newton:velocityLimit").Get(), 0.2, places=6)

@@ -215,7 +215,7 @@ from ..deck._solver import _NATIVE_LOADING, NEC2_BASES, basis_from_program_name
 # asks whether ``Nec2Structure`` should be promoted to ``momwire.deck``'s
 # public surface anyway, which only becomes load-bearing if the portal is
 # ever a third-party consumer again.
-from ..deck._nec2 import REFUSE_NEAR_FIELD_REFL_COEF
+from ..deck._nec2 import _LD_RUN_TRANSPARENT, REFUSE_NEAR_FIELD_REFL_COEF
 
 # `LD 0`'s series R + jwL + 1/(jwC): the network core's own evaluator, the
 # one the design library and `momwire.networks` already read. The portal kept
@@ -544,6 +544,10 @@ _APPROX_INTEGRATION = (
 )
 
 _LOADING_HEADER = "                          ------ STRUCTURE IMPEDANCE LOADING ------"
+# nec2c's line after the rows when a segment carries two loads (momwire#1807).
+_LOADED_TWICE = (
+    "  NOTE, SOME OF THE ABOVE SEGMENTS HAVE BEEN LOADED TWICE - IMPEDANCES ADDED"
+)
 _LOADING_NONE = "                                 THIS STRUCTURE IS NOT LOADED"
 _LOADING_TABLE_HEADER = (
     "  LOCATION        RESISTANCE  INDUCTANCE  CAPACITANCE     IMPEDANCE (OHMS)"
@@ -1327,6 +1331,10 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
     print_control: PrintControl | None = None
     charge_control: ChargePrintControl | None = None
     sources_stale = False
+    # The dialect's run of LD cards (momwire#1812, `deck._nec2._ld_run_open`):
+    # the comment cards never reach the test below, and keep a run open.
+    ld_run_open = False
+    ld_run_transparent = _LD_RUN_TRANSPARENT | ({"EK"} if dialect == "nec4" else set())
 
     for line in body.splitlines():
         card = parse_card(line)
@@ -1341,13 +1349,17 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
             geometry.append(card)
             continue
         data_cards.append(card)
+        opens_a_run = card.mnemonic == "LD" and not ld_run_open
+        if card.mnemonic not in ld_run_transparent:
+            ld_run_open = card.mnemonic == "LD"
         if card.mnemonic == "LD":
             # The loading table echoes the cards in force, and ``LD -1``
             # nullifies every load read so far — the dialect's own rule, and
             # only loads: ``IS`` insulation is a wire property, not a load.
-            if card.i(0) == -1:
+            # So does the first LD of a new run of LD cards (momwire#1812).
+            if card.i(0) == -1 or opens_a_run:
                 loads.clear()
-            else:
+            if card.i(0) != -1:
                 loads.append(card)
         elif card.mnemonic == "MP":
             multiprocessing = Multiprocessing.from_card(card)
@@ -2087,6 +2099,20 @@ class DeckSolver:
         self._cache[key] = entry
         return entry
 
+    def loaded_twice(self, group_index: int) -> bool:
+        """Do two lumped loads in force at execute group ``group_index``
+        share a segment (momwire#1807)?
+
+        Both oracles then add the two impedances and close the loading table
+        with a "LOADED TWICE - IMPEDANCES ADDED" note (nec2c and the licensed
+        NEC-4.2, each in its own layout).  Read off the model, where a stacked
+        pair is two entries at one position and a card written twice is one
+        entry in force twice.
+        """
+        live = self._group_loads.get(group_index, ())
+        at = [self.model.loads[k][:2] for k in live]
+        return len(set(at)) != len(at)
+
     def _load_impedances(
         self, omega: float, group_index: int | None = None
     ) -> np.ndarray:
@@ -2219,7 +2245,10 @@ class DeckSolver:
             if reducer is None:
                 v_gap = _lapack.solve_stacked(eye + z_load[:, None] * y, v_source)
                 i_port = y @ v_gap
-                return reducer, (v_gap, v_gap, i_port, i_port.copy())
+                # The applied voltage is the gap's plus the drop across a load
+                # on the driven segment (momwire#1813), as below.
+                v_applied = v_gap + z_load * i_port
+                return reducer, (v_gap, v_applied, i_port, i_port.copy())
             v_applied, i_port, i_source = self._composed(
                 reducer, y, z_load, wavelength, driven
             )
@@ -2399,11 +2428,17 @@ class DeckSolver:
                 v_gap = _lapack.solve_stacked(system, v_source)
                 i_port = y @ v_gap
                 # No network branch reaches this group, so the source current
-                # IS the segment current, the applied voltage IS the gap's, and
-                # the network loss is identically zero. This branch is the
-                # pre-network arithmetic to the bit, which is what keeps every
-                # antenna-only fixture's printout where it was.
-                v_applied = v_gap
+                # IS the segment current and the network loss is identically
+                # zero. This branch is the pre-network arithmetic to the bit,
+                # which is what keeps every antenna-only fixture's printout
+                # where it was.  The applied voltage is the gap's plus the drop
+                # across an LD on the same segment, which sits in series with
+                # the source: a current source (`EX 6`) reads its voltage, and
+                # so its impedance, from here, and NEC-4.2 includes the load
+                # in both (momwire#1813: 30 ohm on the fed segment of a dipole
+                # answers 111.75 ohm under EX 6 as under EX 0).  Where no load
+                # sits the sum adds an exact zero.
+                v_applied = v_gap + z_load * i_port
                 i_source = i_port
                 p_network = 0.0
             else:
@@ -3774,6 +3809,8 @@ def _render_run_block(
         rows = _loading_rows(group.loads)
         if rows:
             out += [*_LOADING_TABLE_HEADER, *rows]
+            if solver.loaded_twice(group_index):
+                out.append(_LOADED_TWICE)
         else:
             out.append(_LOADING_NONE)
         out += ["", ""]

@@ -40,13 +40,15 @@ def count(value: Any) -> str:
 
 def held(in_use: Optional[Mapping[str, Any]]) -> str:
     """What the account's GPUs are doing: 'serving 6, evals 2, build checks 1' (a count it could not read says
-    'unknown'). A deploy's build check holds its card while it runs and the total counts it, so the parts name it too; an
-    in_use without one (an eval's) leaves it out.
+    'unknown'), and ', shells 1' while a benchmark's shell machine holds one. A deploy's build check and a shell hold their
+    cards while they run and the total counts them, so the parts name them too; an in_use without a build check (an eval's)
+    leaves it out.
  
 """
     u = in_use if isinstance(in_use, Mapping) else {}
     words = f"serving {count(u.get('serving'))}, evals {count(u.get('eval'))}"
-    return words + (f", build checks {count(u.get('build'))}" if "build" in u else "")
+    return (words + (f", build checks {count(u.get('build'))}" if "build" in u else "")
+            + (f", shells {count(u.get('shell'))}" if u.get("shell") else ""))
 
 
 def _when(retry_after_s: Optional[float]) -> str:
@@ -130,19 +132,16 @@ def explain(details: Optional[Mapping[str, Any]], *, retry_after_s: Optional[flo
     if reason == "gpu_low_stock":
 
 
-
-
         gpu, waited = d.get("gpu") or "this card", d.get("waited_s")
-        where = f" in {d['region']}" if isinstance(d.get("region"), str) and d["region"] else ""
         if queued:
 
             most = d.get("queue_timeout_s")
             up_to = f", for up to {duration(most)}" if isinstance(most, (int, float)) else ""
-            return (f"No {gpu} is available{where} right now; {in_line} for one{up_to}, and nothing is billed while "
+            return (f"No {gpu} is available right now; {in_line} for one{up_to}, and nothing is billed while "
                     "you wait.")
         if not isinstance(waited, (int, float)):
-            return f"{gpu} is out of stock{where} right now; try again {_when(retry_after_s)}."
-        return f"No {gpu} became available{where} in the {duration(waited)} this robot waited; try again in a minute."
+            return f"{gpu} is out of stock right now; try again {_when(retry_after_s)}."
+        return f"No {gpu} became available in the {duration(waited)} this robot waited; try again in a minute."
     if reason == "deployment_full":
         cap = f"max_gpus={count(d.get('max_gpus'))}"
         return (f"This deployment already holds its {cap} GPUs and every slot is taken; "

@@ -121,10 +121,14 @@ def _post_endata_json(
     response.raise_for_status()
     data_json = response.json()
     if data_json.get("status") != 1:
-        raise APIError(
-            message=str(data_json.get("des", "艺恩接口返回异常")),
-            status_code=data_json.get("status"),
-        )
+        message = str(data_json.get("des", "艺恩接口返回异常"))
+        if message == "没有权限":
+            # 2026-11-05 实测：日票房、影院日票房只能匿名查询当天及前 2 天，更早的日期需登录
+            message = (
+                "艺恩返回“没有权限”：日票房、影院日票房只能查询当天及前 2 天的数据，"
+                "更早的日期需要登录艺恩账号，请改用最近的日期"
+            )
+        raise APIError(message=message, status_code=data_json.get("status"))
     return data_json
 
 
@@ -170,6 +174,19 @@ def _format_date(date: str) -> str:
     return datetime.datetime.strptime(date, "%Y%m%d").strftime("%Y-%m-%d")
 
 
+def _recent_date(date: str) -> str:
+    """
+    处理日票房的日期参数：空字符串表示前一天，其余按 YYYYMMDD 解析
+    :param date: 日期，如 "20261104"；空字符串表示前一天
+    :type date: str
+    :return: YYYY-MM-DD 格式日期
+    :rtype: str
+    """
+    if not date:
+        return (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    return _format_date(date=date)
+
+
 def _calc_first_week_days(value: object) -> object:
     """
     根据上映日期估算首周天数。
@@ -183,23 +200,6 @@ def _calc_first_week_days(value: object) -> object:
     if pd.isna(release_date):
         return pd.NA
     return 7 - release_date.weekday()
-
-
-def _raise_week_permission_error(interface_name: str) -> None:
-    """
-    抛出艺恩周榜权限异常。
-
-    :param interface_name: 接口名称
-    :type interface_name: str
-    :raises APIError: 当周榜接口需要权限时抛出
-    """
-    raise APIError(
-        message=(
-            f"{interface_name} 上游艺恩公开周榜接口当前需要权限或直接返回系统错误, "
-            "暂无法匿名获取"
-        ),
-        status_code=-1,
-    )
 
 
 def movie_boxoffice_realtime() -> pd.DataFrame:
@@ -238,13 +238,18 @@ def movie_boxoffice_realtime() -> pd.DataFrame:
             "TotalBoxOffice",
         ]
     ]
-    temp_df.columns = [
-        "排序",
-        "影片名称",
-        "实时票房",
-        "票房占比",
-        "上映天数",
-        "累计票房",
+    temp_df = temp_df.rename(
+        columns={
+            "Irank": "排序",
+            "MovieName": "影片名称",
+            "BoxOffice": "实时票房",
+            "BoxOfficePercent": "票房占比",
+            "ReleaseDay": "上映天数",
+            "TotalBoxOffice": "累计票房",
+        }
+    )
+    temp_df = temp_df[
+        ["排序", "影片名称", "实时票房", "票房占比", "上映天数", "累计票房"]
     ]
     temp_df["实时票房"] = pd.to_numeric(temp_df["实时票房"], errors="coerce") / 10000
     temp_df["累计票房"] = pd.to_numeric(temp_df["累计票房"], errors="coerce") / 10000
@@ -258,16 +263,16 @@ def movie_boxoffice_realtime() -> pd.DataFrame:
     return temp_df
 
 
-def movie_boxoffice_daily(date: str = "20240219") -> pd.DataFrame:
+def movie_boxoffice_daily(date: str = "") -> pd.DataFrame:
     """
     电影票房-单日票房
     https://www.endata.com.cn/BoxOffice/BO/Day/index.html
-    :param date: 只能设置当前日期的前一天的票房数据
+    :param date: 日期，如 "20261104"，默认为空字符串，表示前一天；只能查询当天及前 2 天，更早的日期需要登录艺恩账号
     :type date: str
     :return: 每日票房
     :rtype: pandas.DataFrame
     """
-    date_str = _format_date(date=date)
+    date_str = _recent_date(date=date)
     url = "https://ys.endata.cn/enlib-api/api/movie/getMovie_BoxOffice_Day_List.do"
     payload = {
         "r": random.random(),
@@ -335,19 +340,6 @@ def movie_boxoffice_daily(date: str = "20240219") -> pd.DataFrame:
     return temp_df
 
 
-def movie_boxoffice_weekly(date: str = "20240218") -> pd.DataFrame:
-    """
-    电影票房-单周票房
-    https://www.endata.com.cn/BoxOffice/BO/Week/oneWeek.html
-    :param date: 只能获取指定日期所在完整周的票房数据
-    :type date: str
-    :return: 单周票房
-    :rtype: pandas.DataFrame
-    """
-    _ = date
-    _raise_week_permission_error(interface_name="movie_boxoffice_weekly")
-
-
 def movie_boxoffice_monthly(date: str = "20240218") -> pd.DataFrame:
     """
     电影票房-单月票房
@@ -396,15 +388,29 @@ def movie_boxoffice_monthly(date: str = "20240218") -> pd.DataFrame:
             "ReleaseDay",
         ]
     ]
-    temp_df.columns = [
-        "排序",
-        "影片名称",
-        "单月票房",
-        "月度占比",
-        "平均票价",
-        "场均人次",
-        "上映日期",
-        "月内天数",
+    temp_df = temp_df.rename(
+        columns={
+            "Irank": "排序",
+            "MovieName": "影片名称",
+            "BoxOffice": "单月票房",
+            "BoxOfficePercent": "月度占比",
+            "AvgBoxOffice": "平均票价",
+            "AvgShowAudienceCount": "场均人次",
+            "ReleaseDate": "上映日期",
+            "ReleaseDay": "月内天数",
+        }
+    )
+    temp_df = temp_df[
+        [
+            "排序",
+            "影片名称",
+            "单月票房",
+            "月度占比",
+            "平均票价",
+            "场均人次",
+            "上映日期",
+            "月内天数",
+        ]
     ]
     temp_df["口碑指数"] = pd.NA
     temp_df = temp_df[
@@ -474,15 +480,29 @@ def movie_boxoffice_yearly(date: str = "20240218") -> pd.DataFrame:
             "ReleaseDate",
         ]
     ]
-    temp_df.columns = [
-        "排序",
-        "影片名称",
-        "类型",
-        "总票房",
-        "平均票价",
-        "场均人次",
-        "国家及地区",
-        "上映日期",
+    temp_df = temp_df.rename(
+        columns={
+            "Irank": "排序",
+            "MovieName": "影片名称",
+            "GenreMain": "类型",
+            "TotalBoxOffice": "总票房",
+            "AvgBoxOffice": "平均票价",
+            "AvgShowAudienceCount": "场均人次",
+            "Country": "国家及地区",
+            "ReleaseDate": "上映日期",
+        }
+    )
+    temp_df = temp_df[
+        [
+            "排序",
+            "影片名称",
+            "类型",
+            "总票房",
+            "平均票价",
+            "场均人次",
+            "国家及地区",
+            "上映日期",
+        ]
     ]
     temp_df["总票房"] = pd.to_numeric(temp_df["总票房"], errors="coerce") / 10000
     temp_df["平均票价"] = pd.to_numeric(temp_df["平均票价"], errors="coerce")
@@ -539,15 +559,29 @@ def movie_boxoffice_yearly_first_week(date: str = "20201018") -> pd.DataFrame:
             "ReleaseDate",
         ]
     ]
-    temp_df.columns = [
-        "排序",
-        "影片名称",
-        "类型",
-        "首周票房",
-        "占总票房比重",
-        "场均人次",
-        "国家及地区",
-        "上映日期",
+    temp_df = temp_df.rename(
+        columns={
+            "Irank": "排序",
+            "MovieName": "影片名称",
+            "GenreMain": "类型",
+            "WeekBoxOffice": "首周票房",
+            "WeekBoxPercent": "占总票房比重",
+            "AvgShowAudienceCount": "场均人次",
+            "Country": "国家及地区",
+            "ReleaseDate": "上映日期",
+        }
+    )
+    temp_df = temp_df[
+        [
+            "排序",
+            "影片名称",
+            "类型",
+            "首周票房",
+            "占总票房比重",
+            "场均人次",
+            "国家及地区",
+            "上映日期",
+        ]
     ]
     temp_df["首周天数"] = temp_df["上映日期"].map(_calc_first_week_days).astype("Int64")
     temp_df = temp_df[
@@ -576,16 +610,16 @@ def movie_boxoffice_yearly_first_week(date: str = "20201018") -> pd.DataFrame:
     return temp_df
 
 
-def movie_boxoffice_cinema_daily(date: str = "20240219") -> pd.DataFrame:
+def movie_boxoffice_cinema_daily(date: str = "") -> pd.DataFrame:
     """
     电影票房-影院票房-日票房排行
     https://www.endata.com.cn/BoxOffice/BO/Cinema/day.html
-    :param date: 当前日期前一日的票房数据
+    :param date: 日期，如 "20261104"，默认为空字符串，表示前一天；只能查询当天及前 2 天，更早的日期需要登录艺恩账号
     :type date: str
     :return: 影票房-影院票房-日票房排行
     :rtype: pandas.DataFrame
     """
-    date_str = _format_date(date=date)
+    date_str = _recent_date(date=date)
     url = "https://ys.endata.cn/enlib-api/api/cinema/getcinemaboxoffice_day_list.do"
     payload = {
         "r": random.random(),
@@ -637,28 +671,12 @@ def movie_boxoffice_cinema_daily(date: str = "20240219") -> pd.DataFrame:
     return temp_df
 
 
-def movie_boxoffice_cinema_weekly(date: str = "20240219") -> pd.DataFrame:
-    """
-    电影票房-影院票房-周票房排行
-    https://www.endata.com.cn/BoxOffice/BO/Cinema/week.html
-    :param date: 当前日期前完整一周的票房数据
-    :type date: str
-    :return: 影票房-影院票房-轴票房排行
-    :rtype: pandas.DataFrame
-    """
-    _ = date
-    _raise_week_permission_error(interface_name="movie_boxoffice_cinema_weekly")
-
-
 if __name__ == "__main__":
     movie_boxoffice_realtime_df = movie_boxoffice_realtime()
     print(movie_boxoffice_realtime_df)
 
-    movie_boxoffice_daily_df = movie_boxoffice_daily(date="20240219")
+    movie_boxoffice_daily_df = movie_boxoffice_daily()
     print(movie_boxoffice_daily_df)
-
-    movie_boxoffice_weekly_df = movie_boxoffice_weekly(date="20240218")
-    print(movie_boxoffice_weekly_df)
 
     movie_boxoffice_monthly_df = movie_boxoffice_monthly(date="20240218")
     print(movie_boxoffice_monthly_df)
@@ -671,8 +689,5 @@ if __name__ == "__main__":
     )
     print(movie_boxoffice_yearly_first_week_df)
 
-    movie_boxoffice_cinema_daily_df = movie_boxoffice_cinema_daily(date="20240219")
+    movie_boxoffice_cinema_daily_df = movie_boxoffice_cinema_daily()
     print(movie_boxoffice_cinema_daily_df)
-
-    movie_boxoffice_cinema_weekly_df = movie_boxoffice_cinema_weekly(date="20240219")
-    print(movie_boxoffice_cinema_weekly_df)

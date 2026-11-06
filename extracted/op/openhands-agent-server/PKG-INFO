@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-agent-server
-Version: 1.59.0
+Version: 1.60.1
 Summary: OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent
 Project-URL: Source, https://github.com/OpenHands/software-agent-sdk
 Project-URL: Homepage, https://github.com/OpenHands/software-agent-sdk
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.openhands.dev/sdk
 Project-URL: Bug Tracker, https://github.com/OpenHands/software-agent-sdk/issues
 Requires-Python: >=3.12
 Requires-Dist: aiosqlite>=0.22.1
-Requires-Dist: alembic>=1.13
+Requires-Dist: alembic>=1.20.1
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: docker<8,>=7.1
 Requires-Dist: fastapi>=0.104
@@ -16,9 +16,9 @@ Requires-Dist: openhands-sdk
 Requires-Dist: openhands-tools
 Requires-Dist: openai<3,>=2.33.0
 Requires-Dist: pydantic>=2.13.5
-Requires-Dist: sqlalchemy>=2
+Requires-Dist: sqlalchemy>=2.1.5
 Requires-Dist: uvicorn>=0.54.0
 Requires-Dist: websockets>=12
 Requires-Dist: wsproto>=1.2.0
 Provides-Extra: posthog
-Requires-Dist: posthog<8,>=7.60.0; extra == "posthog"
+Requires-Dist: posthog<8,>=7.75.11; extra == "posthog"

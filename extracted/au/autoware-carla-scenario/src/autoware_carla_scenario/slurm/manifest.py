@@ -21,7 +21,6 @@ heavy imports: the ``scenario-slurm`` commands only read these.
 from __future__ import annotations
 
 import errno
-import hashlib
 import json
 import logging
 import os
@@ -31,8 +30,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..failure import Failure
 from ..run_outputs import RUN_FILE_SUFFIXES
-from .scripts import BatchPaths
+from .scripts import BatchPaths, file_sha256
 from .stems import config_key, sequential_stems
 
 __all__ = [
@@ -47,6 +47,8 @@ __all__ = [
     "resubmit_target",
     "read_json",
     "read_submission_record",
+    "readable_result",
+    "recorded_verdict",
     "sbatch_in_flight",
     "sequential_stems",
     "write_json",
@@ -68,15 +70,6 @@ MANIFEST_VERSION = 2
 
 #: The versions this framework reads.
 MANIFEST_VERSIONS: tuple[int, ...] = (1, 2)
-
-
-def file_sha256(path: Path) -> str:
-    """The SHA-256 of the file *path*, hex."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as stream:
-        for block in iter(lambda: stream.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def config_files(
@@ -149,6 +142,18 @@ def write_json(path: Path, data: Any) -> None:
 def read_json(path: Path) -> Any:
     """Read the JSON file *path*."""
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_object(path: Path) -> dict[str, Any] | None:
+    """The JSON object in *path*, or ``None`` when it is missing, cannot be
+    read, is not JSON, or holds JSON that is not an object."""
+    if not path.is_file():
+        return None
+    try:
+        data = read_json(path)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def read_submission_record(path: Path) -> dict[str, Any] | None:
@@ -233,27 +238,91 @@ def _create_exclusive(path: Path, data: Any) -> bool:
         Path(tmp).unlink(missing_ok=True)
 
 
+def _real_number(value: Any) -> bool:
+    # ``True`` is an int, but no number of seconds; nor is an integer
+    # literal too long for a float (``float()`` overflows on it).
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        float(value)
+    except OverflowError:
+        return False
+    return True
+
+
+def _readable_status(status: Any) -> bool:
+    return (
+        isinstance(status, dict)
+        and isinstance(status.get("label"), str)
+        and isinstance(status.get("satisfied"), bool)
+        and isinstance(status.get("message"), str)
+    )
+
+
+def readable_result(result: Any) -> bool:
+    """Whether *result*, a recorded ``result`` (``ScenarioResult.to_dict()``),
+    can be reported (#1726): an object whose ``message`` is a string, whose
+    ``elapsed_seconds`` is a number (not a boolean), whose
+    ``condition_statuses``, if any, is a list of objects each with a string
+    ``label`` and ``message`` and a boolean ``satisfied``, and whose
+    ``failure``, if any, is an object.  What ``to_dict()`` leaves out
+    (``rerun_recording``, ``failure``) may be missing; ``passed`` is
+    :func:`recorded_verdict`'s to check."""
+    if not isinstance(result, dict):
+        return False
+    if not isinstance(result.get("message"), str):
+        return False
+    if not _real_number(result.get("elapsed_seconds")):
+        return False
+    statuses = result.get("condition_statuses")
+    if statuses is not None and not (
+        isinstance(statuses, list) and all(_readable_status(s) for s in statuses)
+    ):
+        return False
+    failure = result.get("failure")
+    if failure is None:
+        return True
+    if not isinstance(failure, dict):
+        return False
+    try:
+        Failure.from_dict(failure)
+    except (TypeError, ValueError, AttributeError, OverflowError):
+        return False
+    return True
+
+
+def recorded_verdict(record: dict[str, Any] | None) -> bool | None:
+    """Whether the outcome a task recorded for a case (``results/<i>.json``,
+    read by :meth:`BatchLayout.read_result`) passed: its ``result``'s
+    ``passed`` when ``result`` is an object and ``passed`` a boolean, else
+    ``None`` -- a record that holds no verdict, which every reader takes as
+    not passed (#1718), never ``"false"`` or ``1`` as a pass.
+
+    A ``result`` that cannot be reported (:func:`readable_result`: its
+    ``message``, ``elapsed_seconds``, ``condition_statuses`` or ``failure``
+    missing or of the wrong type) holds no verdict either (#1726), so that the counts of
+    ``scenario-slurm status`` and ``wait``, the viewer, ``collect`` and
+    ``resubmit`` all agree that it did not pass."""
+    if not isinstance(record, dict):
+        return None
+    result = record.get("result")
+    if not isinstance(result, dict):
+        return None
+    passed = result.get("passed")
+    if not isinstance(passed, bool):
+        return None
+    return passed if readable_result(result) else None
+
+
 @dataclass(frozen=True)
 class BatchLayout(BatchPaths):
     """Where the launcher's files of the batch in *batch_dir* are, and what
     they hold.
 
-    The paths are :class:`~.scripts.BatchPaths`', which the library check
-    compiles (#732); this reads the files.
+    The paths, and which submissions the batch holds (:meth:`submissions`,
+    :meth:`next_submission`), are :class:`~.scripts.BatchPaths`', which the
+    library check compiles (#732, #1648); this reads the files.
     """
-
-    def submissions(self) -> list[int]:
-        """The indices of the batch's submissions, in order."""
-        directory = self.root / "submissions"
-        if not directory.is_dir():
-            return []
-        return sorted(int(p.stem) for p in directory.glob("*.json") if p.stem.isdigit())
-
-    def next_submission(self) -> int:
-        """The index after the batch's last submission.  Not reserved: two
-        submitters may both be told it (:meth:`reserve_submission`)."""
-        existing = self.submissions()
-        return existing[-1] + 1 if existing else 0
 
     def reserve_submission(self, record: dict[str, Any]) -> int:
         """Create the batch's next submission record from *record* (its
@@ -277,15 +346,23 @@ class BatchLayout(BatchPaths):
 
         Raises:
             FileNotFoundError: *batch_dir* holds no SLURM batch.
-            ValueError: The manifest is of a version this framework cannot read.
+            ValueError: The manifest is not JSON, not a JSON object, or of a
+                version this framework cannot read (#1630).
+            OSError: The manifest cannot be read.
         """
         if not self.manifest.is_file():
             raise FileNotFoundError(
                 f"{self.batch_dir} holds no SLURM batch (no {self.manifest})"
             )
         manifest = read_json(self.manifest)
+        if not isinstance(manifest, dict):
+            raise ValueError(
+                f"{self.manifest} is not a SLURM batch manifest "
+                "(it holds JSON that is not an object)"
+            )
         version = manifest.get("version")
-        if version not in MANIFEST_VERSIONS:
+        # ``True == 1``: a bool is no version, though ``in`` would match it.
+        if isinstance(version, bool) or version not in MANIFEST_VERSIONS:
             raise ValueError(
                 f"{self.manifest} is a version {version} manifest; this "
                 "autoware_carla_scenario reads version(s) "
@@ -302,19 +379,12 @@ class BatchLayout(BatchPaths):
         return read_submission_record(self.submission(index))
 
     def read_result(self, case: int) -> dict[str, Any] | None:
-        path = self.result(case)
-        if not path.is_file():
-            return None
-        try:
-            return read_json(path)
-        except (OSError, ValueError):
-            return None
+        """Case *case*'s outcome, or ``None`` when there is none to read:
+        missing, not JSON, or JSON that is not an object (#1630)."""
+        return _read_object(self.result(case))
 
     def read_task(self, submission: int, task: int) -> dict[str, Any] | None:
-        path = self.task(submission, task)
-        if not path.is_file():
-            return None
-        try:
-            return read_json(path)
-        except (OSError, ValueError):
-            return None
+        """Task *task* of submission *submission*'s status, or ``None`` when
+        there is none to read: missing, not JSON, or JSON that is not an
+        object (#1630)."""
+        return _read_object(self.task(submission, task))

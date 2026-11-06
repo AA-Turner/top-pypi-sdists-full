@@ -149,7 +149,7 @@ def _released_metadata(metadata: dict[str, Any]) -> tuple[dict[str, Any], Any]:
 
 
 class CheckVersionIncrement(Check):
-    """Check that the connector version was incremented if files were modified."""
+    """Validate version increments against master, or a stacked PR's base branch."""
 
     category = CheckCategory.VERSION
     name = "Connector Version Increment Check"
@@ -157,6 +157,8 @@ class CheckVersionIncrement(Check):
         "Validates that the connector version was incremented if files were modified. "
         "The version must also be the next patch, minor or major version (or its "
         "first RC, or the next RC/promotion of an RC) without skipping versions. "
+        "Stacked PRs compare against GITHUB_BASE_REF instead of master, falling "
+        "back to master when the base branch metadata is unavailable. "
         "Changes that touch no production code, such as tests and documentation "
         "inside the connector directory, or metadata.yaml fields that are not part "
         "of the released connector (external documentation URLs, test suite "
@@ -260,6 +262,57 @@ class CheckVersionIncrement(Check):
         if not response.ok:
             return None
         return yaml.safe_load(response.text)["data"]
+
+    def _get_baseline_metadata(
+        self, connector: Connector
+    ) -> tuple[dict[str, Any] | None, str]:
+        """Read a stacked PR's base tip from git, then GitHub, else use master.
+
+        Unset, master and main base refs retain the existing master baseline.
+        """
+        base_branch = os.getenv("GITHUB_BASE_REF")
+        if base_branch and base_branch not in {"master", "main"}:
+            for remote in ("upstream", "origin"):
+                try:
+                    result = subprocess.run(
+                        [
+                            "git",
+                            "show",
+                            f"{remote}/{base_branch}:./{consts.METADATA_FILE_NAME}",
+                        ],
+                        cwd=connector.code_directory,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=30,
+                    )
+                    metadata = yaml.safe_load(result.stdout)
+                    if isinstance(metadata, dict) and isinstance(
+                        metadata.get("data"), dict
+                    ):
+                        return metadata["data"], base_branch
+                except (
+                    subprocess.SubprocessError,
+                    OSError,
+                    UnicodeError,
+                    yaml.YAMLError,
+                ):
+                    continue
+            try:
+                response = requests.get(
+                    f"https://raw.githubusercontent.com/airbytehq/airbyte/{base_branch}/"
+                    f"airbyte-integrations/connectors/{connector.technical_name}/{consts.METADATA_FILE_NAME}",
+                    timeout=30,
+                )
+                if response.ok:
+                    metadata = yaml.safe_load(response.text)
+                    if isinstance(metadata, dict) and isinstance(
+                        metadata.get("data"), dict
+                    ):
+                        return metadata["data"], base_branch
+            except (requests.RequestException, yaml.YAMLError):
+                pass  # Fall back to master below.
+        return self._get_master_metadata(connector), "master"
 
     def _parse_version_from_metadata(self, metadata: dict[str, Any]) -> semver.Version:
         return semver.Version.parse(str(metadata["dockerImageTag"]))
@@ -385,33 +438,40 @@ class CheckVersionIncrement(Check):
                 )
 
         try:
-            master_metadata = self._get_master_metadata(connector)
-            # Note: master_metadata being None is expected for new connectors that don't exist
-            # in master yet. In this case, we use 0.0.0 as the baseline, allowing any version.
-            master_version = (
-                self._parse_version_from_metadata(master_metadata)
-                if master_metadata
+            baseline_metadata, baseline_branch = self._get_baseline_metadata(connector)
+            baseline_label = (
+                "Master"
+                if baseline_branch == "master"
+                else f"Base branch {baseline_branch}"
+            )
+            branch_description = (
+                "the default branch" if baseline_branch == "master" else baseline_branch
+            )
+            # New connectors have no baseline metadata; allow any initial version.
+            baseline_version = (
+                self._parse_version_from_metadata(baseline_metadata)
+                if baseline_metadata
                 else semver.Version.parse("0.0.0")
             )
             current_version = self._get_current_connector_version(connector)
 
             # Require a version increment
-            if current_version < master_version:
+            if current_version < baseline_version:
                 return self.fail(
                     connector,
                     f"The dockerImageTag in {consts.METADATA_FILE_NAME} appears to be lower than the "
-                    f"version on the default branch. Master version is {master_version}, current "
+                    f"version on {branch_description}. {baseline_label} version is {baseline_version}, current "
                     f"version is {current_version}. "
-                    f"Update your PR branch from the default branch to get the latest connector version. "
+                    f"Update your PR branch from {branch_description} to get the latest connector version. "
                     f"Maintainers can use the `/bump-version` PR slash command. "
                     f"AI agents can use the `bump_version_in_repo` tool from the `airbyte-ops-mcp` MCP server.",
                 )
 
-            if current_version == master_version:
+            if current_version == baseline_version:
                 # Allow version to stay the same if registryOverrides.cloud.dockerImageTag or
                 # registryOverrides.oss.dockerImageTag has been added, removed, or changed
                 if self._has_registry_override_docker_tag_change(
-                    master_metadata, connector.metadata
+                    baseline_metadata, connector.metadata
                 ):
                     return self.skip(
                         connector,
@@ -421,54 +481,54 @@ class CheckVersionIncrement(Check):
                 return self.fail(
                     connector,
                     f"The dockerImageTag in {consts.METADATA_FILE_NAME} was not incremented. "
-                    f"Master version is {master_version}, current version is {current_version}. "
+                    f"{baseline_label} version is {baseline_version}, current version is {current_version}. "
                     f"Ignore this message if you do not intend to re-release the connector. "
                     f"Maintainers can use the `/bump-version` PR slash command. "
                     f"AI agents can use the `bump_version_in_repo` tool from the `airbyte-ops-mcp` MCP server.",
                 )
 
             if self._are_both_versions_release_candidates(
-                master_version, current_version
+                baseline_version, current_version
             ) and not self._have_same_major_minor_patch(
-                master_version, current_version
+                baseline_version, current_version
             ):
                 return self.fail(
                     connector,
-                    f"Master and current version are release candidates but they have different major, minor or patch versions. "
-                    f"Release candidates should only differ in the prerelease part. Master version is {master_version}, "
+                    f"{baseline_label} and current version are release candidates but they have different major, minor or patch versions. "
+                    f"Release candidates should only differ in the prerelease part. {baseline_label} version is {baseline_version}, "
                     f"current version is {current_version}",
                 )
 
-            # If master is an RC and the current version is not an RC, the only
+            # If the baseline is an RC and the current version is not an RC, the only
             # valid stable version is the promotion of that RC (same major.minor.patch).
             if (
-                master_version.prerelease
-                and master_version.prerelease.startswith("rc.")
+                baseline_version.prerelease
+                and baseline_version.prerelease.startswith("rc.")
                 and not current_version.prerelease
             ):
                 expected_stable = semver.Version(
-                    major=master_version.major,
-                    minor=master_version.minor,
-                    patch=master_version.patch,
+                    major=baseline_version.major,
+                    minor=baseline_version.minor,
+                    patch=baseline_version.patch,
                 )
                 if current_version != expected_stable:
                     return self.fail(
                         connector,
-                        f"Master version {master_version} is a release candidate. "
+                        f"{baseline_label} version {baseline_version} is a release candidate. "
                         f"The next stable version must be {expected_stable}, not {current_version}. "
                         f"Promote the RC to stable before bumping to a new major, minor, or patch version.",
                     )
 
-            next_versions = _next_versions(master_version)
+            next_versions = _next_versions(baseline_version)
             if (
-                master_metadata
+                baseline_metadata
                 and next_versions is not None
                 and current_version not in next_versions
             ):
                 return self.fail(
                     connector,
                     f"The dockerImageTag in {consts.METADATA_FILE_NAME} skips a version. "
-                    f"Master version is {master_version}, current version is {current_version}. "
+                    f"{baseline_label} version is {baseline_version}, current version is {current_version}. "
                     f"The next version must be one of: {', '.join(str(version) for version in next_versions)}. "
                     f"Maintainers can use the `/bump-version` PR slash command. "
                     f"AI agents can use the `bump_version_in_repo` tool from the `airbyte-ops-mcp` MCP server.",
@@ -476,7 +536,7 @@ class CheckVersionIncrement(Check):
 
             return self.pass_(
                 connector,
-                f"Version was properly incremented from {master_version} to {current_version}.",
+                f"Version was properly incremented from {baseline_version} to {current_version}.",
             )
         except (requests.HTTPError, ValueError, TypeError) as e:
             return self.fail(connector, str(e))

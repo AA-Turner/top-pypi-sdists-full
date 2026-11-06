@@ -257,7 +257,7 @@ pub fn aggregate_array(values: Vec<Value>, op: ArrayAggregateOp) -> RedisResult<
 }
 /// Aggregate array responses into a single map.
 pub fn combine_map_results(values: Vec<Value>) -> RedisResult<Value> {
-    let mut map: HashMap<Vec<u8>, i64> = HashMap::new();
+    let mut map: HashMap<bytes::Bytes, i64> = HashMap::new();
 
     for value in values {
         match value {
@@ -586,8 +586,8 @@ impl ResponsePolicy {
         match cmd {
             b"SCRIPT EXISTS" => Some(ResponsePolicy::AggregateLogical(LogicalAggregateOp::And)),
 
-            b"DBSIZE" | b"DEL" | b"EXISTS" | b"SLOWLOG LEN" | b"TOUCH" | b"UNLINK"
-            | b"LATENCY RESET" | b"PUBSUB NUMPAT" => {
+            b"CLIENT KILL" | b"DBSIZE" | b"DEL" | b"EXISTS" | b"LATENCY RESET"
+            | b"PUBSUB NUMPAT" | b"SLOWLOG LEN" | b"TOUCH" | b"UNLINK" => {
                 Some(ResponsePolicy::Aggregate(AggregateOp::Sum))
             }
 
@@ -652,33 +652,36 @@ enum RouteBy {
 
 fn base_routing(cmd: &[u8]) -> RouteBy {
     match cmd {
-        b"ACL SETUSER"
-        | b"ACL DELUSER"
+        b"ACL DELUSER"
         | b"ACL SAVE"
+        | b"ACL SETUSER"
         | b"AUTH"
-        | b"CLIENT SETNAME"
+        | b"CLIENT KILL"
         | b"CLIENT SETINFO"
-        | b"SELECT"
-        | b"SLOWLOG GET"
-        | b"SLOWLOG LEN"
-        | b"SLOWLOG RESET"
-        | b"CONFIG SET"
+        | b"CLIENT SETNAME"
         | b"CONFIG RESETSTAT"
         | b"CONFIG REWRITE"
-        | b"SCRIPT FLUSH"
-        | b"SCRIPT LOAD"
-        | b"PUBSUB NUMPAT"
+        | b"CONFIG SET"
+        | b"FUNCTION KILL"
+        | b"FUNCTION STATS"
         | b"PUBSUB CHANNELS"
+        | b"PUBSUB NUMPAT"
         | b"PUBSUB NUMSUB"
         | b"PUBSUB SHARDCHANNELS"
         | b"PUBSUB SHARDNUMSUB"
         | b"RESET"
+        | b"SCRIPT FLUSH"
         | b"SCRIPT KILL"
-        | b"FUNCTION KILL"
-        | b"FUNCTION STATS" => RouteBy::AllNodes,
+        | b"SCRIPT LOAD"
+        | b"SELECT"
+        | b"SLOWLOG GET"
+        | b"SLOWLOG LEN"
+        | b"SLOWLOG RESET" => RouteBy::AllNodes,
 
         b"BGREWRITEAOF"
         | b"BGSAVE"
+        | b"CLIENT PAUSE"
+        | b"CLIENT UNPAUSE"
         | b"DBSIZE"
         | b"DEBUG"
         | b"FLUSHALL"
@@ -702,13 +705,11 @@ fn base_routing(cmd: &[u8]) -> RouteBy {
         | b"MEMORY PURGE"
         | b"MEMORY STATS"
         | b"PING"
-        | b"CLIENT PAUSE"
-        | b"CLIENT UNPAUSE"
+        | b"RANDOMKEY"
         | b"SAVE"
         | b"SCRIPT EXISTS"
         | b"UNWATCH"
         | b"WAIT"
-        | b"RANDOMKEY"
         | b"WAITAOF" => RouteBy::AllPrimaries,
 
         b"MGET" | b"DEL" | b"EXISTS" | b"UNLINK" | b"TOUCH" | b"WATCH" | b"SUBSCRIBE"
@@ -742,6 +743,18 @@ fn base_routing(cmd: &[u8]) -> RouteBy {
 
         b"MIGRATE" => RouteBy::ThirdArg,
 
+        // The RDMA transfer commands are of the form:
+        // BLOB.RDMA_GET <key> <rkey> <remote-address> <length> [<rkey> <remote-address> <length> ...]
+        // BLOB.RDMA_SET <key> <total-length> [CRC <crc32c>] <rkey> <remote-address> <length> [...]
+        //
+        // Both go to the key's primary: they are deliberately left out of
+        // `is_readonly_cmd`, so no read-from-replica setting sends a read to a
+        // replica. The large-object module does not replicate its objects yet, so a
+        // replica holds none of them and would answer every read as a missing key.
+        // Add `BLOB.RDMA_GET` there once the module replicates. For the same reason,
+        // `is_key_routing_command` keeps both out of the random-node fallback.
+        b"BLOB.RDMA_GET" | b"BLOB.RDMA_SET" => RouteBy::FirstKey,
+
         b"LMPOP" | b"SINTERCARD" | b"ZDIFF" | b"ZINTER" | b"ZINTERCARD" | b"ZMPOP" | b"ZUNION" => {
             RouteBy::SecondArgAfterKeyCount
         }
@@ -762,7 +775,6 @@ fn base_routing(cmd: &[u8]) -> RouteBy {
         | b"CLIENT GETREDIR"
         | b"CLIENT ID"
         | b"CLIENT INFO"
-        | b"CLIENT KILL"
         | b"CLIENT LIST"
         | b"CLIENT REPLY"
         | b"CLIENT TRACKINGINFO"
@@ -838,6 +850,13 @@ impl RoutingInfo {
                     // Consequently, SPUBLISH does not meet the requirement of being a command that triggers MOVED errors.
                     // TODO: remove this when PRIMARY_PREFERRED route for SPUBLISH is added
                     false
+                } else if matches!(cmd, b"BLOB.RDMA_GET" | b"BLOB.RDMA_SET") {
+                    // An RDMA transfer must reach the key's primary. A random node may be a
+                    // replica that was sent READONLY, which answers an RDMA read itself instead
+                    // of replying MOVED. The large-object module does not replicate its objects
+                    // yet, so that replica would report a missing key. Failing instead makes the
+                    // client refresh its slot map and retry against the primary.
+                    false
                 } else {
                     true
                 }
@@ -854,6 +873,88 @@ impl RoutingInfo {
         R: Routable + ?Sized,
     {
         let cmd = &r.command()?[..];
+
+        // FT.CURSOR and FT.AGGREGATE/FT.HYBRID ...
+        // WITHCURSOR must land on the PRIMARY of the index-name slot,
+        // regardless of ReadFrom, because a cursor is a per-process,
+        // main-thread-only singleton on the server that created it
+        // (src/cursor.h "Main thread only") -- confirmed against the
+        // maintainers' own cluster test
+        // (valkey-search integration/test_cursor.py:305,
+        // TestCursorCluster.test_cursor_is_node_local), which runs a query
+        // on one primary, then shows FT.CURSOR READ succeeding there and
+        // failing on every other node in the shard. A read sent to a
+        // replica -- which PREFER_REPLICA/AZAffinity would otherwise do for
+        // any plain readonly command -- would reach a node that never
+        // created the cursor and get "Cursor not found" partway through
+        // paging. Pinning to the slot's primary deterministically keeps the
+        // query node and the read node the same, and is also the only
+        // option that survives a replica resync (which the server's own
+        // design note lists as an event that discards a replica's cursors;
+        // primaries are not subject to that).
+        //
+        // FT.CURSOR itself is in the READ ACL category and absent from the
+        // is_readonly_cmd() list below (it falls through to `_ =>
+        // RouteBy::FirstKey` with is_readonly_cmd returning false, so it
+        // already resolves to SlotAddr::Master today) -- routed explicitly
+        // here anyway so this stays correct and documented even if a future
+        // change adds it to that list without noticing the cursor
+        // implication. FT.HYBRID is handled the same way for the same
+        // reason, ahead of its own typed API landing.
+        //
+        // FT.AGGREGATE IS in the is_readonly_cmd() list (plain FT.AGGREGATE
+        // genuinely has no cursor-affinity requirement and benefits from
+        // replica routing like any other read), so only the WITHCURSOR case
+        // needs to be pulled out of that path -- detected with a plain
+        // position() scan rather than the full option-tail scanner
+        // value_conversion.rs uses for reply-type dispatch: a false
+        // positive here (e.g. an INKEYS/PARAMS/LOAD value happening to
+        // equal "WITHCURSOR") only ever means "routed to the primary when
+        // it didn't strictly need to be" -- a availability/distribution
+        // cost, not a correctness bug, unlike reply-shape dispatch mistakes
+        // (which can misparse the actual response). glide-core's own full scanner isn't reachable from
+        // this crate anyway (glide-core depends on this one, not the other
+        // way around), so duplicating that level of rigor here would cost
+        // more than it returns for a routing-only decision.
+        //
+        // FT.SEARCH WITHCURSOR is deliberately NOT covered: it is a
+        // Valkey-only extension, out of scope here, and GLIDE's typed
+        // API never emits it.
+        //
+        // This branch is not just a primary pin on top of what `_ =>
+        // RouteBy::FirstKey` would already compute correctly -- it also
+        // fixes the SLOT itself (affonsov review #7335). FirstKey reads
+        // `arg_idx(1)` as the key. For `FT.CURSOR READ index cursor_id` and
+        // `FT.CURSOR DEL index cursor_id`, argument 1 is the subcommand
+        // token (`READ`/`DEL`), not the index name -- the index name is
+        // argument 2. Routing on `arg_idx(1)` would have hashed the
+        // subcommand token's slot instead of the index's, sending the
+        // command to a shard that most likely isn't the one holding the
+        // cursor at all, not just skipping the primary pin above. FT.HYBRID
+        // has no subcommand token (`FT.HYBRID index ...`), so its index
+        // name genuinely is argument 1, same as FirstKey would already
+        // compute -- only FT.CURSOR needs the different offset. A future
+        // cleanup must not fold this branch away as redundant with
+        // FirstKey: FirstKey was never correct for FT.CURSOR to begin with.
+        if cmd.eq_ignore_ascii_case(b"FT.CURSOR") || cmd.eq_ignore_ascii_case(b"FT.HYBRID") {
+            return r
+                .arg_idx(if cmd.eq_ignore_ascii_case(b"FT.CURSOR") {
+                    2
+                } else {
+                    1
+                })
+                .map(|key| {
+                    RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(get_route(
+                        false, key,
+                    )))
+                });
+        }
+        if cmd.eq_ignore_ascii_case(b"FT.AGGREGATE") && r.position(b"WITHCURSOR").is_some() {
+            return r.arg_idx(1).map(|key| {
+                RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(get_route(false, key)))
+            });
+        }
+
         match base_routing(cmd) {
             RouteBy::AllNodes => Some(RoutingInfo::MultiNode((
                 MultipleNodeRoutingInfo::AllNodes,
@@ -988,6 +1089,12 @@ pub fn is_readonly(routable: &impl Routable) -> bool {
         Some(cmd) => is_readonly_cmd(cmd.as_slice()),
         None => false,
     }
+}
+
+/// Returns `true` if the given `cmd` is an RDMA transfer, which lends the
+/// client's memory to the server until the server replies.
+pub(crate) fn lends_memory(cmd: &[u8]) -> bool {
+    matches!(cmd, b"BLOB.RDMA_GET" | b"BLOB.RDMA_SET")
 }
 
 /// Returns `true` if the given `cmd` is a readonly command.
@@ -1146,6 +1253,7 @@ pub fn is_readonly_cmd(cmd: &[u8]) -> bool {
             | b"PEXPIRETIME"
             | b"PFCOUNT"
             | b"PING"
+            | b"PSUBSCRIBE"
             | b"PTTL"
             | b"PUBLISH"
             | b"PUBSUB CHANNELS"
@@ -1154,6 +1262,7 @@ pub fn is_readonly_cmd(cmd: &[u8]) -> bool {
             | b"PUBSUB NUMSUB"
             | b"PUBSUB SHARDCHANNELS"
             | b"PUBSUB SHARDNUMSUB"
+            | b"PUNSUBSCRIBE"
             | b"RANDOMKEY"
             | b"REPLICAOF"
             | b"RESET"
@@ -1554,9 +1663,112 @@ mod tests_routing {
         ResponsePolicy, Route, RoutingInfo, ShardAddrs, SingleNodeRoutingInfo, SlotAddr,
     };
     use crate::cluster_routing::{is_readonly, is_readonly_cmd, Routable, ShardUpdateResult};
-    use crate::{cluster_topology::slot, cmd, parser::parse_redis_value, Value};
+    use crate::{cluster_topology::slot, cmd, parser::parse_redis_value, Cmd, Value};
     use core::panic;
     use std::sync::{Arc, RwLock};
+
+    /// `BLOB.RDMA_GET <key> <rkey> <remote-address> <length>`, the read half of an RDMA
+    /// transfer.
+    fn rdma_get(key: &str) -> crate::Cmd {
+        let mut command = cmd("BLOB.RDMA_GET");
+        command
+            .arg(key)
+            .arg("439041101") // rkey
+            .arg("140229324210176") // remote-address
+            .arg("262144"); // window length
+        command
+    }
+
+    /// `BLOB.RDMA_SET <key> <total-length> <rkey> <remote-address> <length>`, the write half.
+    fn rdma_set(key: &str) -> crate::Cmd {
+        let mut command = cmd("BLOB.RDMA_SET");
+        command
+            .arg(key)
+            .arg("262144") // payload length
+            .arg("439041101") // rkey
+            .arg("140229324210176") // remote-address
+            .arg("262144"); // window length
+        command
+    }
+
+    /// `BLOB.RDMA_SET <key> <total-length> CRC <crc32c> <rkey> <remote-address> <length>`,
+    /// the write half with a checksum for the server to verify.
+    fn rdma_set_with_crc(key: &str) -> crate::Cmd {
+        let mut command = cmd("BLOB.RDMA_SET");
+        command
+            .arg(key)
+            .arg("262144") // payload length
+            .arg("CRC")
+            .arg("3632233996") // crc32c
+            .arg("439041101") // rkey
+            .arg("140229324210176") // remote-address
+            .arg("262144"); // window length
+        command
+    }
+
+    fn rdma_cmd(name: &str, key: &str) -> crate::Cmd {
+        match name {
+            "BLOB.RDMA_GET" => rdma_get(key),
+            "BLOB.RDMA_SET" => rdma_set(key),
+            "BLOB.RDMA_SET CRC" => rdma_set_with_crc(key),
+            other => panic!("not a RDMA transfer command: {other}"),
+        }
+    }
+
+    fn slot_of(routable: &impl Routable) -> u16 {
+        match RoutingInfo::for_routable(routable) {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                route.slot()
+            }
+            other => panic!("expected a single specific node, got {other:?}"),
+        }
+    }
+
+    fn slot_addr_of(routable: &impl Routable) -> SlotAddr {
+        match RoutingInfo::for_routable(routable) {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                route.slot_addr()
+            }
+            other => panic!("expected a single specific node, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_routing_info_rdma_routes_by_its_key() {
+        let mut plain = cmd("GET");
+        plain.arg("foo");
+        let expected = slot_of(&plain);
+
+        for name in ["BLOB.RDMA_GET", "BLOB.RDMA_SET", "BLOB.RDMA_SET CRC"] {
+            assert_eq!(
+                slot_of(&rdma_cmd(name, "foo")),
+                expected,
+                "{name} should hash the same key as GET"
+            );
+        }
+    }
+
+    #[test]
+    fn test_routing_info_rdma_reads_are_pinned_to_the_primary() {
+        // Unlike a plain GET: the large-object module does not replicate its
+        // objects yet, so only the primary can answer an RDMA read.
+        let mut plain_get = cmd("GET");
+        plain_get.arg("foo");
+        assert_eq!(slot_addr_of(&plain_get), SlotAddr::ReplicaOptional);
+
+        assert_eq!(slot_addr_of(&rdma_get("foo")), SlotAddr::Master);
+        assert_eq!(slot_addr_of(&rdma_set("foo")), SlotAddr::Master);
+        assert_eq!(slot_addr_of(&rdma_set_with_crc("foo")), SlotAddr::Master);
+    }
+
+    #[test]
+    fn test_rdma_transfers_do_not_fall_back_to_a_random_node() {
+        // A random node may be a READONLY replica, which would answer an RDMA read
+        // itself instead of replying MOVED.
+        assert!(RoutingInfo::is_key_routing_command(b"GET"));
+        assert!(!RoutingInfo::is_key_routing_command(b"BLOB.RDMA_GET"));
+        assert!(!RoutingInfo::is_key_routing_command(b"BLOB.RDMA_SET"));
+    }
 
     #[test]
     fn test_routing_info_mixed_capatalization() {
@@ -1964,8 +2176,8 @@ mod tests_routing {
         // For example `MGET foo bar baz {baz}baz2 {bar}bar2 {foo}foo2`
         let res1 = Value::Array(vec![Value::Nil, Value::Okay]);
         let res2 = Value::Array(vec![
-            Value::BulkString("1".as_bytes().to_vec()),
-            Value::BulkString("4".as_bytes().to_vec()),
+            Value::BulkString("1".as_bytes().to_vec().into()),
+            Value::BulkString("4".as_bytes().to_vec().into()),
         ]);
         let res3 = Value::Array(vec![Value::SimpleString("2".to_string()), Value::Int(3)]);
         let results = super::combine_and_sort_array_results(
@@ -1982,10 +2194,10 @@ mod tests_routing {
             results.unwrap(),
             Value::Array(vec![
                 Value::SimpleString("2".to_string()),
-                Value::BulkString("1".as_bytes().to_vec()),
+                Value::BulkString("1".as_bytes().to_vec().into()),
                 Value::Nil,
                 Value::Okay,
-                Value::BulkString("4".as_bytes().to_vec()),
+                Value::BulkString("4".as_bytes().to_vec().into()),
                 Value::Int(3),
             ])
         );
@@ -1995,7 +2207,10 @@ mod tests_routing {
     fn test_combining_results_into_single_array_key_value_paires() {
         // For example `MSET foo bar foo2 bar2 {foo}foo3 bar3`
         let res1 = Value::Array(vec![Value::Okay]);
-        let res2 = Value::Array(vec![Value::BulkString("1".as_bytes().to_vec()), Value::Nil]);
+        let res2 = Value::Array(vec![
+            Value::BulkString("1".as_bytes().to_vec().into()),
+            Value::Nil,
+        ]);
         let results = super::combine_and_sort_array_results(
             vec![res1, res2],
             &[
@@ -2008,7 +2223,7 @@ mod tests_routing {
         assert_eq!(
             results.unwrap(),
             Value::Array(vec![
-                Value::BulkString("1".as_bytes().to_vec()),
+                Value::BulkString("1".as_bytes().to_vec().into()),
                 Value::Okay,
                 Value::Nil
             ])
@@ -2019,7 +2234,10 @@ mod tests_routing {
     fn test_combining_results_into_single_array_keys_and_path() {
         // For example `JSON.MGET foo bar {foo}foo2 $.a`
         let res1 = Value::Array(vec![Value::Okay]);
-        let res2 = Value::Array(vec![Value::BulkString("1".as_bytes().to_vec()), Value::Nil]);
+        let res2 = Value::Array(vec![
+            Value::BulkString("1".as_bytes().to_vec().into()),
+            Value::Nil,
+        ]);
         let results = super::combine_and_sort_array_results(
             vec![res1, res2],
             &[
@@ -2032,7 +2250,7 @@ mod tests_routing {
         assert_eq!(
             results.unwrap(),
             Value::Array(vec![
-                Value::BulkString("1".as_bytes().to_vec()),
+                Value::BulkString("1".as_bytes().to_vec().into()),
                 Value::Nil,
                 Value::Okay,
             ])
@@ -2043,7 +2261,10 @@ mod tests_routing {
     fn test_combining_results_into_single_array_key_with_two_arg_triples() {
         // For example `JSON.MSET foo $.a bar foo2 $.f.a bar2 {foo}foo3 $.f bar3`
         let res1 = Value::Array(vec![Value::Okay]);
-        let res2 = Value::Array(vec![Value::BulkString("1".as_bytes().to_vec()), Value::Nil]);
+        let res2 = Value::Array(vec![
+            Value::BulkString("1".as_bytes().to_vec().into()),
+            Value::Nil,
+        ]);
         let results = super::combine_and_sort_array_results(
             vec![res1, res2],
             &[
@@ -2056,7 +2277,7 @@ mod tests_routing {
         assert_eq!(
             results.unwrap(),
             Value::Array(vec![
-                Value::BulkString("1".as_bytes().to_vec()),
+                Value::BulkString("1".as_bytes().to_vec().into()),
                 Value::Okay,
                 Value::Nil
             ])
@@ -2071,23 +2292,23 @@ mod tests_routing {
 
         let input = vec![
             Value::Array(vec![
-                Value::BulkString(b"key1".to_vec()),
+                Value::BulkString(b"key1".to_vec().into()),
                 Value::Int(5),
-                Value::BulkString(b"key2".to_vec()),
+                Value::BulkString(b"key2".to_vec().into()),
                 Value::Int(10),
             ]),
             Value::Array(vec![
-                Value::BulkString(b"key1".to_vec()),
+                Value::BulkString(b"key1".to_vec().into()),
                 Value::Int(3),
-                Value::BulkString(b"key3".to_vec()),
+                Value::BulkString(b"key3".to_vec().into()),
                 Value::Int(15),
             ]),
         ];
         let result = super::combine_map_results(input).unwrap();
         let mut expected = vec![
-            (Value::BulkString(b"key1".to_vec()), Value::Int(8)),
-            (Value::BulkString(b"key2".to_vec()), Value::Int(10)),
-            (Value::BulkString(b"key3".to_vec()), Value::Int(15)),
+            (Value::BulkString(b"key1".to_vec().into()), Value::Int(8)),
+            (Value::BulkString(b"key2".to_vec().into()), Value::Int(10)),
+            (Value::BulkString(b"key3".to_vec().into()), Value::Int(15)),
         ];
         expected.sort_unstable_by(|a, b| match (&a.0, &b.0) {
             (Value::BulkString(a_bytes), Value::BulkString(b_bytes)) => a_bytes.cmp(b_bytes),
@@ -2167,6 +2388,8 @@ mod tests_routing {
         assert!(is_readonly_cmd(b"SENTINEL REPLICAS"));
         assert!(is_readonly_cmd(b"SENTINEL GET-MASTER-ADDR-BY-NAME"));
         assert!(is_readonly_cmd(b"SENTINEL CKQUORUM"));
+        assert!(is_readonly_cmd(b"PSUBSCRIBE"));
+        assert!(is_readonly_cmd(b"PUNSUBSCRIBE"));
 
         assert!(!is_readonly_cmd(b"SENTINEL FAILOVER"));
 
@@ -2190,5 +2413,124 @@ mod tests_routing {
         assert!(!is_readonly_cmd(
             Routable::command(&test_cmd).unwrap().as_slice()
         ));
+    }
+
+    /// Helper asserting a command resolves to SingleNode(SpecificNode(Route
+    /// { slot, SlotAddr::Master })), i.e. the primary of the slot the given
+    /// key would hash to -- the pinning this module adds for
+    /// FT.CURSOR/FT.HYBRID/FT.AGGREGATE WITHCURSOR.
+    fn assert_routes_to_primary_of_key(cmd: &Cmd, key_arg: &str) {
+        let routing = RoutingInfo::for_routable(cmd);
+        let expected_slot = crate::cluster_topology::get_slot(key_arg.as_bytes());
+        match routing {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                assert_eq!(route.slot(), expected_slot, "routed to the wrong slot");
+                assert_eq!(
+                    route.slot_addr(),
+                    SlotAddr::Master,
+                    "must route to the primary, not a replica"
+                );
+            }
+            other => panic!("expected SpecificNode(Master), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_ft_cursor_read_routes_to_primary() {
+        let mut cmd = cmd("FT.CURSOR");
+        cmd.arg("READ").arg("myindex").arg("12345");
+        assert_routes_to_primary_of_key(&cmd, "myindex");
+    }
+
+    #[test]
+    fn test_ft_cursor_del_routes_to_primary() {
+        let mut cmd = cmd("FT.CURSOR");
+        cmd.arg("DEL").arg("myindex").arg("12345");
+        assert_routes_to_primary_of_key(&cmd, "myindex");
+    }
+
+    #[test]
+    fn test_ft_hybrid_routes_to_primary() {
+        let mut cmd = cmd("FT.HYBRID");
+        cmd.arg("myindex").arg("SEARCH").arg("hello").arg("VSIM");
+        assert_routes_to_primary_of_key(&cmd, "myindex");
+    }
+
+    #[test]
+    fn test_ft_aggregate_withcursor_routes_to_primary() {
+        let mut cmd = cmd("FT.AGGREGATE");
+        cmd.arg("myindex")
+            .arg("*")
+            .arg("WITHCURSOR")
+            .arg("COUNT")
+            .arg("10");
+        assert_routes_to_primary_of_key(&cmd, "myindex");
+    }
+
+    #[test]
+    fn test_ft_aggregate_without_withcursor_still_prefers_replica() {
+        // Plain FT.AGGREGATE (no WITHCURSOR) must NOT be forced to the
+        // primary -- it has no cursor-affinity requirement and should keep
+        // benefiting from replica routing like any other read, via the
+        // ordinary is_readonly_cmd() path this special case must not
+        // disturb.
+        let mut cmd = cmd("FT.AGGREGATE");
+        cmd.arg("myindex").arg("*");
+        let routing = RoutingInfo::for_routable(&cmd);
+        match routing {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                assert_eq!(
+                    route.slot_addr(),
+                    SlotAddr::ReplicaOptional,
+                    "plain FT.AGGREGATE (no WITHCURSOR) must still prefer a replica"
+                );
+            }
+            other => panic!("expected SpecificNode(ReplicaOptional), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_ft_aggregate_withcursor_detection_is_not_fooled_by_other_commands() {
+        // A sibling command that merely contains "WITHCURSOR" as a
+        // substring of something else must not trip this -- position()
+        // matches whole arguments, not substrings, so this is really just
+        // confirming that property holds for this specific keyword too.
+        let mut cmd = cmd("FT.AGGREGATE");
+        cmd.arg("myindex")
+            .arg("*")
+            .arg("LOAD")
+            .arg("1")
+            .arg("NOTWITHCURSORFIELD");
+        let routing = RoutingInfo::for_routable(&cmd);
+        match routing {
+            Some(RoutingInfo::SingleNode(SingleNodeRoutingInfo::SpecificNode(route))) => {
+                assert_eq!(
+                    route.slot_addr(),
+                    SlotAddr::ReplicaOptional,
+                    "a field value that merely CONTAINS \"withcursor\" as a \
+                     substring must not trigger primary pinning"
+                );
+            }
+            other => panic!("expected SpecificNode(ReplicaOptional), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_ft_aggregate_withcursor_false_positive_from_exact_value_still_routes_to_primary() {
+        // The comment above this routing special-case concedes a
+        // false positive is possible when a caller-controlled VALUE (not
+        // just a substring) happens to equal "WITHCURSOR" exactly -- e.g. a
+        // LOAD field or an INKEYS key literally named that. This confirms
+        // that scenario really does happen (position() matches it) and that
+        // the only consequence is routing to the primary rather than any
+        // misdirection or data leak, exactly as documented: an
+        // availability/distribution cost, not a correctness bug.
+        let mut cmd = cmd("FT.AGGREGATE");
+        cmd.arg("myindex")
+            .arg("*")
+            .arg("LOAD")
+            .arg("1")
+            .arg("WITHCURSOR");
+        assert_routes_to_primary_of_key(&cmd, "myindex");
     }
 }

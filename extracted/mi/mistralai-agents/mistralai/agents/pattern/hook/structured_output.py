@@ -36,7 +36,7 @@ class _TurnCount(BaseModel):
 class StructuredOutputHook[T: BaseModel](Hook):
     """Validate the final answer of each turn with a Pydantic model, and ask the model to correct it.
 
-    Name the model in brackets, as in ``StructuredOutputHook[City](max_retries=2)``, or subclass
+    Name the Pydantic model in brackets, as in ``StructuredOutputHook[City](max_retries=2)``, or subclass
     ``StructuredOutputHook[City]`` and set new defaults for its fields.
 
     The hook asks for a correction only while ``max_retries`` allows it and the turn has an
@@ -44,17 +44,21 @@ class StructuredOutputHook[T: BaseModel](Hook):
     or, when ``on_limit`` is ``"reject"``, raises ``ValueError``, which fails the turn. Set
     ``schema_in_prompt`` to ``False`` to leave the JSON Schema out of the user message, for example
     when ``output_type`` already gives it to the model; corrections still include it. Set
-    ``enabled`` to ``False`` to let answers through unchecked. ``turn`` holds the count of the
-    current turn; the Session saves it with the other fields.
+    ``enabled`` to ``False`` to let answers through unchecked.
 
-    The Hook counts each model call before it is made, so a call that a guardrail or an earlier
-    Hook retries still counts toward ``max_iterations``.
+    The hook counts each model call before it is made, so a call that a guardrail or an earlier
+    hook retries still counts toward ``max_iterations``.
     """
 
     max_retries: int = Field(default=2, ge=0)
+    """How many corrections the hook asks for in one turn. Default: ``2``."""
     on_limit: Literal["accept", "reject"] = "accept"
+    """What the hook does at the limit: ``"accept"``, the default, keeps the last answer; ``"reject"``
+    raises ``ValueError``, which fails the turn."""
     schema_in_prompt: bool = True
+    """Whether the user message includes the JSON Schema. Default: ``True``. Corrections always include it."""
     enabled: bool = True
+    """Whether the hook checks answers. Default: ``True``. ``False`` lets them through unchecked."""
     turn: _TurnCount | None = None
 
     @override

@@ -214,13 +214,14 @@ class ConnectionEvent(BaseModel):
     and `signup_finished`. The other fields are the ones `main` stores; one that was not given stays out of the
     stored document (the log adapter dumps with `exclude_unset`)."""
 
+    # In the order `main` stores them (a document keeps the order its keys were given in).
     id: str
     company_id: str
-    source: str
-    occurred_at: datetime
     account_id: Optional[str] = None
     waba_id: Optional[str] = None
+    occurred_at: datetime
     received_at: Optional[datetime] = None
+    source: str
     field: Optional[str] = None
     event: Optional[str] = None
     reason: Optional[str] = None

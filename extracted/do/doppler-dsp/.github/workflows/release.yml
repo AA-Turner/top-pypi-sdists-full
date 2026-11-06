@@ -1055,6 +1055,55 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: make release-smoke-packages VERSION="${{ needs.verify-version.outputs.version }}"
 
+      - name: Walk the docs as a new .deb user (the pages' own commands)
+        run: make consumer-walk
+
+  # ------------------------------------------------------------------
+  # Post-release docs walk (doppler#2857): every install path the docs name,
+  # from a bare container per stage, with the pages' own commands -- pip
+  # [examples] from the INDEX, the quick starts, a gallery example, wfmgen, the
+  # C tarball's three compile faces, the pinned clone + make build, the .debs --
+  # then the Docker page's run line against the published image. Its own job:
+  # it builds nothing, but it installs and compiles in five containers, so it
+  # gets its own timeout. The pre-release dry run of the same script is
+  # docs-walk.yml (the candidate face).
+  # ------------------------------------------------------------------
+  docs-walk:
+    name: Post-release docs walk (${{ matrix.arch.tag }})
+    # publish-container-merge: docs-walk-docker pulls the versioned image the
+    # merge job publishes; github-release already waits for it, and naming it
+    # keeps that true if github-release's own needs change.
+    needs:
+      - verify-version
+      - publish-container-merge
+      - github-release
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.arch.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Walk every install path the docs name, published
+        run: make docs-walk WALK_VERSION="${{ needs.verify-version.outputs.version }}"
+
+      - name: Run the Docker page's own command against the published image
+        run: make docs-walk-docker WALK_VERSION="${{ needs.verify-version.outputs.version }}"
+
+      - name: Keep the transcript
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-walk-${{ matrix.arch.tag }}
+          path: docs-walk-published.log
+          if-no-files-found: ignore
+
   # ------------------------------------------------------------------
   # Post-release Python smoke: install doppler-dsp FROM PyPI and run the
   # same end-to-end that smoke-wheel runs before the upload.

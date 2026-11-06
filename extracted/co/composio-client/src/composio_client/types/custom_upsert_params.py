@@ -62,7 +62,7 @@ class ToolkitConfigAuthSchemeVariant2(TypedDict, total=False):
 class ToolkitConfig(TypedDict, total=False):
     name: Required[str]
     "Display name of the toolkit"
-    app_url: Required[str]
+    mcp_url: Required[str]
     "MCP server URL. Must use https."
     logo_file: NotRequired[ToolkitConfigLogoFile]
     "Square PNG or JPEG logo, 256-1024px, max 3MB. Defaults to the Model Context Protocol logo."

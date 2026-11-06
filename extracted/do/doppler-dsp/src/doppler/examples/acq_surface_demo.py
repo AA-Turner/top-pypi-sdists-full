@@ -39,6 +39,7 @@ import sys
 import numpy as np
 
 from doppler.acquire import Acquisition
+from doppler.examples._extra import require
 from doppler.telemetry import Telemetry
 from doppler.wfm import Composer, Gold, Segment
 
@@ -141,6 +142,7 @@ def watch() -> dict:
 
 
 def main(out_path: str = "acq_surface_demo.png") -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

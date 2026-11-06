@@ -814,11 +814,6 @@ class _WorkerTransport(StreamLink):
         sender.start()
         return sender
 
-    def acted_within(self, seconds: float) -> bool:
-        """Whether an act of the robot's began over this transport within the last `seconds`."""
-        with self._sends:
-            return bool(self._act_starts) and time.monotonic() - self._act_starts[-1] <= seconds
-
     def same(self, worker_url: str, direct_secret: str) -> bool:
         """Whether a connect's answer names this very connection: the worker at the same address, reached with the same
         secret - read from the header that holds it, never kept apart from it - and not given up (`gone`)."""

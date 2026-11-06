@@ -323,6 +323,8 @@ from .type_defs import (
     GetJobRunsResponseTypeDef,
     GetJobsRequestTypeDef,
     GetJobsResponseTypeDef,
+    GetJobUpgradeAnalysisRequestTypeDef,
+    GetJobUpgradeAnalysisResponseTypeDef,
     GetMappingRequestTypeDef,
     GetMappingResponseTypeDef,
     GetMaterializedViewRefreshTaskRunRequestTypeDef,
@@ -532,6 +534,8 @@ from .type_defs import (
     StartImportLabelsTaskRunResponseTypeDef,
     StartJobRunRequestTypeDef,
     StartJobRunResponseTypeDef,
+    StartJobUpgradeAnalysisRequestTypeDef,
+    StartJobUpgradeAnalysisResponseTypeDef,
     StartMaterializedViewRefreshTaskRunRequestTypeDef,
     StartMaterializedViewRefreshTaskRunResponseTypeDef,
     StartMLEvaluationTaskRunRequestTypeDef,
@@ -546,6 +550,7 @@ from .type_defs import (
     StopColumnStatisticsTaskRunScheduleRequestTypeDef,
     StopCrawlerRequestTypeDef,
     StopCrawlerScheduleRequestTypeDef,
+    StopJobUpgradeAnalysisRequestTypeDef,
     StopMaterializedViewRefreshTaskRunRequestTypeDef,
     StopSessionRequestTypeDef,
     StopSessionResponseTypeDef,
@@ -2170,6 +2175,16 @@ class GlueClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#get_job_runs)
         """
 
+    def get_job_upgrade_analysis(
+        self, **kwargs: Unpack[GetJobUpgradeAnalysisRequestTypeDef]
+    ) -> GetJobUpgradeAnalysisResponseTypeDef:
+        """
+        Retrieves the current status and results of an upgrade analysis.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_job_upgrade_analysis.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#get_job_upgrade_analysis)
+        """
+
     def get_jobs(self, **kwargs: Unpack[GetJobsRequestTypeDef]) -> GetJobsResponseTypeDef:
         """
         Retrieves all current job definitions.
@@ -3262,6 +3277,16 @@ class GlueClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#start_job_run)
         """
 
+    def start_job_upgrade_analysis(
+        self, **kwargs: Unpack[StartJobUpgradeAnalysisRequestTypeDef]
+    ) -> StartJobUpgradeAnalysisResponseTypeDef:
+        """
+        Resumes an analysis that is waiting for upgrade consent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/start_job_upgrade_analysis.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#start_job_upgrade_analysis)
+        """
+
     def start_ml_evaluation_task_run(
         self, **kwargs: Unpack[StartMLEvaluationTaskRunRequestTypeDef]
     ) -> StartMLEvaluationTaskRunResponseTypeDef:
@@ -3350,6 +3375,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/stop_crawler_schedule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#stop_crawler_schedule)
+        """
+
+    def stop_job_upgrade_analysis(
+        self, **kwargs: Unpack[StopJobUpgradeAnalysisRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops an in-progress upgrade analysis.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/stop_job_upgrade_analysis.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#stop_job_upgrade_analysis)
         """
 
     def stop_materialized_view_refresh_task_run(

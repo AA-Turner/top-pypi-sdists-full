@@ -25,6 +25,7 @@ Orchestration order (fused pipeline):
   -> compute_target_sizes -> resample_field (time -> z -> x) -> to_pipeline_layout
 """
 import os
+import gc
 import numpy as np
 from scipy.io import loadmat as scipy_loadmat
 from scipy.stats import linregress
@@ -338,40 +339,56 @@ def compute_field_numba(field, t, active_indices, apod_window, weight_base,
 
 def sensor_data_to_grid(data, Nx, Nz, backend="python", xp=None):
     """
-    Normalize k-Wave sensor output to the grid layout (Nx, Nz, Nt), time last.
+    Normalizes k-Wave sensor output to the grid layout (Nx, Nz, Nt), time last.
 
     The pure-Python k-Wave backend returns 'p' flattened in C-order (row-major),
-    while the compiled C++/CUDA binaries apply an internal Fortran-order
-    (column-major) flatten and return (Ns, Nt).
-    This function detects the layout and forces the correct (Nx, Nz, Nt) C-contiguous array.
+    while compiled C++/CUDA binaries apply an internal Fortran-order 
+    (column-major) flatten and return (Ns, Nt). This function detects the 
+    layout, forces the correct C-contiguous array, and aggressively frees RAM/VRAM.
 
     Args:
-        data: dict with key 'p', or raw array from k-Wave.
-        Nx, Nz: reference sizes (from medium.kgrid).
-        backend: "python" or "cpp".
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        data (np.ndarray): Raw array from k-Wave output.
+        Nx (int): Number of grid points in the X dimension.
+        Nz (int): Number of grid points in the Z dimension.
+        backend (str): The k-Wave backend used ("python", "cpp", or "cuda").
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        array (Nx, Nz, Nt) in namespace xp.
+        array: Array of shape (Nx, Nz, Nt) in the requested namespace.
     """
     xp = _get_xp(xp)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
+    
     Ns = Nx * Nz
     
-    # 1. Aligner les axes en (Ns, Nt) pour le cpp
+    # Align axes to (Ns, Nt) for C++ backend compatibility
     if data.ndim == 2 and data.shape[1] == Ns and data.shape[0] != Ns:
         data = data.T
         
+    # Transfer data to the target device (GPU VRAM if cupy is used)
     data_array = xp.asarray(data, dtype=xp.float32)
     
-    # 2. Reshape conditionnel
+    # CRITICAL: Free CPU RAM immediately to prevent system memory fragmentation
+    del data
+    gc.collect()
+    
+    # Reshape according to the backend memory layout
     if backend in ["cpp", "cuda"]:
-        # CORRECTION FORTRAN vs C-ORDER (Le C++ aplatit la grille en faisant varier Nx le plus vite)
-        # On reshape en (Nz, Nx, Nt) pour absorber la contiguïté mémoire, puis on transpose.
-        return data_array.reshape((Nz, Nx, -1)).transpose(1, 0, 2)
+        # C++ flattens the grid varying Nx fastest (Fortran-like in this context)
+        out = data_array.reshape((Nz, Nx, -1)).transpose(1, 0, 2)
     else:
-        # Le backend python conserve l'ordre spatial natif (Nx, Nz)
-        return data_array.reshape((Nx, Nz, -1))
-
+        # Python backend keeps native spatial order
+        out = data_array.reshape((Nx, Nz, -1))
+        
+    # Force memory contiguity to prevent phantom copies during FFT operations
+    out = xp.ascontiguousarray(out)
+    
+    # Clean up intermediate GPU array and flush the memory pool
+    del data_array
+    if mempool:
+        mempool.free_all_blocks()
+    
+    return out
 
 def to_pipeline_layout(field, xp=None):
     """
@@ -390,18 +407,21 @@ def to_pipeline_layout(field, xp=None):
 
 def hilbert_analytic(field, xp=None):
     """
-    FFT-based Hilbert transform (analytic signal) along `axis`.
+    Computes the FFT-based Hilbert transform (analytic signal) along the last axis.
 
     Args:
-        field: real input array.
-        axis: axis of the time dimension (default: last axis).
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        field (array): Real input array. Time must be on the last axis.
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        complex analytic signal, same shape as input.
+        array: Complex analytic signal, same shape as input.
     """
     xp = _get_xp(xp)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
+    
     Nt = field.shape[-1]
+    
+    # Construct the Hilbert multiplier mask
     h = xp.zeros((1, 1, Nt), dtype=xp.float32)
     h[..., 0] = 1.0
     if Nt % 2 == 0:
@@ -409,115 +429,208 @@ def hilbert_analytic(field, xp=None):
         h[..., 1:Nt // 2] = 2.0
     else:
         h[..., 1:(Nt + 1) // 2] = 2.0
-    return xp.fft.ifft(xp.fft.fft(field, axis=-1) * h, axis=-1)
+        
+    # 1. Compute Forward FFT
+    f_fft = xp.fft.fft(field, axis=-1)
+    if mempool:
+        mempool.free_all_blocks()
+    
+    # 2. Apply Hilbert mask (in-place modification to save VRAM)
+    f_fft *= h
+    del h
+    if mempool:
+        mempool.free_all_blocks()
+    
+    # 3. Compute Inverse FFT
+    analytic = xp.fft.ifft(f_fft, axis=-1)
+    del f_fft
+    if mempool:
+        mempool.free_all_blocks()
+    
+    return analytic
 
 def calculate_envelope_squared(field, xp=None):
     """
-    Squared envelope |s_a(t)|^2 of a grid-layout field (..., Nt), time last.
+    Computes the squared envelope |s_a(t)|^2 of a grid-layout field.
 
-    New fused-pipeline signature: (field, xp=None). This replaces the old
-    (field, isGPU, GPUdevice, chunk_size) time-first API.
+    This function heavily manipulates VRAM. To avoid OutOfMemory errors on 
+    smaller GPUs (e.g., 12GB limits), it deletes the original input field 
+    from VRAM as soon as the analytic signal is computed.
 
     Args:
-        field: array with time on the LAST axis (grid layout (Nx, Nz, Nt)).
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        field (array): Array with time on the LAST axis (Nx, Nz, Nt).
+                       WARNING: This array will be deleted in-place to free VRAM.
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        float32 array, same shape as input.
+        array: Squared envelope (float32), same shape as input.
     """
     xp = _get_xp(xp)
-    analytic = hilbert_analytic(field, xp)
-    return (analytic.real ** 2 + analytic.imag ** 2).astype(xp.float32)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
     
+    # Compute complex analytic signal
+    analytic = hilbert_analytic(field, xp)
+    
+    # CRITICAL: Delete the original high-res field immediately to free ~1.7GB VRAM
+    del field
+    if mempool:
+        mempool.free_all_blocks()
+    
+    # Break down the magnitude computation to avoid massive temporary allocations
+    real_sq = analytic.real ** 2
+    if mempool:
+        mempool.free_all_blocks()
+        
+    imag_sq = analytic.imag ** 2
+    del analytic
+    if mempool:
+        mempool.free_all_blocks()
+    
+    # Combine and cast
+    env_sq = (real_sq + imag_sq).astype(xp.float32)
+    del real_sq
+    del imag_sq
+    if mempool:
+        mempool.free_all_blocks()
+    
+    return env_sq
 
 def calculate_envelope(field, xp=None):
     """
-    Envelope |s_a(t)| of a grid-layout field (..., Nt), time last.
-
-    New fused-pipeline signature: (field, xp=None). This replaces the old
-    (field, isGPU, GPUdevice, chunk_size) time-first API.
+    Computes the envelope |s_a(t)| of a grid-layout field.
 
     Args:
-        field: array with time on the LAST axis (grid layout (Nx, Nz, Nt)).
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        field (array): Array with time on the LAST axis (Nx, Nz, Nt).
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        float32 array, same shape as input.
+        array: Envelope (float32), same shape as input.
     """
     xp = _get_xp(xp)
-    analytic = hilbert_analytic(field, xp)
-    return xp.sqrt(analytic.real ** 2 + analytic.imag ** 2).astype(xp.float32)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
+    
+    env_sq = calculate_envelope_squared(field, xp)
+    env = xp.sqrt(env_sq)
+    
+    del env_sq
+    if mempool:
+        mempool.free_all_blocks()
+        
+    return env
 
 def resample_bandlimited(field, axis, M, xp=None):
     """
     Band-limited resampling of `field` along `axis` from N to M samples.
 
-    Pipeline: rfft -> raised-cosine anti-alias window rolling off between
-    0.7*kc and kc (kc = new Nyquist bin) -> irfft(n=M) -> in-place amplitude
-    correction `*= float32(M/N)`.
-
-    The amplitude correction is essential: irfft(n=M) normalizes by M while
-    the rfft bins were normalized by N, so without it a decimation M < N
-    would inflate the amplitudes by N/M (this was the old bug).
+    Pipeline: rfft -> raised-cosine anti-alias window -> irfft(n=M) -> amplitude correction.
+    
+    VRAM optimization: The input `field` is deleted immediately after the forward 
+    FFT to make room for the heavily memory-bound inverse FFT step.
 
     Args:
-        field: input array (real, time/space on `axis`).
-        axis: axis to resample (default: last axis = time in grid layout).
-        M: target number of samples on `axis` (M < N decimates, M > N upsamples).
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        field (array): Input array (real).
+                       WARNING: This array will be deleted during processing to save VRAM.
+        axis (int): Axis to resample (default is the time axis).
+        M (int): Target number of samples on `axis`.
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        array with `axis` resampled to M samples.
+        array: Resampled array.
     """
     xp = _get_xp(xp)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
+    
     N = field.shape[axis]
     if M == N:
         return field
+        
+    # 1. Forward Real FFT
     E = xp.fft.rfft(field, axis=axis)
-    K = E.shape[axis]                 # N//2 + 1 bins
-    Mk = M // 2 + 1                   # bins of the target
-    cut = min(K, Mk)                  # carried bins
-    kc = min(N, M) / 2.0              # cutoff = min of the two Nyquist frequencies
+    
+    # CRITICAL: Free the original high-resolution field before creating spectral masks
+    del field
+    if mempool:
+        mempool.free_all_blocks()
+    
+    K = E.shape[axis]                 
+    Mk = M // 2 + 1                   
+    cut = min(K, Mk)                  
+    kc = min(N, M) / 2.0              
 
+    # 2. Build Raised-Cosine anti-aliasing window
     kb = xp.arange(cut, dtype=xp.float32)
     w = xp.where(kb <= 0.70 * kc, 1.0,
                  xp.where(kb <= kc,
                           0.5 * (1 + xp.cos(xp.pi * (kb - 0.70 * kc) / (0.30 * kc))),
                           0.0))
-    w = w.reshape([cut if ax == axis else 1 for ax in range(field.ndim)])
+    w = w.reshape([cut if ax == axis else 1 for ax in range(E.ndim)])
+    del kb
 
-    shape = list(field.shape)
+    # 3. Apply mask to a newly shaped array
+    shape = list(E.shape)
     shape[axis] = Mk
     E2 = xp.zeros(tuple(shape), dtype=E.dtype)
-    sl = [slice(None)] * field.ndim
+    
+    sl = [slice(None)] * E.ndim
     sl[axis] = slice(0, cut)
     E2[tuple(sl)] = E[tuple(sl)] * w
+    
+    del E
+    del w
+    if mempool:
+        mempool.free_all_blocks()
 
+    # 4. Inverse Real FFT
     out = xp.fft.irfft(E2, n=M, axis=axis)
-    out *= xp.float32(M / N)          # in-place: stays float32
+    
+    del E2
+    if mempool:
+        mempool.free_all_blocks()
+    
+    # 5. Amplitude correction (in-place)
+    out *= xp.float32(M / N)          
+    
+    if mempool:
+        mempool.free_all_blocks()
+        
     return out
 
 def resample_field(field, target_sizes, xp=None):
     """
-    Band-limited resampling of a grid-layout field (Nx, Nz, Nt) to the save
-    grid. Decimation order: time (axis 2) -> z (axis 1) -> x (axis 0).
-
-    Time is resampled via the anti-aliased spectral path, which is why the
-    envelope must be computed BEFORE this call (full-rate Hilbert).
+    Performs band-limited downsampling of a grid-layout field (Nx, Nz, Nt).
+    
+    Decimation is performed iteratively in this specific order: 
+    time (axis 2) -> z (axis 1) -> x (axis 0).
+    The GPU memory pool is flushed between each axis processing.
 
     Args:
-        field: grid-layout array (Nx, Nz, Nt), time last.
-        target_sizes: (M_t, M_z, M_x). None on an axis = keep it unchanged.
-        xp: array namespace (cupy or numpy). Defaults to cupy if available.
+        field (array): Grid-layout array (Nx, Nz, Nt), time last.
+        target_sizes (tuple): Target sizes as (Nt_t, Nz_t, Nx_t).
+        xp (module, optional): Array namespace (cupy or numpy).
 
     Returns:
-        array (M_x, M_z, M_t) grid layout, resampled.
+        array: Resampled grid layout.
     """
     xp = _get_xp(xp)
+    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
+    
     Nt_t, Nz_t, Nx_t = target_sizes
+    
+    # Step 1: Resample Time axis
     field = resample_bandlimited(field, 2, Nt_t, xp)
+    if mempool:
+        mempool.free_all_blocks()
+        
+    # Step 2: Resample Z axis
     field = resample_bandlimited(field, 1, Nz_t, xp)
+    if mempool:
+        mempool.free_all_blocks()
+        
+    # Step 3: Resample X axis
     field = resample_bandlimited(field, 0, Nx_t, xp)
+    if mempool:
+        mempool.free_all_blocks()
+        
     return field
 
 def compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz):

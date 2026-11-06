@@ -58,6 +58,7 @@ class Feedback(_message.Message):
     VALUE_FIELD_NUMBER: _builtins.int
     SET_VALUE_FIELD_NUMBER: _builtins.int
     IGNORE_RERUN_FIELD_NUMBER: _builtins.int
+    QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     type: Global___Feedback.FeedbackType.ValueType
     default: _builtins.int
@@ -72,6 +73,8 @@ class Feedback(_message.Message):
     the next rerun. Inside a form, this flag has no effect because the form
     batches values until submit.
     """
+    query_param_key: _builtins.str
+    """If set, widget value is bound to this query parameter key"""
     def __init__(
         self,
         *,
@@ -83,17 +86,22 @@ class Feedback(_message.Message):
         value: _builtins.int | None = ...,
         set_value: _builtins.bool = ...,
         ignore_rerun: _builtins.bool = ...,
+        query_param_key: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_value", b"_value", "default", b"default", "value", b"value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_value", b"_value", "default", b"default", "query_param_key", b"query_param_key", "value", b"value"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_value", b"_value", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "id", b"id", "ignore_rerun", b"ignore_rerun", "set_value", b"set_value", "type", b"type", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_default", b"_default", "_query_param_key", b"_query_param_key", "_value", b"_value", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "id", b"id", "ignore_rerun", b"ignore_rerun", "query_param_key", b"query_param_key", "set_value", b"set_value", "type", b"type", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__default: _TypeAlias = _typing.Literal["default"]  # noqa: Y015
     _WhichOneofArgType__default: _TypeAlias = _typing.Literal["_default", b"_default"]  # noqa: Y015
+    _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
+    _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
     _WhichOneofReturnType__value: _TypeAlias = _typing.Literal["value"]  # noqa: Y015
     _WhichOneofArgType__value: _TypeAlias = _typing.Literal["_value", b"_value"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__default) -> _WhichOneofReturnType__default | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__value) -> _WhichOneofReturnType__value | None: ...
 

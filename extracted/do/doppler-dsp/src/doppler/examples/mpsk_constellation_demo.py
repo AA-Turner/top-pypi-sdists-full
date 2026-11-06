@@ -22,6 +22,7 @@ import sys
 import numpy as np
 
 from doppler.ber import ber_theory_ber
+from doppler.examples._extra import require
 from doppler.mpsk import mpsk_bits_per_symbol, mpsk_demap, mpsk_map
 
 
@@ -55,6 +56,7 @@ def _sim_ber(m, ebn0_db, rng, n=300_000):
 
 
 def main(out_path="mpsk_constellation_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

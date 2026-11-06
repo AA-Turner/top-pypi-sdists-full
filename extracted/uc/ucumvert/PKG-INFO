@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ucumvert
-Version: 0.3.2
+Version: 0.3.3
 Summary: Python parser & interface for UCUM (Unified Code for Units of Measure).
 Project-URL: Documentation, https://github.com/dalito/ucumvert
 Project-URL: GitHub, https://github.com/dalito/ucumvert
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Requires-Dist: lark
 Requires-Dist: pint>=0.25.0

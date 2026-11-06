@@ -1,4 +1,4 @@
-"""Models for `anyscale <resource> events` and `anyscale.events.list()`."""
+"""Models for `anyscale <resource> events`, `anyscale.events.list()` and `list_page()`."""
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -31,6 +31,9 @@ SOURCES_BY_ENTITY: Dict[str, List[str]] = {
     ],
 }
 
+# The most events one page holds: the backend rejects a larger page size.
+MAX_EVENTS_PER_PAGE = 1000
+
 # Every value of the backend's EventLevel, most severe first. Events are stored with all of
 # them (the journal proto emits TRACE and CRITICAL too), so each must be filterable.
 LEVELS: List[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "TRACE", "UNKNOWN"]
@@ -60,7 +63,8 @@ events_filter = EventsFilter(
     end_time=None,
     # Oldest first when True. Newest first by default.
     ascending=False,
-    # Stop after this many events, across pages.
+    # list() stops after this many events, across pages. list_page() returns at most
+    # this many, up to 1000.
     max_items=100,
 )
 """
@@ -106,8 +110,8 @@ events_filter = EventsFilter(
     max_items: int = field(
         default=100,
         metadata={
-            "docstring": "Stop after this many events. Fetched in pages where the backend "
-            "supports it."
+            "docstring": "How many events to return. list() fetches them across pages; "
+            "list_page() returns at most this many, up to 1000, in one page."
         },
     )
     verbose: bool = field(
@@ -259,3 +263,38 @@ for event in events:
     def _validate_cluster_id(self, cluster_id: Optional[str]):
         if cluster_id is not None and not isinstance(cluster_id, str):
             raise TypeError("cluster_id must be a string.")
+
+
+@dataclass(frozen=True)
+class EventsPage(ModelBase):
+    """One page of events, and the token that fetches the next page."""
+
+    __doc_py_example__ = """\
+import anyscale
+from anyscale.events.models import EventsFilter
+
+events_filter = EventsFilter(entity_type="job", entity_id="prodjob_abc123", max_items=100)
+page = anyscale.events.list_page(events_filter)
+for event in page.results:
+    print(event.created_at, event.level, event.source, event.message)
+if page.next_page_token is not None:
+    # The same filter, continued after the last event of the first page.
+    page = anyscale.events.list_page(events_filter, page_token=page.next_page_token)
+"""
+
+    results: List[Event] = field(metadata={"docstring": "The events of this page."})
+    next_page_token: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Pass this as page_token, with the same filter, to get the next "
+            "page. None when there are no more events."
+        },
+    )
+
+    def _validate_results(self, results: List[Event]):
+        if not isinstance(results, list) or not all(isinstance(e, Event) for e in results):
+            raise TypeError("results must be a list of Event.")
+
+    def _validate_next_page_token(self, next_page_token: Optional[str]):
+        if next_page_token is not None and not isinstance(next_page_token, str):
+            raise TypeError("next_page_token must be a string or None.")

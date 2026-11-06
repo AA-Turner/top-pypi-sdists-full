@@ -101,6 +101,17 @@ _MODELED_DOMAIN_PROPERTIES = (
     "SoftwareUpdateOptions",
 )
 
+_OPTIONAL_DOMAIN_OPTIONS = (
+    "IPAddressType",
+    "LogPublishingOptions",
+    "IdentityCenterOptions",
+    "AIMLOptions",
+    "DeploymentStrategyOptions",
+    "AutomatedSnapshotPauseOptions",
+    "UseCase",
+    "EngineMode",
+)
+
 # AWS allows lowercase letters, digits, hyphens; first character must be
 # lowercase letter; 3-28 chars.
 _NAME_RE = re.compile(r"^[a-z][a-z0-9\-]{2,27}$")
@@ -289,7 +300,7 @@ def _resolve_taggable_opensearch_arn(arn):
     name = spec.resource[len(prefix):]
     rec = _domains.get(name)
     if not rec or rec.get("ARN") != arn:
-        return None, _error(404, "ResourceNotFoundException", f"Domain not found: {name}")
+        return None, _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
     return arn, None
 
 
@@ -313,6 +324,24 @@ def _public(d: dict) -> dict:
 
 def _now() -> int:
     return int(time.time())
+
+
+def _auto_tune_input(rec: dict) -> dict:
+    stored = rec.get("_AutoTuneInput")
+    if stored is None:
+        stored = {"DesiredState": (rec.get("AutoTuneOptions") or {}).get("State", "DISABLED")}
+    return stored
+
+
+def _set_auto_tune(rec: dict, options) -> None:
+    """Store AutoTuneOptions(Input) and derive the DomainStatus AutoTuneOptionsOutput."""
+    merged = {**_auto_tune_input(rec), **copy.deepcopy(options or {})}
+    merged.setdefault("DesiredState", "DISABLED")
+    rec["_AutoTuneInput"] = merged
+    output = {"State": merged["DesiredState"]}
+    if "UseOffPeakWindow" in merged:
+        output["UseOffPeakWindow"] = merged["UseOffPeakWindow"]
+    rec["AutoTuneOptions"] = output
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +405,16 @@ def _remove_container_by_id(cid: str) -> None:
         pass
 
 
+def _next_free_port(counter):
+    from ministack.services.rds import _is_host_port_free
+    with _state_lock:
+        port = counter[0]
+        while not _is_host_port_free(port):  # another container may already publish it
+            port += 1
+        counter[0] = port + 1
+        return port
+
+
 def start_engine_container(docker, name: str, labels: dict, host_port=None, volumes=None):
     """Run one single-node OpenSearch engine container.
 
@@ -387,7 +426,7 @@ def start_engine_container(docker, name: str, labels: dict, host_port=None, volu
     """
     run_kwargs = dict(
         image=apply_image_prefix(DEFAULT_IMAGE), detach=True,
-        ports={"9200/tcp": host_port},
+        ports={"9200/tcp": container_reaper.published_port(host_port)},
         name=name,
         labels=labels,
         environment={
@@ -406,7 +445,8 @@ def start_engine_container(docker, name: str, labels: dict, host_port=None, volu
         run_kwargs["volumes"] = volumes
     if DOCKER_NETWORK:
         run_kwargs["network"] = DOCKER_NETWORK
-    container = docker.containers.run(**run_kwargs)
+    container, host_port = container_reaper.run_on_free_port(
+        docker, lambda kwargs: docker.containers.run(**kwargs), run_kwargs, lambda: _next_free_port(_port_counter))
     try:
         host, port = _MINISTACK_HOST, host_port
         if DOCKER_NETWORK or host_port is None:
@@ -449,11 +489,8 @@ def _spawn_dataplane(domain_name: str, engine_version: str):
         )
         return stub_host, stub_port, None, None, None
 
-    with _state_lock:
-        host_port = _port_counter[0]
-        _port_counter[0] += 1
-        dash_host_port = _dashboards_port_counter[0]
-        _dashboards_port_counter[0] += 1
+    host_port = _next_free_port(_port_counter)
+    dash_host_port = _next_free_port(_dashboards_port_counter)
 
     labels = {
         # Standard label so the boot/shutdown orphan reap finds these; the
@@ -482,7 +519,7 @@ def _spawn_dataplane(domain_name: str, engine_version: str):
             dash_kwargs = dict(
                 image=apply_image_prefix(DASHBOARDS_IMAGE),
                 detach=True,
-                ports={"5601/tcp": dash_host_port},
+                ports={"5601/tcp": container_reaper.published_port(dash_host_port)},
                 name=_dashboards_container_name(domain_name),
                 labels={**labels, "com.ministack.role": "dashboards"},
                 environment={
@@ -492,7 +529,9 @@ def _spawn_dataplane(domain_name: str, engine_version: str):
             )
             if DOCKER_NETWORK:
                 dash_kwargs["network"] = DOCKER_NETWORK
-            dash_container = docker.containers.run(**dash_kwargs)
+            dash_container, dash_host_port = container_reaper.run_on_free_port(
+                docker, lambda kwargs: docker.containers.run(**kwargs), dash_kwargs,
+                lambda: _next_free_port(_dashboards_port_counter))
             dash_cid = dash_container.id
             dash_endpoint = f"{_MINISTACK_HOST}:{dash_host_port}"
             logger.info(
@@ -689,7 +728,6 @@ def _new_domain_record(name, payload):
             "AdvancedSecurityOptions",
             {"Enabled": False, "InternalUserDatabaseEnabled": False},
         ),
-        "AutoTuneOptions": payload.get("AutoTuneOptions", {"State": "DISABLED"}),
         "ChangeProgressDetails": {},
         "OffPeakWindowOptions": payload.get(
             "OffPeakWindowOptions", {"Enabled": False}
@@ -704,6 +742,11 @@ def _new_domain_record(name, payload):
         "_DashboardsContainerId": dash_cid,
     }
     _set_vpc_options(rec, payload.get("VPCOptions"))
+    rec["_AutoTuneInput"] = {}
+    _set_auto_tune(rec, payload.get("AutoTuneOptions"))
+    for key in _OPTIONAL_DOMAIN_OPTIONS:
+        if key in payload:
+            rec[key] = copy.deepcopy(payload[key])
     if dash_endpoint:
         rec["DashboardEndpoint"] = dash_endpoint
     if _deferred:
@@ -784,13 +827,21 @@ def _domain_config(rec: dict) -> dict:
             for k, v in rec["AdvancedSecurityOptions"].items()
             if k != "MasterUserOptions"
         }),
-        "AutoTuneOptions": wrap(rec["AutoTuneOptions"]),
+        "AutoTuneOptions": {
+            "Options": copy.deepcopy(_auto_tune_input(rec)),
+            "Status": {"CreationDate": create, "UpdateDate": update, "UpdateVersion": 1,
+                       "State": rec["AutoTuneOptions"].get("State", "DISABLED"),
+                       "PendingDeletion": False},
+        },
         "ChangeProgressDetails": rec.get("ChangeProgressDetails", {}),
         "OffPeakWindowOptions": wrap(rec["OffPeakWindowOptions"]),
         "SoftwareUpdateOptions": wrap(rec["SoftwareUpdateOptions"]),
     }
     if rec.get("VPCOptions"):
         config["VPCOptions"] = wrap(rec["VPCOptions"])
+    for key in _OPTIONAL_DOMAIN_OPTIONS:
+        if key in rec:
+            config[key] = wrap(copy.deepcopy(rec[key]))
     return config
 
 
@@ -897,7 +948,7 @@ def update_domain_from_cloudformation(name, payload, compatibility_properties):
     rec = _domains.get(name)
     if not rec:
         raise OpenSearchServiceError(
-            404, "ResourceNotFoundException", f"Domain not found: {name}"
+            409, "ResourceNotFoundException", f"Domain not found: {name}"
         )
 
     detached_payload = copy.deepcopy(payload or {})
@@ -918,6 +969,8 @@ def update_domain_from_cloudformation(name, payload, compatibility_properties):
                 _set_vpc_options(rec, wanted)
             else:
                 rec[key] = copy.deepcopy(wanted)
+                if key == "AutoTuneOptions":
+                    rec.pop("_AutoTuneInput", None)
                 if key == "EngineVersion":
                     rec["ServiceSoftwareOptions"]["CurrentVersion"] = wanted
 
@@ -955,7 +1008,7 @@ def delete_domain_record(name, missing_ok=False):
             rec["_deleting"] = True
     if not rec and not missing_ok:
         raise OpenSearchServiceError(
-            404, "ResourceNotFoundException", f"Domain not found: {name}"
+            409, "ResourceNotFoundException", f"Domain not found: {name}"
         )
     if rec:
         _teardown_dataplane(rec)
@@ -1019,7 +1072,7 @@ def _create_domain(payload):
 def _describe_domain(name):
     rec = _domains.get(name)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
     return _json(200, {"DomainStatus": _public(rec)})
 
 
@@ -1057,18 +1110,21 @@ def _describe_domains(payload):
 def _update_domain_config(name, payload):
     rec = _domains.get(name)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
     updatable = {
         "ClusterConfig", "EBSOptions", "AccessPolicies", "SnapshotOptions",
         "VPCOptions", "CognitoOptions", "AdvancedOptions",
         "DomainEndpointOptions", "AdvancedSecurityOptions",
         "EncryptionAtRestOptions", "NodeToNodeEncryptionOptions",
         "AutoTuneOptions", "OffPeakWindowOptions", "SoftwareUpdateOptions",
+        *_OPTIONAL_DOMAIN_OPTIONS,
     }
     for k, v in payload.items():
         if k in updatable:
             if k == "VPCOptions":
                 _set_vpc_options(rec, v)
+            elif k == "AutoTuneOptions":
+                _set_auto_tune(rec, v)
             else:
                 rec[k] = copy.deepcopy(v)
     rec["_UpdatedTime"] = _now()
@@ -1091,14 +1147,14 @@ def _update_domain_config(name, payload):
 def _describe_domain_config(name):
     rec = _domains.get(name)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
     return _json(200, {"DomainConfig": _domain_config(rec)})
 
 
 def _describe_domain_change_progress(name, query_params):
     rec = _domains.get(name)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {name}")
     progress = _change_progress.get(name) or {
         "ChangeId": "",
         "StartTime": rec.get("_CreatedTime", _now()),
@@ -1111,8 +1167,25 @@ def _describe_domain_change_progress(name, query_params):
     return _json(200, {"ChangeProgressStatus": progress})
 
 
+def _page(items, limit, token):
+    try:
+        start = max(int(token), 0) if token else 0
+    except (TypeError, ValueError):
+        start = 0
+    try:
+        limit = int(limit) if limit else 0
+    except (TypeError, ValueError):
+        limit = 0
+    end = start + limit if limit > 0 else len(items)
+    return items[start:end], (str(end) if end < len(items) else None)
+
+
 def _list_versions(query_params):
-    return _json(200, {"Versions": list(_SUPPORTED_VERSIONS)})
+    versions, nxt = _page(list(_SUPPORTED_VERSIONS), _qp(query_params, "maxResults"), _qp(query_params, "nextToken"))
+    resp = {"Versions": versions}
+    if nxt:
+        resp["NextToken"] = nxt
+    return _json(200, resp)
 
 
 def _get_compatible_versions(query_params):
@@ -1120,7 +1193,7 @@ def _get_compatible_versions(query_params):
     if domain:
         rec = _domains.get(domain)
         if not rec:
-            return _error(404, "ResourceNotFoundException", f"Domain not found: {domain}")
+            return _error(409, "ResourceNotFoundException", f"Domain not found: {domain}")
         source = rec["EngineVersion"]
         targets = [v for v in _SUPPORTED_VERSIONS
                    if _engine_type(v) == _engine_type(source) and v != source]
@@ -1223,7 +1296,7 @@ def _update_package(payload):
     pid = payload.get("PackageID")
     rec = _packages.get(pid)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Package not found: {pid}")
+        return _error(409, "ResourceNotFoundException", f"Package not found: {pid}")
     if "PackageSource" in payload:
         rec["_PackageSource"] = payload["PackageSource"]
     if "PackageDescription" in payload:
@@ -1262,7 +1335,7 @@ def _describe_packages(payload):
 def _delete_package(pid):
     rec = _packages.pop(pid, None)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Package not found: {pid}")
+        return _error(409, "ResourceNotFoundException", f"Package not found: {pid}")
     # Cascade: drop any domain associations this package still had.
     for key in [k for k in _domain_packages.keys() if k.split(":", 1)[0] == pid]:
         _domain_packages.pop(key, None)
@@ -1274,9 +1347,9 @@ def _delete_package(pid):
 def _associate_package(pid, domain_name):
     rec = _packages.get(pid)
     if not rec:
-        return _error(404, "ResourceNotFoundException", f"Package not found: {pid}")
+        return _error(409, "ResourceNotFoundException", f"Package not found: {pid}")
     if domain_name not in _domains:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {domain_name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {domain_name}")
     detail = {
         "PackageID": pid,
         "PackageName": rec["PackageName"],
@@ -1294,7 +1367,7 @@ def _associate_package(pid, domain_name):
 def _dissociate_package(pid, domain_name):
     detail = _domain_packages.pop(f"{pid}:{domain_name}", None)
     if not detail:
-        return _error(404, "ResourceNotFoundException",
+        return _error(409, "ResourceNotFoundException",
                       f"Package {pid} is not associated with domain {domain_name}")
     out = dict(detail)
     out["DomainPackageStatus"] = "DISSOCIATING"
@@ -1303,7 +1376,7 @@ def _dissociate_package(pid, domain_name):
 
 def _list_packages_for_domain(domain_name, query_params):
     if domain_name not in _domains:
-        return _error(404, "ResourceNotFoundException", f"Domain not found: {domain_name}")
+        return _error(409, "ResourceNotFoundException", f"Domain not found: {domain_name}")
     details = sorted(
         (v for k, v in _domain_packages.items() if k.split(":", 1)[-1] == domain_name),
         key=lambda d: d["PackageID"],

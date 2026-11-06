@@ -86,6 +86,7 @@ class Diagnostics(APIResource):
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
       "openai/gpt-6.1-sol",
+      "openai/gpt-6-luna",
       "openai/gpt-6-sol",
       "openai/gpt-6-astra",
       "openai/gpt-5.6-sol",
@@ -157,6 +158,7 @@ class Diagnostics(APIResource):
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
       "openai/gpt-6.1-sol",
+      "openai/gpt-6-luna",
       "openai/gpt-6-sol",
       "openai/gpt-6-astra",
       "openai/gpt-5.6-sol",
@@ -224,6 +226,9 @@ class Diagnostics(APIResource):
   ) -> BenchmarkDiagnosticStatusResponse:
     """Poll the status of a benchmark diagnostic.
 
+    Call repeatedly until ``status`` is ``completed``, ``failed``, or ``cancelled``,
+    then call ``get_diagnostics()`` to retrieve task outcomes and failure reasons.
+
     Args:
       extra_headers: Send extra headers
 
@@ -261,6 +266,10 @@ class Diagnostics(APIResource):
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> BenchmarkDiagnosticsResponse:
     """Get task outcomes and failure reasons after a benchmark diagnostic finishes.
+
+    This endpoint returns HTTP 409 while the diagnostic is still pending or running.
+    Poll ``get_status()`` until ``status`` is ``completed``, ``failed``, or
+    ``cancelled`` before calling this method.
 
     Args:
       extra_headers: Send extra headers

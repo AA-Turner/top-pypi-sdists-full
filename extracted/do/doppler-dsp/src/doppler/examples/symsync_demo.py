@@ -25,6 +25,7 @@ import sys
 # --8<-- [start:signal]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.track import SymbolSync
 from doppler.wfm import rc_h, wfm_awgn_amplitude
 
@@ -80,6 +81,7 @@ def make_signal(seed=7):
 
 
 def main(out_path="symsync_demo.png"):
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

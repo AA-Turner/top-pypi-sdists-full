@@ -2105,6 +2105,76 @@ def test_oidc_data_is_an_alb_format_claims_jwt(elbv2, lam):
         _alb_teardown(elbv2, lam, lb_arn, tg_arn, l_arn, f"{name}-fn")
 
 
+def test_oidc_data_verifies_against_served_public_key(elbv2, lam):
+    """The kid in x-amzn-oidc-data resolves to a PEM key on the AWS key host and
+    /_ministack/elb/public-keys/; the raw r||s ES256 signature verifies. An
+    unknown kid gets AWS's 403 AccessDenied XML."""
+    import base64
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+    def fetch(kid, aws_host):
+        if aws_host:
+            req = _req.Request(f"{_endpoint}/{kid}", method="GET")
+            req.add_header("Host", "public-keys.auth.elb.us-east-1.amazonaws.com")
+        else:
+            req = _req.Request(f"{_endpoint}/_ministack/elb/public-keys/{kid}", method="GET")
+        try:
+            with _req.urlopen(req) as resp:
+                return resp.status, resp.headers.get("Content-Type"), resp.read()
+        except HTTPError as e:
+            return e.code, e.headers.get("Content-Type"), e.read()
+
+    name = "oidc-dp-key"
+    fn_code = (
+        "import json\n"
+        "def handler(event, context):\n"
+        "    h = {k.lower(): v for k, v in (event.get('headers') or {}).items()}\n"
+        "    return {'statusCode': 200, 'headers': {'Content-Type': 'application/json'},\n"
+        "            'body': json.dumps({'data': h.get('x-amzn-oidc-data')})}\n"
+    )
+    lb_arn, tg_arn, l_arn, _ = _alb_setup(elbv2, lam, name, f"{name}-fn", fn_code)
+    try:
+        elbv2.modify_listener(
+            ListenerArn=l_arn,
+            DefaultActions=[
+                _oidc_action(order=1),
+                {"Type": "forward", "Order": 2, "TargetGroupArn": tg_arn},
+            ],
+        )
+        from ministack.services import alb
+
+        session = {"claims": {"sub": "user-78"}, "access_token": "at", "exp": int(time.time()) + 600}
+        cookies = alb._oidc_session_cookies("AWSELBAuthSessionCookie", session, 600, False)
+        jar = "; ".join(c.split(";", 1)[0] for c in cookies)
+        status, _, body = _oidc_get("/private", name, {"Cookie": jar})
+        assert status == 200
+        head, payload, sig = json.loads(body)["data"].split(".")
+        kid = json.loads(base64.urlsafe_b64decode(head))["kid"]
+
+        status, _, pem = fetch(kid, aws_host=True)
+        assert status == 200
+        assert pem.startswith(b"-----BEGIN PUBLIC KEY-----")
+        assert fetch(kid, aws_host=False)[2] == pem
+
+        raw = base64.urlsafe_b64decode(sig)
+        assert len(raw) == 64
+        der = utils.encode_dss_signature(int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:], "big"))
+        serialization.load_pem_public_key(pem).verify(der, f"{head}.{payload}".encode(), ec.ECDSA(hashes.SHA256()))
+
+        unknown = str(_uuid_mod.uuid4())
+        for aws_host in (True, False):
+            assert fetch(unknown, aws_host) == (
+                403,
+                "application/xml",
+                b'<?xml version="1.0" encoding="UTF-8"?>\n'
+                b"<Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>",
+            )
+    finally:
+        _alb_teardown(elbv2, lam, lb_arn, tg_arn, l_arn, f"{name}-fn")
+
+
 # ------------------------------------------------------- the fixed behaviours
 
 def _run_auth(action_cfg, path, query=None, cookie=None):
@@ -3312,3 +3382,153 @@ def test_alb_host_resolves_through_route53_alias_records(elbv2, r53):
             r53.delete_hosted_zone(Id=zone_id)
         for lb in lbs.values():
             elbv2.delete_load_balancer(LoadBalancerArn=lb["LoadBalancerArn"])
+
+
+# ---------------------------------------------------------------------------
+# Data plane across accounts and regions (#2581)
+# ---------------------------------------------------------------------------
+
+def _tenant_client(service, account, region):
+    import boto3
+
+    return boto3.client(service, endpoint_url=_endpoint, region_name=region,
+                        aws_access_key_id=account, aws_secret_access_key="test")
+
+
+def _dataplane_get(path, host=None):
+    req = _req.Request(f"{_endpoint}{path}", method="GET")
+    if host:
+        req.add_header("Host", host)
+    try:
+        resp = _req.urlopen(req)
+    except HTTPError as e:
+        return e.code, e.read()
+    return resp.status, resp.read()
+
+
+def _create_tenant_alb(account, region, name, body):
+    """A load balancer whose listener answers ``body``, a rule to an empty target group
+    and a rule to a Lambda target, all in ``account``/``region``. Returns a teardown."""
+    elbv2 = _tenant_client("elbv2", account, region)
+    lam = _tenant_client("lambda", account, region)
+    created = []
+    try:
+        lb = elbv2.create_load_balancer(Name=name, Type="application")["LoadBalancers"][0]
+        created.append(lambda: elbv2.delete_load_balancer(LoadBalancerArn=lb["LoadBalancerArn"]))
+        empty_tg = elbv2.create_target_group(Name=f"{name}-e", TargetType="lambda")["TargetGroups"][0]
+        created.append(lambda: elbv2.delete_target_group(TargetGroupArn=empty_tg["TargetGroupArn"]))
+        lam.create_function(
+            FunctionName=f"{name}-fn", Runtime="python3.12", Handler="index.handler",
+            Role=f"arn:aws:iam::{account}:role/test-role",
+            Code={"ZipFile": _alb_zip(
+                "def handler(event, context):\n"
+                f"    return {{'statusCode': 200, 'body': 'lambda-{body}'}}\n")},
+        )
+        created.append(lambda: lam.delete_function(FunctionName=f"{name}-fn"))
+        fn_arn = lam.get_function(FunctionName=f"{name}-fn")["Configuration"]["FunctionArn"]
+        fn_tg = elbv2.create_target_group(Name=f"{name}-f", TargetType="lambda")["TargetGroups"][0]
+        created.append(lambda: elbv2.delete_target_group(TargetGroupArn=fn_tg["TargetGroupArn"]))
+        elbv2.register_targets(TargetGroupArn=fn_tg["TargetGroupArn"], Targets=[{"Id": fn_arn}])
+        listener = elbv2.create_listener(
+            LoadBalancerArn=lb["LoadBalancerArn"], Protocol="HTTP", Port=80,
+            DefaultActions=[{"Type": "fixed-response", "FixedResponseConfig": {
+                "StatusCode": "200", "ContentType": "text/plain", "MessageBody": body}}],
+        )["Listeners"][0]
+        created.append(lambda: elbv2.delete_listener(ListenerArn=listener["ListenerArn"]))
+        for priority, pattern, tg in ((10, "/tg/*", empty_tg), (20, "/fn/*", fn_tg)):
+            elbv2.create_rule(
+                ListenerArn=listener["ListenerArn"], Priority=priority,
+                Conditions=[{"Field": "path-pattern", "PathPatternConfig": {"Values": [pattern]}}],
+                Actions=[{"Type": "forward", "TargetGroupArn": tg["TargetGroupArn"]}],
+            )
+    except Exception:
+        _run_teardown(created)
+        raise
+    return lb, lambda: _run_teardown(created)
+
+
+def _run_teardown(created):
+    for undo in reversed(created):
+        try:
+            undo()
+        except Exception:
+            pass
+
+
+@pytest.mark.parametrize("account,region", [
+    ("111122223333", "us-east-1"),
+    ("000000000000", "us-east-2"),
+    ("000000000000", "us-east-1"),
+], ids=["other-account", "other-region", "default-tenant"])
+def test_elbv2_dataplane_reaches_load_balancer_in_any_tenant(account, region):
+    """An unsigned request reaches a load balancer in any account and region by DNSName,
+    {name}.alb.localhost or /_alb/{name}/, and its listener, rules, target groups and
+    Lambda targets resolve in the load balancer's own tenant (#2581)."""
+    name = f"dpt-{_uuid_mod.uuid4().hex[:8]}"
+    lb, teardown = _create_tenant_alb(account, region, name, f"hello-{name}")
+    try:
+        assert f".{region}.elb.amazonaws.com" in lb["DNSName"]
+        for prefix, host in (("", lb["DNSName"]), ("", f"{name}.alb.localhost"), (f"/_alb/{name}", None)):
+            assert _dataplane_get(f"{prefix}/x", host) == (200, f"hello-{name}".encode())
+            assert _dataplane_get(f"{prefix}/tg/x", host)[0] == 503
+            assert _dataplane_get(f"{prefix}/fn/x", host) == (200, f"lambda-hello-{name}".encode())
+    finally:
+        teardown()
+
+
+def test_elbv2_dataplane_name_in_two_tenants_resolves_in_the_default_tenant_first():
+    """An unsigned request runs as the default account and region. A name used there and in
+    another account reaches the default tenant's load balancer by name; the other stays
+    reachable by its DNSName, and by name once the default tenant's is gone (#2581)."""
+    name = f"dpd-{_uuid_mod.uuid4().hex[:8]}"
+    other_lb, other_teardown = _create_tenant_alb("111122223333", "us-east-1", name, "other")
+    try:
+        own_lb, own_teardown = _create_tenant_alb("000000000000", "us-east-1", name, "own")
+        try:
+            assert _dataplane_get("/x", f"{name}.alb.localhost") == (200, b"own")
+            assert _dataplane_get(f"/_alb/{name}/x") == (200, b"own")
+            assert _dataplane_get("/x", own_lb["DNSName"]) == (200, b"own")
+            assert _dataplane_get("/x", other_lb["DNSName"]) == (200, b"other")
+            assert _dataplane_get("/fn/x", other_lb["DNSName"]) == (200, b"lambda-other")
+        finally:
+            own_teardown()
+        assert _dataplane_get(f"/_alb/{name}/x") == (200, b"other")
+    finally:
+        other_teardown()
+
+
+def test_elbv2_xml_special_characters_are_escaped(elbv2):
+    lb_arn = elbv2.create_load_balancer(Name=f"qa-alb-esc-{_uuid_mod.uuid4().hex[:6]}")["LoadBalancers"][0][
+        "LoadBalancerArn"]
+    body = "<h1>R&D</h1>"
+    l_arn = elbv2.create_listener(
+        LoadBalancerArn=lb_arn, Protocol="HTTP", Port=8081,
+        DefaultActions=[{"Type": "fixed-response",
+                         "FixedResponseConfig": {"StatusCode": "200", "ContentType": "text/html",
+                                                 "MessageBody": body}}],
+    )["Listeners"][0]["ListenerArn"]
+    try:
+        listener = elbv2.describe_listeners(ListenerArns=[l_arn])["Listeners"][0]
+        assert listener["DefaultActions"][0]["FixedResponseConfig"]["MessageBody"] == body
+        rule = elbv2.create_rule(
+            ListenerArn=l_arn, Priority=5,
+            Conditions=[{"Field": "path-pattern", "Values": ["/r&d/<x>"]}],
+            Actions=[{"Type": "authenticate-oidc", "Order": 1,
+                      "AuthenticateOidcConfig": {"Issuer": "https://idp.example.com",
+                                                 "AuthorizationEndpoint": "https://idp.example.com/auth?a=1&b=2",
+                                                 "TokenEndpoint": "https://idp.example.com/token?a=1&b=2",
+                                                 "UserInfoEndpoint": "https://idp.example.com/me?a=1&b=2",
+                                                 "ClientId": "client", "ClientSecret": "secret"}},
+                     {"Type": "fixed-response", "Order": 2,
+                      "FixedResponseConfig": {"StatusCode": "200", "MessageBody": body}}],
+        )["Rules"][0]
+        assert rule["Conditions"][0]["Values"] == ["/r&d/<x>"]
+        oidc = rule["Actions"][0]["AuthenticateOidcConfig"]
+        assert oidc["AuthorizationEndpoint"] == "https://idp.example.com/auth?a=1&b=2"
+        assert oidc["UserInfoEndpoint"] == "https://idp.example.com/me?a=1&b=2"
+        elbv2.add_tags(ResourceArns=[lb_arn], Tags=[{"Key": "team", "Value": "R&D <ops>"}])
+        tags = elbv2.describe_tags(ResourceArns=[lb_arn])["TagDescriptions"][0]["Tags"]
+        assert {"Key": "team", "Value": "R&D <ops>"} in tags
+    finally:
+        elbv2.delete_listener(ListenerArn=l_arn)
+        elbv2.delete_load_balancer(LoadBalancerArn=lb_arn)

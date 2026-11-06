@@ -810,7 +810,8 @@ typedef enum
    *         tlm, because the loops are first attached to a scratch context
    *         that finds the refusal -- or a probe table with no room for
    *         every probe (found the same way, from the names the scratch
-   *         holds). Every refusal leaves @p tlm's table untouched and the
+   *         holds); DP_ERR_MEMORY when the attach cannot allocate, its
+   *         scratch context or a loop's own (the searcher builds one). Every refusal leaves @p tlm's table untouched and the
    *         receiver as it was: detached, or still on its previous context
    *         under its previous prefix.
    * @code
@@ -1208,9 +1209,10 @@ typedef enum
    * steps() call and nothing about its output. A pool that steps its
    * receivers in parallel sets each one to 1. A mutator's value, so it
    * travels in the state blob (#2022). The blob carries the count that
-   * RAN, not the request: set_threads(0) on a 20-core writer restores as
-   * 20 workers on any reader, by design -- a resumed receiver runs as the
-   * one that was checkpointed, and a pool's 1 is 1 everywhere. Setup path;
+   * RAN, not the request: set_threads(0) on a writer restores as the count
+   * the writer ran (its online cores, at most one worker a tile) on any
+   * reader, by design -- a resumed receiver runs as the one that was
+   * checkpointed, and a pool's 1 is 1 everywhere. Setup path;
    * not while another thread is inside steps().
    *
    * @param state Must be non-NULL.

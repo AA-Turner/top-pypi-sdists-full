@@ -14,6 +14,7 @@ from mistralai.agents._cli_commands._shared import can_prompt as _can_prompt
 from mistralai.agents._cli_commands._shared import fail as _fail
 from mistralai.agents._cli_commands._shared import loading_spinner as _loading_spinner
 from mistralai.agents._cli_commands.init.command import init_command
+from mistralai.agents._cli_commands.skills.command import skills_app
 
 if TYPE_CHECKING:
     from mistralai.vibe.harness.app_server.session import ApprovalCallback, SessionClient
@@ -80,6 +81,8 @@ def _silenced_sdk_imports() -> Iterator[None]:
 
 # `init` creates a project rather than running one, so it lives with its helpers in its own module.
 app.command(name="init")(init_command)
+# `skills` installs files the SDK ships rather than running a project, so it lives in its own module too.
+app.add_typer(skills_app, name="skills")
 
 
 @app.command(name="info")
@@ -170,14 +173,14 @@ def serve_command(
             "--send-config/--no-send-config",
             envvar="AGENTS_SDK_SERVE_SEND_CONFIG",
             help=(
-                "Send the agent's configuration to the control plane, as `agents deploy` does, so it shows "
-                "with the agent and its sessions. A restart of the same code keeps the agent. "
+                "Send the agent's configuration to Mistral, as `agents deploy` does, so it shows "
+                "with the agent and its sessions in your workspace. A restart of the same code keeps the agent. "
                 "Pass --no-send-config to register the agent without its configuration."
             ),
         ),
     ] = True,
 ) -> None:
-    """Run the agent as a durable worker and print a link to trigger it."""
+    """Run the agent on your machine, register it in your workspace, and print a link to trigger it."""
     import asyncio  # noqa: PLC0415
 
     loaded = _load_worker_app(path, command="agents serve")
@@ -394,7 +397,7 @@ def deploy_command(
             help=(
                 "Harden the deployment so the agent can use connectors/MCPs "
                 "on behalf of the user who triggered the session. "
-                "Default: hardened when the agent acts on behalf of the session user."
+                "Default: hardened when the agent acts on behalf of the session's user."
             ),
         ),
     ] = None,
@@ -423,7 +426,7 @@ def deploy_command(
         typer.Option("--yes", "-y", help="Write a missing Dockerfile and .python-version without asking."),
     ] = False,
 ) -> None:
-    """Deploy the agent as a managed deployment."""
+    """Build the project into an image and deploy it to Mistral, in your workspace."""
     import asyncio  # noqa: PLC0415
 
     plan: DeployPlan | None = None

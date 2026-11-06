@@ -1,21 +1,21 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 7.45.1
+Version: 7.46.0
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
 Keywords: airbyte,connector-development-kit,cdk
 Author: Airbyte
 Author-email: contact@airbyte.io
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.11,<3.15
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: dev
@@ -58,6 +58,7 @@ Requires-Dist: packaging
 Requires-Dist: pandas (>=2.2.3,<3.0)
 Requires-Dist: pdf2image (==1.16.3) ; extra == "file-based"
 Requires-Dist: pdfminer.six (==20221105) ; extra == "file-based"
+Requires-Dist: pillow (>=13.0.0) ; extra == "file-based" or extra == "vector-db-based"
 Requires-Dist: pyarrow (>=19.0.0,<24.0.0) ; extra == "file-based"
 Requires-Dist: pydantic (>=2.13,<3.0)
 Requires-Dist: pyjwt (>=2.8.0,<3.0.0)

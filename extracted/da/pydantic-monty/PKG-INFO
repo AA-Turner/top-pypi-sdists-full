@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-monty
-Version: 1.4.0
+Version: 1.5.0
 Summary: Monty, the Python sandbox: bindings plus the worker binary
 Project-URL: Homepage, https://github.com/pydantic/monty
 Project-URL: Source, https://github.com/pydantic/monty
@@ -26,8 +26,8 @@ Classifier: Programming Language :: Python :: Implementation
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-monty-client==1.4.0
-Requires-Dist: pydantic-monty-runtime==1.4.0
+Requires-Dist: pydantic-monty-client==1.5.0
+Requires-Dist: pydantic-monty-runtime==1.5.0
 Provides-Extra: opentelemetry
 Requires-Dist: pydantic-monty-client[opentelemetry]; extra == 'opentelemetry'
 Description-Content-Type: text/markdown
@@ -471,9 +471,9 @@ instrument_telemetry(
 
 Each component is optional. A configured tracer records each checkout as a
 session span with nested feed and suspension spans. A logger records exceptions
-and `print` output under those spans. An `AsyncMontyWebsocket` checkout also
-sends the active context as W3C `traceparent`/`tracestate` headers on its
-upgrade request, so a server that honours them can join the same trace. A meter
+and `print` output under those spans. An `AsyncMontyRemote` checkout also
+sends the active context as W3C `traceparent`/`tracestate` metadata on its
+session stream, so a server that honours them can join the same trace. A meter
 records live, immediately available and host-blocked worker counts, checkout
 waits, worker deaths by reason, run durations and the sandbox execution time of
 each feed.

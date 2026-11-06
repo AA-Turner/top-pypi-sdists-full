@@ -239,18 +239,6 @@ def get_enable_streaming() -> bool:
     return get_truthy_bool_value("enable_streaming", True)
 
 
-def get_enable_logfire() -> bool:
-    """
-    Get the enable_logfire configuration value.
-    Controls whether Logfire observability instrumentation is enabled.
-    Strictly opt-in: defaults to False.
-    """
-    val = get_value("enable_logfire")
-    if val is None:
-        return False  # Opt-in: no telemetry unless the user asks for it
-    return str(val).lower() in ("1", "true", "yes", "on")
-
-
 def get_retry_main_strategy() -> str:
     """Effective backoff strategy for the main agent loop.
 
@@ -685,8 +673,6 @@ def get_config_keys():
     default_keys.append("max_hook_retries")
     # Add streaming control key
     default_keys.append("enable_streaming")
-    # Opt-in Logfire observability (see code_puppy/observability.py)
-    default_keys.append("enable_logfire")
     # Add suppress directory listing key
     default_keys.append("suppress_directory_listing")
     # Add cancel agent key configuration
@@ -1646,14 +1632,18 @@ def get_user_agents_directory() -> str:
 def get_project_agents_directory() -> Optional[str]:
     """Get the project-local agents directory path.
 
-    Looks for a .code_puppy/agents/ directory in the current working directory.
+    Looks for a .code_puppy/agents/ directory in the active working directory
+    (see tools.common.get_working_directory()).
     Unlike get_user_agents_directory(), this does NOT create the directory
     if it doesn't exist -- the team must create it intentionally.
 
     Returns:
         Path to the project's agents directory if it exists, or None.
     """
-    project_agents_dir = os.path.join(os.getcwd(), ".code_puppy", "agents")
+    # Lazy: config.py must not import tools at module load time.
+    from code_puppy.tools.common import get_working_directory
+
+    project_agents_dir = os.path.join(get_working_directory(), ".code_puppy", "agents")
     if os.path.isdir(project_agents_dir):
         return project_agents_dir
     return None

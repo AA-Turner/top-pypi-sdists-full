@@ -106,9 +106,9 @@ def key_set(key: str, *, expires: str | None = None, limit_usd: Any = _KEEP, bas
 
 
 def key_revoke(key: str, *, base_url: str | None = None, echo: Echo = print) -> dict:
-    """A key revoked: from now on it opens nothing."""
+    """A key revoked: it opens nothing within 30 s, and a robot connected with it is cut off within a minute."""
     hit = _resolve(key, base_url)
     out = _call("DELETE", f"/v1/keys/{hit['id']}", base_url, person=True) or {}
     _say(echo, f"the key {hit.get('name')} …{hit.get('last_four')} "
-               "is revoked: it opens nothing from now on")
+               "is revoked: it opens nothing within 30 s, and a robot connected with it is cut off within a minute")
     return out

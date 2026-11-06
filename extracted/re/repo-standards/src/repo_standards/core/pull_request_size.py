@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -12,14 +13,13 @@ from repo_standards._git_environment import GIT_ENVIRONMENT
 from .errors import ConfigurationError
 
 
-_TEST_COMPONENTS = frozenset({"test", "tests", "__tests__", "__snapshots__"})
+_TEST_COMPONENTS = frozenset({"tests", "__tests__", "__snapshots__"})
 _PYTHON_TEST = re.compile(r"(?:test_.+|.+_test)\.py\Z")
 _JAVASCRIPT_TEST = re.compile(r".+\.(?:test|spec)\.(?:[cm]?[jt]sx?)\Z")
 _GO_TEST = re.compile(r".+_test\.go\Z")
-_JVM_TEST = re.compile(r".+(?:test|tests)\.(?:java|kt|kts|groovy|scala)\Z")
-_DOTNET_TEST = re.compile(r".+(?:test|tests)\.cs\Z")
+_CLASS_TEST = re.compile(r".+Tests?\.(?i:java|kt|kts|groovy|scala|cs)\Z")
 _RUBY_TEST = re.compile(r".+_(?:spec|test)\.rb\Z")
-_XCODE_TEST_COMPONENT = re.compile(r".+(?:ui)?tests\Z")
+_XCODE_TEST_COMPONENT = re.compile(r".+Tests\Z")
 PullRequestSizeCategory = Literal["production", "test", "generated", "binary"]
 _NUMSTAT_FIELDS = 3
 _CATEGORIES: tuple[PullRequestSizeCategory, ...] = (
@@ -111,19 +111,28 @@ class PullRequestSize:
     @property
     def summary(self) -> PullRequestSizeSummary:
         """Return aggregate file and churn counts."""
-        counted = tuple(item for item in self.files if item.category == "production")
-        excluded = tuple(item for item in self.files if item.category != "production")
+        counted_files = binary_files = additions = deletions = 0
+        counted_additions = counted_deletions = 0
+        for item in self.files:
+            additions += item.additions
+            deletions += item.deletions
+            if item.category == "production":
+                counted_files += 1
+                counted_additions += item.additions
+                counted_deletions += item.deletions
+            elif item.category == "binary":
+                binary_files += 1
         return PullRequestSizeSummary(
             changed_files=len(self.files),
-            counted_files=len(counted),
-            excluded_files=len(excluded),
-            binary_files=sum(item.category == "binary" for item in self.files),
-            additions=sum(item.additions for item in self.files),
-            deletions=sum(item.deletions for item in self.files),
-            counted_additions=sum(item.additions for item in counted),
-            counted_deletions=sum(item.deletions for item in counted),
-            excluded_additions=sum(item.additions for item in excluded),
-            excluded_deletions=sum(item.deletions for item in excluded),
+            counted_files=counted_files,
+            excluded_files=len(self.files) - counted_files,
+            binary_files=binary_files,
+            additions=additions,
+            deletions=deletions,
+            counted_additions=counted_additions,
+            counted_deletions=counted_deletions,
+            excluded_additions=additions - counted_additions,
+            excluded_deletions=deletions - counted_deletions,
         )
 
     @property
@@ -193,11 +202,14 @@ def _directory_size(
 def is_test_path(path: str) -> bool:
     pure = PurePosixPath(path)
     components = tuple(component.casefold() for component in pure.parts[:-1])
-    if any(
-        component in _TEST_COMPONENTS
-        or component == "androidtest"
-        or _XCODE_TEST_COMPONENT.fullmatch(component) is not None
-        for component in components
+    # A directory named "test" may be a deployment environment; require a suite layout.
+    if (
+        components[:1] == ("test",)
+        or any(
+            component in _TEST_COMPONENTS or component == "androidtest" for component in components
+        )
+        or any(pair == ("src", "test") for pair in pairwise(components))
+        or any(_XCODE_TEST_COMPONENT.fullmatch(component) for component in pure.parts[:-1])
     ):
         return True
     basename = pure.name.casefold()
@@ -206,8 +218,7 @@ def is_test_path(path: str) -> bool:
         or _PYTHON_TEST.fullmatch(basename) is not None
         or _JAVASCRIPT_TEST.fullmatch(basename) is not None
         or _GO_TEST.fullmatch(basename) is not None
-        or _JVM_TEST.fullmatch(basename) is not None
-        or _DOTNET_TEST.fullmatch(basename) is not None
+        or _CLASS_TEST.fullmatch(pure.name) is not None
         or _RUBY_TEST.fullmatch(basename) is not None
         or basename.endswith(".bats")
     )

@@ -47,16 +47,28 @@ class _TransactionIsolation:
 class _TransactionIsolationEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_TransactionIsolation.ValueType], _builtins.type):
     DESCRIPTOR: _descriptor.EnumDescriptor
     READ_UNCOMMITTED: _TransactionIsolation.ValueType  # 0
+    """runs as READ_COMMITTED"""
     READ_COMMITTED: _TransactionIsolation.ValueType  # 1
     REPEATABLE_READ: _TransactionIsolation.ValueType  # 2
     SERIALIZABLE: _TransactionIsolation.ValueType  # 3
+    """NOT SUPPORTED: refused with INVALID_ARGUMENT"""
 
-class TransactionIsolation(_TransactionIsolation, metaclass=_TransactionIsolationEnumTypeWrapper): ...
+class TransactionIsolation(_TransactionIsolation, metaclass=_TransactionIsolationEnumTypeWrapper):
+    """The engine provides two isolation levels, READ_COMMITTED and REPEATABLE_READ. BeginTransaction accepts those two, and
+    READ_UNCOMMITTED, which runs at the STRONGER READ_COMMITTED (it is also the proto default, so an unset field begins at
+    READ_COMMITTED). SERIALIZABLE is NOT supported: BeginTransaction refuses it with INVALID_ARGUMENT, as it refuses a value
+    this server does not know, because starting it at a weaker level would be the one failure a caller cannot detect. The
+    HTTP API (POST /api/v1/begin/{database}), SQL, openCypher and PostgreSQL refuse it the same way. The constant stays in
+    the enum so that a client generated from an older version of this file still compiles and gets that answer, not
+    a silent downgrade.
+    """
 
 READ_UNCOMMITTED: TransactionIsolation.ValueType  # 0
+"""runs as READ_COMMITTED"""
 READ_COMMITTED: TransactionIsolation.ValueType  # 1
 REPEATABLE_READ: TransactionIsolation.ValueType  # 2
 SERIALIZABLE: TransactionIsolation.ValueType  # 3
+"""NOT SUPPORTED: refused with INVALID_ARGUMENT"""
 Global___TransactionIsolation: _TypeAlias = TransactionIsolation  # noqa: Y015
 
 class _TimeSeriesPrecision:
@@ -1206,17 +1218,25 @@ class BeginTransactionResponse(_message.Message):
 
     TRANSACTION_ID_FIELD_NUMBER: _builtins.int
     TIMESTAMP_FIELD_NUMBER: _builtins.int
+    EFFECTIVE_ISOLATION_FIELD_NUMBER: _builtins.int
     transaction_id: _builtins.str
     timestamp: _builtins.int
+    effective_isolation: Global___TransactionIsolation.ValueType
+    """The isolation level the transaction really runs at: READ_COMMITTED or REPEATABLE_READ, which differs from the requested
+    value only for READ_UNCOMMITTED, run at the stronger READ_COMMITTED (see TransactionIsolation). A server that predates
+    this field leaves it unset, which reads as READ_UNCOMMITTED (the proto default) - a value a current server never
+    reports, so it means "unknown".
+    """
     def __init__(
         self,
         *,
         transaction_id: _builtins.str = ...,
         timestamp: _builtins.int = ...,
+        effective_isolation: Global___TransactionIsolation.ValueType = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["timestamp", b"timestamp", "transaction_id", b"transaction_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["effective_isolation", b"effective_isolation", "timestamp", b"timestamp", "transaction_id", b"transaction_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -3662,6 +3682,7 @@ class GetDatabaseInfoResponse(_message.Message):
     INDEXES_FIELD_NUMBER: _builtins.int
     SIZE_BYTES_FIELD_NUMBER: _builtins.int
     PROPERTIES_FIELD_NUMBER: _builtins.int
+    UNCOUNTED_TYPES_FIELD_NUMBER: _builtins.int
     database: _builtins.str
     type: _builtins.str
     """"graph"/"document" """
@@ -3674,6 +3695,12 @@ class GetDatabaseInfoResponse(_message.Message):
     def properties(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
         """extra info"""
 
+    @_builtins.property
+    def uncounted_types(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """The types whose records could not be counted (issue #10877): 'records' is the sum over every other type, so a
+        non-empty list says the total is short by an unknown amount rather than that the database holds fewer records
+        """
+
     def __init__(
         self,
         *,
@@ -3684,10 +3711,11 @@ class GetDatabaseInfoResponse(_message.Message):
         indexes: _builtins.int = ...,
         size_bytes: _builtins.int = ...,
         properties: _abc.Mapping[_builtins.str, _builtins.str] | None = ...,
+        uncounted_types: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["classes", b"classes", "database", b"database", "indexes", b"indexes", "properties", b"properties", "records", b"records", "size_bytes", b"size_bytes", "type", b"type"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["classes", b"classes", "database", b"database", "indexes", b"indexes", "properties", b"properties", "records", b"records", "size_bytes", b"size_bytes", "type", b"type", "uncounted_types", b"uncounted_types"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

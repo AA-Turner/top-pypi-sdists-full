@@ -41,11 +41,11 @@ from pipecatcloud._utils.deploy_utils import (
     with_deploy_config,
 )
 from pipecatcloud._utils.github_utils import short_sha
+from pipecatcloud._utils.log_utils import describe_api_error, describe_body
 from pipecatcloud._utils.regions import (
-    get_region_codes,
     get_regions,
+    region_error,
     validate_architecture_for_region,
-    validate_region,
 )
 from pipecatcloud.cli import PIPECAT_CLI_NAME
 from pipecatcloud.cli.api import API
@@ -461,7 +461,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                     agent_name=params.agent_name, org=org, live=None
                 )
 
-                logger.debug(f"Deployment status: {agent_status}")
+                logger.debug(f"Deployment status: {describe_body(agent_status)}")
 
                 # A failed poll returns (None, error). Handle that here, *before*
                 # touching agent_status, so a transient blip can't crash the
@@ -475,7 +475,7 @@ async def _deploy(params: DeployConfigParams, org, force: bool = False):
                             logger.debug(
                                 "Transient status-poll failure "
                                 f"({consecutive_failures}/{MAX_CONSECUTIVE_POLL_FAILURES}): "
-                                f"{error}"
+                                f"{describe_api_error(error)}"
                             )
                             status.update(
                                 "[dim]Waiting for deployment status "
@@ -863,11 +863,8 @@ def create_deploy_command(app: typer.Typer):
         partial_config.region = deploy_region  # Can be None, API will use org default
 
         # Validate region if explicitly provided
-        if deploy_region and not await validate_region(deploy_region):
-            valid_regions = await get_region_codes()
-            console.error(
-                f"Invalid region '{deploy_region}'. Valid regions are: {', '.join(valid_regions)}"
-            )
+        if deploy_region and (region_message := await region_error(deploy_region, org=org)):
+            console.error(region_message)
             raise typer.Exit(1)
 
         # Architecture (PCC-1105): flag beats toml; vocabulary is exactly
@@ -885,7 +882,7 @@ def create_deploy_command(app: typer.Typer):
                 raise typer.Exit(1)
             if deploy_region:
                 arch_error = validate_architecture_for_region(
-                    partial_config.architecture, deploy_region, await get_regions()
+                    partial_config.architecture, deploy_region, await get_regions(org=org)
                 )
                 if arch_error:
                     console.error(arch_error)

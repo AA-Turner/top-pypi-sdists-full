@@ -31,8 +31,10 @@ class Rewards(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalTrajectoryRewardsPage:
-    """Per-trajectory rewards recorded for an evaluation run, in ascending task-ID order with
-    trajectories without a task first, then ascending trajectory-ID order.
+    """Rewards of an evaluation run's scored trajectories, the values its mean reward averages:
+    each attempt's test sample reward, with attempts stopped by a step, token or time limit
+    scored 0. Errored and cancelled attempts are omitted. Ordered by ascending task ID, with
+    trajectories without a task first, then by ascending trajectory ID.
 
     Args:
       extra_headers: Send extra headers

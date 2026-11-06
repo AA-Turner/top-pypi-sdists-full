@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel", "twine>=6.1.0", "packaging>=24.2", "pkginfo>=
 
 [project]
 name = "google-genai"
-version = "2.34.0"
+version = "3.0.0"
 description = "GenAI Python SDK"
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "anyio>=4.8.0, <5.0.0",
     "google-auth[requests]>=2.56.0, <3.0.0",
-    "httpx>=0.28.1, <1.0.0",
+    "httpx2>=2.0.0, <3.0.0",
     "pydantic>=2.12.5, <3.0.0",
     "requests>=2.28.1, <3.0.0",
     "tenacity>=8.2.3, <9.2.0",
@@ -39,8 +39,13 @@ dependencies = [
 
 [project.optional-dependencies]
 aiohttp = ["aiohttp>=3.10.11, <4.0.0"]
-httpx2 = ["httpx2>=2.0.0, <3.0.0"]
+httpx = ["httpx>=0.28.1, <1.0.0"]
+httpx2 = []
 local-tokenizer = [
+    "sentencepiece>=0.2.0",
+    "protobuf",
+]
+local-tokenizer-transformers = [
     "sentencepiece>=0.2.0",
     "protobuf",
     "pillow",

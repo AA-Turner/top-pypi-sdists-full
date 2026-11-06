@@ -1,0 +1,34 @@
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-added-large-files" },
+  { id = "check-toml" },
+  { id = "check-yaml" },
+  { id = "check-merge-conflict" },
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ruff-fix"
+name = "run ruff check and apply fixes"
+entry = "uv run --frozen ruff check --fix --exit-non-zero-on-fix"
+language = "system"
+types = ["python"]
+
+[[repos.hooks]]
+id = "ruff-fmt"
+name = "run ruff format"
+entry = "uv run --frozen ruff format"
+language = "system"
+types = ["python"]
+
+[[repos.hooks]]
+id = "mypy"
+name = "run mypy"
+entry = "uv run --frozen mypy"
+language = "system"
+types = ["python"]

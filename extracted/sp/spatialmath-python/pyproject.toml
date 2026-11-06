@@ -1,6 +1,6 @@
 [project]
 name = "spatialmath-python"
-version = "1.1.18"
+version = "1.1.19"
 authors = [
   { name="Peter Corke", email="rvc@petercorke.com" },
 ]
@@ -15,6 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -37,8 +39,7 @@ dependencies = [
     "scipy",
     "matplotlib",
     "ansitable",
-    "typing_extensions",
-    "pre-commit",
+    "typing_extensions>=4.0.0",
 ]
 
 [project.urls]
@@ -50,6 +51,7 @@ dependencies = [
 [project.optional-dependencies]
 
 dev = [
+    "pre-commit",
     "sympy",
     "pytest",
     "pytest-timeout",
@@ -61,10 +63,12 @@ dev = [
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
-    "sphinx-autorun",
+    "sphinx-pyrunblock",
     "sphinxcontrib-jsmath",
     "sphinx-favicon",
     "sphinx-autodoc-typehints",
+    "sphinx-copybutton",
+    "sphinx-codeautolink",
 ]
 
 ros-humble = [
@@ -74,7 +78,7 @@ ros-humble = [
 
 [build-system]
 
-requires = ["setuptools", "oldest-supported-numpy"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

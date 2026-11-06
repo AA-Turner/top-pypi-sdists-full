@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.11.0"
+version = "1.11.1"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -98,7 +98,7 @@ otel = [
     "wrapt>=1.17.0",
 ]
 sql_postgres = [
-    "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
     "asyncpg>=0.24.0",
 ]
 stagehand = [
@@ -108,11 +108,11 @@ stagehand = [
     "browserforge>=1.2.3",
 ]
 sql_sqlite = [
-    "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
     "aiosqlite>=0.21.0",
 ]
 sql_mysql = [
-    "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
+    "sqlalchemy[asyncio]>=2.0.0",
     "aiomysql>=0.3.2",
     "cryptography>=46.0.5",
 ]
@@ -235,10 +235,10 @@ ignore = [
     "N999",
     "T201",
 ]
-"**/docs/examples/code_examples/*crawler_with_error_snapshotter.py" = ["PLR2004"]
-"**/docs/guides/code_examples/running_in_web_server/server.py" = ["TC002"]
-"**/docs/guides/code_examples/creating_web_archive/*.*" = ["ASYNC230"]
-"**/docs/guides/code_examples/scrapy_migration/scrapy_*.py" = [
+"**/docs/03_concepts/code_examples/error_handling/*crawler_with_error_snapshotter.py" = ["PLR2004"]
+"**/docs/04_guides/code_examples/running_in_web_server/server.py" = ["TC002"]
+"**/docs/04_guides/code_examples/creating_web_archive/*.*" = ["ASYNC230"]
+"**/docs/04_guides/code_examples/scrapy_migration/scrapy_*.py" = [
     "ANN",
     "RUF012",
 ]
@@ -289,7 +289,7 @@ include = [
 ]
 exclude = [
     "src/crawlee/project_template",
-    "docs/guides/code_examples/storage_clients/custom_storage_client_example.py",
+    "docs/03_concepts/code_examples/storage_clients/custom_storage_client_example.py",
     "website/versioned_docs",
 ]
 

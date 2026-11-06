@@ -19,19 +19,17 @@ from typing import Any, Callable
 
 from seq.cli_json import _print_json
 from seq.clock import stamp
-from seq.errors import SeqAuthoringError, build_failed, still_building
+from seq.errors import SeqAuthoringError, build_failed, state_said, still_building
 from sequence_ai._core.names import segment
 from sequence_ai.errors import AuthError, Conflict, InvalidRequest, SequencesError
 
 
 
 def _request_of(kind: str, cls: type, *, name: str | None = None, require_cap: bool = False,
-                snapshots: list | None = None, region: str | None = None) -> Any:
+                snapshots: list | None = None) -> Any:
     """The body `seq deploy` sends for this class — assembled here, offline, and checked against its contract.
     `require_cap` refuses a GPU policy that names no max_gpus, as the platform does at deploy.
 
-    `region` (`seq deploy --region R`, as written) sets where its machines run over the decorator's region= - "auto"
-    back to the default (registry.region_of); a benchmark takes none.
     What is uploaded is appended to `snapshots` when given (seq.code_bundle.Snapshot)."""
     from pydantic import ValidationError
 
@@ -39,19 +37,11 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, require_cap: b
         if kind == "benchmark":
             from seq.benchmark_registry import benchmark_request
 
-            if region is not None:
-                raise SeqAuthoringError("--region places a policy's machines; a benchmark takes none - its machines "
-                                        "run wherever its card is available")
             request = benchmark_request(cls, name=name, snapshots=snapshots)
         else:
             from seq.deploy import deployment_request
 
             request = deployment_request(cls, name=name, snapshots=snapshots)
-            if region is not None:
-                from seq.registry import region_of
-
-                request = request.model_copy(update={"resources": request.resources.model_copy(
-                    update={"region": region_of(region, "--region ")})})
             if require_cap:
                 _require_gpu_cap(request)
         _contract_check(request)
@@ -239,7 +229,6 @@ def _print_echo(request: Any, snap: Any = None, constructor: Any = None) -> None
         for i, (n, uri) in enumerate(rows):
             print(f"{'weights' if i == 0 else '':<12}" + (f"{n:<{width}}  " if parts else "") + uri)
         print(weights_dir_line(request, constructor))
-    _print_region(getattr(request.resources, "region", None))
     _print_code(request.code, snap)
     _print_contract(request.policy)
     if request.policy.params:
@@ -259,17 +248,6 @@ def _print_echo(request: Any, snap: Any = None, constructor: Any = None) -> None
     if getattr(request.policy, "models", None):
         shown = ", ".join(m.rsplit("/", 1)[-1] for m in request.policy.models)
         print(f"models      {shown}  (the robot key driving this deployment may call these on /v1/chat, /v1/decide)")
-
-
-def _print_region(region: str | None) -> None:
-    """Where its machines run, in the platform's words (registry.REGIONS)."""
-    from seq.registry import REGIONS
-
-    if region in REGIONS:
-        print(f"region      {REGIONS[region]}: its machines run there alone, and a robot waits while no card is "
-              "available there")
-    else:
-        print("region      auto: each robot's machine in the region nearest it, else wherever a card is available")
 
 
 def _print_benchmark_echo(req: Any, snap: Any = None) -> None:
@@ -680,10 +658,10 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
             card = gpus[0].split(':')[0] if gpus else "cpu"
             machine = "CPU machine" if card.lower() == "cpu" else f"{card} machine"
             print(f"  its check's {machine} stays on as its first worker: it saves this version's image for its next "
-                  f"machines, usually a minute or two, then with no robot acting stops after "
+                  f"machines, usually a minute or two, then with no robot connected ends after "
                   f"{duration(fleet['scaling']['idle_timeout'])} (its idle timeout), billed as a worker until then")
         elif kept is False:
-            print("  its check's machine stopped after its check: this version's first worker starts when it is needed "
+            print("  its check's machine ended after its check: this version's first worker starts when it is needed "
                   "(a cold start)")
 
 
@@ -763,9 +741,10 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
     seen: list[str] = []
 
     def _show(resp: Any) -> None:
-        if not seen or seen[-1] != resp.status.value:
-            seen.append(resp.status.value)
-            print(f"  {resp.name}: {resp.status.value}", flush=True)
+        state = state_said(resp.status.value, resp.error)
+        if not seen or seen[-1] != state:
+            seen.append(state)
+            print(f"  {resp.name}: {state}", flush=True)
 
     from seq.eval_cli import lost_line
 

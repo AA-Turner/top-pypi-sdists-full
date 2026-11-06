@@ -246,10 +246,13 @@ def async_command(func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
         except asyncio.CancelledError:
             raise typer.Exit(code=130) from None
         except KeyboardInterrupt:
-            # Ensure graceful coroutine finalization on Ctrl-C; otherwise Python
-            # may report "coroutine ignored GeneratorExit" during GC shutdown.
+            # A second Ctrl-C (cancel_on_sigint already cancelled the task on the first) while the
+            # command was still cleaning up. Ensure graceful coroutine finalization; otherwise
+            # Python may report "coroutine ignored GeneratorExit" during GC shutdown. The task may
+            # hold that KeyboardInterrupt as its result, and another Ctrl-C may land during this
+            # grace period: neither is worth a traceback.
             task.cancel()
-            with suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
+            with suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception, KeyboardInterrupt):
                 cli_loop.run_until_complete(asyncio.wait_for(task, timeout=0.25))
             raise typer.Exit(code=130) from None
 
@@ -519,8 +522,8 @@ def make_rsd_dependency(*, allow_none: bool) -> Callable[..., Optional[RemoteSer
                     Establish the iOS 17+ tunnel in-process with a pure-Python userspace network stack, so NO
                     root/admin is required. Downloads (device->host, e.g. fetch-symbols) run at roughly the
                     kernel tunnel's throughput; host->device transfers (DDI mounts, file pushes) are slower, as
-                    their send segments are kept small for reliable delivery through the pure-Python path. Use
-                    when you cannot run a privileged tunnel.
+                    their send segments are kept small for reliable delivery through the pure-Python path. This
+                    is already the default transport; pass it to force it over an environment override.
                 """),
                 rich_help_panel=DEVICE_OPTIONS_PANEL_TITLE,
             ),

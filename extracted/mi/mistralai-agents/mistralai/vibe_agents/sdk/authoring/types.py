@@ -13,6 +13,8 @@ from mistralai.vibe_agents.session_workflow.commands import ReasoningEffort
 from .errors import SdkError
 
 PermissionMode = Literal["auto", "ask", "deny"]
+"""Which tool calls need an approval: ``"auto"`` runs every call that the agent's ``permission_policy``
+allows (every call without one), ``"ask"`` opens an approval for each call, and ``"deny"`` refuses them."""
 
 
 class LLMProvider(StrEnum):

@@ -33,7 +33,7 @@ class WarehouseAdaptiveArgs:
 
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] max_query_performance_level: Specifies the maximum query performance level for the adaptive warehouse. Determines the initial compute capacity. Valid values are (case-insensitive): `XSMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `XXLARGE` | `XXXLARGE` | `X4LARGE`.
-        :param pulumi.Input[_builtins.str] name: Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.int] query_throughput_multiplier: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the query throughput multiplier for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the adaptive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
@@ -82,7 +82,7 @@ class WarehouseAdaptiveArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -159,7 +159,7 @@ class _WarehouseAdaptiveState:
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] fully_qualified_name: Fully qualified name of the resource. For more information, see [object name resolution](https://docs.snowflake.com/en/sql-reference/name-resolution).
         :param pulumi.Input[_builtins.str] max_query_performance_level: Specifies the maximum query performance level for the adaptive warehouse. Determines the initial compute capacity. Valid values are (case-insensitive): `XSMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `XXLARGE` | `XXXLARGE` | `X4LARGE`.
-        :param pulumi.Input[_builtins.str] name: Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input['WarehouseAdaptiveParameterArgs']]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given adaptive warehouse.
         :param pulumi.Input[_builtins.int] query_throughput_multiplier: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the query throughput multiplier for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the adaptive warehouse. For more information about this resource, see docs.
@@ -231,7 +231,7 @@ class _WarehouseAdaptiveState:
     @pulumi.getter
     def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 
@@ -375,7 +375,7 @@ class WarehouseAdaptive(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] max_query_performance_level: Specifies the maximum query performance level for the adaptive warehouse. Determines the initial compute capacity. Valid values are (case-insensitive): `XSMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `XXLARGE` | `XXXLARGE` | `X4LARGE`.
-        :param pulumi.Input[_builtins.str] name: Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[_builtins.int] query_throughput_multiplier: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the query throughput multiplier for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the adaptive warehouse. For more information about this resource, see docs.
         :param pulumi.Input[_builtins.int] statement_queued_timeout_in_seconds: Amount of time, in seconds, a SQL statement (query, DDL, DML, etc.) remains queued for a warehouse before it is canceled by the system. This parameter can be used in conjunction with the [MAX*CONCURRENCY*LEVEL](https://docs.snowflake.com/en/sql-reference/parameters#label-max-concurrency-level) parameter to ensure a warehouse is never backlogged. For more information, check [STATEMENT*QUEUED*TIMEOUT*IN*SECONDS docs](https://docs.snowflake.com/en/sql-reference/parameters#statement-queued-timeout-in-seconds).
@@ -493,7 +493,7 @@ class WarehouseAdaptive(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] comment: Specifies a comment for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] fully_qualified_name: Fully qualified name of the resource. For more information, see [object name resolution](https://docs.snowflake.com/en/sql-reference/name-resolution).
         :param pulumi.Input[_builtins.str] max_query_performance_level: Specifies the maximum query performance level for the adaptive warehouse. Determines the initial compute capacity. Valid values are (case-insensitive): `XSMALL` | `SMALL` | `MEDIUM` | `LARGE` | `XLARGE` | `XXLARGE` | `XXXLARGE` | `X4LARGE`.
-        :param pulumi.Input[_builtins.str] name: Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        :param pulumi.Input[_builtins.str] name: Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WarehouseAdaptiveParameterArgs', 'WarehouseAdaptiveParameterArgsDict', 'outputs.WarehouseAdaptiveParameter']]]] parameters: Outputs the result of `SHOW PARAMETERS IN WAREHOUSE` for the given adaptive warehouse.
         :param pulumi.Input[_builtins.int] query_throughput_multiplier: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (`-1`)) Specifies the query throughput multiplier for the adaptive warehouse.
         :param pulumi.Input[_builtins.str] resource_monitor: Specifies the name of a resource monitor that is explicitly assigned to the adaptive warehouse. For more information about this resource, see docs.
@@ -518,6 +518,34 @@ class WarehouseAdaptive(pulumi.CustomResource):
         __props__.__dict__["statement_timeout_in_seconds"] = statement_timeout_in_seconds
         __props__.__dict__["warehouse_type"] = warehouse_type
         return WarehouseAdaptive(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            max_query_performance_level: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            parameters: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseAdaptiveParameterArgs', 'WarehouseAdaptiveParameterArgsDict', 'outputs.WarehouseAdaptiveParameter']]]]] = None,
+            query_throughput_multiplier: pulumi.Input[Optional[_builtins.int]] = None,
+            resource_monitor: pulumi.Input[Optional[_builtins.str]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['WarehouseAdaptiveShowOutputArgs', 'WarehouseAdaptiveShowOutputArgsDict', 'outputs.WarehouseAdaptiveShowOutput']]]]] = None,
+            statement_queued_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            statement_timeout_in_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            warehouse_type: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["comment"] = comment
+        __props__["fullyQualifiedName"] = fully_qualified_name
+        __props__["maxQueryPerformanceLevel"] = max_query_performance_level
+        __props__["name"] = name
+        __props__["parameters"] = parameters
+        __props__["queryThroughputMultiplier"] = query_throughput_multiplier
+        __props__["resourceMonitor"] = resource_monitor
+        __props__["showOutputs"] = show_outputs
+        __props__["statementQueuedTimeoutInSeconds"] = statement_queued_timeout_in_seconds
+        __props__["statementTimeoutInSeconds"] = statement_timeout_in_seconds
+        __props__["warehouseType"] = warehouse_type
+        return pulumi.runtime.exists_resource(None, 'snowflake:index/warehouseAdaptive:WarehouseAdaptive', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -547,7 +575,7 @@ class WarehouseAdaptive(pulumi.CustomResource):
     @pulumi.getter
     def name(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier for the adaptive warehouse; must be unique for your account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
+        Specifies the identifier for the warehouse adaptive; must be unique for the account. Due to technical limitations (read more here), avoid using the following characters: `|`, `.`, `"`.
         """
         return pulumi.get(self, "name")
 

@@ -410,6 +410,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -890,6 +891,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1506,6 +1508,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1706,6 +1709,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -1868,6 +1872,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -2774,6 +2779,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3012,6 +3018,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3174,6 +3181,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -3336,6 +3344,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -4284,6 +4293,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -4815,6 +4825,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -5483,6 +5494,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -6180,6 +6192,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl
@@ -7725,6 +7738,7 @@ class AsyncClient(AsyncBaseClient):
               dueDate
               updatedAt
               errorMessage
+              errorCode
               requiresAction
               paymentSecret
               paymentUrl

@@ -20,12 +20,20 @@
  *   _t<n>       the same push fanned across n threads: 1 and 8, the ends.
  *   _D<d>       the block-coherent depth
  *               (docs/design/async-dsss-receiver-measurements.md §12.8).
+ *   _fc         the same with an RF carrier set (CARRIER_HZ), so every
+ *               side tile runs its code-rate ramp at D > 1: the one map's
+ *               speed gate measures it against main (#2752,
+ *               docs/design/acq-surface.md §18.4). The injected code's
+ *               chip clock is dilated by the tone's Doppler over the
+ *               carrier, as a real emitter's is, so the row detects.
  *
  * The detection target is the API default, pd = 0.9, and the auto-sizer
  * picks n_noncoh from it; the row name records the n_noncoh it chose. A
  * stricter target only lengthens the dwell, not the cost per input sample,
  * so one target is enough. */
+#include "../../src/corr2d/corr2d_map.h"
 #include "doppler/acq/acq_core.h"
+#include "doppler/acq/acq_private.h"
 #include "doppler/dp_complex.h"
 #include "jm_bench.h"
 #include <math.h>
@@ -45,6 +53,7 @@
    lands in. */
 #define INJECT_WINDOW 5
 #define INJECT_PHASE 777 /* code phase (samples) to inject the burst at. */
+#define CARRIER_HZ 2.2e9 /* an S-band carrier, for the _fc rows. */
 
 /* The API default (objects/acq.toml); see the file comment for why one. */
 static const double PD_POINTS[] = { 0.9 };
@@ -58,6 +67,7 @@ typedef struct
   size_t      inject_window;    /* hypothesis to inject into (0 when 1 bin) */
   size_t      code_only_epochs; /* the depth's window; 1 = D of 1        */
   int         threads;          /* the fan; 1 = serial, 0 = the machine     */
+  double      carrier_hz;       /* RF carrier, Hz; 0 = none (no ramp)       */
 } acq_bench_cfg_t;
 
 /* The tile count is the engine's own (acq_cover_window_bins:
@@ -65,11 +75,41 @@ typedef struct
  * scales with -- so the low chip rate, which has the narrowest tiles, is the
  * searcher's worst case per output sample. */
 static const acq_bench_cfg_t CFGS[] = {
-  { CHIP_RATE, 0.0, "native", 1, 0, 1, 1 },
-  { 5.0e6, 50000.0, "op5M_U50k", 21, INJECT_WINDOW, 1, 1 },
-  { 2.0e6, 50000.0, "op2M_U50k", 53, INJECT_WINDOW, 1, 1 },
-  { 5.0e6, 5000.0, "op5M_U5k", 3, 1, 1, 1 },
-  { 2.0e6, 5000.0, "op2M_U5k", 7, 1, 1, 1 },
+  { .chip_rate        = CHIP_RATE,
+    .du               = 0.0,
+    .label            = "native",
+    .expect_bins      = 1,
+    .inject_window    = 0,
+    .code_only_epochs = 1,
+    .threads          = 1 },
+  { .chip_rate        = 5.0e6,
+    .du               = 50000.0,
+    .label            = "op5M_U50k",
+    .expect_bins      = 21,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 1,
+    .threads          = 1 },
+  { .chip_rate        = 2.0e6,
+    .du               = 50000.0,
+    .label            = "op2M_U50k",
+    .expect_bins      = 53,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 1,
+    .threads          = 1 },
+  { .chip_rate        = 5.0e6,
+    .du               = 5000.0,
+    .label            = "op5M_U5k",
+    .expect_bins      = 3,
+    .inject_window    = 1,
+    .code_only_epochs = 1,
+    .threads          = 1 },
+  { .chip_rate        = 2.0e6,
+    .du               = 5000.0,
+    .label            = "op2M_U5k",
+    .expect_bins      = 7,
+    .inject_window    = 1,
+    .code_only_epochs = 1,
+    .threads          = 1 },
   /* docs/design/async-dsss-receiver-measurements.md §12.8: the per-tile cost
      with the block-coherent depth in it (D = 150 at 5 Mcps, 60 at 2: the
      window's 813 and 324 whole epochs under a 500 Hz/s rate bound give 154
@@ -79,13 +119,102 @@ static const acq_bench_cfg_t CFGS[] = {
      two ends; a D = 1 row at the same counts beside them is the fan on the
      epoch-by-epoch searcher alone. The published run is pinned to 4 cores
      and their SMT siblings, so 8 threads run two to a core (#2394). */
-  { 5.0e6, 50000.0, "op5M_U50k_t8", 21, INJECT_WINDOW, 1, 8 },
-  { 5.0e6, 50000.0, "op5M_U50k_D150_t1", 21, INJECT_WINDOW, 813, 1 },
-  { 5.0e6, 50000.0, "op5M_U50k_D150_t8", 21, INJECT_WINDOW, 813, 8 },
-  { 2.0e6, 50000.0, "op2M_U50k_D60_t1", 53, INJECT_WINDOW, 324, 1 },
-  { 2.0e6, 50000.0, "op2M_U50k_D60_t4", 53, INJECT_WINDOW, 324, 4 },
-  { 5.0e6, 5000.0, "op5M_U5k_D150_t1", 3, 1, 813, 1 },
-  { 5.0e6, 5000.0, "op5M_U5k_D150_t4", 3, 1, 813, 4 },
+  { .chip_rate        = 5.0e6,
+    .du               = 50000.0,
+    .label            = "op5M_U50k_t8",
+    .expect_bins      = 21,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 1,
+    .threads          = 8 },
+  { .chip_rate        = 5.0e6,
+    .du               = 50000.0,
+    .label            = "op5M_U50k_D150_t1",
+    .expect_bins      = 21,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 813,
+    .threads          = 1 },
+  { .chip_rate        = 5.0e6,
+    .du               = 50000.0,
+    .label            = "op5M_U50k_D150_t8",
+    .expect_bins      = 21,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 813,
+    .threads          = 8 },
+  { .chip_rate        = 2.0e6,
+    .du               = 50000.0,
+    .label            = "op2M_U50k_D60_t1",
+    .expect_bins      = 53,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 324,
+    .threads          = 1 },
+  { .chip_rate        = 2.0e6,
+    .du               = 50000.0,
+    .label            = "op2M_U50k_D60_t4",
+    .expect_bins      = 53,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 324,
+    .threads          = 4 },
+  { .chip_rate        = 5.0e6,
+    .du               = 5000.0,
+    .label            = "op5M_U5k_D150_t1",
+    .expect_bins      = 3,
+    .inject_window    = 1,
+    .code_only_epochs = 813,
+    .threads          = 1 },
+  { .chip_rate        = 5.0e6,
+    .du               = 5000.0,
+    .label            = "op5M_U5k_D150_t4",
+    .expect_bins      = 3,
+    .inject_window    = 1,
+    .code_only_epochs = 813,
+    .threads          = 4 },
+  /* The block-coherent rows with a carrier: the tile fan's code-rate ramp
+     (#2752 §18.4), serial, at the three geometries the one map was
+     measured on (docs/design/acq-surface-measurements.md §18.1). */
+  { .chip_rate        = 5.0e6,
+    .du               = 50000.0,
+    .label            = "op5M_U50k_D150_t1_fc",
+    .expect_bins      = 21,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 813,
+    .threads          = 1,
+    .carrier_hz       = CARRIER_HZ },
+  { .chip_rate        = 2.0e6,
+    .du               = 50000.0,
+    .label            = "op2M_U50k_D60_t1_fc",
+    .expect_bins      = 53,
+    .inject_window    = INJECT_WINDOW,
+    .code_only_epochs = 324,
+    .threads          = 1,
+    .carrier_hz       = CARRIER_HZ },
+  { .chip_rate        = 5.0e6,
+    .du               = 5000.0,
+    .label            = "op5M_U5k_D150_t1_fc",
+    .expect_bins      = 3,
+    .inject_window    = 1,
+    .code_only_epochs = 813,
+    .threads          = 1,
+    .carrier_hz       = CARRIER_HZ },
+  /* Five tiles, either side of the one map's crossover
+     (docs/design/acq-surface.md §18.1): without a carrier the rule picks
+     slow first (it crosses between three tiles and five at D = 150), with
+     one rows first (the fine grid moves the crossover past fifteen). So
+     the speed gate holds a row on each side near it. */
+  { .chip_rate        = 5.0e6,
+    .du               = 10000.0,
+    .label            = "op5M_U10k_D150_t1",
+    .expect_bins      = 5,
+    .inject_window    = 2,
+    .code_only_epochs = 813,
+    .threads          = 1 },
+  { .chip_rate        = 5.0e6,
+    .du               = 10000.0,
+    .label            = "op5M_U10k_D150_t1_fc",
+    .expect_bins      = 5,
+    .inject_window    = 2,
+    .code_only_epochs = 813,
+    .threads          = 1,
+    .carrier_hz       = CARRIER_HZ },
 };
 
 static uint32_t
@@ -165,6 +294,14 @@ main (void)
            * index exists -- see acq_cover_window_bins() / dp_fftfreq_index().
            */
           (void)dp_acq_set_threads (a, cfg->threads);
+          if (cfg->carrier_hz > 0.0
+              && dp_acq_set_carrier_freq_hz (a, cfg->carrier_hz) != DP_OK)
+            {
+              fprintf (stderr, "dp_acq_set_carrier_freq_hz refused %g Hz\n",
+                       cfg->carrier_hz);
+              dp_acq_destroy (a);
+              return 1;
+            }
           const size_t D = a->coherent_bins;
           if ((cfg->code_only_epochs == 1 && D != 1)
               || a->window_bins != cfg->expect_bins)
@@ -183,16 +320,26 @@ main (void)
           const long signed_r
               = dp_fftfreq_index (cfg->inject_window, a->window_bins);
           const double f_norm = (double)signed_r / (double)nx;
+          /* The code's chip clock rides the carrier's Doppler: it runs
+             (1 + f / carrier) fast, f = f_norm * fs. */
+          const double dil = cfg->carrier_hz > 0.0
+                                 ? 1.0 + f_norm * fs / cfg->carrier_hz
+                                 : 1.0;
 
           float _Complex *buf   = malloc (n_in * sizeof (float _Complex));
           uint32_t        nseed = 1234u + (uint32_t)nc;
           for (size_t k = 0; k < n_in; k++)
             {
-              size_t  epoch_k = k % nx;
-              size_t  src     = (epoch_k + nx - (INJECT_PHASE % nx)) % nx;
-              uint8_t chip    = code[(src / SPC) % SF];
-              float   c       = (chip & 1u) ? -1.0f : 1.0f;
-              double  ph      = 2.0 * PI * f_norm * (double)k;
+              size_t epoch_k = k % nx;
+              size_t src     = (epoch_k + nx - (INJECT_PHASE % nx)) % nx;
+              if (dil != 1.0)
+                {
+                  const double t = (double)k * dil - (double)INJECT_PHASE;
+                  src = (size_t)(t - (double)nx * floor (t / (double)nx));
+                }
+              uint8_t chip = code[(src / SPC) % SF];
+              float   c    = (chip & 1u) ? -1.0f : 1.0f;
+              double  ph   = 2.0 * PI * f_norm * (double)k;
               float _Complex tone
                   = c * (float _Complex) (cos (ph) + I * sin (ph));
               buf[k] = tone + sigma * cgauss (&nseed);
@@ -206,14 +353,38 @@ main (void)
               = (size_t)lround ((double)INJECT_PHASE * (double)a->lag_bins
                                 / (double)a->code_bins)
                 % a->lag_bins;
+          /* With a carrier the code drifts (dil - 1) * nx samples an
+             epoch, and the ramp reads the block at its middle, so the peak
+             may sit up to half the block's drift from the injected phase,
+             either way: that many columns, plus one for the rounding. */
+          const size_t drift
+              = dil != 1.0
+                    ? (size_t)ceil (0.5 * (double)(D - 1) * fabs (dil - 1.0)
+                                    * (double)nx * (double)a->lag_bins
+                                    / (double)a->code_bins)
+                          + 1
+                    : 0;
+          size_t off_col = nh ? (hits[0].code_phase + a->lag_bins - want_col)
+                                    % a->lag_bins
+                              : 0;
+          if (off_col > a->lag_bins / 2)
+            off_col = a->lag_bins - off_col;
           int ok = (nh == 1 && hits[0].doppler_bin == cfg->inject_window * D
-                    && hits[0].code_phase == want_col);
+                    && off_col <= drift);
+          /* The schedule the one delay-Doppler map runs this row in
+             (docs/design/acq-surface.md §18.1), as the rule picks it. */
+          const int sch = dp__dd_map_pick (
+              a->map, a->window_bins > 1 ? a->window_bins : 1,
+              acq_rate_count_at (a->rate_hyps, a->coherent_bins), 0);
           printf ("n_noncoh=%3zu D=%zu threads=%d pd_predicted=%.4f  "
                   "detect=%s  doppler_bin=%zu code_phase=%zu "
-                  "cn0_dbhz_est=%.2f\n",
+                  "cn0_dbhz_est=%.2f  schedule=%s\n",
                   nc, D, a->threads, a->pd_predicted, ok ? "yes" : "NO",
                   nh ? hits[0].doppler_bin : 0, nh ? hits[0].code_phase : 0,
-                  nh ? hits[0].cn0_dbhz_est : 0.0f);
+                  nh ? hits[0].cn0_dbhz_est : 0.0f,
+                  a->coherent_bins * a->interp <= 1 ? "rows only (D = 1)"
+                  : sch == DP__DD_ROWS_FIRST        ? "rows first"
+                                                    : "slow first");
           /* A row that misses its own emitter times a search that found
              nothing: refuse it rather than print NO and time it anyway. */
           if (!ok)

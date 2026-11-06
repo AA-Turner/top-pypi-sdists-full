@@ -33,6 +33,10 @@ pub struct StatsigOptions {
     pub data_store_key_schema_version: Option<DataStoreKeyVersion>,
 
     pub disable_all_logging: Option<bool>,
+    /// Suppress Statsig-side diagnostics and SDK exception uploads for this instance.
+    /// Defaults to false. Local ObservabilityClient callbacks and output logging stay active.
+    /// Configure before creating the SDK or an adapter; recreate it to change this setting.
+    pub disable_remote_telemetry: Option<bool>,
     pub disable_country_lookup: Option<bool>,
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
     /// Controls connection reuse for the built-in HTTP event logging adapter. Explicit `true`
@@ -48,10 +52,15 @@ pub struct StatsigOptions {
     pub enable_id_lists: Option<bool>,
     /// Makes the built-in HTTP adapter fetch only the ID-list manifest during initialization.
     pub lazy_load_id_lists: Option<bool>,
+    /// Maximum simultaneous private ID-list index builds during eager initialization.
+    /// Accepts 1 through 32. Unset and out-of-range values use one (sequential).
+    pub id_list_init_build_concurrency: Option<i32>,
     /// Selects Elias–Fano for this instance’s private ID lists and shared ID-list files.
     /// Unset or false selects the hash format for both.
     /// Selecting a format does not enable ID-list downloads.
     pub enable_id_list_elias_fano: Option<bool>,
+    /// Opt in to ID-list telemetry when the remote metrics gate is enabled.
+    pub enable_id_list_access_metrics: Option<bool>,
     pub enable_dcs_deltas: Option<bool>,
     pub environment: Option<String>,
     pub config_compression_mode: Option<ConfigCompressionMode>,
@@ -256,6 +265,13 @@ impl StatsigOptionsBuilder {
         self
     }
 
+    /// See [`StatsigOptions::disable_remote_telemetry`].
+    #[must_use]
+    pub fn disable_remote_telemetry(mut self, disabled: Option<bool>) -> Self {
+        self.inner.disable_remote_telemetry = disabled;
+        self
+    }
+
     #[must_use]
     pub fn event_logging_adapter(
         mut self,
@@ -312,8 +328,22 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn id_list_init_build_concurrency(mut self, concurrency: Option<i32>) -> Self {
+        self.inner.id_list_init_build_concurrency = concurrency;
+        self
+    }
+
+    #[must_use]
     pub fn enable_id_list_elias_fano(mut self, enable_id_list_elias_fano: Option<bool>) -> Self {
         self.inner.enable_id_list_elias_fano = enable_id_list_elias_fano;
+        self
+    }
+    #[must_use]
+    pub fn enable_id_list_access_metrics(
+        mut self,
+        enable_id_list_access_metrics: Option<bool>,
+    ) -> Self {
+        self.inner.enable_id_list_access_metrics = enable_id_list_access_metrics;
         self
     }
 
@@ -572,6 +602,11 @@ impl Serialize for StatsigOptions {
 
         serialize_if_not_none!(state, "log_event_url", &self.log_event_url);
         serialize_if_not_none!(state, "disable_all_logging", &self.disable_all_logging);
+        serialize_if_not_none!(
+            state,
+            "disable_remote_telemetry",
+            &self.disable_remote_telemetry
+        );
         serialize_if_not_none!(state, "disable_network", &self.disable_network);
 
         serialize_if_not_none!(state, "id_lists_url", &self.id_lists_url);
@@ -582,11 +617,21 @@ impl Serialize for StatsigOptions {
             &self.download_id_list_file_api
         );
         serialize_if_not_none!(state, "enable_id_lists", &self.enable_id_lists);
+        serialize_if_not_none!(
+            state,
+            "id_list_init_build_concurrency",
+            &self.id_list_init_build_concurrency
+        );
         serialize_if_not_none!(state, "lazy_load_id_lists", &self.lazy_load_id_lists);
         serialize_if_not_none!(
             state,
             "enable_id_list_elias_fano",
             &self.enable_id_list_elias_fano
+        );
+        serialize_if_not_none!(
+            state,
+            "enable_id_list_access_metrics",
+            &self.enable_id_list_access_metrics
         );
         serialize_if_not_none!(state, "enable_dcs_deltas", &self.enable_dcs_deltas);
         serialize_if_not_none!(

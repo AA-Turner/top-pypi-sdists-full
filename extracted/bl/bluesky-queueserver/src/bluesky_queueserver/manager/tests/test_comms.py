@@ -76,13 +76,11 @@ def test_CommJsonRpcError_3_fail():
     err_msg, err_code, err_type = "Some error occured", 25, "RuntimeError"
     ex = CommJsonRpcError(err_msg, err_code, err_type)
 
-    # The pattern 'can't set attribute': Python 3.10 and older
-    # The pattern 'object has no setter': Python 3.11
-    with pytest.raises(AttributeError, match="can't set attribute|object has no setter"):
+    with pytest.raises(AttributeError, match="object has no setter"):
         ex.message = err_msg
-    with pytest.raises(AttributeError, match="can't set attribute|object has no setter"):
+    with pytest.raises(AttributeError, match="object has no setter"):
         ex.error_code = err_code
-    with pytest.raises(AttributeError, match="can't set attribute|object has no setter"):
+    with pytest.raises(AttributeError, match="object has no setter"):
         ex.error_type = err_type
 
 
@@ -952,6 +950,7 @@ def _zmq_server_1msg(*, private_key=None, encoding="json"):
     _zmq_send(msg_out, zmq_socket, encoding=encoding)
 
     zmq_socket.close(linger=10)
+    ctx.term()
 
 
 # fmt: off
@@ -999,6 +998,7 @@ def test_ZMQCommSendThreads_1(is_blocking, encryption_enabled, encoding):
     assert msg_recv_err == ""
 
     thread.join()
+    zmq_comm.close()
 
 
 def _zmq_server_2msg(*, private_key=None, encoding="json"):
@@ -1025,6 +1025,7 @@ def _zmq_server_2msg(*, private_key=None, encoding="json"):
     _zmq_send(msg_out, zmq_socket, encoding=encoding)
 
     zmq_socket.close(linger=10)
+    ctx.term()
 
 
 # fmt: off
@@ -1073,6 +1074,7 @@ def test_ZMQCommSendThreads_2(is_blocking, encryption_enabled, encoding):
         assert msg_recv_err == ""
 
     thread.join()
+    zmq_comm.close()
 
 
 def _zmq_server_2msg_delay1(*, private_key=None, encoding="json"):
@@ -1100,6 +1102,7 @@ def _zmq_server_2msg_delay1(*, private_key=None, encoding="json"):
     _zmq_send(msg_out, zmq_socket, encoding=encoding)
 
     zmq_socket.close(linger=10)
+    ctx.term()
 
 
 # fmt: off
@@ -1169,6 +1172,7 @@ def test_ZMQCommSendThreads_3(is_blocking, encryption_enabled, encoding):
         assert msg_recv_err[n] == ""
 
     thread.join()
+    zmq_comm.close()
 
 
 def _zmq_server_delay2(*, private_key=None, encoding="json"):
@@ -1196,6 +1200,7 @@ def _zmq_server_delay2(*, private_key=None, encoding="json"):
     _zmq_send(msg_out, zmq_socket, encoding=encoding)
 
     zmq_socket.close(linger=10)
+    ctx.term()
 
 
 # fmt: off
@@ -1272,6 +1277,7 @@ def test_ZMQCommSendThreads_4(is_blocking, raise_exception, delay_between_reads,
             assert msg_recv_err == ""
 
     thread.join()
+    zmq_comm.close()
 
 
 def _zmq_server_delay3(delay, encoding="json"):
@@ -1289,6 +1295,7 @@ def _zmq_server_delay3(delay, encoding="json"):
     _zmq_send(msg_out, zmq_socket, encoding=encoding)
 
     zmq_socket.close(linger=10)
+    ctx.term()
 
 
 # fmt: off
@@ -1317,6 +1324,7 @@ def test_ZMQCommSendThreads_5(timeout, encoding):
         assert msg_recv["success"] is True, pprint.pformat(msg_recv)
 
     thread.join()
+    zmq_comm.close()
 
 
 def test_ZMQCommSendThreads_6_fail():
@@ -1364,6 +1372,8 @@ def test_ZMQCommSendAsync_1(encryption_enabled, encoding):
         assert msg_recv["some_data"] == 10, str(msg_recv)
         assert msg_recv["msg_in"] == {"method": method, "params": params}, str(msg_recv)
 
+        zmq_comm.close()
+
     asyncio.run(testing())
 
     thread.join()
@@ -1397,6 +1407,8 @@ def test_ZMQCommSendAsync_2(encryption_enabled, encoding):
             assert msg_recv["success"] is True, str(msg_recv)
             assert msg_recv["some_data"] == val, str(msg_recv)
             assert msg_recv["msg_in"] == {"method": method, "params": params}, str(msg_recv)
+
+        zmq_comm.close()
 
     asyncio.run(testing())
 
@@ -1444,6 +1456,8 @@ def test_ZMQCommSendAsync_3(encryption_enabled, encoding):
             assert res["success"] is True, str(res)
             assert res["some_data"] == val, str(res)
             assert res["msg_in"] == {"method": method, "params": params}, str(res)
+
+        zmq_comm.close()
 
     asyncio.run(testing())
 
@@ -1508,6 +1522,8 @@ def test_ZMQCommSendAsync_4(raise_exception, delay_between_reads, encryption_ena
                 assert msg_recv["msg_in"] == {"method": method, "params": params}, str(msg_recv)
                 assert msg_recv_err == ""
 
+        zmq_comm.close()
+
     asyncio.run(testing())
 
     thread.join()
@@ -1542,6 +1558,8 @@ def test_ZMQCommSendAsync_5(timeout, encoding):
                 method=method, params=params, timeout=timeout, raise_exceptions=True
             )
             assert msg_recv["success"] is True, pprint.pformat(msg_recv)
+
+        zmq_comm.close()
 
     asyncio.run(testing())
 

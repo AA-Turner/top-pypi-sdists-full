@@ -17,9 +17,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from streamlit.proto import ArrowNamedDataSet_pb2 as _ArrowNamedDataSet_pb2
 import builtins as _builtins
 import sys
 import typing as _typing
@@ -47,7 +50,7 @@ class EChartsChart(_message.Message):
         """SVG renderer."""
 
     class Renderer(_Renderer, metaclass=_RendererEnumTypeWrapper):
-        """Next ID: 8
+        """Next ID: 9
 
         Available renderers:
         """
@@ -60,8 +63,11 @@ class EChartsChart(_message.Message):
     SPEC_FIELD_NUMBER: _builtins.int
     THEME_FIELD_NUMBER: _builtins.int
     ID_FIELD_NUMBER: _builtins.int
+    FORM_ID_FIELD_NUMBER: _builtins.int
+    SELECTION_ACTIVATED_FIELD_NUMBER: _builtins.int
     RENDERER_FIELD_NUMBER: _builtins.int
     ALT_FIELD_NUMBER: _builtins.int
+    DATASETS_FIELD_NUMBER: _builtins.int
     spec: _builtins.str
     """JSON-serialized ECharts option object."""
     theme: _builtins.str
@@ -69,27 +75,45 @@ class EChartsChart(_message.Message):
     are accepted.
     """
     id: _builtins.str
-    """The unique element ID of this chart. Populated when the user provided a
-    key (CSS class + remount identity). Unkeyed charts skip the ID entirely.
+    """The unique element ID of this chart. Populated when selections are
+    activated (on_select != "ignore") or the user provided a key.
+    """
+    form_id: _builtins.str
+    """Form ID, filled if selections are activated."""
+    selection_activated: _builtins.bool
+    """True when ``on_select`` is not ``"ignore"``. Keyed display-only charts
+    also receive an element ID (CSS class + remount identity), so the
+    frontend cannot treat a non-empty ID as "this is a selection widget".
     """
     renderer: Global___EChartsChart.Renderer.ValueType
-    """Renderer passed to echarts.init."""
+    """Renderer passed to echarts.init. Keep field 6 stable: older frontends
+    read this number as the renderer.
+    """
     alt: _builtins.str
     """Accessible name for the chart (author `alt`). Applied on the frontend as
     ECharts `aria.label.description` (→ aria-label on role="img").
     """
+    @_builtins.property
+    def datasets(self) -> _containers.RepeatedCompositeFieldContainer[_ArrowNamedDataSet_pb2.ArrowNamedDataSet]:
+        """Arrow IPC for dataframe-like `dataset.source` values. The spec references
+        each one as `{"name": "<content hash>"}`; identical frames share one entry.
+        """
+
     def __init__(
         self,
         *,
         spec: _builtins.str = ...,
         theme: _builtins.str = ...,
         id: _builtins.str = ...,
+        form_id: _builtins.str = ...,
+        selection_activated: _builtins.bool = ...,
         renderer: Global___EChartsChart.Renderer.ValueType = ...,
         alt: _builtins.str | None = ...,
+        datasets: _abc.Iterable[_ArrowNamedDataSet_pb2.ArrowNamedDataSet] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_alt", b"_alt", "alt", b"alt"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_alt", b"_alt", "alt", b"alt", "id", b"id", "renderer", b"renderer", "spec", b"spec", "theme", b"theme"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_alt", b"_alt", "alt", b"alt", "datasets", b"datasets", "form_id", b"form_id", "id", b"id", "renderer", b"renderer", "selection_activated", b"selection_activated", "spec", b"spec", "theme", b"theme"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__alt: _TypeAlias = _typing.Literal["alt"]  # noqa: Y015
     _WhichOneofArgType__alt: _TypeAlias = _typing.Literal["_alt", b"_alt"]  # noqa: Y015

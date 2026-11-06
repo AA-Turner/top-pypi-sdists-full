@@ -388,11 +388,14 @@ class FeatrixSphere(HTTPClientMixin):
                 "low" (default: your organization's tier). "urgent" jumps
                 ahead of lower-tier work when the fleet is busy.
             training_strategy: How the embedding space is trained. "es-1.0"
-                (the default when omitted), or "stack:featrix_forest",
+                (the default when omitted), "es-1.0+target_trees" (es-1.0
+                whose predictor also reads target-tree leaves), or "stack:featrix_forest",
                 "stack:simple_forest", "stack:featrix_forest_joined",
                 "stack:featrix_forest_long", "stack:featrix_forest_wide",
                 "stack:featrix_forest_ensemble",
-                "stack:featrix_forest_joined_ensemble". An
+                "stack:featrix_forest_joined_ensemble", "stack:featrix_forest_tokens",
+                "stack:featrix_forest_masked", "stack:featrix_forest_masked_joined",
+                "stack:simple_forest_neighbors". An
                 unknown name is rejected by the server (HTTP 400). The model
                 card reports the strategy the model was actually built with
                 (model_identification.training_strategy).

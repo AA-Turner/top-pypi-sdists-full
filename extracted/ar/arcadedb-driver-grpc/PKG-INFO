@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arcadedb-driver-grpc
-Version: 0.3.0
+Version: 0.4.0
 Summary: Python gRPC client for ArcadeDB's data plane, generated from ArcadeDB's protobuf contract.
 Project-URL: Homepage, https://github.com/ArcadeData/arcadedb-drivers/tree/main/python/packages/driver-grpc#readme
 Project-URL: Issues, https://github.com/ArcadeData/arcadedb-drivers/issues
@@ -307,6 +307,30 @@ callback taking a function, specifically so a caller moving between `arcadedb-dr
 this package does not have to relearn the shape; the TypeScript sibling instead spells this
 `grpc.transaction(database, async (tx) => { ... })`, because Connect-ES has no equivalent
 convention to match.
+
+### Isolation level
+
+```python
+with client.transaction("mydb", isolation_level="REPEATABLE_READ") as tx:
+    ...
+```
+
+`isolation_level` is `"READ_COMMITTED"` or `"REPEATABLE_READ"` (the exported `IsolationLevel` type),
+sent as `BeginTransactionRequest.isolation`, on the sync and the async client alike. Any other value
+raises `ValueError` from `transaction()` itself, before anything is sent. The generated
+`messages.TransactionIsolation` enum has two more values, and `transaction()` deliberately accepts
+neither (set `isolation` through `raw` for them): the server runs `READ_UNCOMMITTED` as
+`READ_COMMITTED` and `SERIALIZABLE` as `REPEATABLE_READ` without saying so
+(ArcadeData/arcadedb#10322), so a caller who asked for `SERIALIZABLE` would get a weaker level than
+it named. Under `REPEATABLE_READ` a record the transaction has read keeps the value it was read
+with, even after another session commits a change to it; under `READ_COMMITTED` a second read shows
+that change.
+
+With no level the request's `isolation` field is left at proto3's zero value, which the server
+begins at `READ_COMMITTED`. That is also every database's default, so today it is what the HTTP
+client gets with no level too. The two can differ only on an embedded server whose own code changed
+a database's default with `setTransactionIsolationLevel`: HTTP's `/begin` honours that default and
+gRPC does not. No server configuration key changes it.
 
 ### The binding override
 
@@ -809,12 +833,12 @@ object does not already implement.
 
 ## Contract version and compatibility
 
-This package was generated from `contracts/arcadedb-server-26.10.2.proto`, recorded in
+This package was generated from `contracts/arcadedb-server-26.11.1.proto`, recorded in
 `pyproject.toml` as `tool.arcadedb.server-version`:
 
 ```toml
 [tool.arcadedb]
-server-version = "26.10.2"
+server-version = "26.11.1"
 ```
 
 | `arcadedb-driver-grpc` | ArcadeDB server |
@@ -822,6 +846,7 @@ server-version = "26.10.2"
 | 0.1.0 | 26.9.1 |
 | 0.2.0 | 26.10.1 |
 | 0.3.0 | 26.10.2 |
+| 0.4.0 | 26.11.1 |
 
 This table is a historical record tied to a package version, not something derived
 automatically: `scripts/adopt-contract-version.sh` deliberately does not touch it when it retires

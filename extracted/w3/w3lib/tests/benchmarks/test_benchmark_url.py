@@ -7,6 +7,7 @@ import pytest
 from tests.benchmarks import BENCHMARK_MARKS, CasesMapType
 from w3lib._url import _urlsplit
 from w3lib.url import (
+    _urljoin,
     add_or_replace_parameter,
     add_or_replace_parameters,
     any_to_uri,
@@ -16,7 +17,6 @@ from w3lib.url import (
     parse_data_uri,
     parse_url,
     path_to_file_uri,
-    safe_download_url,
     safe_url_string,
     url_query_cleaner,
     url_query_parameter,
@@ -35,6 +35,14 @@ BENCHMARK_CASES: CasesMapType = {
         (("https://example.com/path?x=1",), {}),
         (("ftp://user:pass@example.com:21/file.txt",), {}),
         ((b"http://example.com",), {}),
+    ],
+    _urljoin: [
+        (("https://example.com/a/b?c", "d/e"), {}),
+        (("https://example.com/a/b?c", "../d?e#f"), {}),
+        (("https://example.com/a/b?c", "/d"), {}),
+        (("https://example.com/a/b?c", "//example.org/d"), {}),
+        (("https://example.com/a/b?c", "?d"), {}),
+        (("https://example.com/a/b?c", "https://example.org/d"), {}),
     ],
     canonicalize_url: [
         (("http://www.example.com",), {}),
@@ -115,25 +123,7 @@ BENCHMARK_CASES: CasesMapType = {
         (("http://%2525user:%2525pass@host",), {}),
         (("http://%2526user:%2526pass@host",), {}),
         (("http://%25%26user:%25%26pass@host",), {}),
-    ],
-    safe_download_url: [
-        (("http://www.example.org",), {}),
-        (("http://www.example.org/../",), {}),
-        (("http://www.example.org/../../images/../image",), {}),
-        (("http://www.example.org/dir/",), {}),
-        ((b"http://www.example.org/dir/",), {}),
-        (
-            (b"http://www.example.org?\xa3",),
-            {"encoding": "latin-1", "path_encoding": "latin-1"},
-        ),
-        (
-            (b"http://www.example.org?\xc2\xa3",),
-            {"encoding": "utf-8", "path_encoding": "utf-8"},
-        ),
-        (
-            (b"http://www.example.org/\xc2\xa3?\xc2\xa3",),
-            {"encoding": "utf-8", "path_encoding": "latin-1"},
-        ),
+        (("sc://user@新华网.中国:21/a",), {}),
     ],
     is_url: [
         (("http://www.example.org",), {}),
@@ -233,11 +223,13 @@ BENCHMARK_CASES: CasesMapType = {
         (("data:text/plain;base64,SGVsb G8sIH\n  dvcm   xk Lg%3D\n%3D",), {}),
         (
             (
-                "data:text/plain;"
-                "foo=%22foo;bar%5C%22%22;"
-                "charset=utf-8;"
-                "bar=%22foo;%5C%22foo%20;/%20,%22,"
-                "%CE%8E%CE%A3%CE%8E",
+                (
+                    "data:text/plain;"
+                    "foo=%22foo;bar%5C%22%22;"
+                    "charset=utf-8;"
+                    "bar=%22foo;%5C%22foo%20;/%20,%22,"
+                    "%CE%8E%CE%A3%CE%8E"
+                ),
             ),
             {},
         ),

@@ -14,7 +14,7 @@ registry/namespace），校验并缓存。
 **二、优先级固定为 显式 > 遗留环境变量 > 自动发现。** 已经显式配好的调用方不会因为
 引入自动发现而行为漂移；反过来，自动发现也不会覆盖调用方的明确意图。
 
-**三、缓存按 ``(api_base, api_env, selector_type, selector_value)`` 四元组。** cluster
+**三、缓存按 ``(api_base, api_env, selector_type, selector_value)`` 及 transport 实例隔离。** cluster
 与 storage_env 即使值相同也不会串味；默认 TTL 内复用，``refresh=True`` 可强制重新拉取。
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ import logging
 import threading
 import time
 
-from .cache import TTLCache
+from .cache import TTLCache, transport_cache_identity
 from .clients.config import (
     Profile, fetch_repo_config, normalize_storage_env,
 )
@@ -39,7 +39,7 @@ DISCOVERY_TTL_SECONDS = 3600.0
 DISCOVERABLE_FIELDS = ("oss_bucket", "oss_prefix", "acr_host",
                        "acr_public_host", "acr_namespace")
 
-_cache = TTLCache(safety=0.0)
+_cache = TTLCache(safety=0.0, max_entries=512)
 _lock = threading.Lock()
 
 
@@ -56,9 +56,9 @@ def _selector(profile: Profile) -> tuple[str, str]:
     return "", ""
 
 
-def _cache_key(profile: Profile) -> tuple:
+def _cache_key(profile: Profile, transport) -> tuple:
     selector_type, selector_value = _selector(profile)
-    return (profile.api_base, profile.api_env, selector_type, selector_value)
+    return (transport_cache_identity(transport), profile.api_base, profile.api_env, selector_type, selector_value)
 
 
 def discover(transport, profile: Profile, *, refresh: bool = False) -> dict:
@@ -71,7 +71,7 @@ def discover(transport, profile: Profile, *, refresh: bool = False) -> dict:
     selector_type, selector_value = _selector(profile)
     if not selector_type:
         return {}
-    key = _cache_key(profile)
+    key = _cache_key(profile, transport)
     if not refresh:
         cached = _cache.get(key)
         if cached is not None:

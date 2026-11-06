@@ -3,9 +3,12 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyInt, PyString};
-use regex::Regex;
+use regex_automata::util::syntax;
+use regex_automata::{MatchKind, meta};
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::sync::Arc;
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
+use std::sync::{Arc, LazyLock, Mutex, Weak};
 use valgebra_core::{Constraint, Schema};
 
 use super::memo::{self, MemoPlan};
@@ -154,6 +157,61 @@ impl UnionPlan {
 /// address mapped to its [`UnionPlan`]. Keyed and rebuilt like [`RecordIndex`].
 pub(crate) type UnionIndex = FxHashMap<usize, UnionPlan>;
 
+/// A union of records that each require one key, pinned to `int` or `str`
+/// constants no two records share: the one record a dict can be a member of is
+/// the one its value at that key names, so the deciding walk reads the key once
+/// and walks that record, where the scan reads it once a record. The design
+/// reference is `pydantic-core`'s tagged union, a lookup and then one branch.
+///
+/// Every record's constants are in the tables, so a tag of an exact `int` or
+/// `str` that no table holds is no record's. Any other tag is the scan's.
+pub(crate) struct TaggedPlan {
+    /// The key every record requires, interned.
+    pub(crate) key: Py<PyString>,
+    ints: FxHashMap<i64, usize>,
+    strs: FxHashMap<Box<str>, usize>,
+}
+
+/// What a tag says of a tagged union's members.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Tagged {
+    /// The member at this position, the one record whose constants hold it.
+    Branch(usize),
+    /// No record's constants hold it, so no member admits the dict.
+    Nothing,
+}
+
+impl Tagged {
+    fn of(position: Option<&usize>) -> Tagged {
+        position.map_or(Tagged::Nothing, |position| Tagged::Branch(*position))
+    }
+}
+
+impl TaggedPlan {
+    /// What `tag` says of the union's members, or `None` where it is no exact
+    /// `int` or `str`, which the scan reads.
+    pub(crate) fn branch(&self, tag: &Bound<'_, PyAny>) -> Option<Tagged> {
+        if tag.is_exact_instance_of::<PyInt>() {
+            // A big integer equals no constant the table holds, and a record
+            // pinning one has no plan, so it is the scan's.
+            return Some(Tagged::of(self.ints.get(&tag.extract::<i64>().ok()?)));
+        }
+        if tag.is_exact_instance_of::<PyString>() {
+            let text = tag.cast::<PyString>().ok()?.to_str().ok()?;
+            return Some(Tagged::of(self.strs.get(text)));
+        }
+        None
+    }
+}
+
+/// Each tagged union's members-buffer address mapped to its [`TaggedPlan`].
+pub(crate) type TaggedIndex = FxHashMap<usize, TaggedPlan>;
+
+/// A compiled pattern: the engine `regex` builds a `Regex` on, built as it
+/// builds one ([`compile_pattern`]), so it matches the same language and can
+/// say what memory it keeps.
+pub(crate) type Regex = meta::Regex;
+
 /// Each `Regex(...)` constraint's pattern-buffer address mapped to its compiled,
 /// anchored regex, built once per validator so a string-pattern refinement
 /// matches natively without recompiling on every call.
@@ -163,9 +221,9 @@ pub(crate) type UnionIndex = FxHashMap<usize, UnionPlan>;
 /// and the index is rebuilt per validator from its own schema, so an entry
 /// always refers to the same live constraint. The text is a key that must be
 /// hashed in full for every value a pattern refinement checks; the address is
-/// one integer. Two occurrences of the same pattern compile twice, once, at
-/// build time.
-pub(crate) type RegexIndex = FxHashMap<usize, Regex>;
+/// one integer. Two occurrences of the same text share one compiled program,
+/// and so do two validators holding it ([`program`]).
+pub(crate) type RegexIndex = FxHashMap<usize, Arc<Regex>>;
 
 /// Anchor a user pattern so the whole string must match (`re.fullmatch`
 /// semantics): `\A` and `\z` are absolute string boundaries, and the
@@ -184,13 +242,218 @@ pub(crate) type RegexIndex = FxHashMap<usize, Regex>;
 /// parse once wrapped -- `a)|(b` closes the wrapper's group and opens one the
 /// wrapper closes -- and its alternation then escapes both anchors, so the
 /// wrappers would compile a language the caller never wrote.
+///
+/// Built with the configuration `regex::RegexBuilder` hands the engine -- the
+/// leftmost-first match, the UTF-8 syntax, and the lazy DFA's cache at the 2 MiB
+/// the engine defaults to -- and its errors read as `regex`'s, so the language
+/// and the refusal are the ones `regex` gives.
 pub(crate) fn compile_pattern(pattern: &str) -> Result<Regex, regex::Error> {
     regex_syntax::Parser::new()
         .parse(pattern)
         .map_err(|err| regex::Error::Syntax(err.to_string()))?;
-    Regex::new(&format!(r"\A(?:{pattern})\z"))
-        .or_else(|anchored| Regex::new(&format!("\\A(?:{pattern}\n)\\z")).map_err(|_| anchored))
+    let build = |anchored: &str| {
+        meta::Builder::new()
+            .configure(
+                meta::Config::new()
+                    .nfa_size_limit(Some(PATTERN_SIZE_LIMIT))
+                    .match_kind(MatchKind::LeftmostFirst)
+                    .utf8_empty(true),
+            )
+            .syntax(syntax::Config::new().utf8(true))
+            .build(anchored)
+            .map_err(|err| match (err.size_limit(), err.syntax_error()) {
+                (Some(limit), _) => regex::Error::CompiledTooBig(limit),
+                (None, Some(syntax)) => regex::Error::Syntax(syntax.to_string()),
+                (None, None) => regex::Error::Syntax(err.to_string()),
+            })
+    };
+    build(&format!(r"\A(?:{pattern})\z"))
+        .or_else(|anchored| build(&format!("\\A(?:{pattern}\n)\\z")).map_err(|_| anchored))
 }
+
+/// The programs a live validator holds, by their text, held weakly
+/// ([`program`]).
+static PROGRAMS: LazyLock<Mutex<Programs>> = LazyLock::new(Mutex::default);
+
+/// The table [`PROGRAMS`] guards: a program for each text some validator holds,
+/// and the length at which the entries of programs gone are dropped.
+#[derive(Default)]
+struct Programs {
+    by_text: FxHashMap<Box<str>, Weak<Regex>>,
+    prune_at: usize,
+}
+
+impl Programs {
+    /// Hold `compiled` as the program of `pattern`, first dropping the entries
+    /// of programs gone where the table has reached the length it last doubled
+    /// to: the entries left then set the next length, twice theirs.
+    fn hold(&mut self, pattern: &str, compiled: &Arc<Regex>) {
+        if self.by_text.len() >= self.prune_at {
+            self.by_text.retain(|_, held| held.strong_count() > 0);
+            self.prune_at = 2 * self.by_text.len().max(1);
+        }
+        self.by_text
+            .insert(pattern.into(), Arc::downgrade(compiled));
+    }
+}
+
+/// The program of `pattern`, shared with every validator that holds it while
+/// one does, or compiled ([`compile_pattern`]) where none does.
+///
+/// A validator built from another -- a meet, a union, a complement, the same
+/// annotation built again -- holds the other's patterns, and compiled for it
+/// each would keep a program of its own: twenty over `^\w{1,200}$` kept 240
+/// MB, and a few hundred passed the memory there was, where a failed
+/// allocation aborts the interpreter. Held weakly, a program lives as long as
+/// a validator holds it and no longer, so validators holding one text hold one
+/// program, and a text no validator holds any more is compiled again. The
+/// table keeps no program alive, and drops the entries of programs gone each
+/// time it has doubled, so its upkeep is constant a program.
+///
+/// Compiled outside the lock: a counted Unicode class takes hundreds of
+/// milliseconds, and two threads compiling one text at once each hold a
+/// correct program. A poisoned lock shares nothing and compiles.
+pub(crate) fn program(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
+    let held = PROGRAMS
+        .lock()
+        .ok()
+        .and_then(|programs| programs.by_text.get(pattern).and_then(Weak::upgrade));
+    if let Some(held) = held {
+        return Ok(held);
+    }
+    let compiled = Arc::new(compile_pattern(pattern)?);
+    if let Ok(mut programs) = PROGRAMS.lock() {
+        programs.hold(pattern, &compiled);
+    }
+    Ok(compiled)
+}
+
+/// A validator's patterns, each text compiled once, within [`PATTERNS_HELD`]
+/// together.
+///
+/// A validator keeps the program of every pattern it holds for as long as it
+/// lives, so the bound on what one pattern may keep is a bound on one of them
+/// only: a hundred patterns of 16 MiB each held a gigabyte, and the allocation
+/// past the memory there is aborts the interpreter rather than raising. Read
+/// together, the memory each compiled pattern keeps is charged to one
+/// allowance, and the pattern that would pass it is refused where the schema is
+/// built, with the patterns compiled before it. A text met twice is one
+/// program, charged once. A program another validator holds is shared
+/// ([`program`]) and charged all the same, so what a schema is refused for does
+/// not depend on what else is alive.
+///
+/// What it returns is the table the walk's index takes, so a validator's
+/// patterns compile once, when it is built.
+pub(crate) fn compile_patterns(
+    schema: &Schema,
+    definitions: &[Schema],
+) -> Result<RegexIndex, String> {
+    compile_patterns_within(PATTERNS_HELD, schema, definitions)
+}
+
+/// [`compile_patterns`] within `allowance` bytes, the figure a test can make
+/// small enough to reach with patterns that compile in a millisecond.
+pub(crate) fn compile_patterns_within(
+    allowance: usize,
+    schema: &Schema,
+    definitions: &[Schema],
+) -> Result<RegexIndex, String> {
+    let mut compiled = RegexIndex::default();
+    let mut by_text: FxHashMap<&str, Arc<Regex>> = FxHashMap::default();
+    let mut left = allowance;
+    for tree in std::iter::once(schema).chain(definitions) {
+        for pattern in tree.patterns() {
+            let regex = if let Some(regex) = by_text.get(pattern) {
+                regex.clone()
+            } else {
+                let regex = program(pattern)
+                    .map_err(|err| format!("invalid regular expression {pattern:?}: {err}"))?;
+                left = left.checked_sub(regex.memory_usage()).ok_or_else(|| {
+                    format!(
+                        "the patterns of one schema compile to at most {} MiB together, \
+                         and {pattern:?} takes them past it: a validator keeps every \
+                         pattern's program while it lives",
+                        allowance >> 20
+                    )
+                })?;
+                by_text.insert(pattern, Arc::clone(&regex));
+                regex
+            };
+            compiled.insert(pattern.as_ptr() as usize, regex);
+        }
+    }
+    Ok(compiled)
+}
+
+thread_local! {
+    /// The patterns a walk met outside any index, each compiled under its text,
+    /// a refusal among them, for the query that walked it.
+    static UNINDEXED: RefCell<FxHashMap<Box<str>, Option<Regex>>> = RefCell::default();
+}
+
+/// Whether `text` is in the language of `pattern`, a pattern no index holds.
+///
+/// Only the relation oracle walks a schema no validator built an index for,
+/// and it walks every constant of a table through one supertype: compiled per
+/// value, a table against the alternation of its own words compiles the
+/// pattern once a constant, quadratic in the table. So a pattern compiles once
+/// a query, under its text -- a schema the query builds holds a copy of the
+/// text at an address of its own, which no address key would find again -- and
+/// [`forget_unindexed`] drops what the query compiled when its oracle goes.
+///
+/// Out of line and cold: a validator's own walk never reaches it, and inlined
+/// into the pattern check every refined value reads, the table and the
+/// thread-local around it lay out the walk's hot path anew.
+#[cold]
+#[inline(never)]
+pub(crate) fn matches_unindexed(pattern: &str, text: &str) -> bool {
+    UNINDEXED.with_borrow_mut(|compiled| {
+        if let Some(regex) = compiled.get(pattern) {
+            return regex.as_ref().is_some_and(|regex| regex.is_match(text));
+        }
+        let regex = compile_pattern(pattern).ok();
+        let matched = regex.as_ref().is_some_and(|regex| regex.is_match(text));
+        compiled.insert(pattern.into(), regex);
+        matched
+    })
+}
+
+/// Drop the patterns [`matches_unindexed`] compiled on this thread: the query
+/// that walked them is over, and nothing outside one misses an index.
+pub(crate) fn forget_unindexed() {
+    UNINDEXED.take();
+}
+
+/// How many patterns [`matches_unindexed`] holds on this thread.
+#[cfg(test)]
+pub(crate) fn unindexed_held() -> usize {
+    UNINDEXED.with_borrow(FxHashMap::len)
+}
+
+/// The program one pattern may compile to: 32 MiB, three times the `regex`
+/// crate's default program size.
+///
+/// The default refuses a counted Unicode class written as an ordinary bound.
+/// The class holds some 700 ranges and a count copies it once a repetition, so
+/// `\w{1,255}` keeps 14 MiB and `\w{1,255}@\w{1,255}` 28, each built in 150 to
+/// 400 ms; `re` takes both. Past this, `\w{1,1000}` is refused as before. The
+/// ASCII class of the same counts, `(?-u)\w{1,255}`, keeps 40 KiB.
+pub(crate) const PATTERN_SIZE_LIMIT: usize = 32 << 20;
+
+/// The memory a validator's patterns may keep together: 256 MiB, eight programs
+/// at [`PATTERN_SIZE_LIMIT`] ([`compile_patterns`]).
+///
+/// A validator keeps every pattern's program while it lives, and the `regex`
+/// crate bounds one program, leaving a collection to its caller; pydantic-core
+/// keeps each pattern under the crate's bound and none together. Unbounded,
+/// a hundred and twenty `\w{1,255}`, 14.3 MB a program, held 1.7 GB, and the
+/// allocation past the memory aborted the interpreter. Held to the one
+/// program's bound, a record of sixteen string fields each `^[\w.-]{1,n}$`,
+/// 2.2 to 3 MB a program, was refused at its twelfth field, a schema every
+/// release built. At this figure that record keeps 43 MB and builds, and the
+/// `\w{1,255}` union is refused at its nineteenth pattern, built and walked
+/// within an address space of 1 GiB.
+pub(crate) const PATTERNS_HELD: usize = 256 << 20;
 
 /// The per-validator precompute: record-field lookups, literal-union decision
 /// tables, and compiled string patterns, all built once from the finished schema
@@ -213,6 +476,10 @@ pub(crate) struct ValidatorIndex {
     /// other case (a non-literal union, a value of another type, a JSON value)
     /// falls back to the linear scan.
     pub(crate) unions: UnionIndex,
+    /// Per-union dispatch for unions of records pinned by one key to constants
+    /// no two share ([`TaggedPlan`]), keyed as `unions` is. The deciding walk
+    /// reads it and the explaining walk scans, so a report is the scan's.
+    pub(crate) tagged: TaggedIndex,
     /// Compiled string patterns, keyed by the address of the pattern's own
     /// text in the schema; the refinement walk reads it for a `Regex(...)`
     /// constraint instead of recompiling.
@@ -237,6 +504,7 @@ impl ValidatorIndex {
             .values()
             .flat_map(|plan| plan.names.iter())
             .chain(self.records.values().flat_map(|plan| plan.keys.iter()))
+            .chain(self.tagged.values().map(|plan| &plan.key))
     }
 }
 
@@ -254,7 +522,21 @@ pub(crate) fn build_index(
     defs: &[Schema],
     pool: &[Py<PyAny>],
 ) -> ValidatorIndex {
+    build_index_from(py, schema, defs, pool, &RegexIndex::default())
+}
+
+/// [`build_index`] taking the patterns a validator compiled when it was built
+/// ([`compile_patterns`]), so none compiles twice; a pattern the table does
+/// not hold is compiled here.
+pub(crate) fn build_index_from(
+    py: Python<'_>,
+    schema: &Schema,
+    defs: &[Schema],
+    pool: &[Py<PyAny>],
+    compiled: &RegexIndex,
+) -> ValidatorIndex {
     let mut index = ValidatorIndex::default();
+    index.regexes.clone_from(compiled);
     collect(py, schema, pool, &mut index);
     for def in defs {
         collect(py, def, pool, &mut index);
@@ -298,6 +580,11 @@ fn collect(py: Python<'_>, schema: &Schema, pool: &[Py<PyAny>], index: &mut Vali
                     .unions
                     .entry(members.as_ptr() as usize)
                     .or_insert(plan);
+            } else if let Some(plan) = tagged_union_plan(py, members, pool) {
+                index
+                    .tagged
+                    .entry(members.as_ptr() as usize)
+                    .or_insert(plan);
             }
             for member in members.iter() {
                 collect(py, member, pool, index);
@@ -315,9 +602,10 @@ fn collect(py: Python<'_>, schema: &Schema, pool: &[Py<PyAny>], index: &mut Vali
             collect(py, base, pool, index);
             for constraint in constraints.iter() {
                 if let Constraint::Regex(pattern) = constraint
-                    && let Ok(compiled) = compile_pattern(pattern)
+                    && let Entry::Vacant(slot) = index.regexes.entry(pattern.as_ptr() as usize)
+                    && let Ok(compiled) = program(pattern)
                 {
-                    index.regexes.insert(pattern.as_ptr() as usize, compiled);
+                    slot.insert(compiled);
                 }
             }
         }
@@ -386,6 +674,79 @@ fn literal_union_plan(py: Python<'_>, members: &[Schema], pool: &[Py<PyAny>]) ->
         }
     }
     Some(UnionPlan { ints, strs, pooled })
+}
+
+/// The fewest records a tagged union holds before its plan is built.
+///
+/// Below it, reading the tag and then the record it names costs more than
+/// reading the records in turn, each of which reads the tag first and refuses
+/// on it: the record the plan names reads the tag again. Measured on the
+/// release build, averaged over the tags a value can carry, two records read in
+/// turn take 0.115 us and dispatched 0.128 us, three 0.128 and 0.125, four
+/// 0.144 and 0.125, and a thousand 48 and 0.14.
+pub(crate) const TAGGED_MIN_RECORDS: usize = 3;
+
+/// Build a [`TaggedPlan`] where at least [`TAGGED_MIN_RECORDS`] members are
+/// records requiring a key the first record requires, each pinning it to exact
+/// `int` or `str` constants and no two sharing one: the first such key of the
+/// first record. `None` where no key is, and the union stays a scan.
+fn tagged_union_plan(py: Python<'_>, members: &[Schema], pool: &[Py<PyAny>]) -> Option<TaggedPlan> {
+    let Some(Schema::KeyedMap { fields: first, .. }) = members.first() else {
+        return None;
+    };
+    if members.len() < TAGGED_MIN_RECORDS {
+        return None;
+    }
+    first
+        .iter()
+        .filter(|candidate| candidate.required)
+        .find_map(|candidate| {
+            let mut ints = FxHashMap::default();
+            let mut strs = FxHashMap::default();
+            for (position, member) in members.iter().enumerate() {
+                let Schema::KeyedMap { fields, .. } = member else {
+                    return None;
+                };
+                let field = fields
+                    .iter()
+                    .find(|field| field.required && field.name == candidate.name)?;
+                for constant in pinned_constants(&field.schema)? {
+                    let constant = pool.get(constant)?.bind(py);
+                    let other = if constant.is_exact_instance_of::<PyInt>() {
+                        ints.insert(constant.extract::<i64>().ok()?, position)
+                    } else if constant.is_exact_instance_of::<PyString>() {
+                        let text = constant.cast::<PyString>().ok()?.to_str().ok()?;
+                        strs.insert(text.into(), position)
+                    } else {
+                        return None;
+                    };
+                    if other.is_some_and(|other| other != position) {
+                        return None;
+                    }
+                }
+            }
+            Some(TaggedPlan {
+                key: PyString::intern(py, &candidate.name).unbind(),
+                ints,
+                strs,
+            })
+        })
+}
+
+/// The pool positions of the constants a field is pinned to: one literal, or
+/// a union of nothing but literals.
+fn pinned_constants(schema: &Schema) -> Option<Vec<usize>> {
+    match schema {
+        Schema::Literal(index) => Some(vec![index.get()]),
+        Schema::Union(members) => members
+            .iter()
+            .map(|member| match member {
+                Schema::Literal(index) => Some(index.get()),
+                _ => None,
+            })
+            .collect(),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

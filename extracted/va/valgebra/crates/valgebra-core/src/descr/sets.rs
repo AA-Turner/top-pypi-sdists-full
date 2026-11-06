@@ -177,7 +177,8 @@ impl<G: Members> Line<G> {
 }
 
 /// The lines a set outside `line` belongs to: escaping `T`, or falling inside
-/// one of the `Sⱼ` after all.
+/// one of the `Sⱼ` after all, the complement of a meet being the union of the
+/// complements of its members [FCB08, Lem. 6.2].
 ///
 /// One statement of it, because the complement of a union and a meet against
 /// one both remove a line and would otherwise each carry their own reading of
@@ -227,20 +228,14 @@ impl<G: Members> Summand for Line<G> {
         escapes(self)
     }
 
-    /// Each line with its subtractions in canonical shape, without the ones
-    /// holding no set, each once, and in order. Once by equality, for the
-    /// reason the record atoms give: a letter's equality can be coarser than
-    /// its order, so a sort need not put two equal lines side by side.
-    fn compacted(lines: Vec<Line<G>>) -> Option<Vec<Line<G>>> {
-        let mut kept: Vec<Line<G>> = Vec::with_capacity(lines.len());
-        for line in lines {
-            let line = line.tidy()?;
-            if !line.is_empty() && !kept.contains(&line) {
-                kept.push(line);
-            }
+    /// The line with its subtractions in canonical shape, unless it holds no
+    /// set or the list holds it already.
+    fn admit(kept: &mut Vec<Line<G>>, line: Line<G>) -> Option<()> {
+        let line = line.tidy()?;
+        if !line.is_empty() && !kept.contains(&line) {
+            kept.push(line);
         }
-        kept.sort();
-        Some(kept)
+        Some(())
     }
 }
 

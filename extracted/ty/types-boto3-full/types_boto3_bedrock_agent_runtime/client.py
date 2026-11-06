@@ -257,7 +257,8 @@ class AgentsforBedrockRuntimeClient(BaseClient):
         self, **kwargs: Unpack[GetDocumentContentRequestTypeDef]
     ) -> GetDocumentContentResponseTypeDef:
         """
-        Retrieves the content of an ingested document from a knowledge base.
+        Retrieves the content of an ingested document from a knowledge base, or of an
+        image embedded in the document.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/get_document_content.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent_runtime/client/#get_document_content)

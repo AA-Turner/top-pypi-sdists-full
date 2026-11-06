@@ -11,6 +11,7 @@ from alpaca.trading.enums import (
     AssetClass,
     AssetExchange,
     AssetStatus,
+    CalendarDateType,
     ContractType,
     CorporateActionDateType,
     CorporateActionType,
@@ -82,11 +83,17 @@ class GetPortfolioHistoryRequest(NonEmptyRequest):
 
 class GetCalendarRequest(NonEmptyRequest):
     """
-    Represents the optional filtering you can do when requesting a Calendar object
+    Represents the optional filtering you can do when requesting a Calendar object.
+
+    Attributes:
+        start (Optional[date]): Inclusive range start. Date-time strings are accepted.
+        end (Optional[date]): Inclusive range end. Date-time strings are accepted.
+        date_type (Optional[CalendarDateType]): ``TRADING`` or ``SETTLEMENT``.
     """
 
     start: Optional[date] = None
     end: Optional[date] = None
+    date_type: Optional[CalendarDateType] = None
 
 
 class CreateWatchlistRequest(NonEmptyRequest):
@@ -280,6 +287,23 @@ def _validate_advanced_order_class_requirements(values: dict) -> None:
             raise ValueError("oto orders require either take_profit or stop_loss.")
 
 
+def _reject_non_positive(value: Any, field_name: str) -> None:
+    """Reject a value Pydantic can coerce to a non-positive number.
+
+    This runs before coercion, so it has to parse numeric strings and numeric
+    types such as Decimal and NumPy scalars. Values that cannot be parsed,
+    including non-numeric strings, are left for Pydantic to reject.
+    """
+    if value is None:
+        return
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return
+    if number <= 0:
+        raise ValueError(f"{field_name} must be greater than 0")
+
+
 class ReplaceOrderRequest(NonEmptyRequest):
     """Contains data for submitting a request to replace an order.
 
@@ -301,17 +325,12 @@ class ReplaceOrderRequest(NonEmptyRequest):
 
     @model_validator(mode="before")
     def root_validator(cls, values: dict) -> dict:
-        qty = values.get("qty", None)
-        limit_price = values.get("limit_price", None)
-        stop_price = values.get("stop_price", None)
-        trail = values.get("trail", None)
-
-        if (qty is not None) and (qty <= 0):
-            raise ValueError("qty must be greater than 0")
-        if (stop_price is not None) and (stop_price <= 0):
-            raise ValueError("stop_price must be greater than 0")
-        if (trail is not None) and (trail <= 0):
-            raise ValueError("trail must be greater than 0")
+        # Keep the pre-coercion signature. Compare numeric strings such as
+        # qty="4" as numbers, and leave the raw values for Pydantic to coerce.
+        if isinstance(values, dict):
+            _reject_non_positive(values.get("qty"), "qty")
+            _reject_non_positive(values.get("stop_price"), "stop_price")
+            _reject_non_positive(values.get("trail"), "trail")
 
         return values
 
@@ -394,7 +413,13 @@ class OrderRequest(NonEmptyRequest):
                 raise ValueError(
                     "At least 2 legs are required for the mleg order class."
                 )
-            n_unique = len(set([l.symbol for l in values["legs"]]))
+            # legs may still be dicts here, since this runs before field validation
+            n_unique = len(
+                set(
+                    l["symbol"] if isinstance(l, dict) else l.symbol
+                    for l in values["legs"]
+                )
+            )
             if n_unique != l_len:
                 raise ValueError("All legs must have unique symbols.")
         else:
@@ -698,6 +723,8 @@ class GetOptionContractsRequest(NonEmptyRequest):
         style (Optional[ExerciseStyle]): The option contract style.
         strike_price_gte (Optional[str]): The option contract strike price greater than or equal to.
         strike_price_lte (Optional[str]): The option contract strike price less than or equal to.
+        show_deliverables (Optional[bool]): Include each contract's deliverables. The list endpoint omits them unless this is true.
+        ppind (Optional[bool]): Filter by Penny Program eligibility. True returns only contracts eligible for penny price increments.
         limit (Optional[int]): The number of contracts to limit per page (default=100, max=10000).
         page_token (Optional[str]): Pagination token to continue from. The value to pass here is returned in specific
             requests when more data is available than the request limit allows.
@@ -713,6 +740,8 @@ class GetOptionContractsRequest(NonEmptyRequest):
     style: Optional[ExerciseStyle] = None
     strike_price_gte: Optional[str] = None
     strike_price_lte: Optional[str] = None
+    show_deliverables: Optional[bool] = None
+    ppind: Optional[bool] = None
 
     limit: Optional[int] = None
     page_token: Optional[str] = None

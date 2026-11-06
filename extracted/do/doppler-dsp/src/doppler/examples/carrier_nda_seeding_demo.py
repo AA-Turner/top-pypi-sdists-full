@@ -38,6 +38,7 @@ import sys
 # --8<-- [start:seed]
 import numpy as np
 
+from doppler.examples._extra import require
 from doppler.mpsk import mpsk_map
 from doppler.spectral import FFT
 from doppler.telemetry import Telemetry
@@ -151,6 +152,7 @@ def qpsk_at(f0: float, nsym: int = 6000, esno_db: float = 20.0) -> np.ndarray:
 
 
 def main(out_path: str) -> None:
+    require("matplotlib")
     import matplotlib
 
     matplotlib.use("Agg")

@@ -116,6 +116,15 @@ GEN_AI_TOOL_ARGS_KEY = "gen_ai.tool.call.arguments"
 GEN_AI_TOOL_CALL_RESULT_KEY = "gen_ai.tool.call.result"
 GEN_AI_TOOL_TYPE_KEY = "gen_ai.tool.type"
 
+# --- Explicit execute-tool transfers ---
+TRANSFER_MODE_KEY = "microsoft.a365.transfer.mode"
+TRANSFER_TARGET_TYPE_KEY = "microsoft.a365.transfer.target.type"
+TRANSFER_TARGET_AGENT_ID_KEY = "microsoft.a365.transfer.target.agent.id"
+TRANSFER_TARGET_AGENT_NAME_KEY = "microsoft.a365.transfer.target.agent.name"
+TRANSFER_TARGET_AGENT_BLUEPRINT_ID_KEY = "microsoft.a365.transfer.target.agent.blueprint.id"
+TRANSFER_TARGET_AGENT_PLATFORM_ID_KEY = "microsoft.a365.transfer.target.agent.platform.id"
+TRANSFER_TARGET_AGENT_VERSION_KEY = "microsoft.a365.transfer.target.agent.version"
+
 # --- Human caller ---
 USER_ID_KEY = "user.id"
 USER_NAME_KEY = "user.name"
@@ -149,6 +158,7 @@ ERROR_TYPE_CANCELLED = "TaskCanceledException"
 # --- OTel standard keys ---
 SERVER_ADDRESS_KEY = "server.address"
 SERVER_PORT_KEY = "server.port"
+URL_FULL_KEY = "url.full"
 SERVICE_NAME_KEY = "service.name"
 
 # --- Custom span keys ---

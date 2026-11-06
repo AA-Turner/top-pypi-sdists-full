@@ -28,9 +28,9 @@ setup(
     # sqlparse 0.6.0 dropped 3.8/3.9, so the floor moves with it.
     python_requires=">=3.10",
     install_requires=[
-        # 0.6.0 fixes CVE-2026-54284, CVE-2026-59893, CVE-2026-59894 and
-        # CVE-2026-71491 (parser DoS). No earlier release carries the fixes.
-        "sqlparse==0.6.0",
+        # Exact pin: core/parser/sqlparse monkeypatches library internals. 0.6.1 is
+        # sqlparse's final release, so no newer pin will follow.
+        "sqlparse==0.6.1",
         "networkx>=2.4",
         "collate-sqlfluff==3.5.3",
         "sqlglot==29.0.1",

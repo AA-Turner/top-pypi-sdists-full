@@ -5,7 +5,7 @@ command's own. It runs as your policy's code does there, with none of the platfo
 at a time on a worker, up to 120 s. (The gateway's POST /v1/deployments/{name}/shell; the worker's harness/transport/
 shell.py.)
 
-`seq benchmark shell <name>[@vN] -- <command>`: the same on a machine of a version of your benchmark, in its image on the
+`seq benchmark shell <name> -- <command>`: the same on a machine of your benchmark's newest version, in its image on the
 card it declares - opened for it once its image is there to load, waited for, what it waits on said as it moves on - which
 ends ten minutes after its last command, or at `--stop`.
 
@@ -77,12 +77,14 @@ def benchmark_shell(name: str, words: list[str], *, version: int | None = None, 
 
 
 def benchmark_stop(name: str, *, base_url: str | None = None, echo=print) -> dict:
-    """Its shell machine ended now: {"ended": [its name]} - none where none runs."""
+    """Its shell machine ended now: {"ended": [its name]} - none where none runs. Said by its benchmark's name, a machine's own
+    being the platform's. [CONFIRMED 100% - printed on c983e6bf]"""
     from seq.deployments_cli import _call
 
     out = _call("DELETE", f"/v1/benchmarks/{segment(name)}/shell", base_url)
     ended = out.get("ended") or []
-    echo(f"ended {', '.join(ended)}" if ended else f"no shell machine of {name} runs")
+    many = f"{len(ended)} shell machines" if len(ended) > 1 else "the shell machine"
+    echo(f"ended {many} of {name}" if ended else f"no shell machine of {name} runs")
     return out
 
 
